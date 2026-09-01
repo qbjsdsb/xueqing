@@ -50,12 +50,15 @@ stable → closed（仍有 pending 主行动）
 至少保证：
 
 ### `new`
+- 是快速捕捉/草稿态；
+- 可以暂时没有 taxonomy、原因判断或主行动；
 - 可以补证据/描述；
 - 不能无说明直接 closed。
 
 ### `confirmed`
 - 应有负责人；
-- 原则上应有主行动或明确 pause_reason。
+- 已满足正式分类等确认条件；
+- 应有主行动或明确 pause_reason。
 
 ### `intervening`
 - 存在真实干预或明确下一步干预。
@@ -66,12 +69,14 @@ stable → closed（仍有 pending 主行动）
 ### `stable`
 - 至少存在支持改善判断的 assessment/evidence；
 - 不等于永久解决；
-- 可以保留复查行动。
+- 可以保留复查行动；若暂无行动，应明确观察/暂停原因。
 
 ### `closed`
 - 退出主动跟进；
 - 不应存在 pending `is_primary = true` 主行动；
 - 后续复发必须通过 reopen，而不是直接改回 intervening。
+
+`reopen` 是命令/事件，不是第七个 status。
 
 ## 4. 验证结果与案例状态分离
 
@@ -96,9 +101,12 @@ where status = 'pending' and is_primary = true
 
 具体 SQL 以 migration 实现为准。
 
-如果未结束案例没有 pending 主行动，则必须：
-- `pause_reason` 非空；或
-- 处于不需要行动的明确状态。
+规则：
+- `new` 快速草稿明确豁免“必须立即有主行动”；
+- 从 `confirmed` 开始的主动跟进案例，如果没有 pending 主行动，必须有明确 `pause_reason` 或状态本身的受控理由；
+- `closed` 不应存在 pending 主行动。
+
+这样既保证课堂快速捕捉，又避免正式案例进入“没人知道下一步”的黑洞。
 
 ## 6. 完成课程为什么应是事务命令
 
