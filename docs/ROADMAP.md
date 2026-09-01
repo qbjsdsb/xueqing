@@ -2,82 +2,89 @@
 
 ## 总原则
 
-开发顺序遵循：**先证明关键风险可控，再搭底座，再做一条完整垂直闭环，最后扩展。**
+开发顺序遵循：**先证明关键风险可控，再搭底座，再做完整垂直闭环，最后扩展。**
 
-每个阶段必须有可验证用户场景，不以“写了多少页面”衡量进度。
+每个阶段必须有可验证用户场景，不以页面数量衡量进度。
 
 ---
 
-## Phase 0｜工程、认证与运行风险验证
+## Phase 0｜工程、OTP 认证与运行风险验证
 
-目标：在业务开发前，先证明 Windows + Android + Supabase 这条技术路线真的能稳定支撑机构使用，而且任何新环境都能从仓库重建开发基线。
+目标：在业务开发前，证明 Windows + Android + Supabase + Email OTP 这条路线能稳定支撑机构使用，而且任何新环境都能从仓库重建开发基线。
 
 ### Flutter 工程
-- [ ] 使用当前稳定 Flutter 正式初始化 Windows + Android 工程
-- [ ] 建立 feature-first 目录与 View / ViewModel / Repository / Service 边界
-- [ ] 建立统一 AppConfig 与环境切换
-- [ ] 提交应用项目 `pubspec.lock`
-- [ ] 配置格式化、静态分析、基础测试
-- [ ] 禁止业务代码到处直接调用 `Supabase.instance.client`
+- [ ] 使用当前稳定 Flutter 正式初始化 Windows + Android
+- [ ] feature-first + View / ViewModel / Repository / Service
+- [ ] typed AppConfig 与环境切换
+- [ ] 提交应用 `pubspec.lock`
+- [ ] format / analyze / test 基线
+- [ ] 业务代码不散落直接 Supabase 表查询
 
 ### Local Supabase
-- [ ] 初始化 `supabase/` 目录
-- [ ] 使用 Supabase CLI 启动本地 stack
-- [ ] 建立版本化 migrations
-- [ ] 建立虚构 `seed.sql`
-- [ ] 建立数据库/RLS测试目录
-- [ ] 验证 `db reset` 能从空库重建当前 schema
+- [ ] 初始化 `supabase/`
+- [ ] migrations
+- [ ] 虚构 seed
+- [ ] DB / RLS tests
+- [ ] Mailpit 检查 Email OTP 模板
+- [ ] `db reset` 能从空库重建当前 schema
 
-### Remote Development Supabase
-- [ ] 建立独立 Remote Development Project
-- [ ] 配置 Auth / Redirect URLs
-- [ ] 配置私有 Storage 测试 bucket
-- [ ] 部署必要 Edge Function Spike
-- [ ] 只使用虚构数据
-- [ ] 明确 Remote Development 不是 schema 的第二事实源
+### Remote Development
+- [ ] 独立 Supabase Project，仅虚构数据
+- [ ] Email OTP 模板使用验证码 token
+- [ ] Windows 新/旧 Auth User OTP 登录
+- [ ] Android 新/旧 Auth User OTP 登录
+- [ ] 错误 / 过期验证码
+- [ ] 请求频率限制 / 429
+- [ ] Session 恢复
+- [ ] 真实邮箱投递延迟
+- [ ] Storage / Edge Functions / 双设备联调
 
-### 认证技术 Spike
-- [ ] 验证 Windows 新邮箱邀请/首次激活
-- [ ] 验证 Android 新邮箱邀请/首次激活
-- [ ] 验证邀请过期/重发/取消
-- [ ] 验证密码恢复
-- [ ] 验证 App 已运行/未运行时 redirect/deep link
-- [ ] 验证错误 redirect allowlist 的恢复体验
-- [ ] 明确首位 org_admin 一次性 bootstrap
-- [ ] 验证 membership disabled 后旧 Session 仍被 RLS 拒绝
-- [ ] 已 confirmed Auth User 跨机构场景若 V1 不支持，必须明确提示而不是未知失败
+### Invitation / Membership Spike
+- [ ] `organization_invitations`
+- [ ] invitation roles
+- [ ] OTP 登录后无 membership 时无业务权限
+- [ ] `accept_invitation`
+- [ ] verified email 必须匹配 invitation
+- [ ] 同一 invitation 重试幂等
+- [ ] 同一 Auth User 第二机构 invitation 基础验证
+- [ ] membership disabled 后旧 Token 仍被 RLS 拒绝
 
-> 如果邮件邀请/深链在 Windows 或 Android 上体验不可接受，必须在进入 Milestone 1 前调整账号方案。
+### 邮件与防滥用 Spike
+- [ ] 验证 Remote Development 邮箱投递
+- [ ] 评估 Production Custom SMTP / 等价邮件服务
+- [ ] Auth rate limits
+- [ ] CAPTCHA / 等价防滥用方案是否需要启用
+- [ ] “验证码未收到”用户恢复路径
 
 ### 保存可靠性 Spike
-- [ ] 表单有未保存 / 保存中 / 已保存 / 保存失败状态
-- [ ] 网络请求失败不清空教师输入
-- [ ] 支持本地临时草稿或等价恢复机制
-- [ ] 简单 insert 重试复用同一 UUID
-- [ ] 多表 command 使用 operation id 或等价幂等机制
-- [ ] 云端确认成功才算正式保存
+- [ ] 未保存 / 保存中 / 已保存 / 失败状态
+- [ ] 网络失败不清空输入
+- [ ] 本地临时草稿
+- [ ] 简单 insert 重试复用 UUID
+- [ ] 多表 command operation id / 幂等
 
 ### GitHub / CI
-- [ ] CI：format / analyze / test
-- [ ] 数据库 migration / RLS tests 进入 CI
-- [ ] PR 模板覆盖 schema / RLS / 隐私 / 恢复影响
+- [ ] Flutter format / analyze / test
+- [ ] DB migrations / RLS tests
+- [ ] PR 模板
 - [ ] secrets 检查
-- [ ] main 后续以 PR 合并为主
+- [ ] main 以后以 PR 合并为主
 
 ### Phase 0 验收
-- [ ] 新环境仅依赖仓库文档可从零启动
-- [ ] Local DB 能 migrations + seed + tests 全量重建
-- [ ] Windows 与 Android 都能连接 Remote Development
-- [ ] 一名非技术测试用户能完成首次登录
-- [ ] 未登录用户不能读取业务表
-- [ ] 网络短暂失败不会丢正在编辑记录
-- [ ] 仓库不含真实业务数据和私密密钥
+- [ ] 新环境从仓库零开始可启动
+- [ ] Local DB 可完整重建
+- [ ] Windows / Android OTP 均可用
+- [ ] Auth User 无 active membership 读不到机构数据
+- [ ] pending invitation 读不到机构数据
+- [ ] invitation 接受幂等
+- [ ] 短暂网络失败不丢测试记录
+- [ ] 仓库无真实数据与 Secret
 
 ---
 
-## Milestone 1｜账号、邀请、机构与租户隔离
+## Milestone 1｜机构、成员与租户隔离
 
-目标：两名老师使用不同账号加入同一机构；pending invitation 没有业务权限；另一机构的数据严格不可见。
+目标：两名老师用独立账号加入同一机构，另一机构的数据严格不可见。
 
 ### Schema / backend
 - [ ] profiles
@@ -87,267 +94,254 @@
 - [ ] organization_invitation_roles
 - [ ] organization_memberships
 - [ ] membership_roles
-- [ ] 首位管理员 bootstrap
-- [ ] create / resend / cancel invitation
-- [ ] accept invitation → active membership
-- [ ] 停用 membership
-- [ ] Session 恢复与当前机构上下文
+- [ ] 首位 org_admin bootstrap
+- [ ] create / cancel invitation
+- [ ] accept invitation
+- [ ] disable membership
+- [ ] current organization context
 
 ### 权限
-- [ ] pending invitation 无业务数据权限
-- [ ] active membership 才进入 RLS 授权链
-- [ ] RLS：跨机构隔离
-- [ ] disabled membership 拒绝访问
-- [ ] 已确认邮箱不错误走 new-user invite
-- [ ] invitation 重发不产生重复 invitation/member
+- [ ] Auth User 无 membership 无业务权限
+- [ ] pending invitation 无业务权限
+- [ ] active membership 才进入 RLS
+- [ ] disabled membership 拒绝
+- [ ] 跨机构隔离
+- [ ] invitation verified-email 匹配
 
-### 验收场景
+### 验收
 1. 初始化机构 A 管理员；
-2. 管理员邀请教师甲、教师乙；
-3. 两人完成激活并拥有独立 active membership；
-4. pending invitation 在激活前读不到学生数据；
-5. 两人属于机构 A；
-6. 机构 B 测试数据完全不可见；
-7. 教师乙被停用后，即使持有旧 Token 也无法访问机构 A。
+2. 管理员预授权教师甲、乙邮箱；
+3. 两人分别 OTP 登录；
+4. 两人接受 invitation 并成为 active member；
+5. 机构 B 数据完全不可见；
+6. 停用教师乙后旧 Session 也无法访问机构 A。
 
 ---
 
 ## Milestone 2｜学生统一主档案、分类与人员关系
 
-目标：机构里“一个学生就是同一个人”，同时保证分类可统计但不增加教师高频录入负担。
+目标：机构里一个真实学生只有一个主档案，同时分类可统计但不拖慢录入。
 
-- [ ] students（含 merged 语义）
+- [ ] students（含 merged）
 - [ ] academic_terms / student_enrollments
 - [ ] subjects / organization_subjects
 - [ ] 少量默认 taxonomy + “其他/暂未分类”
 - [ ] student_subject_profiles
 - [ ] student_teacher_assignments
-- [ ] active lead 责任唯一性基础约束
+- [ ] active lead 唯一性基础约束
 - [ ] student_staff_assignments
 - [ ] 学生列表 / 搜索
-- [ ] 新建学生时重复提示
-- [ ] 查看当前与历史负责人员
+- [ ] 新建学生重复提示
+- [ ] 当前/历史负责人
 - [ ] 教师交接基础流程
-- [ ] 受控学生合并设计 + merge record
+- [ ] 学生合并设计 + merge record
 
-### 验收场景
-- 教师甲和乙打开“王同学”看到同一个 `student_id`；
-- 教师甲换岗后历史仍保留；
-- 学管不被伪装成某门学科教师；
-- “阅读理解”等高频问题能落入稳定分类口径；
-- 老师仍可用自然语言表达具体问题，不必先维护知识图谱。
+### 验收
+- 两名老师看到同一个 student_id；
+- 换老师/升年级历史不丢；
+- 学管不伪装成学科教师；
+- 分类可统计；
+- 老师仍能自由表达具体问题。
 
 ---
 
 ## Milestone 3｜第一条完整学情闭环
 
-目标：先把一个案例从快速捕捉跑到确认、干预、验证、稳定和复发，不同时开发大量半成品页面。
+目标：从快速捕捉跑到确认、干预、验证、稳定和复发。
 
-### 数据与命令
 - [ ] learning_cases
-- [ ] case_events（append-only）
+- [ ] case_events append-only
 - [ ] case_evidence
 - [ ] interventions
 - [ ] assessments
 - [ ] case_actions
 - [ ] `new` 快速草稿
 - [ ] `confirm_case`
-- [ ] 状态机与状态语义
+- [ ] 状态机
 - [ ] stable / closed / reopen
 - [ ] 主行动唯一性 / pause_reason
 - [ ] owner / taxonomy / evidence 确认条件
-- [ ] 乐观并发 expected_version
-- [ ] 多表命令幂等
+- [ ] expected_version
+- [ ] command 幂等
 
-### 端到端验收
+### 端到端
 
 ```text
-课堂发现“阅读概括漏点”
+课堂发现问题
   ↓
-10–20 秒保存 new 草稿
+10–20 秒 new 草稿
   ↓
-课后确认分类 + 最小 evidence + owner
-  ↓
-创建主行动“相似题训练”
+课后补分类 + evidence + owner + 主行动
   ↓
 confirm_case
   ↓
-记录干预
+干预
   ↓
-主行动“次课验证”
+次课验证
   ↓
-记录 assessment
+assessment
   ↓
 教师确认 stable
   ↓
 观察后 closed
   ↓
-复发 → reopen 原案例
+复发 reopen 原案例
 ```
 
 ### 数据一致性验收
-- `new` 可以轻量，`confirmed` 必须满足正式条件；
-- 一次 passed 不自动等于 stable/closed；
-- 同一案例不能存在冲突的多个当前主行动；
-- case_events 普通业务流程不能随意覆盖；
-- 子表 organization_id 与父对象一致；
-- taxonomy 与学生学科一致；
-- 非法状态跳转被数据库/命令拒绝。
+- new 可轻量，confirmed 结构完整；
+- passed 不自动 stable/closed；
+- 主行动不冲突；
+- case_events 不覆盖；
+- 子表机构一致；
+- taxonomy 与学科一致；
+- 非法状态跳转拒绝。
 
 ---
 
-## Milestone 4｜课程与“今日”工作流
+## Milestone 4｜课程与“今日”
 
-目标：让老师每天愿意打开，而不是让老师专门“填系统”。
+目标：老师每天愿意打开，不专门“填系统”。
 
-> 本阶段不开发完整排课系统。
+> 不开发完整排课系统。
 
 - [ ] lessons / lesson_students
 - [ ] 从学生页快速开始课程
-- [ ] “今日”聚合到期/逾期 case_actions、待验证和重点案例
+- [ ] 今日聚合到期/逾期 actions、待验证、重点案例
 - [ ] 课前遗留摘要
-- [ ] 课中完成/调整行动
+- [ ] 课中 actions / intervention / assessment
 - [ ] 课中快速 new 草稿
-- [ ] 干预 / assessment 快速记录
-- [ ] `complete_lesson` 事务命令
-- [ ] 30–60 秒课后完成流程
-- [ ] 自动生成下一步行动草稿，由教师确认
+- [ ] complete_lesson 事务命令
+- [ ] 30–60 秒课后流程
+- [ ] 下一步行动草稿 + 教师确认
 - [ ] 网络失败草稿恢复
-- [ ] 长期未整理 new 草稿提醒，不强迫课后当场全部处理
+- [ ] 长期未整理 new 草稿提醒
 
 ### 验收
-至少 5 个虚构学生、2 位教师连续使用一周：
-- 常规课后记录中位时间 ≤ 60 秒；
-- 捕捉 new 问题目标 10–20 秒；
-- 不维护排课表也能完成核心闭环；
-- 网络失败后恢复 App 不丢正在编辑记录；
-- 教师能分辨云端已保存与本地草稿；
-- 完成课程不会留下半套多表状态。
+5 个虚构学生、2 位教师连续使用一周：
+- 捕捉 new 目标 10–20 秒；
+- 常规课后中位时间 ≤ 60 秒；
+- 无排课表也能完成闭环；
+- 断网恢复不丢内容；
+- 云端/本地草稿状态清楚；
+- complete_lesson 不半成功。
 
 ---
 
-## Milestone 5｜权限、审计、交接与查询安全加固
+## Milestone 5｜权限、审计、交接与治理加固
 
-- [ ] 本科详细数据权限
+- [ ] 本科详细权限
 - [ ] 跨学科有限共享
-- [ ] 学生负责人/学管综合视角
-- [ ] subject_lead 权限
+- [ ] 学生负责人综合视角
+- [ ] subject_lead
 - [ ] audit_logs
-- [ ] View `security_invoker` 审计
-- [ ] security definer 固定 search_path + 最小 execute
-- [ ] RLS 高频过滤列索引
-- [ ] teacher handoff 事务
-- [ ] disable membership 最后执行且不留 orphan
-- [ ] merge_students + student_merge_records
+- [ ] View security_invoker 审计
+- [ ] security definer 最小授权
+- [ ] RLS 索引
+- [ ] handoff 事务
+- [ ] disable membership 最后执行
+- [ ] merge_students + merge records
 - [ ] RLS / Function 负面自动化测试
 
-### V1 发布门槛
-- [ ] 不同机构严格隔离
-- [ ] “能看”和“能改”测试分离
+### 发布门槛
+- [ ] 跨机构严格隔离
+- [ ] read/write 权限分离
+- [ ] Auth User 无 membership 无业务权限
 - [ ] pending invitation 无业务权限
-- [ ] Secret/service_role 不在客户端
-- [ ] 教师交接不丢历史/责任项
-- [ ] 关键状态变化可追溯
-- [ ] 数据库可从 migrations 从空库重建
-- [ ] 高风险操作不可由普通教师直接调用
-- [ ] View/Function 不能成为 RLS 后门
+- [ ] Secret 不在客户端
+- [ ] 教师交接不留 orphan
+- [ ] 历史可追溯
+- [ ] migrations 从空库重建
+- [ ] View/Function 不绕 RLS
 
 ---
 
 ## Milestone 6｜内部发行与可运维性
 
-在“能用”之后、真实机构扩大使用之前补齐运行能力。
-
-- [ ] Windows 安装/升级方案
-- [ ] Android 签名 APK/AAB 与升级方案
-- [ ] 签名密钥安全备份，不进入 GitHub
-- [ ] Local / Remote Development / Production 语义明确
-- [ ] Production 与开发环境完全隔离
-- [ ] 崩溃/错误日志不含学生敏感正文或 Token
-- [ ] 数据库备份与恢复演练
-- [ ] Storage 附件单独备份/恢复策略
-- [ ] 真实机构网络连通性与延迟测试
-- [ ] Production migration 发布和 smoke test
-- [ ] 故障时人工应急流程
-- [ ] 最低支持客户端版本/兼容策略形成方案
+- [ ] Windows 安装/升级
+- [ ] Android 签名 APK/AAB 与升级
+- [ ] 签名密钥安全备份
+- [ ] Local / Remote Development / Production 隔离
+- [ ] Production Custom SMTP / 等价邮件能力
+- [ ] OTP 投递与 Auth 限流监控
+- [ ] 崩溃/错误日志无敏感正文/Token
+- [ ] DB 备份与恢复演练
+- [ ] Storage 单独恢复策略
+- [ ] 真实机构网络测试
+- [ ] Production migration + smoke test
+- [ ] 故障应急流程
+- [ ] 最低支持客户端版本策略
 
 ---
 
 # V1｜机构内部试运行
 
-当 Milestone 0–6 达成核心发布门槛，才算 V1 内部试运行。
+Milestone 0–6 核心门槛达成后才进入真实机构内部试运行。
 
-### V1 首发教师导航
+### 教师导航
 - 今日
 - 学生
 - 课程
 - 学情
 
-管理员通过二级入口完成人员、邀请、权限和学生治理。
-
-建议先使用虚构/脱敏数据完成试运行；通过安全、网络、备份与合规门槛后，再录入真实学生数据。
-
-## V1 核心验收标准
-
-1. 两名教师使用独立账号共同管理同一学生；
-2. pending invitation 不等于机构成员；
-3. 学生主档案不因学科/老师/年级重复创建；
-4. new 草稿能快速捕捉，confirmed 案例结构完整；
-5. 案例从证据到验证全程可追溯；
-6. 未结束正式案例有主行动或明确暂停理由；
-7. 教师日常记录足够快；
-8. 网络失败不会丢高频输入；
-9. 教师离职/交接后历史与当前责任完整；
-10. 跨机构访问数据库层拒绝；
-11. 普通教师不能越权修改其他学科核心结论；
-12. 高权限动作不在 Flutter 直接执行；
-13. migrations 可重建数据库，不依赖 Dashboard 手工状态；
-14. 无真实学生信息进入 GitHub；
-15. Production 数据与 Storage 都存在可验证恢复路径。
+### V1 核心验收
+1. 两位教师独立 OTP 登录并共同管理同一学生；
+2. Auth 登录与机构权限分离正确；
+3. pending invitation 不等于 member；
+4. 学生不因学科/教师/年级重复；
+5. new 快速、confirmed 可靠；
+6. 学情从证据到验证可追溯；
+7. 正式未结束案例有主行动或暂停理由；
+8. 教师记录足够快；
+9. 网络失败不丢高频输入；
+10. 教师交接历史和当前责任完整；
+11. 跨机构拒绝；
+12. 普通教师无法越权修改其他学科；
+13. migrations 可重建，不依赖 Dashboard；
+14. Production OTP 邮件基础设施可用；
+15. DB 与 Storage 有恢复路径。
 
 ---
 
 ## V1.1｜家校与阶段输出
 
-- [ ] guardians / student_guardians（按实际需要）
+- [ ] guardians / student_guardians
 - [ ] parent_communications
 - [ ] 家长反馈结构化草稿
 - [ ] 周度自动摘要
 - [ ] report draft / finalized snapshot
-- [ ] 基础可分享阶段报告
-- [ ] “家校”“报告”成为正式一级入口
-
-目标：让已有教学事实自然生成服务输出，不增加重复录入。
+- [ ] 基础可分享报告
+- [ ] 家校 / 报告成为一级入口
 
 ---
 
 ## V1.5｜机构协作与教学洞察
 
 - [ ] observations
-- [ ] 跨学科综合观察流
+- [ ] 跨学科综合观察
 - [ ] 超期行动 / 长期案例提醒
 - [ ] 高频问题分析
-- [ ] 分类节点轻量治理（停用/合并）
+- [ ] taxonomy 轻量治理
 - [ ] 学科负责人视角
 - [ ] 管理端教学异常
 
-注意：管理指标用于发现教学问题，不做“教师填表量排行榜”。
+不做“教师填表量排行榜”。
 
 ---
 
 ## V2｜教研资产与 AI 副驾驶
 
-- [ ] 自然语言转结构化案例草稿
+- [ ] 自然语言转结构化草稿
 - [ ] 相似/重复案例提示
-- [ ] 阶段自动摘要
+- [ ] 自动摘要
 - [ ] 家长反馈辅助生成
-- [ ] 同类案例与干预方案检索
+- [ ] 同类案例/方案检索
 - [ ] 教研资产沉淀
-- [ ] AI 输出可追溯与人工确认
+- [ ] AI 输出来源 + 人工确认
 
 ---
 
-## Schema 稳定后再做｜Excel 导入
+## Schema 稳定后｜Excel 导入
 
 - [ ] Excel 预览
 - [ ] 字段映射
@@ -356,38 +350,33 @@ confirm_case
 - [ ] 导入报告
 - [ ] 回滚机制
 
-不要在数据库模型尚未稳定前，为迁就旧 Excel 结构提前固化 schema。
-
 ---
 
 ## 暂不做
 
 - 收费排课 CRM
 - 大型题库
-- 成绩预测
-- 人为构造学情综合分
-- 家长独立 App
-- 学生独立 App
-- Google Docs 式协同编辑
+- 成绩预测 / 学情综合分
+- 家长/学生独立 App
+- Google Docs 式协同
 - 复杂离线双向同步
 - 多平台第三方登录大全
-- 复杂多机构账号切换/自助加入
-- 庞大知识图谱/分类管理后台
+- 庞大知识图谱
+- 同时维护 Password / Magic Link / OTP 多套登录方式
 
 ---
 
 ## 每个 Milestone 的完成定义
 
-功能只有同时满足以下条件才算完成：
+同时满足：
 - 正常流程可用；
-- 权限路径验证；
 - 错误/空状态可理解；
-- 网络失败路径可恢复；
+- 权限负面路径验证；
+- 网络失败可恢复；
 - 核心逻辑有测试；
-- schema / RLS / View / Function 变化有 migration；
-- 本地数据库可从空库重建；
-- RLS / GRANT 与 schema 同步；
-- Remote Development 集成场景需要时已验证；
+- schema/RLS/View/Function/Trigger/Index 变化有 migration；
+- Local DB 可从空库重建；
+- Remote Development 集成场景已验证；
 - 不引入真实隐私数据；
-- 文档同步更新；
-- 不破坏已有端到端验收场景。
+- 文档同步；
+- 不破坏既有端到端流程。
