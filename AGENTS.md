@@ -10,62 +10,91 @@
 1. 数据正确与权限安全；
 2. 学生历史连续；
 3. 教师高频工作流低负担；
-4. 可追溯；
-5. 可维护；
-6. 功能数量。
+4. 保存可靠；
+5. 可追溯；
+6. 可维护；
+7. 功能数量。
 
-不得把产品退化成 Excel 网页化、传统教务填表系统或为了展示 AI 而堆功能的 Demo。
+不得把产品退化成 Excel 网页化、传统教务填表系统、排课收费 CRM，或为了展示 AI 而堆功能的 Demo。
 
 ## 2. 业务不可变约束
 
 1. 同一机构内一个真实学生只有一份主档案。
 2. 学生姓名不是唯一标识。
 3. 升年级、换老师、换班/校区不能覆盖历史。
-4. 教师离职/停用不得删除其历史教学记录。
-5. 学情案例必须拥有可追溯生命周期。
-6. 原始事实只录一次；周度、顽固问题、阶段摘要优先派生。
-7. 未结束案例必须支持明确下一步行动。
-8. “能看”与“能改”必须分离。
-9. 跨学科默认有限共享，不默认全部开放。
-10. AI 不得静默修改正式学情状态。
+4. 任课教师关系与学管/班主任关系分开建模。
+5. 教师离职/停用不得删除其历史教学记录。
+6. 学情案例必须拥有可追溯生命周期。
+7. 原始事实只录一次；周度、顽固问题、阶段摘要优先派生。
+8. 未结束案例必须支持明确主行动或明确暂停理由。
+9. “能看”与“能改”必须分离。
+10. 跨学科默认有限共享，不默认全部开放。
+11. 一次 assessment passed 不自动等于案例 stable/closed。
+12. AI 不得静默修改正式学情状态。
+13. “今日”不能在没有明确需求的情况下扩张成排课 CRM。
 
 如果实现要求违反这些约束，先修改产品/架构文档并说明理由，再改代码。
 
-## 3. 技术边界
+## 3. V1 范围
+
+V1 教师主导航只有：
+- 今日
+- 学生
+- 课程
+- 学情
+
+家校、报告进入 V1.1。
+
+不要为了“界面看起来完整”提前塞入占位但半可用的大模块。
+
+## 4. 技术边界
 
 ### 客户端
 - Flutter，Windows + Android 优先。
-- Flutter 采用 View / ViewModel / Repository / Service 职责分层。
+- 使用 View / ViewModel / Repository / Service 职责分层。
 - 目录优先 feature-first。
-- Widget 不直接承载复杂数据库和权限逻辑。
+- Widget 不直接承载复杂数据库、权限和状态机逻辑。
+- 不允许在各页面散落 `Supabase.instance.client.from(...)`。
 
 ### 云端
 - Supabase PostgreSQL + Auth + Storage + RLS。
 - 普通授权业务可通过 Data API。
-- 管理员邀请、角色提升、学生合并等高权限操作走 Edge Functions/受信任后端。
+- Auth Admin / Secret 操作走 Edge Functions。
+- 数据密集且需要事务一致性的受控操作可使用 Database Functions。
 
 ### 密钥
 Flutter 只允许 Publishable Key（或旧项目 anon key）。
 
-绝对禁止：
+绝对禁止以下内容进入客户端或 GitHub：
 - Secret Key
 - legacy service_role key
 - 数据库密码
 - 私密 AI API key
+- 邮件/第三方服务 Secret
 
-进入客户端或 GitHub。
+## 5. 环境规则
 
-## 4. 数据库规则
+至少区分：
+- Development：虚构数据；
+- Production：真实数据。
+
+不得让 Development 与 Production 共用数据库、Storage、Secret 或测试账号。
+
+公开客户端配置通过 typed AppConfig + build-time config 注入；不要引入“把 Publishable Key 藏起来”的假安全方案。
+
+## 6. 数据库规则
 
 ### Schema 变更
 - 所有正式 schema 变更必须通过版本化 migration。
-- 不允许只在 Dashboard 手工改完表而不提交 migration。
-- destructive migration 必须先说明迁移与回滚策略。
+- 不允许只在 Dashboard 手工改表而不提交 migration。
+- destructive migration 必须说明迁移与恢复策略。
 
 ### 多租户
 新增机构业务表时默认检查：
 - 是否能确定 organization_id；
+- 子表 organization_id 是否能和父表保持一致；
 - RLS 是否开启；
+- GRANT 是否最小；
 - SELECT / INSERT / UPDATE / DELETE 是否分别授权；
 - 是否会跨机构泄漏；
 - 是否需要师生/学科关系检查。
@@ -76,32 +105,55 @@ Flutter 只允许 Publishable Key（或旧项目 anon key）。
 ### 时间与 ID
 - 主键默认 UUID；
 - 时间用 timestamptz；
+- 纯日期使用 date；
 - 数据库保存 UTC；
-- 升年级/交接使用历史关系表，不覆盖过去。
+- 升年级/交接使用历史关系表。
 
 ### 历史
-- `case_events`：教学案例生命周期；
-- `audit_logs`：系统治理与高风险修改。
+- `case_events`：教学案例生命周期，append-only；
+- `audit_logs`：系统治理与高风险修改，append-only。
 
 不要把二者混为一张“大日志表”。
 
-## 5. RLS 与安全测试
+## 7. 分类数据
 
-任何新业务表在“可用”之前必须至少验证：
+为了长期统计：
+- 学情案例优先引用受控 taxonomy node；
+- title/description 保留自由表达；
+- 不用自由文本作为唯一统计口径；
+- 不在 V1 建庞大知识图谱。
 
+## 8. RLS、View 与函数安全
+
+任何新业务表在“可用”之前至少验证：
 1. 未登录不能访问；
-2. 同机构无关系用户是否应该可见；
-3. 本科教师能否正确查看/编辑；
-4. 其他学科教师是否只得到允许的信息；
-5. 管理员是否拥有预期权限；
-6. 跨机构访问必定失败；
-7. DELETE 是否真的需要开放。
+2. disabled membership 不能访问；
+3. 同机构无关系用户是否应该可见；
+4. 本科教师查看/编辑是否正确；
+5. 其他学科是否只得到允许信息；
+6. 管理员权限是否符合预期；
+7. 跨机构访问必定失败；
+8. DELETE 是否真的需要开放。
 
 禁止只靠 Flutter 隐藏按钮实现权限。
 
-## 6. 高权限操作
+### View
+对客户端暴露的派生 View 必须显式检查 RLS 语义；优先 `security_invoker = true`。
 
-以下默认不能从 Flutter 直接用高权限 key 完成：
+### Function
+- 默认 `security invoker`；
+- `security definer` 必须放非 exposed schema；
+- `set search_path = ''`；
+- 名称 schema-qualified；
+- revoke 默认执行权限后按需 grant；
+- 有越权测试。
+
+RLS 高频过滤列必须考虑索引。
+
+## 9. 高权限操作
+
+以下默认不能从 Flutter 直接用高权限凭据完成：
+- 首位 org_admin bootstrap；
 - 邀请 Auth 用户；
 - 授予管理员/高权限角色；
 - 合并学生；
@@ -109,30 +161,45 @@ Flutter 只允许 Publishable Key（或旧项目 anon key）。
 - 受控导出/删除；
 - 绕过 RLS 的维护。
 
-Edge Function 也必须验证调用者 Session 与机构权限。
+Edge/Database Function 也必须验证调用者 Session、机构与权限。
 
-## 7. Flutter 开发原则
+## 10. Flutter 开发原则
 
 - 优先小而完整的垂直闭环。
 - 页面状态与业务状态分开。
-- Repository 暴露面向业务的 API，不让页面知道表结构细节。
-- Service 封装 Supabase/Storage/Functions。
+- Repository 暴露面向业务的 API，不让页面知道具体表结构。
+- Service 封装 Supabase/Storage/Functions/本地草稿等外部接口。
+- Repository/Service 应可 fake，便于测试。
 - 状态机转移集中管理，不允许不同页面各自猜测下一状态。
 - 错误必须能转成用户可理解的信息。
 - 高频路径优先减少输入和点击。
 - 重要状态不能只依赖颜色表达。
 - 添加第三方依赖前先说明解决了什么问题；不为“流行”引包。
+- 状态管理/DI 方案一旦选定写 ADR，不允许多个框架无序混用。
 
-## 8. 并发与实时
+## 11. 保存可靠性
 
-V1 online-first，云数据库是事实源。
+V1 online-first，但“网络失败不丢当前输入”是硬要求。
 
-- 不实现复杂离线写入合并；
-- 关键对象必要时使用 `version` 乐观并发；
-- 发现版本冲突时提示刷新/合并，不静默覆盖；
-- Realtime 用于刷新/变更提示，不实现 Google Docs 式同字段协作。
+高频编辑必须：
+- 展示未保存/保存中/已保存/失败；
+- 网络失败保留输入；
+- 必要时本地持久化临时 draft；
+- 重试考虑 operation id / idempotency，避免重复创建；
+- 云端成功前不显示为正式已保存。
 
-## 9. 隐私
+本地 draft 不是第二套业务数据库。
+
+## 12. 并发与 Realtime
+
+- 关键当前状态对象可使用 `version` 乐观并发；
+- 冲突时不静默覆盖；
+- 追加型事实优先追加而不是覆盖长文本；
+- V1 正确性不能依赖 Realtime；
+- Realtime 只做体验增强；
+- 不实现 Google Docs 式同字段协作。
+
+## 13. 隐私
 
 禁止提交真实：
 - 学生姓名与联系方式；
@@ -143,16 +210,19 @@ V1 online-first，云数据库是事实源。
 
 开发 seed、截图、测试全部使用明显虚构数据。
 
-审计日志不要无节制复制完整敏感正文。
+自由文本避免收集与教学目的无关的家庭、健康、身份等敏感信息。
 
-## 10. 测试最低要求
+日志与审计不要复制完整敏感正文。
+
+## 14. 测试最低要求
 
 ### 业务逻辑
 - 状态机；
-- 下一步行动；
-- 复发 reopen；
+- stable / closed / reopen；
+- 主行动唯一性/暂停理由；
 - 教师交接；
-- 派生指标。
+- 派生指标；
+- 网络失败重试与防重复提交。
 
 ### 权限
 至少覆盖：
@@ -160,22 +230,26 @@ V1 online-first，云数据库是事实源。
 - 同机构不同角色；
 - 不同学科；
 - 停用 membership；
+- View/Function 越权；
 - 高权限操作拒绝普通教师。
 
 ### Flutter
 重要 ViewModel / Repository 有单元测试；关键高频流程至少有 widget/integration 验证策略。
 
-## 11. UI 原则
+## 15. UI 原则
 
 - “今日”优先展示下一步，而不是统计大屏。
+- V1 今日以 case_actions/待验证为主，不假设完整排课存在。
 - 学生主页先展示当前重点与连续时间线。
 - 表格只用于真正适合批量管理的场景。
 - 手机端优先快速记录；Windows 端优先深度查看和管理。
-- 不制造没有可靠统计依据的“学情健康分”。
+- 不制造没有可靠依据的“学情健康分”。
+- 保存状态必须明确可见。
 
-## 12. Git 与提交
+## 16. Git 与提交
 
 较大功能应：
+- 使用 feature/review branch；
 - 小步提交；
 - 清楚的 commit message；
 - schema 与代码同 PR；
@@ -184,29 +258,33 @@ V1 online-first，云数据库是事实源。
 
 不要把大规模重构和无关 UI 修改混在一个提交里。
 
-## 13. 完成定义
+`main` 进入真实开发后应以 PR 合并为主，不长期直接写入。
+
+## 17. 完成定义
 
 一个功能只有同时满足以下条件才算完成：
 - 正常路径可用；
 - 错误/空状态可理解；
+- 网络失败路径可恢复；
 - 权限验证通过；
 - 关键逻辑有测试；
-- migration 可重复执行；
+- migration 可从空库执行；
 - 不含真实隐私和秘密；
 - 文档同步；
 - 不破坏既有端到端场景。
 
-## 14. V1 暂不做
+## 18. V1 暂不做
 
 - 排课收费 CRM
 - 大型题库
 - 成绩预测
 - 学情综合分
 - AI 自动正式诊断
+- 家校/报告一级模块（V1.1）
 - 家长独立 App
 - 学生独立 App
 - Google Docs 式协同编辑
 - 复杂离线同步
 - 大量第三方登录
 
-如需改变范围，先更新 `docs/PRODUCT.md` 与 `docs/ROADMAP.md`。
+如需改变范围，先更新 `docs/PRODUCT.md`、`docs/ROADMAP.md` 与必要 ADR。
