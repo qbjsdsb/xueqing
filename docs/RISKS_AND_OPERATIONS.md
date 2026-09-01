@@ -1,277 +1,202 @@
 # 风险清单与运行要求
 
-> 本文件记录“如果不提前验证，后期最可能造成返工或上线事故”的事项。风险不是理由停止开发，而是要求在正确时间做验证。
+> 只记录“不提前验证就很可能造成返工或上线事故”的风险。风险不是停止开发的理由，而是要求在正确阶段实测。
 
-## R1｜Windows / Android 邀请与首次登录体验
+## R1｜Email OTP 投递与登录体验
 
-**等级：高｜Phase 0 必须验证**
+**等级：最高｜Phase 0**
 
-风险：服务端能发邀请，不代表 Windows/Android 上的 redirect、密码设置、首次激活体验自然。
+风险：SDK 能发 OTP 不等于教师邮箱能稳定收到，也不等于 Windows/Android 输入验证码体验自然。
 
 处理：
-- 双平台真实 Spike；
-- 验证新邀请、过期重发、取消、密码恢复；
-- 验证 App 已运行/未运行时 deep link；
-- 验证 Redirect URL allowlist；
-- 已 confirmed Auth User 不错误走 new-user invite；
-- 不合格就提前调整认证 UX。
+- 双平台真机/真邮箱 Spike；
+- 新 Auth User / 已有 Auth User；
+- 错误、过期 OTP；
+- 429 / 频繁请求；
+- Session 恢复；
+- 主要教师邮箱域投递延迟；
+- Production Custom SMTP/等价服务。
 
-退出条件：非技术老师能独立完成首次加入；失败/过期也知道如何恢复。
+退出条件：非技术老师能独立登录，验证码失败时知道如何恢复。
 
 ---
 
-## R2｜真实机构网络环境与 Supabase 可用性
+## R2｜开放 Auth User 创建被滥用
 
-**等级：高｜真实数据前必须验证**
+**等级：中高**
 
-风险：开发者网络正常不等于机构办公网络、教师手机网络都稳定。
+V1 为统一新/旧用户 OTP 体验，可能允许无 invitation 邮箱创建一个无机构权限的 Auth User。
+
+风险：机器人请求 OTP、制造无业务价值 Auth User、消耗邮件额度。
 
 处理：
-- 实际地点/网络测试登录、查询、上传、Function；
-- 测试 Wi-Fi / 移动网络切换；
-- 记录高频流程延迟和失败率；
-- Repository/Service 隔离后端细节。
+- active membership 才有业务数据权限；
+- 无 invitation/membership 只能看到最小“未授权”页面；
+- rate limits；
+- CAPTCHA/等价防滥用；
+- 监控 Auth 创建与 OTP 发送异常。
 
-退出条件：高频教学流程在真实网络下稳定可用；否则评估部署区域、网络方案或基础设施替代。
+退出条件：滥用不会转化成数据越权或不可控邮件成本。
 
 ---
 
-## R3｜老师不愿意填
+## R3｜真实机构网络与 Supabase 可用性
 
-**等级：最高｜产品持续验证**
+**等级：高｜真实数据前**
 
-风险：功能再完整，只要每次课后要填 5 分钟，最终都会变成应付式数据。
+开发者网络正常不代表机构 Wi-Fi、教师移动网络稳定。
+
+处理：实际地点测试 OTP、查询、保存、上传、Function、网络切换，记录高频流程延迟/失败。
+
+退出条件：核心流程稳定；否则评估部署区域/网络/基础设施替代。
+
+---
+
+## R4｜老师不愿意填
+
+**等级：最高｜持续验证**
+
+风险：课后记录超过几分钟，系统最终变成应付式填表。
 
 处理：
-- 课堂新问题快速捕捉目标 10–20 秒；
-- 常规课后记录目标 ≤ 60 秒；
-- `new` 草稿和 `confirmed` 正式案例分离；
+- `new` 捕捉 10–20 秒；
+- 常规课后目标 ≤ 60 秒；
+- new/confirmed 两阶段；
 - 只记录新事实；
-- 周度/阶段自动生成；
-- 真实教师可用性测试；
-- 统计完成时间与操作数，而不是“填了多少条”。
+- 周度/阶段派生；
+- 可用性测试看时间/点击，而不是填表量。
 
-退出条件：连续一周模拟/试用中，高频流程没有明显填写阻力。
+退出条件：连续模拟/试用一周没有明显填写阻力。
 
 ---
 
-## R4｜数据越用越脏，或分类反过来拖慢老师
+## R5｜分类过松数据脏，过严又拖慢老师
 
 **等级：高**
 
-风险一：完全自由输入导致“阅读理解/现代文阅读/阅读”口径碎裂。
+处理：轻量 taxonomy + 自由标题；new 可暂不分类；confirmed 前补；少量默认节点 + 其他；复杂治理后置。
 
-风险二：为了治理口径做一棵庞大知识树，老师每次录入要点很多层分类，反而不愿使用。
-
-处理：
-- 轻量受控 taxonomy + 自由标题双轨；
-- `new` 草稿允许不选完整分类；
-- confirmed 前再补；
-- 默认少量稳定节点 + “其他/暂未分类”；
-- 历史已引用节点优先停用，不硬删除；
-- 复杂分类治理后置。
-
-退出条件：数据可统计，同时快速捕捉不被分类阻塞。
+退出条件：既能稳定统计，又不阻塞快速捕捉。
 
 ---
 
-## R5｜权限在 UI 看起来对，数据库实际越权
+## R6｜UI 权限正确，数据库实际越权
 
 **等级：最高**
 
-风险：隐藏按钮不阻止手工 API 请求；View/Function 也可能绕过 RLS。
-
 处理：
+- active membership + roles + assignments；
 - RLS + 最小 GRANT；
-- membership + assignment 授权；
 - security_invoker View；
-- security definer 最小授权/search_path；
-- 自动化负面权限测试。
+- security definer 安全约束；
+- 负面权限测试。
 
-退出条件：未登录、pending invitation、disabled membership、跨机构、跨学生、跨学科攻击式测试全部按预期失败。
-
----
-
-## R6｜网络失败导致课后记录丢失/重复
-
-**等级：高**
-
-风险：移动网络切换、超时、连点重试可能导致丢数据或重复数据。
-
-处理：
-- 本地临时草稿；
-- 明确保存状态；
-- client UUID / operation id；
-- 幂等 command；
-- 超时后可查询最终状态；
-- 不用“乐观 UI”伪造正式保存成功。
-
-退出条件：断网、超时、App 重启场景下输入可恢复且不会重复创建。
+退出条件：未登录、只有 Auth、pending invitation、disabled、跨机构、跨学生、跨学科攻击式测试按预期失败。
 
 ---
 
-## R7｜多人更新造成静默覆盖
-
-**等级：中高**
-
-风险：管理员/老师同时修改同一当前状态对象时，后保存者吞掉前者。
-
-处理：
-- 关键快照 `version` / expected_version；
-- 条件更新；
-- 冲突提示；
-- 教学事实尽量 append-only。
-
-退出条件：两个客户端并发修改不会 silent last-write-wins。
-
----
-
-## R8｜项目悄悄长成 CRM
-
-**等级：高**
-
-风险：为了“今日课程”加入排课，为了排课加入课消，为了课消加入收费，最终偏离教学闭环。
-
-处理：
-- lesson 定义为实际教学会话，不是 schedule；
-- 今日以 case_actions 为主；
-- CRM 类需求单独产品评审；
-- 优先与已有系统集成。
-
-退出条件：V1 没有完整排课系统也能完成核心流程。
-
----
-
-## R9｜Flutter/Supabase 依赖升级造成不可复现
-
-**等级：中**
-
-处理：
-- 正式初始化锁定当前稳定 Flutter/Dart 基线；
-- 提交应用 `pubspec.lock`；
-- CI 使用明确 SDK；
-- 升级单独 PR；
-- 先跑测试再升级 Production。
-
----
-
-## R10｜Local / Remote Development / Production 混用
+## R7｜Invitation 被错误用户接受
 
 **等级：最高**
 
-风险：测试脚本误删真实数据、真实学生进入开发截图、Secret 混用。
+风险：如果 accept_invitation 信任客户端传入 email/user_id，可能让登录用户领取别人的机构邀请。
 
 处理：
-- Remote Development 与 Production 独立项目；
-- Local 只用虚构 seed；
-- Production 禁止 seed reset；
-- CI/CD 变量分开；
-- UI/日志显著标记当前环境；
-- 生产破坏性操作额外确认。
+- 服务端从 Auth Session 获取可信 user id / verified email；
+- invitation 邮箱规范化比较；
+- 受控事务创建 membership + roles；
+- invitation 接受幂等；
+- pending invitation 表不可被普通 authenticated 用户枚举。
+
+退出条件：不同邮箱、猜 invitation id、重复重试都不能越权。
 
 ---
 
-## R11｜数据库有备份，但附件没备份
+## R8｜网络失败导致记录丢失/重复
 
 **等级：高**
 
-处理：
-- DB 与 Storage 分开设计恢复；
-- 定期对象清单；
-- 抽样恢复附件；
-- 检查 DB path ↔ Storage object 一致性。
+处理：本地 draft、保存状态、client UUID、operation id、幂等 command、超时后可确认最终状态。
+
+退出条件：断网/超时/App 重启可恢复且不重复。
 
 ---
 
-## R12｜应用分发和更新失控
+## R9｜多人更新静默覆盖
 
 **等级：中高**
 
-风险：几十个老师各自装不同版本，schema 已升级但旧客户端仍在使用。
+处理：关键快照 `version/expected_version`、冲突提示、事实尽量 append-only。
 
-处理：
-- Windows/Android 明确版本号与分发渠道；
-- schema 迁移保留必要向后兼容窗口；
-- 高风险变化采用 expand → migrate → contract；
-- 后期加入最低支持客户端版本；
-- 签名密钥独立备份。
+退出条件：并发修改不会 silent last-write-wins。
 
 ---
 
-## R13｜自由文本收集过度敏感信息
+## R10｜项目悄悄长成 CRM
 
 **等级：高**
 
-处理：
-- UI 提示“记录可观察教学事实”；
-- 不把无关家庭/健康推断作为教学标签；
-- 限制日志/AI 输入范围；
-- 管理员按制度处理更正/导出/删除请求。
+处理：lesson 是实际教学会话；今日由 actions 驱动；收费/课消/排课需求单独评审，优先集成已有系统。
+
+退出条件：V1 不依赖完整排课仍可工作。
 
 ---
 
-## R14｜AI 让数据看起来更漂亮，但事实变差
+## R11｜Git migrations 与远程 schema 漂移
+
+**等级：最高**
+
+处理：Local Supabase CLI 开发，Git migrations 是结构事实源，Remote 临时试验必须回写，PR 从空库 reset，Production 只跑已评审 migration。
+
+退出条件：新环境仅靠仓库能重建 schema/RLS。
+
+---
+
+## R12｜Development / Production 混用
+
+**等级：最高**
+
+处理：Local / Remote Development / Production 独立语义；Production 禁止 seed/reset；数据库、Storage、SMTP、Secret、测试账号分开。
+
+---
+
+## R13｜DB 有备份但附件没有
+
+**等级：高**
+
+处理：DB 与 Storage 分别备份/恢复、对象清单、抽样恢复、路径一致性检查。
+
+---
+
+## R14｜客户端版本与 schema 不兼容
+
+**等级：中高**
+
+处理：明确 Windows/Android 版本与分发；高风险 migration 用 expand → migrate → contract；后期最低支持版本；签名密钥安全备份。
+
+---
+
+## R15｜自由文本收集过度敏感信息
+
+**等级：高**
+
+处理：可观察教学事实、限制日志/AI 输入、不把家庭/健康推断做标签、管理员数据治理。
+
+---
+
+## R16｜AI 让文字漂亮但事实变差
 
 **等级：中高（V2）**
 
-处理：
-- AI 输出先是 draft；
-- 保留来源与人工确认；
-- AI 不写正式 status；
-- AI 总结不等于 evidence；
-- AI 不越权跨学科读取。
+处理：AI 只生成 draft，有来源和人工确认，不写正式 status，不把总结当 evidence，不越权。
 
 ---
 
-## R15｜邀请邮件、Auth User、membership 出现半状态
+## R17｜教师停用后责任项变成孤儿
 
 **等级：高**
 
-风险：Auth invite 是外部管理操作，不能假定与业务数据库写入天然一个事务。可能出现邮件已发但后续 DB 更新失败，或重复重试产生多条业务记录。
-
-处理：
-- `organization_invitations` 独立于 membership；
-- pending invitation 无业务权限；
-- 同机构/邮箱最多一个 pending invitation；
-- create/resend/accept 流程幂等；
-- membership 只在受控激活后成为 active；
-- 失败可恢复，不通过重复 Auth User 解决。
-
-退出条件：模拟每一步网络/服务失败，最终都能重试到一致状态且不产生重复 member。
-
----
-
-## R16｜Git migrations 与远程 Dashboard schema 漂移
-
-**等级：最高｜工程持续约束**
-
-风险：某次“临时修一下”只改了远程 Table Editor/SQL Editor，随后本地、CI、另一位开发者和 Production 都出现不同 schema。
-
-处理：
-- Local Supabase CLI 为 schema/RLS 主要开发环境；
-- Git migrations 为正式事实源；
-- Remote Development 临时试验必须回写 migration；
-- PR 中从空库 `db reset` 验证；
-- Production 只跑已评审 migration。
-
-退出条件：新环境可以只依赖仓库重建当前数据库结构与权限。
-
----
-
-## R17｜教师停用后当前责任变成“孤儿”
-
-**等级：高**
-
-风险：管理员先 disable 账号，才发现该教师仍是案例 owner、行动 assignee 或唯一 lead。
-
-处理：
-- 停用前 inventory；
-- handoff 事务优先；
-- 验证接手人权限；
-- 不留 orphan current responsibility；
-- 最后一步才 disable membership。
-
-退出条件：离职演练后，所有历史保留，所有当前责任都有明确接手或受控暂停。
+处理：disable 前 inventory → handoff → 验证无 orphan → 最后 disable membership。
 
 ---
 
@@ -279,36 +204,50 @@
 
 **等级：中高**
 
-处理：
-- source/target 同机构；
-- source 变 merged 而非硬删除；
-- 保存 merged_into + merge record；
-- 事务/operation id；
-- 防 merge 环；
-- 合并前展示影响范围。
+处理：同机构、source→merged 而非删除、merge record、operation id、防环、合并前展示影响范围。
 
 ---
 
-# 真实数据上线前 Go / No-Go 清单
+## R19｜Production 邮件服务成为单点故障
 
-必须满足关键项才进入真实学生数据：
+**等级：高**
 
-- [ ] 仓库已 Private 或有等价源码访问控制
-- [ ] Local / Remote Development / Production 边界明确
-- [ ] Git migrations 可从空库重建当前 schema/RLS
-- [ ] 双平台认证、redirect、邀请过期/重发验证
+OTP 登录依赖邮件。
+
+处理：
+- 可靠 Custom SMTP/邮件服务；
+- 监控投递失败/延迟；
+- 管理员有可理解支持手册；
+- 不把 SMTP Secret 放客户端；
+- 后期在真实必要时再评估备用登录策略，而不是 V1 同时维护三套登录。
+
+退出条件：邮件异常可被发现、定位、恢复，不让机构全员“突然登不上且不知道原因”。
+
+---
+
+# 真实数据上线 Go / No-Go
+
+关键项必须满足：
+
+- [ ] GitHub 仓库 Private/等价源码访问控制
+- [ ] Local / Remote Development / Production 隔离
+- [ ] migrations 从空库重建 schema/RLS
+- [ ] Windows / Android OTP 全矩阵验证
+- [ ] Production 邮件服务、rate limits、防滥用配置
+- [ ] Auth User 无 membership 无业务权限
 - [ ] pending invitation 无业务权限
-- [ ] RLS/GRANT/View/Function 越权测试通过
-- [ ] 网络失败草稿恢复和幂等重试通过
-- [ ] 实际机构网络测试通过
-- [ ] 教师交接/停用演练通过
-- [ ] 学生合并基础治理验证
-- [ ] 数据库恢复演练通过
-- [ ] Storage 恢复方案存在并抽测
-- [ ] Production Secret 不在客户端/GitHub
-- [ ] 日志无敏感正文和 Token
+- [ ] accept_invitation verified-email/幂等测试
+- [ ] RLS/GRANT/View/Function 越权测试
+- [ ] 网络失败草稿恢复/幂等
+- [ ] 真实机构网络测试
+- [ ] 教师交接/停用演练
+- [ ] 学生合并治理验证
+- [ ] DB 恢复演练
+- [ ] Storage 恢复方案抽测
+- [ ] Production Secret/SMTP Secret 不在客户端/GitHub
+- [ ] 日志无 OTP/Token/Secret/完整敏感正文
 - [ ] 安装包签名与更新路径明确
-- [ ] Production migration + smoke test 流程明确
-- [ ] 根据实际部署地区完成隐私/未成年人数据合规评估
+- [ ] Production migration + smoke test 明确
+- [ ] 实际部署地区隐私/未成年人数据合规评估
 
-只要关键项未满足，就继续使用虚构/脱敏数据。
+关键项未满足时继续使用虚构/脱敏数据。
