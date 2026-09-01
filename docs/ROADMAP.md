@@ -6,115 +6,124 @@
 
 每个阶段必须有可验证用户场景，不以页面数量衡量进度。
 
+本阶段新增硬约束：**V1 内部试运行不额外购买服务器、数据库套餐、SMTP、域名、短信、AI API、CI 或 Work/Codex credits。**
+
 ---
 
-## Phase 0｜工程、OTP 认证与运行风险验证
+## Phase 0｜工程、零成本认证与运行风险验证
 
-目标：在业务开发前，证明 Windows + Android + Supabase + Email OTP 这条路线能稳定支撑机构使用，而且任何新环境都能从仓库重建开发基线。
+目标：证明 Windows + Android + Supabase + 管理员受控开通账号这条路线能稳定支撑机构使用，而且任何新环境都能从仓库重建开发基线。
 
-### Flutter 工程
-- [ ] 使用当前稳定 Flutter 正式初始化 Windows + Android
-- [ ] feature-first + View / ViewModel / Repository / Service
+### 0A. GitHub / ChatGPT 云端开发底座
+- [ ] 仓库改为 Private
+- [ ] 建立 ChatGPT Project：`Xueqing｜学情闭环开发`
+- [ ] Project 使用可兼容 Work 的 memory 配置
+- [ ] 连接 GitHub，仓库作为代码事实源
+- [ ] Work 会话按一个目标/一个 PR 拆分
+- [ ] Luna Max 只优先用于权限、migration、事务、安全和 Milestone 终审
+- [ ] 不购买额外 Work/Codex credits，达到包含额度后等待重置
+- [ ] GitHub Actions 设置零超额成本边界
+
+### 0B. Flutter 工程
+- [ ] 使用当前 stable Flutter 正式初始化 Windows + Android
+- [ ] feature-oriented UI + View / ViewModel / Repository / Service
 - [ ] typed AppConfig 与环境切换
 - [ ] 提交应用 `pubspec.lock`
 - [ ] format / analyze / test 基线
 - [ ] 业务代码不散落直接 Supabase 表查询
+- [ ] 参考 Flutter 官方 `compass_app` 的多环境、repository/service 与集成测试模式
 
-### Local Supabase
+### 0C. Local Supabase
 - [ ] 初始化 `supabase/`
 - [ ] migrations
 - [ ] 虚构 seed
 - [ ] DB / RLS tests
-- [ ] Mailpit 检查 Email OTP 模板
 - [ ] `db reset` 能从空库重建当前 schema
+- [ ] 评估 `supabase_testing` 用于 Flutter Service/Repository 测试
 
-### Remote Development
-- [ ] 独立 Supabase Project，仅虚构数据
-- [ ] Email OTP 模板使用验证码 token
-- [ ] Windows 新/旧 Auth User OTP 登录
-- [ ] Android 新/旧 Auth User OTP 登录
-- [ ] 错误 / 过期验证码
-- [ ] 请求频率限制 / 429
-- [ ] Session 恢复
-- [ ] 真实邮箱投递延迟
-- [ ] Storage / Edge Functions / 双设备联调
+### 0D. Remote Development
+- [ ] 建立一个 Supabase Free Remote Development，仅虚构数据
+- [ ] 验证 Windows/Android 登录、Session 恢复
+- [ ] 验证 Storage / Edge Functions / 双设备联调
+- [ ] 记录 Free Tier 使用量基线
+- [ ] 不把 Remote Dashboard 变成 schema 第二事实源
 
-### Invitation / Membership Spike
-- [ ] `organization_invitations`
-- [ ] invitation roles
-- [ ] OTP 登录后无 membership 时无业务权限
-- [ ] `accept_invitation`
-- [ ] verified email 必须匹配 invitation
-- [ ] 同一 invitation 重试幂等
-- [ ] 同一 Auth User 第二机构 invitation 基础验证
-- [ ] membership disabled 后旧 Token 仍被 RLS 拒绝
+### 0E. 零成本账号开通 Spike
+- [ ] `profiles`
+- [ ] `organizations`
+- [ ] `organization_memberships(status = onboarding/active/disabled)`
+- [ ] `membership_roles`
+- [ ] `provision_member`
+- [ ] Auth Admin `createUser` + 随机高强度临时密码
+- [ ] 临时密码不写 DB/log/audit
+- [ ] onboarding 时普通业务 RLS 全部拒绝
+- [ ] `complete_member_onboarding`
+- [ ] 设置新密码成功后 membership → active
+- [ ] `reset_member_credential`
+- [ ] reset 后 membership → onboarding，旧 Session 也失去业务权限
+- [ ] disabled membership 旧 Session 仍被 RLS 拒绝
 
-### 邮件与防滥用 Spike
-- [ ] 验证 Remote Development 邮箱投递
-- [ ] 评估 Production Custom SMTP / 等价邮件服务
-- [ ] Auth rate limits
-- [ ] CAPTCHA / 等价防滥用方案是否需要启用
-- [ ] “验证码未收到”用户恢复路径
-
-### 保存可靠性 Spike
+### 0F. 保存可靠性 Spike
 - [ ] 未保存 / 保存中 / 已保存 / 失败状态
 - [ ] 网络失败不清空输入
 - [ ] 本地临时草稿
 - [ ] 简单 insert 重试复用 UUID
 - [ ] 多表 command operation id / 幂等
 
-### GitHub / CI
-- [ ] Flutter format / analyze / test
+### 0G. GitHub / CI
+- [ ] PR：Flutter format / analyze / unit tests
 - [ ] DB migrations / RLS tests
-- [ ] PR 模板
 - [ ] secrets 检查
+- [ ] 不在每个 commit 跑 Windows/Android release build
+- [ ] Milestone/Release 再跑重构建
+- [ ] artifact retention 保持精简
 - [ ] main 以后以 PR 合并为主
 
 ### Phase 0 验收
 - [ ] 新环境从仓库零开始可启动
 - [ ] Local DB 可完整重建
-- [ ] Windows / Android OTP 均可用
-- [ ] Auth User 无 active membership 读不到机构数据
-- [ ] pending invitation 读不到机构数据
-- [ ] invitation 接受幂等
+- [ ] Windows / Android 密码登录可用
+- [ ] onboarding Auth User 读不到学生业务数据
+- [ ] active membership 才能进入业务 RLS
+- [ ] 管理员重置凭据后旧 Session 失去业务权限
 - [ ] 短暂网络失败不丢测试记录
 - [ ] 仓库无真实数据与 Secret
+- [ ] 整条 Phase 0 没有新增现金支出
 
 ---
 
 ## Milestone 1｜机构、成员与租户隔离
 
-目标：两名老师用独立账号加入同一机构，另一机构的数据严格不可见。
+目标：两名老师用独立账号属于同一机构，另一机构的数据严格不可见。
 
 ### Schema / backend
 - [ ] profiles
 - [ ] organizations
 - [ ] roles
-- [ ] organization_invitations
-- [ ] organization_invitation_roles
 - [ ] organization_memberships
 - [ ] membership_roles
 - [ ] 首位 org_admin bootstrap
-- [ ] create / cancel invitation
-- [ ] accept invitation
+- [ ] provision member
+- [ ] complete onboarding
+- [ ] reset credential
 - [ ] disable membership
 - [ ] current organization context
 
 ### 权限
 - [ ] Auth User 无 membership 无业务权限
-- [ ] pending invitation 无业务权限
-- [ ] active membership 才进入 RLS
+- [ ] onboarding membership 无业务权限
+- [ ] active membership 才进入普通业务 RLS
 - [ ] disabled membership 拒绝
 - [ ] 跨机构隔离
-- [ ] invitation verified-email 匹配
+- [ ] provision/reset/admin command 普通教师不能调用
 
 ### 验收
 1. 初始化机构 A 管理员；
-2. 管理员预授权教师甲、乙邮箱；
-3. 两人分别 OTP 登录；
-4. 两人接受 invitation 并成为 active member；
+2. 管理员受控开通教师甲、乙；
+3. 两人分别用临时凭据登录并完成密码接管；
+4. 两人成为 active member；
 5. 机构 B 数据完全不可见；
-6. 停用教师乙后旧 Session 也无法访问机构 A。
+6. 重置或停用教师乙后，其旧 Session 也无法访问机构 A 业务数据。
 
 ---
 
@@ -235,6 +244,7 @@ assessment
 - [ ] 学生负责人综合视角
 - [ ] subject_lead
 - [ ] audit_logs
+- [ ] credential operations 不记录密码
 - [ ] View security_invoker 审计
 - [ ] security definer 最小授权
 - [ ] RLS 索引
@@ -246,8 +256,7 @@ assessment
 ### 发布门槛
 - [ ] 跨机构严格隔离
 - [ ] read/write 权限分离
-- [ ] Auth User 无 membership 无业务权限
-- [ ] pending invitation 无业务权限
+- [ ] Auth User / onboarding member 无业务权限
 - [ ] Secret 不在客户端
 - [ ] 教师交接不留 orphan
 - [ ] 历史可追溯
@@ -256,17 +265,19 @@ assessment
 
 ---
 
-## Milestone 6｜内部发行与可运维性
+## Milestone 6｜内部发行、备份与免费额度运行
 
 - [ ] Windows 安装/升级
 - [ ] Android 签名 APK/AAB 与升级
 - [ ] 签名密钥安全备份
 - [ ] Local / Remote Development / Production 隔离
-- [ ] Production Custom SMTP / 等价邮件能力
-- [ ] OTP 投递与 Auth 限流监控
-- [ ] 崩溃/错误日志无敏感正文/Token
-- [ ] DB 备份与恢复演练
-- [ ] Storage 单独恢复策略
+- [ ] 一个 Free Remote Development + 一个 Free Production Pilot
+- [ ] 监控 DB / Storage / Egress / Actions 免费额度
+- [ ] 崩溃/错误日志无敏感正文/Token/密码
+- [ ] Free Production 定期 `db dump` / `pg_dump`
+- [ ] DB 恢复演练
+- [ ] Storage 单独备份/恢复
+- [ ] Free project inactivity/pause 应对流程
 - [ ] 真实机构网络测试
 - [ ] Production migration + smoke test
 - [ ] 故障应急流程
@@ -285,9 +296,9 @@ Milestone 0–6 核心门槛达成后才进入真实机构内部试运行。
 - 学情
 
 ### V1 核心验收
-1. 两位教师独立 OTP 登录并共同管理同一学生；
+1. 两位教师独立账号共同管理同一学生；
 2. Auth 登录与机构权限分离正确；
-3. pending invitation 不等于 member；
+3. onboarding/disabled 不等于 active；
 4. 学生不因学科/教师/年级重复；
 5. new 快速、confirmed 可靠；
 6. 学情从证据到验证可追溯；
@@ -298,8 +309,8 @@ Milestone 0–6 核心门槛达成后才进入真实机构内部试运行。
 11. 跨机构拒绝；
 12. 普通教师无法越权修改其他学科；
 13. migrations 可重建，不依赖 Dashboard；
-14. Production OTP 邮件基础设施可用；
-15. DB 与 Storage 有恢复路径。
+14. DB 与 Storage 有可验证的免费备份/恢复路径；
+15. 试运行没有自动产生额外费用。
 
 ---
 
@@ -329,7 +340,7 @@ Milestone 0–6 核心门槛达成后才进入真实机构内部试运行。
 
 ---
 
-## V2｜教研资产与 AI 副驾驶
+## V2｜教研资产、AI 与可选现代认证
 
 - [ ] 自然语言转结构化草稿
 - [ ] 相似/重复案例提示
@@ -338,6 +349,7 @@ Milestone 0–6 核心门槛达成后才进入真实机构内部试运行。
 - [ ] 同类案例/方案检索
 - [ ] 教研资产沉淀
 - [ ] AI 输出来源 + 人工确认
+- [ ] 如果已有可靠邮件基础设施，再评估 Email OTP / self-service invitation
 
 ---
 
@@ -362,7 +374,8 @@ Milestone 0–6 核心门槛达成后才进入真实机构内部试运行。
 - 复杂离线双向同步
 - 多平台第三方登录大全
 - 庞大知识图谱
-- 同时维护 Password / Magic Link / OTP 多套登录方式
+- Email OTP / Magic Link / SSO 多套登录同时维护
+- 需要新增现金支出的第三方 SaaS
 
 ---
 
@@ -376,7 +389,8 @@ Milestone 0–6 核心门槛达成后才进入真实机构内部试运行。
 - 核心逻辑有测试；
 - schema/RLS/View/Function/Trigger/Index 变化有 migration；
 - Local DB 可从空库重建；
-- Remote Development 集成场景已验证；
+- 必要 Remote Development 集成场景已验证；
 - 不引入真实隐私数据；
+- 不引入未经 ADR 批准的付费硬依赖；
 - 文档同步；
 - 不破坏既有端到端流程。
