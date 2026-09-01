@@ -27,19 +27,13 @@
 
 理由：项目本质是强关系型、多角色、多租户业务，PostgreSQL 比“每个老师一份本地数据”更符合事实源要求。
 
-## ADR-003｜普通业务客户端直连 Data API，高权限操作走服务端
+## ADR-003｜普通业务客户端直连 Data API，高权限操作受控执行
 
 **状态：Accepted**
 
 普通教师在 RLS 保护下访问有权数据。
 
-以下默认走 Edge Functions/受信任后端：
-- 邀请成员；
-- 高权限角色变化；
-- 学生合并；
-- 批量交接；
-- 受控删除/导出；
-- 需要高权限凭据的第三方服务。
+需要 Auth Admin、Secret 或越权维护的操作走 Edge Functions；数据密集且需要事务一致性的合并/交接等操作可以使用受控 Database Functions。
 
 Flutter 不持有 Secret Key / service_role。
 
@@ -55,23 +49,18 @@ V1 不做套餐、计费、订阅和自助开通。
 
 **状态：Accepted**
 
-同一学生不会因为：
-- 不同老师；
-- 不同学科；
-- 不同年级；
-- 不同校区
-
-重复创建主档案。
+同一学生不会因为不同老师、不同学科、不同年级、不同校区而重复创建主档案。
 
 姓名不是唯一键，重复学生通过提示 + 受控合并解决。
 
-## ADR-006｜年级与教师负责人必须保存历史
+## ADR-006｜年级与负责人必须保存历史
 
 **状态：Accepted**
 
 因此：
 - 年级/校区/班级使用 `student_enrollments`；
-- 教师负责关系使用 `student_teacher_assignments`。
+- 任课教师使用 `student_teacher_assignments`；
+- 学管/班主任等非学科责任关系使用 `student_staff_assignments`。
 
 不允许仅覆盖 students.grade 或 students.teacher_id。
 
@@ -87,19 +76,7 @@ V1 不做套餐、计费、订阅和自助开通。
 
 **状态：Accepted**
 
-教师不重复填写周表。
-
-周度/阶段信息从：
-- lessons
-- learning_cases
-- case_events
-- interventions
-- assessments
-- case_actions
-- observations
-- parent_communications
-
-计算生成。
+教师不重复填写周表。周度/阶段信息从原始教学事实计算生成。
 
 ## ADR-009｜学情案例采用事件历史 + 当前快照
 
@@ -115,41 +92,122 @@ V1 不做套餐、计费、订阅和自助开通。
 
 使用 `case_actions`，而不是只在 learning_cases 上放一个日期字段。
 
-理由：真正的产品价值是“告诉老师接下来做什么”，今日工作台必须有稳定的数据来源。
+一个案例允许存在辅助行动，但通常最多只有一个 pending 主行动；若没有主行动必须能说明暂停原因。
 
-## ADR-011｜课程支持一对多学生
+## ADR-011｜课程支持一对多学生，但课程不是排课 CRM
 
 **状态：Accepted**
 
 使用 `lessons + lesson_students`，一对一只是只有一个 lesson_student。
 
-原因：教培机构存在小班/多人课，如果把 student_id 写死进 lessons，后期必然迁移。
+`lesson` 表示真实教学会话/记录容器，不在 V1 顺势扩张成收费、课消、复杂排课产品。
 
-## ADR-012｜V1 online-first
+## ADR-012｜V1 online-first，但必须保护未提交输入
 
 **状态：Accepted**
 
-云端 PostgreSQL 是事实源。
+云端 PostgreSQL 是正式事实源，V1 不做复杂离线多主同步。
 
-V1 不做复杂离线写入与冲突合并；本地缓存只能改善体验。
-
-原因：离线多主同步会显著增加复杂度和数据冲突风险，不属于第一版核心价值。
+但网络失败不能让教师白填，因此高频表单必须：
+- 有本地临时草稿；
+- 有清楚保存状态；
+- 失败可重试；
+- 云端确认后才视为正式保存。
 
 ## ADR-013｜不做没有验证依据的“学情健康分”
 
 **状态：Accepted**
 
-V1 展示透明事实：
-- 当前重点案例数；
-- 待验证；
-- 逾期行动；
-- 最近解决；
-- 复发情况。
-
-不把人为加权数字包装成科学结论。
+V1 展示透明事实，不把人为加权数字包装成科学结论。
 
 ## ADR-014｜AI 是副驾驶，不是事实源
 
 **状态：Accepted**
 
 AI 可以生成草稿、摘要、相似案例提示；正式学生学情变化必须由授权教师确认并落成结构化事实。
+
+## ADR-015｜完整产品可以有 6 个主入口，但 V1 首发只保 4 个
+
+**状态：Accepted**
+
+完整目标：今日 / 学生 / 课程 / 学情 / 家校 / 报告。
+
+V1 首发：今日 / 学生 / 课程 / 学情。
+
+家校和报告在 V1.1 进入正式导航，避免第一版范围失控。
+
+## ADR-016｜“今日”由行动驱动，不以完整排课为前提
+
+**状态：Accepted**
+
+V1 “今日”主要聚合：
+- 到期/逾期 case_actions；
+- 待验证案例；
+- 高优先级案例；
+- 最近负责学生。
+
+教师可快速开始一次课程，不需要先维护一套排课表。
+
+## ADR-017｜受控分类 + 自由表达双轨
+
+**状态：Accepted**
+
+为了长期统计和教研，学情案例引用轻量 taxonomy；为了保留真实教学表达，案例 title/description 仍为自由文本。
+
+不在 V1 建庞大知识图谱。
+
+## ADR-018｜业务层不得到处直接依赖 Supabase SDK
+
+**状态：Accepted**
+
+Flutter 通过 Repository / Service 边界访问后端。
+
+原因：
+- 可测试；
+- 可替换 fake；
+- 避免页面知道表结构；
+- 若未来因网络、部署、合规或成本调整后端，不重写全部 UI。
+
+这不意味着现在建设多后端抽象平台。
+
+## ADR-019｜V1 正确性不依赖 Realtime
+
+**状态：Accepted**
+
+提交后刷新、页面进入刷新、App resume 和手动刷新必须足以保证正确。
+
+Realtime 只做变更提示和体验增强，避免在第一版增加不必要的连接与授权复杂度。
+
+## ADR-020｜Development 与 Production 从第一天分离
+
+**状态：Accepted**
+
+至少使用两个独立环境：
+- Development：虚构数据；
+- Production：真实机构数据。
+
+数据库、Storage、Secret、测试账号不混用。
+
+## ADR-021｜首位机构管理员使用一次性受控 Bootstrap
+
+**状态：Accepted**
+
+邀请制无法自己产生第一个管理员，因此通过受信任运维/一次性流程初始化首位 org_admin，完成后关闭该入口。
+
+绝不在 Flutter 中内置超级管理员 Secret。
+
+## ADR-022｜学情状态和验证结果是两类事实
+
+**状态：Accepted**
+
+一次 assessment passed 不自动意味着案例 stable/closed。
+
+`stable` 表示已有证据支持改善但仍观察；`closed` 表示退出主动跟进。复发后 reopen 原案例。
+
+## ADR-023｜暴露的派生 View 必须显式处理 RLS 语义
+
+**状态：Accepted**
+
+客户端可访问的 View 优先使用 `security_invoker = true` 或通过不暴露 schema/受控函数提供。
+
+不允许因为“只是统计 View”而成为绕过 RLS 的后门。
