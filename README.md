@@ -106,6 +106,7 @@ V1 暂不做：
 - [系统架构](docs/ARCHITECTURE.md)
 - [核心数据模型](docs/DATA_MODEL.md)
 - [Excel 原型到软件模型的转换](docs/EXCEL_TO_PRODUCT.md)
+- [架构与产品决策记录](docs/DECISIONS.md)
 - [安全与隐私基线](docs/SECURITY_AND_PRIVACY.md)
 - [开发路线](docs/ROADMAP.md)
 - [Codex / 开发约束](AGENTS.md)
