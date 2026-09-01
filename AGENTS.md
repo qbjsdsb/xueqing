@@ -107,6 +107,7 @@ Flutter 只允许 Publishable Key（或旧项目 anon key）。
 - 时间用 timestamptz；
 - 纯日期使用 date；
 - 数据库保存 UTC；
+- 系统 created_at/updated_at 优先服务器生成；
 - 升年级/交接使用历史关系表。
 
 ### 历史
@@ -150,7 +151,39 @@ Flutter 只允许 Publishable Key（或旧项目 anon key）。
 
 RLS 高频过滤列必须考虑索引。
 
-## 9. 高权限操作
+## 9. 不变量敏感命令
+
+RLS 只解决“谁能改”，不能单独解决“这样改是否合法”。
+
+以下操作不得在 ViewModel 里拼多次 CRUD 或直接随便更新 status：
+- confirm/transition/reopen learning case；
+- 替换当前主 case_action；
+- complete lesson；
+- 教师交接；
+- 学生合并；
+- 停用成员并转交当前责任。
+
+这些操作优先通过 Repository 暴露业务命令，并在数据库事务/受控函数中再次验证：
+- 当前状态；
+- 权限；
+- expected version；
+- 多表一致性；
+- operation id / 幂等。
+
+不要写出这种页面级逻辑：
+
+```text
+update learning_cases.status
+insert case_events
+update case_actions
+insert assessment
+```
+
+然后假定四个请求永远全部成功。
+
+具体规则见 `docs/COMMANDS_AND_INVARIANTS.md`。
+
+## 10. 高权限操作
 
 以下默认不能从 Flutter 直接用高权限凭据完成：
 - 首位 org_admin bootstrap；
@@ -163,7 +196,7 @@ RLS 高频过滤列必须考虑索引。
 
 Edge/Database Function 也必须验证调用者 Session、机构与权限。
 
-## 10. Flutter 开发原则
+## 11. Flutter 开发原则
 
 - 优先小而完整的垂直闭环。
 - 页面状态与业务状态分开。
@@ -177,7 +210,7 @@ Edge/Database Function 也必须验证调用者 Session、机构与权限。
 - 添加第三方依赖前先说明解决了什么问题；不为“流行”引包。
 - 状态管理/DI 方案一旦选定写 ADR，不允许多个框架无序混用。
 
-## 11. 保存可靠性
+## 12. 保存可靠性
 
 V1 online-first，但“网络失败不丢当前输入”是硬要求。
 
@@ -185,21 +218,23 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 - 展示未保存/保存中/已保存/失败；
 - 网络失败保留输入；
 - 必要时本地持久化临时 draft；
-- 重试考虑 operation id / idempotency，避免重复创建；
+- 简单 insert 重试复用同一 client-generated UUID；
+- 多表命令考虑 operation id / idempotency；
 - 云端成功前不显示为正式已保存。
 
 本地 draft 不是第二套业务数据库。
 
-## 12. 并发与 Realtime
+## 13. 并发与 Realtime
 
 - 关键当前状态对象可使用 `version` 乐观并发；
+- command 携带 expected_version；
 - 冲突时不静默覆盖；
 - 追加型事实优先追加而不是覆盖长文本；
 - V1 正确性不能依赖 Realtime；
 - Realtime 只做体验增强；
 - 不实现 Google Docs 式同字段协作。
 
-## 13. 隐私
+## 14. 隐私
 
 禁止提交真实：
 - 学生姓名与联系方式；
@@ -214,15 +249,18 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 
 日志与审计不要复制完整敏感正文。
 
-## 14. 测试最低要求
+## 15. 测试最低要求
 
 ### 业务逻辑
 - 状态机；
+- 非法状态跳转拒绝；
 - stable / closed / reopen；
 - 主行动唯一性/暂停理由；
 - 教师交接；
 - 派生指标；
-- 网络失败重试与防重复提交。
+- expected_version 冲突；
+- 网络失败重试与防重复提交；
+- 多表事务中间失败不留半套数据。
 
 ### 权限
 至少覆盖：
@@ -236,7 +274,7 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 ### Flutter
 重要 ViewModel / Repository 有单元测试；关键高频流程至少有 widget/integration 验证策略。
 
-## 15. UI 原则
+## 16. UI 原则
 
 - “今日”优先展示下一步，而不是统计大屏。
 - V1 今日以 case_actions/待验证为主，不假设完整排课存在。
@@ -246,7 +284,7 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 - 不制造没有可靠依据的“学情健康分”。
 - 保存状态必须明确可见。
 
-## 16. Git 与提交
+## 17. Git 与提交
 
 较大功能应：
 - 使用 feature/review branch；
@@ -260,20 +298,21 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 
 `main` 进入真实开发后应以 PR 合并为主，不长期直接写入。
 
-## 17. 完成定义
+## 18. 完成定义
 
 一个功能只有同时满足以下条件才算完成：
 - 正常路径可用；
 - 错误/空状态可理解；
 - 网络失败路径可恢复；
 - 权限验证通过；
+- 不变量敏感写入有事务/命令保障；
 - 关键逻辑有测试；
 - migration 可从空库执行；
 - 不含真实隐私和秘密；
 - 文档同步；
 - 不破坏既有端到端场景。
 
-## 18. V1 暂不做
+## 19. V1 暂不做
 
 - 排课收费 CRM
 - 大型题库
