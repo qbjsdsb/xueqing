@@ -11,7 +11,8 @@ V1 的技术架构优先保证：
 5. 历史可追溯，人员变化不破坏数据；
 6. 代码可测试、可迁移、可持续由 Codex/开发者维护；
 7. 不为“未来可能有的复杂功能”提前堆叠微服务；
-8. Supabase 是 V1 基础设施选择，但业务代码不与具体 SDK 到处耦合。
+8. Supabase 是 V1 基础设施选择，但业务代码不与具体 SDK 到处耦合；
+9. 数据库 schema 和权限状态能够从 Git 中的 migration 可重复重建。
 
 ## 2. 总体架构
 
@@ -95,27 +96,59 @@ Phase 0 不为了“流行”先引入复杂框架。
 
 状态管理库在正式 Flutter 初始化时结合首条垂直闭环决定；一旦选择应写入 ADR，不允许多套框架并存。
 
-## 5. 环境配置
+## 5. 开发环境与数据库事实源
 
-至少区分：
+至少区分三种语境：
 
-### Development
-- 虚构数据；
-- 开发 Supabase Project；
-- 可以频繁迁移/重置。
+### Local Development
+用于 schema、RLS、View、Function、Trigger、Index 和数据库测试的主要开发环境。
+
+正式初始化后仓库应包含 `supabase/` 目录：
+
+```text
+supabase/
+  config.toml
+  migrations/
+  seed.sql
+  tests/
+  functions/
+```
+
+**Git 中的 migrations 才是数据库结构的正式开发事实源。**
+
+本地流程应能够从空库运行 migration + 虚构 seed，重建当前开发 schema。
+
+### Remote Development
+独立 Supabase Project，仅使用虚构数据，负责本地环境难以完全覆盖的集成验证：
+- Windows / Android 同一云端数据；
+- Auth 邮件邀请、密码恢复；
+- redirect / deep link；
+- Storage；
+- Edge Functions；
+- 公网延迟、Session 与多设备。
+
+Remote Development 不是 schema 的第二事实源。任何远程临时 schema 试验最终都必须回到 migration。
 
 ### Production
 - 真实机构数据；
 - 独立 Supabase Project；
-- 受控迁移和备份。
+- 独立 Auth / Storage / Secret；
+- 只执行经过评审和测试的 migration；
+- 禁止开发 seed 和测试 reset。
 
-后期需要时再加 Staging。
+后期确有发布链路需要时再增加 Staging。
 
-客户端公开配置（Supabase URL、Publishable Key、App Env 等）通过 typed `AppConfig` + build-time define/CI 注入；不要为了隐藏本来就公开的 Publishable Key 引入“假安全”的密钥方案。
+详细工作流见 `DEVELOPMENT_WORKFLOW.md`。
 
-**Secret Key、service_role、数据库密码、AI 私钥永远只存在受信任服务端环境。**
+## 6. Flutter 配置边界
 
-## 6. Data API 与受控服务端操作
+客户端公开配置（Supabase URL、Publishable Key、App Env、App Version 等）通过 typed `AppConfig` + build-time define/CI 注入。
+
+不要为了隐藏本来就公开的 Publishable Key 引入“假安全”的客户端加密方案。
+
+**Secret Key、service_role、数据库密码、AI 私钥、邮件服务 Secret 永远只存在受信任服务端环境。**
+
+## 7. Data API 与受控服务端操作
 
 ### Data API 适合
 - 教师读取本人有权学生；
@@ -147,7 +180,7 @@ Phase 0 不为了“流行”先引入复杂框架。
 
 不要把所有高权限业务都机械塞进 Edge Function，也不要把所有逻辑都堆进数据库。
 
-## 7. RLS 与 View 安全
+## 8. RLS 与 View 安全
 
 所有客户端可访问业务表默认：
 - 启用 RLS；
@@ -160,7 +193,7 @@ RLS 高频使用的成员、机构、assignment 条件必须建立合适索引�
 
 如果通过 View 给客户端提供“今日”“周度摘要”等派生数据，必须明确 View 的权限语义。在支持的 PostgreSQL 版本上，暴露 View 优先使用 `security_invoker = true`，让底层 RLS 生效；否则放进不暴露 schema 或通过受控函数提供。
 
-## 8. 数据一致性：不能只靠 RLS
+## 9. 数据一致性：不能只靠 RLS
 
 RLS 决定“谁能访问”，但不替代业务一致性。
 
@@ -172,7 +205,7 @@ RLS 决定“谁能访问”，但不替代业务一致性。
 
 因此 schema 还需要外键、组合约束、部分唯一索引、触发器或事务函数。
 
-## 9. 保存可靠性与最小本地持久化
+## 10. 保存可靠性与最小本地持久化
 
 V1 是 online-first，不做复杂多主离线同步，但必须保护教师输入。
 
@@ -199,7 +232,7 @@ V1 是 online-first，不做复杂多主离线同步，但必须保护教师输�
 
 本地草稿不是第二个业务事实源，只是待提交缓存。
 
-## 10. 并发
+## 11. 并发
 
 V1 不做同字段实时协同编辑。
 
@@ -210,7 +243,7 @@ V1 不做同字段实时协同编辑。
 
 追加型事件/干预/验证天然更适合多人协作，尽量减少多人覆盖同一长文本字段。
 
-## 11. Realtime 定位
+## 12. Realtime 定位
 
 **V1 正确性不能依赖 Realtime。**
 
@@ -224,7 +257,7 @@ Realtime 只用于“别人刚更新了”的提示和体验增强。
 
 后续若需要高频实时通知，优先评估 Supabase Broadcast/private channels；不要为了看起来“实时”就给大量表默认打开 Postgres Changes。
 
-## 12. 网络与后端可迁移性
+## 13. 网络与后端可迁移性
 
 真实机构上线前必须在实际使用网络环境测试：
 - 登录可达性；
@@ -238,7 +271,7 @@ Repository/Service 边界应保证：如果未来因为网络、部署地区、�
 
 这不是现在就做“多后端”，而是避免业务层直接绑定 Supabase 表查询细节。
 
-## 13. Storage
+## 14. Storage
 
 附件默认私有 bucket。
 
@@ -255,7 +288,7 @@ Repository/Service 边界应保证：如果未来因为网络、部署地区、�
 - 删除数据库记录与 Storage 对象需要受控一致性流程；
 - 备份方案必须单独覆盖 Storage，因为数据库备份不等于附件备份。
 
-## 14. 日志与可观测性
+## 15. 日志与可观测性
 
 日志可记录：
 - operation id；
@@ -272,7 +305,7 @@ Repository/Service 边界应保证：如果未来因为网络、部署地区、�
 
 生产错误必须能定位“哪类操作失败”，但不能靠泄露学生内容来调试。
 
-## 15. Flutter 平台职责
+## 16. Flutter 平台职责
 
 ### Windows
 偏向：
@@ -292,7 +325,7 @@ Repository/Service 边界应保证：如果未来因为网络、部署地区、�
 
 两端共享同一业务模型和 API，不维护两套规则。
 
-## 16. 不采用的架构
+## 17. 不采用的架构
 
 V1 明确不采用：
 - 每个老师一份本地数据库再人工同步；
@@ -301,9 +334,10 @@ V1 明确不采用：
 - 复杂 offline-first CRDT；
 - 所有请求都绕 Edge Function；
 - 所有业务逻辑都写在 Flutter；
-- 所有业务逻辑都写成数据库 trigger。
+- 所有业务逻辑都写成数据库 trigger；
+- 以远程 Dashboard 当前状态作为不可追溯的 schema 事实源。
 
-## 17. 上线前技术门槛
+## 18. 上线前技术门槛
 
 正式真实数据上线前必须完成：
 - migration 从空库重建；
