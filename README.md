@@ -6,7 +6,7 @@
 
 **Foundation v0.3｜产品、架构、权限、数据模型与运行风险评审阶段。**
 
-当前仓库已经完成软件正式开发前的核心设计收敛，但 **还不是完整可运行的 Flutter 工程**。`lib/` 只是产品方向的源码占位；下一步应使用当前稳定 Flutter 正式初始化 Windows + Android 工程，并建立 Supabase Development 环境。
+当前仓库已经完成软件正式开发前的核心设计收敛，但 **还不是完整可运行的 Flutter 工程**。`lib/` 只是产品方向的源码占位；下一步应使用当前稳定 Flutter 正式初始化 Windows + Android 工程，并建立 Supabase 本地开发环境与独立 Remote Development 项目。
 
 > 在安全、权限、备份、真实网络和合规门槛通过前，禁止录入真实学生、家长或教师隐私数据。
 
@@ -76,13 +76,16 @@ Supabase Storage  → 私有附件
 GitHub            → 源码、migration、Issue、PR、CI
 ```
 
+开发层面再明确一条：**数据库 schema、RLS、View、Function、Trigger、Index 的正式事实源是 Git 中的 migrations，而不是某个远程 Dashboard 当前碰巧的状态。**
+
 关键边界：
 - Flutter 只能持有 Publishable Key；
 - Secret/service_role 不进入客户端或 GitHub；
 - 业务层通过 Repository / Service 访问后端，不在页面里散落数据库查询；
 - RLS 负责“谁能访问”，状态机/多表一致性由事务化业务命令继续约束；
 - V1 online-first，但网络失败不能让老师刚填的记录丢失；
-- Realtime 只做体验增强，不能成为数据正确性的前提。
+- Realtime 只做体验增强，不能成为数据正确性的前提；
+- 本地 Supabase CLI 用于可重复的 schema/RLS 开发，Remote Development 用于真实 Auth、深链、Storage、双设备和公网联调。
 
 ## V1 验收重点
 
@@ -98,7 +101,8 @@ V1 不按“页面数量”验收，而按真实流程：
 - 跨机构访问在数据库层拒绝；
 - View/Function 不能成为绕过 RLS 的后门；
 - 非法状态跳转和多表半成功不能破坏数据；
-- 数据库和 Storage 都有恢复路径。
+- 数据库和 Storage 都有恢复路径；
+- 一个新开发环境能仅依赖仓库中的代码、migration、配置说明和虚构 seed 重建当前开发基线。
 
 ## 项目铁律
 
@@ -113,6 +117,7 @@ V1 不按“页面数量”验收，而按真实流程：
 9. 网络失败不能让高频记录凭空消失。
 10. “今日”不能偷偷扩张成收费排课 CRM。
 11. AI 只做副驾驶。
+12. 数据库正式变化必须进入 migration，不能长期依赖 Dashboard 手工状态。
 
 ## 文档导航
 
@@ -128,8 +133,9 @@ V1 不按“页面数量”验收，而按真实流程：
 - [业务命令、事务与不变量](docs/COMMANDS_AND_INVARIANTS.md)
 - [架构与产品决策记录](docs/DECISIONS.md)
 
-### 安全与交付
+### 安全、开发与交付
 - [安全、隐私与恢复基线](docs/SECURITY_AND_PRIVACY.md)
+- [开发、数据库与发布工作流](docs/DEVELOPMENT_WORKFLOW.md)
 - [风险清单与运行要求](docs/RISKS_AND_OPERATIONS.md)
 - [开发路线](docs/ROADMAP.md)
 - [Codex / 开发约束](AGENTS.md)
@@ -138,11 +144,12 @@ V1 不按“页面数量”验收，而按真实流程：
 
 1. 把 GitHub 仓库设为 **Private**；
 2. 用当前稳定 Flutter 正式初始化 Windows + Android 工程；
-3. 建立 Development Supabase（仅虚构数据）；
-4. 先做双平台 Auth/邀请/密码恢复 Spike；
-5. 建立 migrations + 最小 Organization/Membership/RLS；
-6. 验证网络失败草稿恢复与幂等重试；
-7. 以“两位老师共同管理一个虚构学生”为第一条端到端场景；
-8. 再进入学生、学情案例、课程和今日工作台。
+3. 初始化本地 Supabase CLI 环境与 migrations / seed / tests；
+4. 建立独立 Remote Development Supabase（仅虚构数据）；
+5. 先做双平台 Auth/邀请/密码恢复与 redirect/deep-link Spike；
+6. 建立最小 Organization/Membership/RLS，并从空库重建验证；
+7. 验证网络失败草稿恢复与幂等重试；
+8. 以“两位老师共同管理一个虚构学生”为第一条端到端场景；
+9. 再进入学生、学情案例、课程和今日工作台。
 
 不要在 Phase 0 风险尚未验证时直接大规模开发页面。
