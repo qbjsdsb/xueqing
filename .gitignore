@@ -5,6 +5,7 @@
 .pub/
 build/
 coverage/
+*.log
 
 # IDE
 .idea/
@@ -19,12 +20,17 @@ macos/Pods/
 windows/flutter/ephemeral/
 linux/flutter/ephemeral/
 
+# Supabase local tooling
+supabase/.temp/
+
 # Environment and secrets
 .env
 .env.*
 !.env.example
 *.jks
 *.keystore
+*.p12
+*.pem
 
 # OS
 .DS_Store
@@ -32,6 +38,11 @@ Thumbs.db
 
 # Local data / exports
 *.sqlite
+*.sqlite3
 *.db
 local_data/
 exports/
+backups/
+
+# Local test attachments / fixtures that may contain private data
+private_fixtures/
