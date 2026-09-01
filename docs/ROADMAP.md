@@ -123,10 +123,9 @@
 目标：让老师每天愿意打开，而不是让老师专门“填系统”。
 
 - [ ] lessons / lesson_students
-- [ ] lesson_case_actions
 - [ ] 今日工作台
 - [ ] 课前遗留与待验证
-- [ ] 快速课中记录
+- [ ] 快速课中记录：直接落为 intervention / assessment / case_event
 - [ ] 30–60 秒课后完成流程
 - [ ] 自动完成/创建下一步行动
 
