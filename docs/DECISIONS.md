@@ -182,9 +182,11 @@ Realtime 只做变更提示和体验增强，避免在第一版增加不必要�
 
 **状态：Accepted**
 
-至少使用两个独立环境：
-- Development：虚构数据；
+至少使用两个独立远程环境语义：
+- Remote Development：虚构数据与集成测试；
 - Production：真实机构数据。
+
+此外使用本地 Supabase CLI 作为数据库结构与 RLS 的主要开发/测试环境。
 
 数据库、Storage、Secret、测试账号不混用。
 
@@ -211,3 +213,37 @@ Realtime 只做变更提示和体验增强，避免在第一版增加不必要�
 客户端可访问的 View 优先使用 `security_invoker = true` 或通过不暴露 schema/受控函数提供。
 
 不允许因为“只是统计 View”而成为绕过 RLS 的后门。
+
+## ADR-024｜Git migrations 是数据库结构的正式事实源
+
+**状态：Accepted**
+
+Schema、RLS、View、Function、Trigger、Index 的正式变化必须进入版本化 migration。
+
+本地 Supabase CLI 用于从空库重建和数据库测试；Remote Development 用于 Auth、Storage、Edge Functions、双平台和公网集成验证。
+
+不允许长期形成“Git 一套 schema、Dashboard 另一套 schema”。
+
+## ADR-025｜数据库支持多机构账号，V1 UX 不强行实现复杂跨机构加入
+
+**状态：Accepted**
+
+Auth User 与 Organization Membership 分离，所以长期模型允许一个账号属于多个机构。
+
+但 Supabase 标准 invite 对已确认用户不是“再次加入另一个机构”的通用入口。V1 首机构试运行优先保证单机构账号流程清晰；真正出现跨机构共享账号需求后，再实现受控 link-existing-user 流程。
+
+不通过重复创建 Auth User 来伪造多机构支持。
+
+## ADR-026｜分类 schema 先稳定，复杂分类管理 UI 后置
+
+**状态：Accepted**
+
+V1 数据模型保留 `organization_subjects` 与轻量 taxonomy，以保证长期统计口径。
+
+但首版不建设复杂知识图谱或庞大分类配置后台：
+- 先提供少量稳定 seed/default；
+- 允许“其他/暂未分类”；
+- 机构只需要最小启用/停用能力；
+- 复杂分类治理在真实数据证明有需要后再扩展。
+
+这样既避免自由文本污染统计，也避免教师在录入前先维护一套庞大字典。
