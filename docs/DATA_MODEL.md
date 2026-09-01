@@ -10,6 +10,7 @@
 - 历史优先追加事件，避免用一段不断覆盖的长文本保存全过程。
 - 关键表考虑 `created_at / updated_at / archived_at`。
 - 需要防止并发覆盖的对象增加 `version`。
+- 冗余保存 `organization_id` 是为了 RLS 与查询效率，但必须用约束防止子表与父表出现跨机构错配。
 
 ## 2. 身份与机构
 
@@ -124,7 +125,7 @@ V1 固定角色字典，例如：
 
 V1 不需要家长登录账号也可以使用这套关系。
 
-## 5. 学科与师生关系
+## 5. 学科与师生/学管关系
 
 ### `subjects`
 学科字典，例如语文、数学、英语。
@@ -143,17 +144,19 @@ V1 不需要家长登录账号也可以使用这套关系。
 建议唯一约束：`(organization_id, student_id, subject_id)`。
 
 ### `student_teacher_assignments`
-记录谁在什么时间负责该学生的哪门学科。
+记录教师与某个学生在一段时间内的教学/管理关系。
 
 - `id`
 - `organization_id`
 - `student_id`
-- `subject_id`
+- `subject_id`（主讲/协作教师必填；班主任/学管可为空）
 - `membership_id`
-- `assignment_role`：lead / collaborator / homeroom
+- `assignment_role`：lead / collaborator / homeroom / advisor
 - `active_from`
 - `active_to`
 - `status`
+
+建议数据库 CHECK：`lead / collaborator` 必须有 `subject_id`；`homeroom / advisor` 可以为空。
 
 教师交接是结束旧 assignment + 新建新 assignment，不覆盖历史负责人。
 
@@ -191,6 +194,7 @@ V1 不需要家长登录账号也可以使用这套关系。
 - `id`
 - `organization_id`
 - `learning_case_id`
+- `lesson_id`（可选，用于说明该变化发生在哪次课）
 - `event_type`：created / confirmed / status_changed / reopened / owner_changed / note_added / archived 等
 - `actor_membership_id`
 - `occurred_at`
@@ -244,12 +248,13 @@ V1 不需要家长登录账号也可以使用这套关系。
 - `assigned_membership_id`
 - `action_type`：reteach / practice / verify / communicate / review / other
 - `title`
-- `due_at`
+- `due_at`（可选；无法确定具体时间时允许为空）
+- `due_lesson_id`（可选；明确安排到某次课时使用）
 - `status`：pending / done / cancelled
 - `completed_at`
 - `created_at`
 
-建议业务约束：一个未结束案例通常只保留一个“当前主行动”，旧行动完成/取消后再产生下一项，避免待办无限堆积。
+业务原则：未结束案例至少要能说明下一步；不强制数据库只能存在一个 pending action，但 UI 应突出一个主行动，避免待办堆积失控。
 
 ## 9. 课程
 
@@ -273,14 +278,16 @@ V1 不需要家长登录账号也可以使用这套关系。
 
 一对一课程只是 lesson_students 里只有一个学生。
 
-### `lesson_case_actions`
-关联某次课实际处理了哪些案例。
+### 课程与案例如何关联
+不再额外维护一张会重复事实的“课程案例结果表”。
 
-- `lesson_id`
-- `learning_case_id`
-- `student_id`
-- `result`：passed / partial / failed / observed
-- `notes`（可选）
+一次课程中：
+- 做了教学处理 → 写 `interventions.lesson_id`；
+- 做了验证 → 写 `assessments.lesson_id`；
+- 发生纯状态/观察变化 → 写 `case_events.lesson_id`；
+- 新增/完成下一步 → 写 `case_actions`。
+
+这样“这节课处理了哪些案例”可以从上述事实反查，避免与 assessment/intervention 冲突。
 
 ## 10. 综合观察
 
@@ -290,6 +297,7 @@ V1 不需要家长登录账号也可以使用这套关系。
 - `student_id`
 - `observer_membership_id`
 - `subject_id`（可空）
+- `lesson_id`（可选）
 - `category`：homework / attention / participation / avoidance / study_habit / other
 - `fact_text`
 - `observed_at`
@@ -351,7 +359,20 @@ V1 不需要家长登录账号也可以使用这套关系。
 
 只有确有需要的高风险操作保存脱敏 before/after 摘要，避免审计表成为第二份敏感正文数据库。
 
-## 14. 派生数据
+## 14. 租户一致性约束
+
+仅仅“每张表都有 organization_id”还不够。
+
+例如 `case_evidence.organization_id = B` 却关联到机构 A 的 learning_case，数据已经被污染。
+
+因此实现 migration 时应优先使用：
+- 父表 `(organization_id, id)` 唯一约束；
+- 子表 `(organization_id, parent_id)` 组合外键；
+- 或等价的数据库约束/触发器保证同租户关联。
+
+RLS 负责“谁能访问”，约束负责“数据本身不可能跨租户错绑”，两者缺一不可。
+
+## 15. 派生数据
 
 以下优先通过 View / Materialized View / SQL Function / 查询层计算，而不是教师重复录入：
 
@@ -364,7 +385,7 @@ V1 不需要家长登录账号也可以使用这套关系。
 - 阶段报告基础指标；
 - 机构高频问题分布。
 
-## 15. 查重与学生合并
+## 16. 查重与学生合并
 
 不要用姓名做硬唯一约束。
 
@@ -375,7 +396,7 @@ V1 建议：
 4. 合并必须记录 source_student_id → target_student_id 映射与审计；
 5. 不允许普通教师自行硬删除重复学生。
 
-## 16. 从 Excel 到数据库的关键改变
+## 17. 从 Excel 到数据库的关键改变
 
 - `students.grade` → 改为 enrollment 历史；
 - “授课老师” → 改为 assignment 历史；
