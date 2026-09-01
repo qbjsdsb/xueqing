@@ -1,15 +1,15 @@
 # 安全、隐私与恢复基线
 
-> 本文是 V1 开发的最低门槛。系统涉及未成年学生信息，任何功能不得以“先跑起来”为理由绕过这些要求。
+> V1 最低安全门槛。系统涉及未成年学生信息，任何功能不得以“先跑起来”为理由绕过这些要求。
 
 ## 1. 数据最小化
 
-系统只收集完成教学目的真正需要的数据。
+只收集完成教学目的真正需要的数据。
 
 ### A. 身份与联系信息（高敏感）
 - 学生姓名
 - 家长姓名与联系方式
-- 教师联系方式
+- 教师邮箱/联系方式
 - 学校、班级等可组合识别信息
 
 ### B. 教学与学情信息（敏感）
@@ -20,222 +20,262 @@
 - 成长报告
 
 ### C. 系统元数据
-- 用户 ID、机构 ID、角色、操作时间、对象 ID
+- Auth User ID
+- organization / membership / role / assignment ID
+- 操作时间与对象 ID
 
-开发与测试环境仅允许使用明显虚构数据。
+开发、测试、截图、seed 仅使用明显虚构数据。
 
-不要因为“以后可能有用”就顺手记录家庭状况、健康、身份背景等与教学目的无关的敏感信息。
+不要因为“以后可能有用”收集与教学目的无关的家庭、健康、身份背景等敏感信息。
 
-## 2. 自由文本风险
+## 2. Email OTP 与机构授权安全边界
 
-最容易泄露隐私的地方通常不是结构化字段，而是老师随手写的备注。
+V1 首选 Passwordless Email OTP。
+
+关键原则：
+- OTP 只证明用户控制某邮箱；
+- Auth Session 不等于机构权限；
+- 没有 active membership 的 Auth User 不能读取机构业务数据；
+- pending invitation 也不能读取机构业务数据；
+- invitation 只能由 verified email 匹配的当前用户接受；
+- membership disabled 后，旧 Token 仍必须被数据库拒绝。
+
+### OTP 本身
+- App 日志不得记录验证码；
+- 错误上报不得包含 OTP、Access Token、Refresh Token；
+- Production 配置合理 Auth rate limits；
+- 根据暴露程度启用 CAPTCHA/等价防滥用；
+- OTP 错误/过期/频繁请求只返回必要信息，避免账号枚举提示；
+- 未授权 Auth User 只能看到“尚未获得机构授权”，不能搜索机构/教师/学生。
+
+### 邮件基础设施
+Production 登录依赖邮件投递，因此：
+- 使用可靠 Custom SMTP 或等价邮件服务；
+- SMTP Secret 只在受信任服务端配置；
+- 不进入 Flutter/GitHub；
+- 定期验证主要教师邮箱域的投递和延迟；
+- 邮件模板不泄露机构敏感数据。
+
+## 3. Invitation 数据也是个人信息
+
+`organization_invitations` 包含教师邮箱，属于需要保护的身份信息。
+
+要求：
+- 普通 authenticated 用户不能枚举 pending invitations；
+- 管理员只管理自己机构 invitations；
+- 接受 invitation 使用当前 verified email 服务端匹配；
+- 不把“某邮箱是否被某机构邀请”作为公开查询接口；
+- 取消/接受后的 invitation 保留期限按实际制度确定，不无限保留无业务价值数据。
+
+## 4. 自由文本风险
+
+最容易泄露隐私的地方往往是备注，而不是结构化字段。
 
 因此：
 - Observation 强调可观察事实；
-- 家校沟通只保留教学服务所需摘要；
-- 不鼓励把聊天全文长期复制进系统；
+- 家校沟通只保存必要摘要；
+- 不鼓励长期复制聊天全文；
 - 不把人格判断、未经证实的健康/家庭推断写成正式学情；
-- UI 可通过提示文案提醒教师避免无关敏感信息。
+- UI 提示避免输入无关敏感信息。
 
-## 3. 客户端密钥边界
+## 5. 客户端密钥边界
 
-Flutter 客户端只允许持有 Supabase Publishable Key（或旧项目的 anon key）。这些是设计为公开客户端使用的凭据，安全依赖 RLS，而不是依赖“把 key 藏起来”。
+Flutter 只允许持有 Supabase Publishable Key（或旧项目 anon key）。它是公开客户端凭据，安全依赖 RLS/GRANT，而不是“把 key 藏起来”。
 
-客户端绝对不得出现：
-- Secret Key；
-- service_role key；
-- 数据库密码；
-- 私密 AI API Key；
-- 邮件/第三方服务 Secret。
+客户端绝不得包含：
+- Secret Key
+- service_role
+- 数据库密码
+- SMTP Secret
+- AI/第三方私钥
 
-高权限凭据只放受信任服务端环境变量。
+高权限凭据只放受信任服务端环境。
 
-## 4. 数据库访问
+## 6. 数据库访问
 
-所有对客户端开放的业务表必须：
-1. 显式启用 RLS；
-2. 按最小权限设置 GRANT；
-3. 分别验证 SELECT / INSERT / UPDATE / DELETE；
-4. 默认拒绝跨机构访问；
-5. 对敏感跨学科数据默认拒绝；
-6. 对 RLS 高频过滤列建立合适索引。
+所有客户端业务表：
+1. 显式 RLS；
+2. 最小 GRANT；
+3. SELECT / INSERT / UPDATE / DELETE 分别验证；
+4. 跨机构默认拒绝；
+5. 敏感跨学科默认拒绝；
+6. 高频 RLS 字段建立索引。
 
-前端隐藏按钮不构成安全控制。
+前端隐藏按钮不是安全控制。
 
-## 5. View 与函数安全
+## 7. View 与 Function
 
 ### View
-用于“今日”“阶段指标”等派生数据的 View 可能成为绕过 RLS 的入口。
-
-暴露给客户端的 View：
-- 优先使用 `security_invoker = true`；
-- 或放在不暴露 schema；
-- 必须单独做越权测试。
+客户端暴露 View：
+- 优先 `security_invoker = true`；
+- 或放非 exposed schema / 受控函数；
+- 单独做越权测试。
 
 ### Database Function
-默认使用 `security invoker`。
+默认 `security invoker`。
 
 确需 `security definer`：
-- 放非 exposed schema；
+- 非 exposed schema；
 - `set search_path = ''`；
-- 表/函数名显式带 schema；
-- revoke 默认执行权限，再按需 grant；
-- 不能因为“函数跑通了”就省略权限测试。
+- schema-qualified；
+- revoke 默认 execute，再最小 grant；
+- 必须有越权测试。
 
-## 6. 多租户隔离
+## 8. 多租户隔离
 
-- 机构级数据必须明确归属 `organization_id`；
-- RLS 首要条件是当前用户存在 active membership；
-- 普通教师继续检查师生/学科 assignment；
-- 学管/学生负责人检查独立 staff assignment；
-- 任何跨机构查询都必须被数据库拒绝，即使客户端手工构造请求。
+- 机构数据明确 `organization_id`；
+- active membership 是机构访问第一道业务条件；
+- teacher 继续检查 student/subject assignment；
+- advisor 检查 staff assignment；
+- 跨机构请求数据库层拒绝；
+- 冗余 organization_id 防止跨机构错配。
 
-冗余 organization_id 必须防止跨机构错配，不能只相信客户端传参。
+Auth User 的存在、JWT 的存在、pending invitation 的存在都不能替代 active membership 检查。
 
-## 7. 高权限操作
+## 9. 高权限与不变量操作
 
-以下默认必须走受控服务端：
-- 首位机构管理员初始化；
-- 邀请/停用机构成员；
-- 提升管理员权限；
+受控操作包括：
+- 首位 org_admin bootstrap；
+- 创建/取消 invitation；
+- accept_invitation；
+- 角色提升；
+- teacher handoff + disable；
 - 学生合并；
-- 跨教师批量交接；
 - 数据导出/删除；
-- 需要绕过普通 RLS 的维护任务。
+- 需要 Secret 的第三方集成。
 
-高权限函数必须验证调用者 Session、机构和能力，而不是因为函数本身持有 Secret 就直接执行。
+其中不是所有操作都需要 service_role，但都必须在服务端/数据库命令中再次验证 actor、organization、状态与参数。
 
-## 8. 审计原则
+## 10. 审计
 
-必须记录关键治理动作，但审计日志不能无节制复制敏感正文。
-
-建议记录：
-- actor_user_id / actor_membership_id；
-- organization_id；
-- entity_type / entity_id；
+记录关键治理动作：
+- actor user/membership；
+- organization；
+- entity type/id；
 - action；
-- changed_fields；
+- changed fields；
 - operation id；
 - occurred_at。
 
-只有确有追溯价值的高风险变更保存脱敏 before/after 摘要。
+不要把 audit_logs 变成第二份学生敏感正文数据库。
 
-`case_events` 和 `audit_logs` 原则上 append-only，不给普通业务流程开放任意历史修改。
+`case_events` 与 `audit_logs` 原则上 append-only。
 
-## 9. 删除、归档与更正
+## 11. 删除、归档与更正
 
-- 教师离职：停用 membership，不删除历史教学记录；
-- 学生退班：默认归档，不直接硬删除；
-- 普通教师不得硬删除核心业务事实；
-- 误录可通过纠正事件/归档语义处理，不偷偷覆盖历史；
-- 学生合并必须保留 merge 映射和审计；
-- 真正的个人信息删除/导出请求作为管理员受控流程，根据实际法规和机构制度执行。
+- 教师离职：disable membership，不删除历史；
+- 学生退班：归档；
+- 普通教师不硬删除核心事实；
+- 误录通过更正事件/归档语义处理；
+- 学生合并保留 merge mapping；
+- 真正个人信息删除/导出走管理员数据治理流程。
 
-## 10. 附件
+不要把日常“删除按钮”直接映射成跨表 cascade delete。
 
-试卷、作文图片等默认使用私有 Storage Bucket：
-- 不使用公开 bucket；
-- 访问通过授权策略或短时签名 URL；
-- 对象路径包含 organization_id 与不可猜测 ID；
-- 不用真实姓名作为公开文件名；
-- 上传前限制文件类型和大小；
-- 后期根据需要增加恶意文件扫描。
+## 12. Storage
 
-## 11. 环境隔离
+附件默认私有 bucket：
+- 不公开 bucket；
+- 授权访问或短时签名 URL；
+- 路径含 organization_id + 不可猜测 UUID；
+- 不用真实姓名做公开路径；
+- 限制文件类型/大小；
+- 后续按需要评估恶意文件扫描。
 
-至少区分：
-- development：虚构数据；
-- production：真实机构数据。
+DB 记录删除与 Storage 对象删除要走受控一致性流程。
 
-正式上线前按需要增加 staging。
+## 13. 环境隔离
 
-生产数据库迁移必须使用版本化 migration；不能只依赖 Dashboard 人工操作。
+明确三种环境：
+- Local Development：虚构数据；
+- Remote Development：虚构数据/真实集成；
+- Production：真实机构数据。
 
-Development 与 Production 不共享 Secret、数据库、Storage bucket 或测试账号。
+Production 与开发环境不共享数据库、Storage、Secret、SMTP、测试账号。
 
-## 12. 日志与错误上报
+Schema/RLS 等正式变化必须进入 Git migrations。
 
-生产日志不得包含：
-- 密码；
-- Access/Refresh Token；
-- Secret；
-- 完整家长沟通；
-- 完整作文/试卷正文；
-- 不必要的学生姓名/联系方式。
+## 14. 日志与错误上报
 
-错误追踪优先使用：错误码、operation id、对象 UUID、App version 和调用路径定位。
+不得记录：
+- OTP
+- Access/Refresh Token
+- Secret
+- 完整家校沟通
+- 完整作文/试卷
+- 不必要学生姓名/联系方式
 
-## 13. 备份不是一句“Supabase 有备份”
+优先记录：错误码、operation id、对象 UUID、App version、调用路径。
 
-必须分开考虑：
+## 15. 备份与恢复
 
-### PostgreSQL 数据库
-- 明确平台当前备份能力；
-- 明确保留周期；
-- 定期做恢复演练，而不是只确认“备份存在”。
+### PostgreSQL
+- 明确备份能力/保留周期；
+- 定期恢复演练。
 
-### Storage 文件
-数据库备份不等于 Storage 对象备份。
+### Storage
+数据库备份不等于附件备份。
 
-如果生产依赖试卷/作文附件，必须单独设计：
-- Storage 对象清单；
+需要：
+- 对象清单；
 - 文件备份；
-- 恢复验证；
-- DB object path 与实际对象一致性检查。
+- 抽样恢复；
+- DB path ↔ Storage object 一致性检查。
 
-### 代码与 Schema
-- GitHub 保存代码和 migrations；
-- 能从空数据库重建 schema；
-- 但 migrations 不能替代真实业务数据备份。
+### Git / Schema
+GitHub 保存代码和 migrations，但 migrations 不替代业务数据备份。
 
-## 14. 网络与可用性
+## 16. 网络与可用性
 
-正式机构部署前，在真实使用网络验证：
-- 登录；
+真实机构上线前测试：
+- Email OTP 投递和验证；
 - 常规读写；
 - 图片上传；
-- Edge Functions；
+- Functions；
 - 长时间 Session；
 - Wi-Fi/移动网络切换；
-- 断网/恢复后的草稿保存。
+- 断网/恢复后的草稿。
 
-不能只在开发者自己的网络环境跑通就判定可上线。
+不能只在开发者自己的网络环境判断可上线。
 
-## 15. 客户端保存状态
+## 17. 客户端保存状态
 
-任何高频表单至少有：
-- 未保存；
-- 保存中；
-- 已保存；
-- 保存失败/可重试。
+高频表单至少有：
+- 未保存
+- 保存中
+- 已保存
+- 保存失败/可重试
 
-网络失败时不得静默丢弃教师输入。
+网络失败不得丢输入；本地 draft 只用于待提交恢复，不是第二套正式数据库。
 
-本地草稿只用于恢复待提交内容，不作为第二套正式数据库。
-
-## 16. 安装包与签名
+## 18. 安装包与签名
 
 ### Android
-- 签名 keystore 不进入 GitHub；
-- 签名文件需要独立安全备份；
-- Debug 包不得作为生产长期分发方案。
+- keystore 不进 GitHub；
+- 安全备份；
+- 不以 Debug 包长期生产分发。
 
 ### Windows
 - 明确安装/升级渠道；
-- 后续正式机构部署评估代码签名，降低安装警告与篡改风险。
+- 正式部署评估代码签名，降低安装警告和篡改风险。
 
-## 17. 上线前门槛
+## 19. 真实数据 Go / No-Go
 
-正式录入真实学生数据前至少完成：
-- RLS/GRANT 测试覆盖关键表与角色；
-- View/Function 安全审计；
-- 管理员高权限操作服务端化；
-- 密钥扫描与 `.gitignore` 检查；
-- 数据库备份/恢复演练；
-- Storage 备份/恢复方案；
-- 账号停用与教师交接演练；
-- 学生合并/查重策略验证；
-- 网络失败输入恢复验证；
-- 日志中无 Token/Secret/完整敏感正文；
-- 真实网络环境连通性测试；
-- 根据实际部署地区完成未成年人个人信息、机构授权与数据合规评估。
+至少完成：
+- 仓库私有/等价源码控制；
+- Local / Remote Development / Production 隔离；
+- migrations 从空库重建；
+- RLS/GRANT/View/Function 越权测试；
+- Auth User 无 membership 无业务权限；
+- pending invitation 无业务权限；
+- Windows/Android OTP 测试；
+- Production SMTP/邮件服务、rate limits、防滥用配置；
+- 网络失败输入恢复与幂等；
+- 教师交接演练；
+- 学生合并/查重治理；
+- DB 恢复演练；
+- Storage 恢复方案；
+- 日志无 OTP/Token/Secret/敏感正文；
+- 实际机构网络测试；
+- 安装/升级路径；
+- 根据部署地区完成未成年人个人信息、机构授权与数据合规评估。
