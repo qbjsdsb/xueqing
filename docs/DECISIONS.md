@@ -132,7 +132,7 @@ Local Supabase CLI 用于 schema/RLS 开发测试；Remote Development 用虚构
 
 **状态：Accepted**
 
-由受信任流程初始化首位 active membership，完成后关闭入口；不在 Flutter 内置超级管理员 Secret。
+由受信任流程初始化首位 org_admin，完成后关闭入口；不在 Flutter 内置超级管理员 Secret。
 
 ## ADR-022｜学情状态和验证结果是两类事实
 
@@ -154,11 +154,9 @@ Schema、RLS、View、Function、Trigger、Index 的正式变化进入 migration
 
 ## ADR-025｜基于 Supabase Invite Link 的跨机构账号方案
 
-**状态：Superseded by ADR-027**
+**状态：Superseded**
 
-早期方案依赖 `inviteUserByEmail` + deep link，并对已确认 Auth User 的第二机构加入单独设计 link-existing-user。
-
-反向评审后发现 Email OTP 可以把新/旧 Auth User 统一成同一登录流程，因此该方案不再作为 V1 首选。
+早期方案依赖 `inviteUserByEmail` + deep link。后续先被 Email OTP 方案替代，最终 V1 又因零额外付费约束切换到 ADR-030。
 
 ## ADR-026｜分类 schema 先稳定，复杂分类 UI 后置
 
@@ -166,50 +164,21 @@ Schema、RLS、View、Function、Trigger、Index 的正式变化进入 migration
 
 保留 `organization_subjects` + 轻量 taxonomy；首版只提供少量默认节点、“其他/暂未分类”和最小启用/停用能力，复杂治理后置。
 
-## ADR-027｜V1 首选 Passwordless Email OTP，机构授权与 Auth 登录分离
+## ADR-027｜V1 首选 Passwordless Email OTP
 
-**状态：Accepted（Phase 0 必须实测）**
+**状态：Superseded by ADR-030**
 
-V1 首选：
+OTP 能统一 Windows/Android、新旧 Auth User 和多机构登录体验，但真实机构使用需要可靠邮件投递。Supabase 默认 SMTP 并非 Production 登录基础设施。
 
-```text
-管理员创建 organization_invitation(email)
-           ↓
-教师 App 输入邮箱 → Email OTP
-           ↓
-verifyOtp 建立 Auth Session
-           ↓
-系统按 verified email 匹配 pending invitation
-           ↓
-accept_invitation 创建 active membership + roles
-```
-
-理由：
-- Windows / Android 登录 UX 一致；
-- 不依赖自定义 deep link；
-- 不需要 V1 密码设置/恢复主流程；
-- 新 Auth User、已有 Auth User 使用同一登录方式；
-- 同一 Auth User 被第二机构邀请时也能用同一 membership 模型处理；
-- 业务权限仍严格由 active membership/RLS 控制。
-
-有意识接受的代价：
-- `shouldCreateUser=true` 时，无邀请用户也可能创建一个没有机构权限的 Auth User；
-- Production 必须配置 rate limiting / CAPTCHA 或等价防滥用；
-- Production 登录邮件需要可靠 Custom SMTP/等价服务，不依赖默认 best-effort 邮件服务。
-
-如果 Phase 0 在真实机构邮箱投递、成本或体验上证明 OTP 不可接受，再新增 ADR 评估 Password/Magic Link/SSO；不并行维护多套登录方案。
+用户明确要求本阶段**不额外花钱**后，继续把 Custom SMTP/域名作为 V1 硬依赖不再合理，因此 OTP 降为未来可替换登录 UX。
 
 ## ADR-028｜Invitation 与 Membership 是两个不同领域对象
 
-**状态：Accepted**
+**状态：Deferred for V1**
 
-`organization_invitations` 只表示某邮箱被机构预授权加入；pending invitation 没有业务数据权限。
+Invitation 与正式 Membership 的概念区分仍然正确；但 ADR-030 的封闭内部账号开通流程不需要 V1 先维护 invitation 表。
 
-`organization_memberships` 只表示已经加入机构的 Auth User，状态主要为 active/disabled。
-
-接受 invitation 是受控、幂等事务：verified email 匹配 → membership + roles → invitation accepted。
-
-这样邮件/OTP/Auth 的生命周期不会污染正式成员权限状态。
+未来如果启用 Email OTP / 自助加入，再重新引入 `organization_invitations`，不能把 pending invitation 当成正式权限。
 
 ## ADR-029｜课堂问题采用“快速捕捉 → 课后确认”两段式
 
@@ -217,4 +186,89 @@ accept_invitation 创建 active membership + roles
 
 课中 `new` 只需极少字段，目标 10–20 秒；正式 `confirmed` 再要求 taxonomy、owner、最小 evidence、主行动或 pause reason。
 
-这是数据质量与教师填写负担之间的核心平衡，后续实现不得把完整表单重新塞回课堂捕捉流程。
+## ADR-030｜V1 零额外付费认证：管理员受控开通 + 临时密码 + Onboarding
+
+**状态：Accepted**
+
+V1 面向少量、已知、内部教师，不开放公网注册。
+
+流程：
+
+```text
+org_admin
+  ↓
+provision_member（可信服务端）
+  ↓
+Auth Admin createUser(email + 随机临时密码 + email_confirm)
+  ↓
+membership = onboarding + roles
+  ↓
+教师用临时密码登录
+  ↓
+complete_member_onboarding 设置自己的新密码
+  ↓
+membership = active
+```
+
+理由：
+- 不需要 SMTP、短信、域名或第三方登录；
+- Supabase Auth Admin 创建用户不会强制发送确认邮件；
+- 临时凭据可通过机构已有可信渠道一次性交付；
+- onboarding membership 不得读取学生业务数据；
+- 忘记密码先由管理员核验后受控重置，再回 onboarding；
+- 旧 Session 是否立即失效不作为唯一安全保证，因为非 active membership 会被 RLS 拒绝。
+
+临时密码不得落数据库、日志、审计或 GitHub，只在创建/重置成功时返回一次。
+
+Email OTP 保留为未来可替换登录层；更换登录方式不得重写 membership / roles / assignments。
+
+## ADR-031｜V1 采用零额外付费 Pilot 基础设施，不假装具备商业 SLA
+
+**状态：Accepted**
+
+本阶段默认：
+- GitHub Free private repository；
+- GitHub Actions 免费额度内的精简 CI；
+- Supabase Local CLI；
+- 一个 Free Remote Development；
+- 一个 Free Production Pilot；
+- 不购买额外 Work/Codex credits、SMTP、域名、短信、AI API 或商业 SaaS。
+
+Supabase Free 当前容量足以小规模内部 Pilot，但 Free 项目可能因低活动暂停，且没有与付费计划相同的自动备份保障。因此：
+- 定期 `db dump` / `pg_dump`；
+- Storage 单独备份；
+- 恢复演练；
+- 使用量接近免费额度前先评审，不自动升级/付费。
+
+“0 元”是 V1 约束，不是承诺永远不为生产可靠性付费。真实机构高度依赖系统后应重新做风险/成本评审。
+
+## ADR-032｜ChatGPT Project + Work 是云端主控，GitHub/CI 是事实与执行证据
+
+**状态：Accepted**
+
+长期云端开发采用：
+- 一个 ChatGPT Project：`Xueqing｜学情闭环开发`；
+- 如果需要在 Project 内使用 Work，使用当前支持 Work 的 memory 配置，不启用会禁用 Work 的 Project-only memory；
+- GitHub connector 读取/修改真实仓库；
+- 一个可验收目标通常对应一条 Work 会话和一个 PR；
+- GitHub 是源码事实源；聊天记忆不是代码事实源；
+- migrations 是数据库结构事实源；
+- 需要真正运行命令/构建时由 Codex 或 GitHub Actions 提供执行证据。
+
+Work/Codex 达到方案内包含用量后等待重置，不购买额外 credits。
+
+模型策略：Luna 用于高频云端工作；用户界面若提供 Luna + Max reasoning，则把 Max 优先留给 RLS、migration、事务、并发、安全和 Milestone 终审，不用高推理预算做机械改名/格式化。
+
+## ADR-033｜开源项目借鉴“模式”，不 Fork 大型学校 ERP
+
+**状态：Accepted**
+
+主要参考：
+- Flutter 官方 `flutter/samples/compass_app`：多环境、Repository/Service、测试；
+- `supabase/supabase-flutter`：Local stack 与 `supabase_testing`；
+- AppFlowy：真实 Flutter 跨平台、隐私、发行维护；
+- Frappe Education / Gibbon：教育领域历史关系、角色、长期模块化运营。
+
+不直接 fork 大而全教育 ERP，也不把收费、排课、招生、财务等能力带入 Xueqing V1。
+
+详细边界见 `docs/OPEN_SOURCE_REFERENCES.md`。
