@@ -104,6 +104,7 @@ V1 暂不做：
 
 - [产品蓝图](docs/PRODUCT.md)
 - [系统架构](docs/ARCHITECTURE.md)
+- [账号、邀请与权限模型](docs/AUTH_AND_PERMISSIONS.md)
 - [核心数据模型](docs/DATA_MODEL.md)
 - [Excel 原型到软件模型的转换](docs/EXCEL_TO_PRODUCT.md)
 - [架构与产品决策记录](docs/DECISIONS.md)
