@@ -12,10 +12,11 @@
 - [ ] Repository / Service / ViewModel
 - [ ] 数据库 schema / migration
 - [ ] RLS / GRANT / View / Function / Trigger
-- [ ] Auth / invitation / membership / 权限
+- [ ] Auth / membership / credential / 权限
 - [ ] Storage
 - [ ] 本地草稿 / 幂等 / 并发
-- [ ] 发布 / 运维
+- [ ] 发布 / 运维 / 备份
+- [ ] GitHub Actions / 云端开发
 - [ ] 文档
 - [ ] 其他
 
@@ -43,7 +44,8 @@
 
 ## Auth 与权限
 
-- [ ] pending invitation 没有机构业务数据权限
+- [ ] Auth User 无 active membership 时没有普通机构业务权限
+- [ ] onboarding / disabled membership 均被普通业务 RLS 拒绝
 - [ ] active membership 才进入正式授权链
 - [ ] 没有把 user_metadata 当作 RLS 权限事实源
 - [ ] RLS 与最小 GRANT 已同步考虑
@@ -51,7 +53,8 @@
 - [ ] View 不会绕过底层 RLS
 - [ ] security definer Function 固定 search_path 且最小授权
 - [ ] 高权限 Auth Admin / Secret 不进入 Flutter
-- [ ] invite / resend / accept / disable 等流程可安全重试
+- [ ] provision / onboarding / reset / disable 等流程可安全重试
+- [ ] 临时/正式密码没有进入 DB、log、audit、fixture 或 PR 内容
 
 ## 数据库与 Migration
 
@@ -70,17 +73,28 @@
 - [ ] 日志/审计没有复制不必要的敏感正文
 - [ ] 新自由文本字段有明确教学用途
 
+## 零额外付费检查
+
+- [ ] 没有新增需要额外付费的 SMTP / 域名 / SMS / AI API / SaaS
+- [ ] 没有要求 Supabase Pro/add-on 才能完成 V1
+- [ ] 没有使用 GitHub Actions larger runner
+- [ ] CI / artifact 策略不会无意义消耗免费额度
+- [ ] 若引入任何外部服务，已说明免费层、上限、超额行为和迁出方案
+- [ ] 如确实需要新增现金支出，已有单独 ADR；否则不得静默引入
+
 ## 可靠性与并发
 
 - [ ] 网络失败不会静默丢输入
 - [ ] 云端未确认前不会伪装“已保存”
 - [ ] 简单 insert 重试复用 ID 或等价去重
-- [ ] 多表命令考虑 operation id / 幂等
+- [ ] 多表/高权限命令考虑 operation id / 幂等
 - [ ] 并发修改不会静默覆盖关键状态
-- [ ] 事务中间失败不会留下半套业务状态
+- [ ] 事务/跨系统中间失败不会留下不安全半状态
 - [ ] 错误/空状态对用户可理解
 
-## 测试
+## 测试与执行证据
+
+<!-- 必须区分“代码审查认为正确”和“命令真实执行过”。 -->
 
 - [ ] format / analyze
 - [ ] Flutter 单元测试
@@ -89,11 +103,23 @@
 - [ ] 手工端到端用户流程
 - [ ] 网络失败/重试场景（如相关）
 - [ ] Windows / Android 双平台场景（如相关）
+- [ ] 上述勾选项确实执行过；不能执行的项已明确标为未验证
+
+### 实际执行的命令 / CI
+
+<!-- 粘贴命令名、workflow/check 名称和结果摘要；不要粘贴 Secret/真实学生数据。 -->
+
+## 开源参考 / 新依赖
+
+- [ ] 如果参考外部项目，已说明“借鉴什么 / 不复制什么”
+- [ ] 新依赖有真实必要性
+- [ ] 许可证适合当前使用
+- [ ] 没有因为 starter/开源项目而绕过本项目 RLS/不变量
 
 ## 文档与 ADR
 
 - [ ] README / PRODUCT / USER_FLOWS / ARCHITECTURE / AUTH / DATA_MODEL / COMMANDS / ROADMAP（按需）已同步
-- [ ] DEVELOPMENT_WORKFLOW / RISKS_AND_OPERATIONS（按需）已同步
+- [ ] DEVELOPMENT_WORKFLOW / RISKS / ZERO_COST / OPEN_SOURCE_REFERENCES（按需）已同步
 - [ ] 改变关键架构决定时已更新 `docs/DECISIONS.md`
 - [ ] 不与现有 ADR 静默冲突
 
@@ -104,4 +130,5 @@
 - [ ] 若涉及 Production schema/Auth，已说明 smoke test
 - [ ] 若涉及附件，考虑 Storage 与 DB 一致性/恢复
 - [ ] 若涉及客户端版本，考虑旧版兼容
+- [ ] 若涉及真实数据，确认 DB/Storage 备份路径
 - [ ] 若风险不适用，已在上方说明原因
