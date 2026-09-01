@@ -1,10 +1,11 @@
 name: xueqing_closed_loop
-description: 机构教学协作与学生成长学情闭环管理软件
+description: 机构教学协作与学生成长闭环系统
 publish_to: "none"
 version: 0.1.0+1
 
 environment:
-  sdk: ">=3.4.0 <4.0.0"
+  sdk: ">=3.8.0 <4.0.0"
+  flutter: ">=3.32.0"
 
 dependencies:
   flutter:
@@ -14,7 +15,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
