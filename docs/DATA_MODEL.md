@@ -216,14 +216,14 @@ V1 只做轻量层级，不建设庞大知识图谱。案例标题仍允许自�
 - `organization_id`
 - `student_subject_profile_id`
 - `owner_membership_id`
-- `case_type`：knowledge / habit / exam_strategy / other
-- `taxonomy_node_id`（可选，但优先填写）
-- `title`
-- `description`
-- `root_cause_summary`（当前判断，可修改但要留事件）
-- `priority`：low / medium / high / urgent
+- `case_type`：knowledge / habit / exam_strategy / other（`new` 草稿可暂空，confirmed 前补齐）
+- `taxonomy_node_id`（`new` 草稿可空，confirmed 前原则上补齐）
+- `title`（快速捕捉时的最小必填业务内容）
+- `description`（可选）
+- `root_cause_summary`（可选；当前判断，修改要留事件）
+- `priority`：low / medium / high / urgent（可有默认值）
 - `status`：new / confirmed / intervening / pending_verification / stable / closed
-- `pause_reason`（可选；明确暂不安排下一步时使用）
+- `pause_reason`（可选；confirmed 及后续明确暂不安排下一步时使用）
 - `first_observed_at`
 - `stable_at`
 - `closed_at`
@@ -237,10 +237,12 @@ V1 只做轻量层级，不建设庞大知识图谱。案例标题仍允许自�
 “顽固问题”不单独建第二份业务台账，通过规则/标签从 learning_case 派生。
 
 ### 状态语义约束
+- `new` 是快速捕捉/草稿态，可以暂时没有完整 taxonomy、原因和主行动；
+- `confirmed` 表示进入正式跟进，此时必须满足正式分类和“主行动或 pause_reason”等确认条件；
 - 一次 `assessment.result = passed` 不自动等于 `status = stable/closed`；
 - `stable` 表示已有改善证据但仍观察；
 - `closed` 表示退出主动跟进，原则上不应仍存在 pending 主行动；
-- reopen 重新激活同一案例，并增加 `reopened_count`；
+- `reopen` 是命令/事件，不是 status；执行后重新进入合适 active 状态，并增加 `reopened_count`；
 - 误建/不再适用的案例走受控 archive/cancel 语义，不能改历史让它“从未存在”。
 
 ### `case_events`
@@ -319,7 +321,7 @@ V1 只做轻量层级，不建设庞大知识图谱。案例标题仍允许自�
 业务约束：
 - 一个案例可以同时存在辅助行动，但通常最多只有一个 pending `is_primary = true` 的主行动；
 - 用 partial unique index 或受控写入保证“当前主行动”不会互相冲突；
-- 未结束案例如果没有主行动，必须有明确 `pause_reason`，避免“没人知道下一步做什么”；
+- `new` 草稿不强制主行动；从 `confirmed` 开始的主动跟进案例，如果没有 pending 主行动，必须有明确 `pause_reason`；
 - 行动完成不是删除，保留历史。
 
 ## 9. 课程
