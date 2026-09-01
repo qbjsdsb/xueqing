@@ -10,145 +10,189 @@
 
 ## Phase 0｜工程、认证与运行风险验证
 
-目标：在业务开发前，先证明 Windows + Android + Supabase 这条技术路线真的能稳定支撑机构使用。
+目标：在业务开发前，先证明 Windows + Android + Supabase 这条技术路线真的能稳定支撑机构使用，而且任何新环境都能从仓库重建开发基线。
 
 ### Flutter 工程
 - [ ] 使用当前稳定 Flutter 正式初始化 Windows + Android 工程
 - [ ] 建立 feature-first 目录与 View / ViewModel / Repository / Service 边界
-- [ ] 建立统一 AppConfig 与 development / production 环境切换
+- [ ] 建立统一 AppConfig 与环境切换
+- [ ] 提交应用项目 `pubspec.lock`
 - [ ] 配置格式化、静态分析、基础测试
 - [ ] 禁止业务代码到处直接调用 `Supabase.instance.client`
 
+### Local Supabase
+- [ ] 初始化 `supabase/` 目录
+- [ ] 使用 Supabase CLI 启动本地 stack
+- [ ] 建立版本化 migrations
+- [ ] 建立虚构 `seed.sql`
+- [ ] 建立数据库/RLS测试目录
+- [ ] 验证 `db reset` 能从空库重建当前 schema
+
+### Remote Development Supabase
+- [ ] 建立独立 Remote Development Project
+- [ ] 配置 Auth / Redirect URLs
+- [ ] 配置私有 Storage 测试 bucket
+- [ ] 部署必要 Edge Function Spike
+- [ ] 只使用虚构数据
+- [ ] 明确 Remote Development 不是 schema 的第二事实源
+
 ### 认证技术 Spike
-- [ ] 验证 Windows 邮箱登录/首次激活流程
-- [ ] 验证 Android 邮箱登录/首次激活流程
-- [ ] 验证邀请/重置密码链接的回跳方案
-- [ ] 明确“首位 org_admin”一次性初始化方案
-- [ ] 明确账号停用后现有 Session 的失效/刷新策略
+- [ ] 验证 Windows 新邮箱邀请/首次激活
+- [ ] 验证 Android 新邮箱邀请/首次激活
+- [ ] 验证邀请过期/重发/取消
+- [ ] 验证密码恢复
+- [ ] 验证 App 已运行/未运行时 redirect/deep link
+- [ ] 验证错误 redirect allowlist 的恢复体验
+- [ ] 明确首位 org_admin 一次性 bootstrap
+- [ ] 验证 membership disabled 后旧 Session 仍被 RLS 拒绝
+- [ ] 已 confirmed Auth User 跨机构场景若 V1 不支持，必须明确提示而不是未知失败
 
-> 如果邮件邀请深链在 Windows/Android 上体验不可接受，必须在进入 Milestone 1 前调整账号方案，而不是把风险拖到最后。
-
-### Supabase Development
-- [ ] 建立 Development 项目
-- [ ] 配置 Auth
-- [ ] 建立版本化 migration 目录
-- [ ] 创建最小 profiles / organizations / memberships
-- [ ] 建立 RLS 测试基线
-- [ ] 客户端只使用 Publishable Key
+> 如果邮件邀请/深链在 Windows 或 Android 上体验不可接受，必须在进入 Milestone 1 前调整账号方案。
 
 ### 保存可靠性 Spike
 - [ ] 表单有未保存 / 保存中 / 已保存 / 保存失败状态
 - [ ] 网络请求失败不清空教师输入
 - [ ] 支持本地临时草稿或等价恢复机制
-- [ ] 明确“云端确认成功”才算正式保存
+- [ ] 简单 insert 重试复用同一 UUID
+- [ ] 多表 command 使用 operation id 或等价幂等机制
+- [ ] 云端确认成功才算正式保存
 
 ### GitHub / CI
 - [ ] CI：format / analyze / test
-- [ ] PR 模板
-- [ ] migration 与 RLS 检查约定
+- [ ] 数据库 migration / RLS tests 进入 CI
+- [ ] PR 模板覆盖 schema / RLS / 隐私 / 恢复影响
 - [ ] secrets 检查
-- [ ] main 分支后续采用 PR 合并，避免长期直接提交
+- [ ] main 后续以 PR 合并为主
 
 ### Phase 0 验收
-- [ ] 新环境可按文档从零启动项目
-- [ ] Windows 与 Android 都能连接 Development Supabase
-- [ ] 一名测试用户能完成可接受的首次登录
+- [ ] 新环境仅依赖仓库文档可从零启动
+- [ ] Local DB 能 migrations + seed + tests 全量重建
+- [ ] Windows 与 Android 都能连接 Remote Development
+- [ ] 一名非技术测试用户能完成首次登录
 - [ ] 未登录用户不能读取业务表
-- [ ] 网络短暂失败不会丢掉正在编辑的测试记录
+- [ ] 网络短暂失败不会丢正在编辑记录
 - [ ] 仓库不含真实业务数据和私密密钥
 
 ---
 
-## Milestone 1｜账号、机构与租户隔离
+## Milestone 1｜账号、邀请、机构与租户隔离
 
-目标：两名老师真正拥有不同账号，但属于同一机构；另一机构的数据严格不可见。
+目标：两名老师使用不同账号加入同一机构；pending invitation 没有业务权限；另一机构的数据严格不可见。
 
+### Schema / backend
 - [ ] profiles
 - [ ] organizations
+- [ ] roles
+- [ ] organization_invitations
+- [ ] organization_invitation_roles
 - [ ] organization_memberships
 - [ ] membership_roles
 - [ ] 首位管理员 bootstrap
-- [ ] 管理员邀请/激活成员
-- [ ] 停用成员
+- [ ] create / resend / cancel invitation
+- [ ] accept invitation → active membership
+- [ ] 停用 membership
 - [ ] Session 恢复与当前机构上下文
+
+### 权限
+- [ ] pending invitation 无业务数据权限
+- [ ] active membership 才进入 RLS 授权链
 - [ ] RLS：跨机构隔离
-- [ ] 权限测试：A 机构用户绝对读不到 B 机构数据
+- [ ] disabled membership 拒绝访问
+- [ ] 已确认邮箱不错误走 new-user invite
+- [ ] invitation 重发不产生重复 invitation/member
 
 ### 验收场景
-1. 初始化机构 A 的管理员；
+1. 初始化机构 A 管理员；
 2. 管理员邀请教师甲、教师乙；
-3. 两人使用独立账号登录；
-4. 两人均属于机构 A；
-5. 机构 B 的测试数据对两人完全不可见；
-6. 教师乙被停用后不能继续访问机构 A 的业务数据。
+3. 两人完成激活并拥有独立 active membership；
+4. pending invitation 在激活前读不到学生数据；
+5. 两人属于机构 A；
+6. 机构 B 测试数据完全不可见；
+7. 教师乙被停用后，即使持有旧 Token 也无法访问机构 A。
 
 ---
 
 ## Milestone 2｜学生统一主档案、分类与人员关系
 
-目标：机构里“一个学生就是同一个人”，并且学情分类能够长期统计而不被自由文本污染。
+目标：机构里“一个学生就是同一个人”，同时保证分类可统计但不增加教师高频录入负担。
 
-- [ ] students
+- [ ] students（含 merged 语义）
 - [ ] academic_terms / student_enrollments
-- [ ] subjects / organization subjects
-- [ ] 学科模块/能力分类的最小受控字典
+- [ ] subjects / organization_subjects
+- [ ] 少量默认 taxonomy + “其他/暂未分类”
 - [ ] student_subject_profiles
 - [ ] student_teacher_assignments
-- [ ] 非学科学生负责人关系（学管/班主任）
+- [ ] active lead 责任唯一性基础约束
+- [ ] student_staff_assignments
 - [ ] 学生列表 / 搜索
 - [ ] 新建学生时重复提示
 - [ ] 查看当前与历史负责人员
-- [ ] 教师交接历史
-- [ ] 受控学生合并设计
+- [ ] 教师交接基础流程
+- [ ] 受控学生合并设计 + merge record
 
 ### 验收场景
-教师甲和教师乙打开“王同学”，看到的是同一个 `student_id`；教师甲换岗后历史仍保留；“阅读理解”分类不会因为不同老师自由写法而拆成多个统计口径。
+- 教师甲和乙打开“王同学”看到同一个 `student_id`；
+- 教师甲换岗后历史仍保留；
+- 学管不被伪装成某门学科教师；
+- “阅读理解”等高频问题能落入稳定分类口径；
+- 老师仍可用自然语言表达具体问题，不必先维护知识图谱。
 
 ---
 
 ## Milestone 3｜第一条完整学情闭环
 
-目标：先把一个案例真正从发现跑到验证，而不是同时开发很多半成品页面。
+目标：先把一个案例从快速捕捉跑到确认、干预、验证、稳定和复发，不同时开发大量半成品页面。
 
+### 数据与命令
 - [ ] learning_cases
-- [ ] case_events（追加型）
+- [ ] case_events（append-only）
 - [ ] case_evidence
 - [ ] interventions
 - [ ] assessments
 - [ ] case_actions
+- [ ] `new` 快速草稿
+- [ ] `confirm_case`
 - [ ] 状态机与状态语义
-- [ ] stable / closed / reopen 规则
-- [ ] 案例时间轴
-- [ ] 乐观并发基础
-- [ ] 关键业务写入尽量事务化
+- [ ] stable / closed / reopen
+- [ ] 主行动唯一性 / pause_reason
+- [ ] owner / taxonomy / evidence 确认条件
+- [ ] 乐观并发 expected_version
+- [ ] 多表命令幂等
 
 ### 端到端验收
 
 ```text
-发现“阅读概括漏点”
+课堂发现“阅读概括漏点”
   ↓
-建立案例 + 分类 + 证据
+10–20 秒保存 new 草稿
+  ↓
+课后确认分类 + 最小 evidence + owner
   ↓
 创建主行动“相似题训练”
   ↓
+confirm_case
+  ↓
 记录干预
   ↓
-创建主行动“次课验证”
+主行动“次课验证”
   ↓
 记录 assessment
   ↓
-教师确认进入 stable
+教师确认 stable
   ↓
-观察期后关闭
+观察后 closed
   ↓
-后续若复发 → reopen，历史仍完整
+复发 → reopen 原案例
 ```
 
 ### 数据一致性验收
-- 一次 `passed` 不自动等于 `closed`；
-- 同一案例不能同时出现多个互相冲突的“当前主行动”；
-- case_events 不允许普通业务流程随意覆盖历史；
-- 子表 organization_id 与父对象机构必须一致。
+- `new` 可以轻量，`confirmed` 必须满足正式条件；
+- 一次 passed 不自动等于 stable/closed；
+- 同一案例不能存在冲突的多个当前主行动；
+- case_events 普通业务流程不能随意覆盖；
+- 子表 organization_id 与父对象一致；
+- taxonomy 与学生学科一致；
+- 非法状态跳转被数据库/命令拒绝。
 
 ---
 
@@ -159,20 +203,26 @@
 > 本阶段不开发完整排课系统。
 
 - [ ] lessons / lesson_students
-- [ ] 从学生页快速开始一次课程
+- [ ] 从学生页快速开始课程
 - [ ] “今日”聚合到期/逾期 case_actions、待验证和重点案例
 - [ ] 课前遗留摘要
-- [ ] 快速课中记录直接落为 intervention / assessment / event
+- [ ] 课中完成/调整行动
+- [ ] 课中快速 new 草稿
+- [ ] 干预 / assessment 快速记录
+- [ ] `complete_lesson` 事务命令
 - [ ] 30–60 秒课后完成流程
-- [ ] 自动生成下一步行动草稿，但由教师确认正式状态
-- [ ] 网络失败时保存草稿与可恢复
+- [ ] 自动生成下一步行动草稿，由教师确认
+- [ ] 网络失败草稿恢复
+- [ ] 长期未整理 new 草稿提醒，不强迫课后当场全部处理
 
 ### 验收
-至少 5 个虚构学生、2 位教师连续使用一周测试数据：
+至少 5 个虚构学生、2 位教师连续使用一周：
 - 常规课后记录中位时间 ≤ 60 秒；
+- 捕捉 new 问题目标 10–20 秒；
 - 不维护排课表也能完成核心闭环；
 - 网络失败后恢复 App 不丢正在编辑记录；
-- 教师能分辨哪些数据已经云端保存、哪些仍是草稿。
+- 教师能分辨云端已保存与本地草稿；
+- 完成课程不会留下半套多表状态。
 
 ---
 
@@ -183,38 +233,43 @@
 - [ ] 学生负责人/学管综合视角
 - [ ] subject_lead 权限
 - [ ] audit_logs
-- [ ] 高权限操作 Edge Functions / 受控数据库函数
-- [ ] 教师停用与批量交接
-- [ ] 学生合并审计
-- [ ] RLS 自动化测试集
-- [ ] 暴露 View 使用 `security_invoker`
-- [ ] `security definer` 函数固定 `search_path` 且最小授权
-- [ ] RLS 高频过滤列建立必要索引
+- [ ] View `security_invoker` 审计
+- [ ] security definer 固定 search_path + 最小 execute
+- [ ] RLS 高频过滤列索引
+- [ ] teacher handoff 事务
+- [ ] disable membership 最后执行且不留 orphan
+- [ ] merge_students + student_merge_records
+- [ ] RLS / Function 负面自动化测试
 
 ### V1 发布门槛
 - [ ] 不同机构严格隔离
 - [ ] “能看”和“能改”测试分离
-- [ ] Secret Key / service_role 不在客户端
-- [ ] 教师交接不丢历史
+- [ ] pending invitation 无业务权限
+- [ ] Secret/service_role 不在客户端
+- [ ] 教师交接不丢历史/责任项
 - [ ] 关键状态变化可追溯
-- [ ] 数据库可由 migration 从空库重建
+- [ ] 数据库可从 migrations 从空库重建
 - [ ] 高风险操作不可由普通教师直接调用
+- [ ] View/Function 不能成为 RLS 后门
 
 ---
 
 ## Milestone 6｜内部发行与可运维性
 
-在“能用”之后、真实机构扩大使用之前补齐运营能力。
+在“能用”之后、真实机构扩大使用之前补齐运行能力。
 
 - [ ] Windows 安装/升级方案
 - [ ] Android 签名 APK/AAB 与升级方案
 - [ ] 签名密钥安全备份，不进入 GitHub
-- [ ] Development / Production 完全分离
-- [ ] 崩溃与错误日志不包含学生敏感正文或 Token
+- [ ] Local / Remote Development / Production 语义明确
+- [ ] Production 与开发环境完全隔离
+- [ ] 崩溃/错误日志不含学生敏感正文或 Token
 - [ ] 数据库备份与恢复演练
 - [ ] Storage 附件单独备份/恢复策略
-- [ ] 真实机构网络环境连通性与延迟测试
-- [ ] 故障时的人工应急流程
+- [ ] 真实机构网络连通性与延迟测试
+- [ ] Production migration 发布和 smoke test
+- [ ] 故障时人工应急流程
+- [ ] 最低支持客户端版本/兼容策略形成方案
 
 ---
 
@@ -228,24 +283,27 @@
 - 课程
 - 学情
 
-管理员通过二级管理入口完成人员、权限和学生治理。
+管理员通过二级入口完成人员、邀请、权限和学生治理。
 
 建议先使用虚构/脱敏数据完成试运行；通过安全、网络、备份与合规门槛后，再录入真实学生数据。
 
 ## V1 核心验收标准
 
-1. 两名教师能使用独立账号共同管理同一学生；
-2. 学生主档案不因学科、老师、年级重复创建；
-3. 学情案例从证据到验证全程可追溯；
-4. 未结束案例具有主行动或明确暂停理由；
-5. 教师日常记录足够快；
-6. 网络失败不会让正在编辑的高频记录丢失；
-7. 教师离职/交接后历史完整；
-8. 跨机构访问数据库层拒绝；
-9. 普通教师无法越权修改其他学科核心结论；
-10. 高权限动作不在 Flutter 客户端直接执行；
-11. 无任何真实学生信息进入 GitHub；
-12. 生产数据存在可验证的备份与恢复路径。
+1. 两名教师使用独立账号共同管理同一学生；
+2. pending invitation 不等于机构成员；
+3. 学生主档案不因学科/老师/年级重复创建；
+4. new 草稿能快速捕捉，confirmed 案例结构完整；
+5. 案例从证据到验证全程可追溯；
+6. 未结束正式案例有主行动或明确暂停理由；
+7. 教师日常记录足够快；
+8. 网络失败不会丢高频输入；
+9. 教师离职/交接后历史与当前责任完整；
+10. 跨机构访问数据库层拒绝；
+11. 普通教师不能越权修改其他学科核心结论；
+12. 高权限动作不在 Flutter 直接执行；
+13. migrations 可重建数据库，不依赖 Dashboard 手工状态；
+14. 无真实学生信息进入 GitHub；
+15. Production 数据与 Storage 都存在可验证恢复路径。
 
 ---
 
@@ -269,6 +327,7 @@
 - [ ] 跨学科综合观察流
 - [ ] 超期行动 / 长期案例提醒
 - [ ] 高频问题分析
+- [ ] 分类节点轻量治理（停用/合并）
 - [ ] 学科负责人视角
 - [ ] 管理端教学异常
 
@@ -312,6 +371,8 @@
 - Google Docs 式协同编辑
 - 复杂离线双向同步
 - 多平台第三方登录大全
+- 复杂多机构账号切换/自助加入
+- 庞大知识图谱/分类管理后台
 
 ---
 
@@ -321,10 +382,12 @@
 - 正常流程可用；
 - 权限路径验证；
 - 错误/空状态可理解；
-- 网络失败路径可理解；
+- 网络失败路径可恢复；
 - 核心逻辑有测试；
-- schema 变化有 migration；
+- schema / RLS / View / Function 变化有 migration；
+- 本地数据库可从空库重建；
 - RLS / GRANT 与 schema 同步；
+- Remote Development 集成场景需要时已验证；
 - 不引入真实隐私数据；
 - 文档同步更新；
 - 不破坏已有端到端验收场景。
