@@ -32,6 +32,7 @@
 11. 一次 assessment passed 不自动等于案例 stable/closed。
 12. AI 不得静默修改正式学情状态。
 13. “今日”不能在没有明确需求的情况下扩张成排课 CRM。
+14. 数据库结构与权限变化必须进入 migration，不能依赖远程 Dashboard 隐性状态。
 
 如果实现要求违反这些约束，先修改产品/架构文档并说明理由，再改代码。
 
@@ -72,22 +73,44 @@ Flutter 只允许 Publishable Key（或旧项目 anon key）。
 - 私密 AI API key
 - 邮件/第三方服务 Secret
 
-## 5. 环境规则
+## 5. 环境与数据库工作流
 
-至少区分：
-- Development：虚构数据；
-- Production：真实数据。
+必须区分：
+
+### Local Development
+- 使用 Supabase CLI；
+- 只使用虚构数据；
+- 用于 schema / RLS / View / Function / Trigger / Index 开发与数据库测试；
+- 能执行 `supabase db reset` 从 migrations + seed 重建当前开发数据库。
+
+### Remote Development
+- 独立 Supabase Project；
+- 只使用虚构数据；
+- 用于 Auth 邮件、redirect/deep link、Storage、Edge Functions、Android + Windows 双设备和公网联调；
+- 不能成为 schema 的第二事实源。
+
+### Production
+- 独立 Supabase Project；
+- 真实数据；
+- 独立 Auth / Storage / Secret；
+- 禁止 development seed/reset；
+- 只执行已经评审和测试过的 migrations。
 
 不得让 Development 与 Production 共用数据库、Storage、Secret 或测试账号。
 
 公开客户端配置通过 typed AppConfig + build-time config 注入；不要引入“把 Publishable Key 藏起来”的假安全方案。
 
+详细流程见 `docs/DEVELOPMENT_WORKFLOW.md`。
+
 ## 6. 数据库规则
 
 ### Schema 变更
 - 所有正式 schema 变更必须通过版本化 migration。
-- 不允许只在 Dashboard 手工改表而不提交 migration。
+- `supabase/migrations` 是 schema / RLS / View / Function / Trigger / Index 的正式开发事实源。
+- 不允许只在 Dashboard/SQL Editor 手工改表或 policy 而不回写 migration。
+- 如果为了试验临时改了 Remote Development，最终必须转成 migration，并从干净本地数据库重新验证。
 - destructive migration 必须说明迁移与恢复策略。
+- 高风险结构变化优先采用 expand → migrate → contract，避免一步破坏旧客户端。
 
 ### 多租户
 新增机构业务表时默认检查：
@@ -122,9 +145,21 @@ Flutter 只允许 Publishable Key（或旧项目 anon key）。
 - 学情案例优先引用受控 taxonomy node；
 - title/description 保留自由表达；
 - 不用自由文本作为唯一统计口径；
-- 不在 V1 建庞大知识图谱。
+- 首版提供少量稳定默认分类与“其他/暂未分类”；
+- 不为了 taxonomy 先建设庞大知识图谱或复杂配置后台。
 
-## 8. RLS、View 与函数安全
+## 8. Auth 与账号边界
+
+- 机构权限来自 membership / roles / assignments，不来自 user_metadata。
+- 首位 org_admin 通过一次性受控 bootstrap，不在客户端藏超级管理员 Secret。
+- 邀请/密码恢复的 redirect 必须由服务端按环境选择 allowlisted URL，不接受客户端任意 URL。
+- 邀请过期重发不能产生重复 membership。
+- 已确认 Auth 用户不能被简单当成“新邮箱再次 invite”；如果 V1 尚未开放跨机构 link-existing-user，应明确拒绝/提示，不用重复 Auth User 绕过去。
+- membership disabled 后，即使旧 Token 尚有效，RLS 仍必须拒绝机构数据。
+
+具体见 `docs/AUTH_AND_PERMISSIONS.md`。
+
+## 9. RLS、View 与函数安全
 
 任何新业务表在“可用”之前至少验证：
 1. 未登录不能访问；
@@ -151,7 +186,7 @@ Flutter 只允许 Publishable Key（或旧项目 anon key）。
 
 RLS 高频过滤列必须考虑索引。
 
-## 9. 不变量敏感命令
+## 10. 不变量敏感命令
 
 RLS 只解决“谁能改”，不能单独解决“这样改是否合法”。
 
@@ -183,7 +218,7 @@ insert assessment
 
 具体规则见 `docs/COMMANDS_AND_INVARIANTS.md`。
 
-## 10. 高权限操作
+## 11. 高权限操作
 
 以下默认不能从 Flutter 直接用高权限凭据完成：
 - 首位 org_admin bootstrap；
@@ -196,7 +231,7 @@ insert assessment
 
 Edge/Database Function 也必须验证调用者 Session、机构与权限。
 
-## 11. Flutter 开发原则
+## 12. Flutter 开发原则
 
 - 优先小而完整的垂直闭环。
 - 页面状态与业务状态分开。
@@ -210,7 +245,7 @@ Edge/Database Function 也必须验证调用者 Session、机构与权限。
 - 添加第三方依赖前先说明解决了什么问题；不为“流行”引包。
 - 状态管理/DI 方案一旦选定写 ADR，不允许多个框架无序混用。
 
-## 12. 保存可靠性
+## 13. 保存可靠性
 
 V1 online-first，但“网络失败不丢当前输入”是硬要求。
 
@@ -224,7 +259,7 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 
 本地 draft 不是第二套业务数据库。
 
-## 13. 并发与 Realtime
+## 14. 并发与 Realtime
 
 - 关键当前状态对象可使用 `version` 乐观并发；
 - command 携带 expected_version；
@@ -234,7 +269,7 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 - Realtime 只做体验增强；
 - 不实现 Google Docs 式同字段协作。
 
-## 14. 隐私
+## 15. 隐私
 
 禁止提交真实：
 - 学生姓名与联系方式；
@@ -249,7 +284,13 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 
 日志与审计不要复制完整敏感正文。
 
-## 15. 测试最低要求
+## 16. 测试最低要求
+
+### 数据库可复现
+- 从空 Local DB 跑 migrations 成功；
+- 虚构 seed 成功；
+- DB/RLS tests 成功；
+- 不依赖某个远程 Dashboard 手工状态。
 
 ### 业务逻辑
 - 状态机；
@@ -274,7 +315,7 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 ### Flutter
 重要 ViewModel / Repository 有单元测试；关键高频流程至少有 widget/integration 验证策略。
 
-## 16. UI 原则
+## 17. UI 原则
 
 - “今日”优先展示下一步，而不是统计大屏。
 - V1 今日以 case_actions/待验证为主，不假设完整排课存在。
@@ -284,7 +325,7 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 - 不制造没有可靠依据的“学情健康分”。
 - 保存状态必须明确可见。
 
-## 17. Git 与提交
+## 18. Git 与提交
 
 较大功能应：
 - 使用 feature/review branch；
@@ -298,7 +339,9 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 
 `main` 进入真实开发后应以 PR 合并为主，不长期直接写入。
 
-## 18. 完成定义
+应用项目正式初始化后提交 `pubspec.lock`；CI 使用明确 Flutter stable 版本，不依赖 runner 当前偶然版本。
+
+## 19. 完成定义
 
 一个功能只有同时满足以下条件才算完成：
 - 正常路径可用；
@@ -308,11 +351,12 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 - 不变量敏感写入有事务/命令保障；
 - 关键逻辑有测试；
 - migration 可从空库执行；
+- Remote Development 集成场景需要时已验证；
 - 不含真实隐私和秘密；
 - 文档同步；
 - 不破坏既有端到端场景。
 
-## 19. V1 暂不做
+## 20. V1 暂不做
 
 - 排课收费 CRM
 - 大型题库
@@ -325,5 +369,6 @@ V1 online-first，但“网络失败不丢当前输入”是硬要求。
 - Google Docs 式协同编辑
 - 复杂离线同步
 - 大量第三方登录
+- 复杂多机构账号切换/自助加入 UX
 
 如需改变范围，先更新 `docs/PRODUCT.md`、`docs/ROADMAP.md` 与必要 ADR。
