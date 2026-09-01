@@ -14,7 +14,7 @@
 - 核心历史默认优先 `RESTRICT` / 归档 / 停用，不随意级联删除。
 - 数据库约束与应用状态机必须一致，不能只在 Flutter 中校验。
 
-## 2. 身份、邀请与机构
+## 2. 身份与机构
 
 ### `profiles`
 全局 Auth User 的最小应用资料。
@@ -26,6 +26,8 @@
 - `updated_at`
 
 不要把永久 `organization_id` 写死在 profile 上。
+
+V1 不把真实密码、临时密码、SMTP 凭据等放入 profile。
 
 ### `organizations`
 - `id`
@@ -47,51 +49,29 @@ V1 固定角色字典：
 - `teacher`
 - `student_advisor`
 
-### `organization_invitations`
-这是**机构对邮箱的业务预授权**，不是 Auth Invite Link，也不是正式成员。
-
-- `id`
-- `organization_id`
-- `email_normalized`
-- `status`：pending / accepted / cancelled
-- `created_by_membership_id`
-- `accepted_by_user_id`（可空）
-- `accepted_at`（可空）
-- `cancelled_at`（可空）
-- `created_at`
-- `updated_at`
-
-建议约束：同一机构 + 同一规范化邮箱最多一个 pending invitation。
-
-pending invitation：
-- 不需要提前知道 Auth User 是否存在；
-- 没有任何学生业务数据权限；
-- 可以被管理员取消；
-- 在 verified email 用户接受后才产生 membership。
-
-### `organization_invitation_roles`
-邀请接受后希望授予的初始角色。
-
-- `invitation_id`
-- `role_id`
-
-接受时必须再次校验角色是否仍可授予；不能把历史 invitation 当成永久提权票据。
-
 ### `organization_memberships`
-Auth User 已经加入某机构后的正式成员身份。
+Auth User 在某机构中的业务成员身份。
 
 - `id`
 - `organization_id`
 - `user_id`
 - `staff_no`（可选）
 - `display_name_override`（可选）
-- `status`：active / disabled
+- `status`：onboarding / active / disabled
 - `joined_at`
-- `disabled_at`
+- `activated_at`（可空）
+- `disabled_at`（可空）
 
 唯一约束：`(organization_id, user_id)`。
 
-**只有 active membership 才能进入机构业务 RLS 授权链。**
+状态语义：
+- `onboarding`：管理员已经受控创建账号，但教师尚未完成首次密码接管；
+- `active`：正常业务成员；
+- `disabled`：离职/停用。
+
+**普通机构业务 RLS 只认可 active membership。**
+
+`onboarding` 用户即使拥有有效 Auth Session，也只能进入最小账号接管流程，不能读取学生/课程/学情数据。
 
 ### `membership_roles`
 - `membership_id`
@@ -99,16 +79,29 @@ Auth User 已经加入某机构后的正式成员身份。
 
 同一 membership 可以有多个角色。V1 不提前建设巨大 capability 平台。
 
-### Auth 与 invitation 的关系
+### 账号开通为什么不单独建 Invitation（V1）
 
-Email OTP 只负责证明“你拥有这个邮箱”。
+V1 是单机构为主、少量已知教师的内部试运行。管理员直接通过受控 `provision_member`：
+- 创建/处理 Auth User；
+- 生成一次性临时密码；
+- 建立 onboarding membership；
+- 分配初始 roles。
 
-`accept_invitation` 使用当前 verified Auth email 匹配 pending invitation，然后事务化创建 membership + roles，并将 invitation 标为 accepted。
+因此 V1 不需要先维护 `organization_invitations` / invitation roles / 邮件接受状态。
 
-因此：
-- 新 Auth User / 已有 Auth User 使用同一种机构加入逻辑；
-- Auth User 可以存在但没有任何机构权限；
-- 同一 Auth User 后续可以被第二机构邀请，不需要重复创建 Auth 身份。
+未来如果升级 Email OTP、自助加入或跨机构邀请，可以新增 invitation workflow；它应是外围 onboarding 模块，不能改变 membership 是机构权限事实源这一原则。
+
+### 临时密码不是业务数据
+
+临时密码：
+- 只由受信任服务端生成；
+- 只在开通/重置成功响应中返回一次；
+- 不进 PostgreSQL 业务表；
+- 不进日志/audit；
+- 不进 GitHub；
+- 不作为长期身份字段。
+
+密码本身由 Supabase Auth 管理。
 
 ## 3. 学期、年级与在读历史
 
@@ -291,9 +284,10 @@ V1 不为班级单独建设完整教务体系。
 
 confirmed 及后续 active case owner 必须：
 - 属于同一 organization；
+- membership = active；
 - 对该学生/学科具有有效 assignment 或明确管理权限。
 
-人员停用前必须交接 active case ownership。
+人员停用/重置到 onboarding 前必须处理其 active case ownership 与当前责任。
 
 ### `case_events`
 案例生命周期 append-only 时间轴。
@@ -370,7 +364,7 @@ assessment result 与 learning_case status 是两个不同事实。
 - 一个案例可有辅助行动，但通常最多一个 pending primary action；
 - 用 partial unique index 或受控写入保证主行动唯一；
 - new 不强制行动；confirmed 起没有主行动时必须有 pause_reason；
-- assignee 必须属于同一机构并具有合理业务关系；
+- assignee 必须属于同一机构、membership = active，并具有合理业务关系；
 - 行动完成保留历史，不删除。
 
 ## 9. 课程
@@ -397,7 +391,7 @@ assessment result 与 learning_case status 是两个不同事实。
 
 一对一只是只有一个 lesson_student。
 
-lesson teacher、students、subject 必须在同一 organization，并满足允许的教学关系/授权。
+lesson teacher 必须是同机构 active membership；students、subject 必须同机构，并满足允许的教学关系/授权。
 
 ### 单一事实源
 
@@ -477,6 +471,8 @@ finalized 报告不因底层事实变化而静默改写；需要明确重新生�
 - `operation_id`（可选）
 - `occurred_at`
 
+成员开通/密码重置审计只能记录“发生过 credential operation”，不得记录临时/新密码。
+
 避免复制完整敏感正文。
 
 ### `operation_receipts`（实现 Spike 后决定统一与否）
@@ -511,13 +507,12 @@ finalized 报告不因底层事实变化而静默改写；需要明确重新生�
 
 必须防止：
 - 子表 organization_id 与父对象不一致；
-- invitation roles 与 invitation 机构/权限不一致；
-- invitation 被错误邮箱接受；
-- membership / assignment 跨机构；
+- membership / roles / assignment 跨机构；
+- onboarding / disabled membership 进入普通业务授权链；
 - 同一学生/学科出现冲突 active lead；
-- case owner 无有效业务关系；
+- case owner 不是 active membership 或无有效业务关系；
 - confirmed case 没有 evidence 或“主行动/pause reason”；
-- lesson teacher/students 跨机构；
+- lesson teacher 不是 active membership 或 students 跨机构；
 - taxonomy parent/child 跨学科；
 - taxonomy node 与 student subject profile 学科不一致；
 - case_action/evidence/intervention/assessment 跨案例机构；
@@ -533,10 +528,10 @@ RLS/高频查询重点关注：
 - student_id
 - organization_subject_id
 - learning_case_id
-- status
+- membership status
+- case/action status
 - due_at
 - assignment active/status
-- invitation `(organization_id, email_normalized, status)`
 
 落 schema 时结合查询和 `EXPLAIN` 调整。
 
@@ -577,8 +572,8 @@ RLS/高频查询重点关注：
 - 年级 → enrollment 历史；
 - 授课老师 → teacher assignment 历史；
 - 班主任/学管 → staff assignment；
-- 管理员邀请教师 → `organization_invitations` 邮箱预授权；
-- Auth 登录 → Email OTP，与机构 membership 分离；
+- 教师账号 → Auth User + onboarding/active membership，不在 Excel/业务表保存密码；
+- V1 成员开通 → 管理员受控 provision，不依赖邮件 invitation；
 - 周度跟进 → 派生；
 - 顽固问题 → learning_case 规则/提示；
 - 三阶闭环 → evidence + intervention + assessment + event；
