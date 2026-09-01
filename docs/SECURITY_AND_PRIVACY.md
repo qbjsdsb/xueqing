@@ -1,6 +1,6 @@
 # 安全、隐私与恢复基线
 
-> V1 最低安全门槛。系统涉及未成年学生信息，任何功能不得以“先跑起来”为理由绕过这些要求。
+> V1 最低安全门槛。系统涉及未成年学生信息，任何功能不得以“先跑起来”或“为了免费”为理由绕过这些要求。
 
 ## 1. 数据最小化
 
@@ -28,46 +28,61 @@
 
 不要因为“以后可能有用”收集与教学目的无关的家庭、健康、身份背景等敏感信息。
 
-## 2. Email OTP 与机构授权安全边界
+## 2. Password Auth 与机构授权安全边界
 
-V1 首选 Passwordless Email OTP。
+V1 采用管理员受控开通 + Password，但登录身份与业务权限仍彻底分离。
 
 关键原则：
-- OTP 只证明用户控制某邮箱；
 - Auth Session 不等于机构权限；
-- 没有 active membership 的 Auth User 不能读取机构业务数据；
-- pending invitation 也不能读取机构业务数据；
-- invitation 只能由 verified email 匹配的当前用户接受；
-- membership disabled 后，旧 Token 仍必须被数据库拒绝。
+- 无 membership 不能读机构业务数据；
+- membership = onboarding 不能读普通业务数据；
+- membership = disabled 不能读普通业务数据；
+- 只有 active membership 才进入 roles/assignments/RLS；
+- 密码 reset 后 membership 回 onboarding，使旧 Session 也失去业务权限。
 
-### OTP 本身
-- App 日志不得记录验证码；
-- 错误上报不得包含 OTP、Access Token、Refresh Token；
-- Production 配置合理 Auth rate limits；
-- 根据暴露程度启用 CAPTCHA/等价防滥用；
-- OTP 错误/过期/频繁请求只返回必要信息，避免账号枚举提示；
-- 未授权 Auth User 只能看到“尚未获得机构授权”，不能搜索机构/教师/学生。
+不能只依赖 JWT 中的旧角色声明判断 active 状态。
 
-### 邮件基础设施
-Production 登录依赖邮件投递，因此：
-- 使用可靠 Custom SMTP 或等价邮件服务；
-- SMTP Secret 只在受信任服务端配置；
-- 不进入 Flutter/GitHub；
-- 定期验证主要教师邮箱域的投递和延迟；
-- 邮件模板不泄露机构敏感数据。
+## 3. 临时密码安全
 
-## 3. Invitation 数据也是个人信息
-
-`organization_invitations` 包含教师邮箱，属于需要保护的身份信息。
+管理员开通/重置账号时产生临时凭据。
 
 要求：
-- 普通 authenticated 用户不能枚举 pending invitations；
-- 管理员只管理自己机构 invitations；
-- 接受 invitation 使用当前 verified email 服务端匹配；
-- 不把“某邮箱是否被某机构邀请”作为公开查询接口；
-- 取消/接受后的 invitation 保留期限按实际制度确定，不无限保留无业务价值数据。
+- 服务端使用安全随机源生成；
+- 不使用固定默认密码；
+- 不写 PostgreSQL 业务表；
+- 不写 audit；
+- 不写 console/server/error-tracking 日志；
+- 不写 GitHub Issue/PR；
+- 只在成功响应中返回一次；
+- 管理员通过已建立身份关系的可信渠道一次性交付；
+- 教师首次登录后完成自己的新密码接管。
 
-## 4. 自由文本风险
+生产日志/监控的“请求 body 自动记录”必须避免抓取 credential payload。
+
+## 4. Credential 高权限操作
+
+### `provision_member`
+- 只有有权 org_admin 可调用；
+- Secret/service_role 仅在可信服务端；
+- 创建/处理 Auth User 后只创建 onboarding membership；
+- 失败不应留下错误 active 权限。
+
+### `complete_member_onboarding`
+- 只能更新当前 Session 自己的凭据；
+- 先完成 Auth 密码更新，再允许 membership active；
+- 半失败优先收敛到无业务权限状态；
+- 新密码不进入日志。
+
+### `reset_member_credential`
+- 管理员先按机构制度确认本人；
+- 生成新随机临时密码；
+- membership → onboarding；
+- 旧 Session 立刻因 RLS 失去业务权限；
+- 写审计，但审计不记录密码。
+
+Auth 和业务数据库不是同一事务域，所以实现需要明确失败恢复和幂等，而不是假设“一个 Edge Function 天然原子”。
+
+## 5. 自由文本风险
 
 最容易泄露隐私的地方往往是备注，而不是结构化字段。
 
@@ -78,7 +93,7 @@ Production 登录依赖邮件投递，因此：
 - 不把人格判断、未经证实的健康/家庭推断写成正式学情；
 - UI 提示避免输入无关敏感信息。
 
-## 5. 客户端密钥边界
+## 6. 客户端密钥边界
 
 Flutter 只允许持有 Supabase Publishable Key（或旧项目 anon key）。它是公开客户端凭据，安全依赖 RLS/GRANT，而不是“把 key 藏起来”。
 
@@ -86,12 +101,13 @@ Flutter 只允许持有 Supabase Publishable Key（或旧项目 anon key）。�
 - Secret Key
 - service_role
 - 数据库密码
+- 临时/正式用户密码的持久化副本
 - SMTP Secret
 - AI/第三方私钥
 
 高权限凭据只放受信任服务端环境。
 
-## 6. 数据库访问
+## 7. 数据库访问
 
 所有客户端业务表：
 1. 显式 RLS；
@@ -99,11 +115,12 @@ Flutter 只允许持有 Supabase Publishable Key（或旧项目 anon key）。�
 3. SELECT / INSERT / UPDATE / DELETE 分别验证；
 4. 跨机构默认拒绝；
 5. 敏感跨学科默认拒绝；
-6. 高频 RLS 字段建立索引。
+6. 普通业务要求 membership = active；
+7. 高频 RLS 字段建立索引。
 
 前端隐藏按钮不是安全控制。
 
-## 7. View 与 Function
+## 8. View 与 Function
 
 ### View
 客户端暴露 View：
@@ -121,7 +138,14 @@ Flutter 只允许持有 Supabase Publishable Key（或旧项目 anon key）。�
 - revoke 默认 execute，再最小 grant；
 - 必须有越权测试。
 
-## 8. 多租户隔离
+### Edge Function
+持有 Auth Admin/Secret 的 Edge Function：
+- 每次验证调用者 Session；
+- 验证 organization 和能力；
+- 不因为运行在服务端就默认可信输入；
+- 不记录 credential 明文。
+
+## 9. 多租户隔离
 
 - 机构数据明确 `organization_id`；
 - active membership 是机构访问第一道业务条件；
@@ -130,23 +154,22 @@ Flutter 只允许持有 Supabase Publishable Key（或旧项目 anon key）。�
 - 跨机构请求数据库层拒绝；
 - 冗余 organization_id 防止跨机构错配。
 
-Auth User 的存在、JWT 的存在、pending invitation 的存在都不能替代 active membership 检查。
+Auth User 的存在、JWT 的存在、onboarding membership 的存在都不能替代 active membership 检查。
 
-## 9. 高权限与不变量操作
+## 10. 高权限与不变量操作
 
 受控操作包括：
 - 首位 org_admin bootstrap；
-- 创建/取消 invitation；
-- accept_invitation；
+- provision / onboarding / credential reset；
 - 角色提升；
 - teacher handoff + disable；
 - 学生合并；
 - 数据导出/删除；
-- 需要 Secret 的第三方集成。
+- 未来需要 Secret 的第三方集成。
 
-其中不是所有操作都需要 service_role，但都必须在服务端/数据库命令中再次验证 actor、organization、状态与参数。
+都必须再次验证 actor、organization、状态与参数。
 
-## 10. 审计
+## 11. 审计
 
 记录关键治理动作：
 - actor user/membership；
@@ -157,11 +180,13 @@ Auth User 的存在、JWT 的存在、pending invitation 的存在都不能替�
 - operation id；
 - occurred_at。
 
+Credential audit 只记录“开通/完成接管/重置发生过”，不记录密码。
+
 不要把 audit_logs 变成第二份学生敏感正文数据库。
 
 `case_events` 与 `audit_logs` 原则上 append-only。
 
-## 11. 删除、归档与更正
+## 12. 删除、归档与更正
 
 - 教师离职：disable membership，不删除历史；
 - 学生退班：归档；
@@ -172,7 +197,7 @@ Auth User 的存在、JWT 的存在、pending invitation 的存在都不能替�
 
 不要把日常“删除按钮”直接映射成跨表 cascade delete。
 
-## 12. Storage
+## 13. Storage
 
 附件默认私有 bucket：
 - 不公开 bucket；
@@ -182,24 +207,29 @@ Auth User 的存在、JWT 的存在、pending invitation 的存在都不能替�
 - 限制文件类型/大小；
 - 后续按需要评估恶意文件扫描。
 
-DB 记录删除与 Storage 对象删除要走受控一致性流程。
+DB 记录删除与 Storage 对象删除走受控一致性流程。
 
-## 13. 环境隔离
+V1 使用 Free Storage 时应严格控制大附件，避免把系统变成原始扫描件仓库。
 
-明确三种环境：
+## 14. 环境隔离
+
+明确：
 - Local Development：虚构数据；
 - Remote Development：虚构数据/真实集成；
-- Production：真实机构数据。
+- Production Pilot：真实机构数据。
 
-Production 与开发环境不共享数据库、Storage、Secret、SMTP、测试账号。
+Production 与开发环境不共享数据库、Storage、Secret、测试账号。
 
 Schema/RLS 等正式变化必须进入 Git migrations。
 
-## 14. 日志与错误上报
+Production 禁止 development reset/seed。
+
+## 15. 日志与错误上报
 
 不得记录：
-- OTP
+- Password / 临时密码
 - Access/Refresh Token
+- Authorization header
 - Secret
 - 完整家校沟通
 - 完整作文/试卷
@@ -207,11 +237,14 @@ Schema/RLS 等正式变化必须进入 Git migrations。
 
 优先记录：错误码、operation id、对象 UUID、App version、调用路径。
 
-## 15. 备份与恢复
+## 16. 备份与恢复：Free Tier 仍是硬要求
 
 ### PostgreSQL
-- 明确备份能力/保留周期；
-- 定期恢复演练。
+Supabase Free 不具备付费计划同等级的自动备份保障，因此：
+- 定期 `supabase db dump` / `pg_dump`；
+- 加密离站保存；
+- 保留多个时间点；
+- 定期实际恢复演练。
 
 ### Storage
 数据库备份不等于附件备份。
@@ -225,10 +258,14 @@ Schema/RLS 等正式变化必须进入 Git migrations。
 ### Git / Schema
 GitHub 保存代码和 migrations，但 migrations 不替代业务数据备份。
 
-## 16. 网络与可用性
+备份“存在”不等于可恢复；恢复演练才是证据。
+
+## 17. 网络与可用性
 
 真实机构上线前测试：
-- Email OTP 投递和验证；
+- Password 登录；
+- provision / onboarding / reset；
+- reset/disable 后旧 Session；
 - 常规读写；
 - 图片上传；
 - Functions；
@@ -238,7 +275,7 @@ GitHub 保存代码和 migrations，但 migrations 不替代业务数据备份�
 
 不能只在开发者自己的网络环境判断可上线。
 
-## 17. 客户端保存状态
+## 18. 客户端保存状态
 
 高频表单至少有：
 - 未保存
@@ -248,7 +285,30 @@ GitHub 保存代码和 migrations，但 migrations 不替代业务数据备份�
 
 网络失败不得丢输入；本地 draft 只用于待提交恢复，不是第二套正式数据库。
 
-## 18. 安装包与签名
+## 19. GitHub / ChatGPT 云端开发隐私
+
+- 仓库进入真实开发前必须 Private；
+- Private 不等于可以提交真实学生数据；
+- ChatGPT Work/Codex 任务只使用完成开发所需的最小信息；
+- 不把真实账号凭据、学生试卷、家校正文粘到 Issue/PR/开发 seed；
+- GitHub 是代码事实源，聊天历史不是；
+- 云端 Agent 不能运行测试时必须明确“未执行”，不能伪造执行结果。
+
+## 20. 免费额度与成本安全
+
+本阶段不新增：
+- SMTP/域名/SMS；
+- Supabase Pro/add-on；
+- AI API；
+- 商业错误追踪/分析 SaaS；
+- GitHub larger runner；
+- Work/Codex 额外 credits。
+
+免费额度接近上限时先限制/评审，不开启自动超额付费。
+
+但“免费”不能成为关闭 RLS、删除备份、复用弱密码或省测试的理由。
+
+## 21. 安装包与签名
 
 ### Android
 - keystore 不进 GitHub；
@@ -257,25 +317,26 @@ GitHub 保存代码和 migrations，但 migrations 不替代业务数据备份�
 
 ### Windows
 - 明确安装/升级渠道；
-- 正式部署评估代码签名，降低安装警告和篡改风险。
+- 正式部署后评估代码签名需求，降低安装警告和篡改风险。
 
-## 19. 真实数据 Go / No-Go
+## 22. 真实数据 Go / No-Go
 
 至少完成：
-- 仓库私有/等价源码控制；
+- GitHub 仓库已 Private；
 - Local / Remote Development / Production 隔离；
 - migrations 从空库重建；
 - RLS/GRANT/View/Function 越权测试；
-- Auth User 无 membership 无业务权限；
-- pending invitation 无业务权限；
-- Windows/Android OTP 测试；
-- Production SMTP/邮件服务、rate limits、防滥用配置；
+- Auth User 无 active membership 无业务权限；
+- onboarding/disabled 旧 Session 无业务权限；
+- Windows/Android provision/onboarding/reset 测试；
+- 临时密码不进入 DB/log/audit/GitHub；
 - 网络失败输入恢复与幂等；
 - 教师交接演练；
 - 学生合并/查重治理；
-- DB 恢复演练；
+- DB dump + 恢复演练；
 - Storage 恢复方案；
-- 日志无 OTP/Token/Secret/敏感正文；
+- 日志无 Password/Token/Secret/敏感正文；
 - 实际机构网络测试；
 - 安装/升级路径；
+- GitHub Actions 与 Supabase 使用量不会自动产生额外费用；
 - 根据部署地区完成未成年人个人信息、机构授权与数据合规评估。
