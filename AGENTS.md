@@ -19,11 +19,7 @@
 
 ## 2. V1 边界
 
-教师主导航只有：
-- 今日
-- 学生
-- 课程
-- 学情
+教师主导航只有：今日 / 学生 / 课程 / 学情。
 
 家校、报告进入 V1.1。
 
@@ -67,7 +63,15 @@ V1：管理员受控开通 + Password + onboarding。
 - 权限事实源是 membership / roles / assignments，不是 user_metadata。
 - 真实 Pilot 至少两个可信 org_admin，或已演练 break-glass。
 
-详见 `docs/AUTH_AND_PERMISSIONS.md`。
+### V1 不支持同一账号跨机构同时活跃
+- 数据库仍支持多个 organization；
+- 同一 `auth user_id` 同一时点最多一个 `onboarding/active` membership；
+- 可以保留其他机构 disabled 历史；
+- provision 发现该 Auth User 已在另一机构 onboarding/active 时必须拒绝；
+- 原因：org_admin 的 Password reset 是全局 Auth credential，不能让 A 机构管理员影响 B 机构用户。
+- 未来要跨机构账号，先新增 ADR，改为中央身份治理 / OTP / SSO 等方案后再开放。
+
+详见 `docs/AUTH_AND_PERMISSIONS.md` 与 `docs/FOUNDATION_FINAL_AUDIT.md`。
 
 ---
 
@@ -121,6 +125,11 @@ View 优先 `security_invoker=true`。
 
 Storage：private bucket + storage.objects policy；signed URL 短时且只在授权后生成，不进日志。
 
+### Realtime
+V1 不在学生敏感业务表默认开启 Realtime，也不让正确性依赖 Realtime。
+
+页面进入、保存后、App resume、手动刷新必须足够正确。以后如需 Realtime，必须单独 ADR + revoked-session/reconnect/cross-org 安全测试后才开放。
+
 ---
 
 ## 7. 环境与 Migration
@@ -157,8 +166,6 @@ Credential 是特殊例外：明文密码不持久化，因此响应丢失时 re
 
 关键快照使用乐观并发；冲突不静默覆盖。
 
-Realtime 只增强体验，正确性不依赖它。
-
 ---
 
 ## 9. 隐私
@@ -173,14 +180,7 @@ Realtime 只增强体验，正确性不依赖它。
 
 ## 10. 零额外付费硬约束
 
-默认不新增现金支出：
-- SMTP/域名/SMS；
-- AI API；
-- Supabase Pro/add-ons；
-- 商业 UI/监控/分析 SaaS；
-- GitHub larger runner；
-- Work/Codex extra credits；
-- Windows 付费公信签名作为 Pilot 硬依赖。
+默认不新增现金支出：SMTP/域名/SMS、AI API、Supabase Pro/add-ons、商业 UI/监控/分析 SaaS、GitHub larger runner、Work/Codex extra credits、Windows 付费公信签名作为 Pilot 硬依赖。
 
 GitHub：
 - repo 必须 Private；
@@ -211,6 +211,7 @@ Auth Phase 0 至少：
 - global sign-out；
 - 保存旧 JWT 后直接请求仍被拒；
 - reset 顺序和故障注入；
+- 单 user 多 active/onboarding org membership 被拒；
 - Session secure storage；
 - Startup Gate；
 - 双平台。
