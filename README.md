@@ -4,13 +4,37 @@
 
 ## 当前状态
 
-**Foundation v0.3｜Final Audit / Freeze Candidate**
+**Foundation v0.3｜Final Audit / Squash Merge 已完成**
 
-产品边界、核心数据模型、Auth/权限、安全、本地存储、零成本云端开发、恢复与运行风险已经完成正式开发前的总审计。
+产品边界、核心数据模型、Auth / 权限、安全、本地存储、零成本云端开发、恢复与运行风险已经完成正式开发前的总审计。
 
-**当前仍不是完整可运行 Flutter App。** `lib/` 仍是占位源码；正式 `flutter create`、Supabase migrations、RLS tests、Windows / Android build 和真实网络验证将在 Phase 0 完成。
+**Phase 0A｜Flutter Windows + Android Bootstrap 已建立工程基线，并已取得双平台原生构建证据。** 当前实现位于 `phase0/flutter-bootstrap`，继续更新 Draft PR #4；`main` 不接收本阶段直接 push。
 
-当前 GitHub 仓库已经是 **Private**。
+当前仓库已经包含正式 Flutter 工程入口、Android / Windows platform project、typed environment config、App bootstrap、内置 Navigator 路由、轻量 Theme / responsive foundation、错误 / 加载兜底、测试基线与轻量 CI。
+
+### Phase 0A 当前执行证据
+
+最初的 Work Linux 容器缺少 Flutter / Dart / Android SDK，因此该容器中的 `command not found` 只表示**该执行环境不可用**，不能当成项目构建失败。
+
+最终使用 GitHub Actions 的真实工具链完成验证：
+
+- Flutter `3.47.1` / Dart `3.13.1`；
+- 轻量 CI run `33606400363`：`flutter pub get`、lockfile consistency、format、analyze、test 全部 **PASS / EXECUTED**；
+- 平台 build run `33606216237`：Android `flutter build apk --debug` **PASS / EXECUTED**，生成 `build/app/outputs/flutter-apk/app-debug.apk`；
+- 同一平台 build run：Windows `flutter build windows --debug` **PASS / EXECUTED**，生成 `build\windows\x64\runner\Debug\xueqing.exe`。
+
+普通 PR CI 只保留 Linux 轻量检查；Android / Windows 原生 build workflow 在本次 milestone 验证后改为手动触发，避免每次 commit 重复消耗 native runner。
+
+详见 `docs/PHASE0A_EXECUTION_RECORD.md`。
+
+### Phase 0A 尚未实现
+
+- Supabase、Auth、RLS、Realtime、secure Session 与 encrypted draft；
+- Student、Learning Case、Evidence、Intervention、Assessment、Lesson、Today 等正式业务功能；
+- 最终 UX/UI、正式导航信息架构、Dashboard、统计或 AI 页面；
+- Production signing、发布渠道与真实机构网络 / 真机体验验证。
+
+当前 GitHub 仓库已经是 **Private**，Wiki 与 Template repository 已关闭。用户明确选择暂不设置 Actions zero-overage budget；这是已知并接受的账户级计费风险，不再作为 Foundation / Phase 0A 阻塞项，因此 CI 必须继续保持轻量、避免重复 native build、禁止 larger runner。
 
 > 在 Phase 0 的权限、安全、恢复、网络与合规 Go / No-Go 通过前，只允许使用虚构或严格脱敏数据，不录入真实学生、家长或教师隐私材料。
 
@@ -206,7 +230,8 @@ ChatGPT Project + Work / Luna
 - Luna / Max 高推理优先 RLS、migration、Auth / Session、事务、并发、安全和 Milestone 终审；
 - 机械 UI、改名、重复 CRUD 不无脑使用 Max；
 - 包含额度用完等待重置，不购买 extra credits；
-- GitHub Actions 需要 zero-overage budget；
+- Actions zero-overage budget 当前未设置，这是用户明确接受的账户级风险；
+- 普通 PR 只跑轻量 Linux 检查，Windows / Android native build 只在 milestone / release / 手动执行；
 - Work / Codex 禁止直推 main，使用 Draft PR + 执行证据 + 人工合并。
 
 详见 `docs/ZERO_COST_CLOUD_DEVELOPMENT.md`。
@@ -289,6 +314,7 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 - `docs/ZERO_COST_CLOUD_DEVELOPMENT.md`
 - `docs/DISASTER_RECOVERY.md`
 - `docs/FOUNDATION_FINAL_AUDIT.md`
+- `docs/PHASE0A_EXECUTION_RECORD.md`
 - `docs/ROADMAP.md`
 - `AGENTS.md`
 
@@ -299,9 +325,9 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 
 ## Foundation 冻结后的正确顺序
 
-1. 完成本 PR 的最后一致性检查并 **Squash merge Foundation v0.3**；
-2. 建 ChatGPT Project：`Xueqing｜学情闭环开发`；
-3. 正式初始化 Flutter Windows + Android；
+1. Foundation v0.3 已完成最终审计并 **Squash merge 到 `main`**；
+2. Phase 0A 完成 Flutter 工程、轻量 CI 与 Android / Windows 原生构建验证；
+3. 进行 **Phase 0A 最终审计 → Phase 0A.5 UX/UI Design Foundation**；
 4. 初始化 Local Supabase migrations / fake seed / RLS tests；
 5. 实现 `organizations.time_zone` 和最小 Organization / Membership schema；
 6. 完成 secure Session + Startup Gate + encrypted draft Spike；

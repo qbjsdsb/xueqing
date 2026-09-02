@@ -1,5 +1,5 @@
-name: xueqing_closed_loop
-description: 机构教学协作与学生成长闭环系统
+name: xueqing
+description: 学情闭环教师工作台
 publish_to: "none"
 version: 0.1.0+1
 
@@ -10,7 +10,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
 
 dev_dependencies:
   flutter_test:

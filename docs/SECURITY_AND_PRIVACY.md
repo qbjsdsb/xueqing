@@ -446,7 +446,7 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构无法接受，免费�
 - Work / Codex extra credits；
 - Windows 付费公信代码签名作为 Pilot 硬依赖。
 
-GitHub Actions 有免费额度但不能假定绝不会超额；需要人工设置 zero-overage budget，并避免普通 PR 无脑跑 Windows / Android 重构建。
+GitHub Actions 有有限免费额度。用户已明确选择暂不设置 zero-overage budget，并接受账户级计费风险；这不再是安全 Go / No-Go 的阻塞项，详见 ADR-044。因为没有 budget stop，工程侧必须更克制：普通 PR 只跑轻量 Linux 检查，Windows / Android 原生构建只在 milestone / release / 手动执行，不重复触发、不用 larger runner，并关注异常 Actions 消耗。
 
 Supabase Free 接近容量或可靠性边界时先重新评审，不自动升级收费。
 
@@ -484,7 +484,10 @@ break-glass 使用后要复核角色、撤销临时凭据并留下治理记录�
 ## 已完成
 
 - [x] GitHub repository 已 Private
+- [x] Wiki 已关闭
+- [x] Template repository 已关闭
 - [x] Foundation 禁止真实学生数据和 Secret 进入 GitHub 的规则明确
+- [x] Actions zero-overage budget 已做明确决策：用户选择暂不设置，风险已记录并由 CI 触发策略缓解
 
 ## 真实数据前必须完成
 
@@ -510,7 +513,6 @@ break-glass 使用后要复核角色、撤销临时凭据并留下治理记录�
 - [ ] Project config / Secret names 重建清单
 - [ ] 日志无 Password / Token / Secret / 敏感正文
 - [ ] 安装 / 升级路径明确
-- [ ] GitHub Actions zero-overage budget 已人工确认
 - [ ] Supabase Free 使用量、pause 风险和 RPO 可接受
 - [ ] 部署地区未成年人信息、数据驻留 / 跨境等合规评估完成
 

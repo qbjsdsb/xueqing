@@ -23,7 +23,7 @@
 
 家校、报告进入 V1.1。
 
-V1 暂不做：收费 / 课消 / 招生 CRM、完整排课、大型题库、学情综合分、成绩预测、家长 / 学生独立 App、自助 SaaS 注册、AI 自动正式诊断、Google Docs 式协同、复杂 offline-first / CRDT、庞大知识图谱。
+V1 暂不做：收费 / 课消 / 招生 CRM、完整排课、大型题库、学情综合分、成绩预测、家长 / 学生独立 App、自助 SaaS 注册、AI 自动正式诊断、Google Docs 式协同、复杂 offline-first/CRDT、庞大知识图谱。
 
 ---
 
@@ -198,8 +198,9 @@ GitHub：
 - repo 必须 Private；
 - Work / Codex 禁直推 main；
 - branch + Draft PR + 执行证据 + 人工合并；
-- Actions budget 应设置为超额停止；
-- 当前仓库 Wiki 已关闭；Template repository 仍需人工关闭。
+- repository 已关闭 Wiki 与 Template repository；
+- 用户已明确选择**暂不设置 Actions zero-overage budget**；这是已知并接受的账户级计费风险，不再作为 Foundation / Phase 0A 阻塞项；
+- 因未设置 budget，CI 必须主动控制消耗：普通 PR 只跑轻量 Linux 检查，Windows / Android native build 仅 milestone / release / 手动触发；禁止 larger runner 和无价值重复构建。
 
 Supabase Free：
 - Remote Dev + Production Pilot 两个项目；
@@ -249,9 +250,20 @@ Auth Phase 0 至少：
 - 较大功能 branch + Draft PR；
 - schema / RLS / 代码 / 受影响文档同 PR；
 - 正式初始化后提交 `pubspec.lock`；
+- CI 的 `flutter pub get` 后必须验证 `pubspec.lock` 没有未提交变化；
 - 依赖升级独立 PR；
 - 不把大重构和无关 UI 混在一起；
 - 改关键方向先更新 `docs/DECISIONS.md`；
 - 未实际运行的检查必须明确“未执行”。
+
+### 低层 Git Data API 完整性规则
+
+如果 Agent / connector 使用 Git Data API（blob / tree / commit / ref）而不是普通 Git 工作区提交：
+- 创建 commit 成功**不等于**仓库树正确；
+- 更新 tree 时必须以正确 parent/base tree 为基础，除非明确是在创建完整新树；
+- 写入后必须重新读取目标 branch 的 recursive tree；
+- 至少确认 `AGENTS.md`、`docs/`、`lib/`、`test/`、目标 platform 目录和 `.github/` 等关键路径仍存在；
+- 对异常路径数量骤降、关键目录消失立即视为失败并恢复；
+- 未完成最终 tree 完整性检查，不得声称远端提交成功。
 
 PR 检查项见 `.github/pull_request_template.md`。

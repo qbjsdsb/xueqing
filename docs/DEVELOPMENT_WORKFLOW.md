@@ -223,26 +223,30 @@ Production 不使用默认 SharedPreferences Session 存储作为最终方案。
 ### Remote Development
 只验证公网/真实 Auth Admin/Storage/Edge Functions/跨设备/网络/region。
 
-### Release
+### Release / Milestone
 - Android build；
 - Windows build；
 - 关键 integration/smoke；
 - Production migration compatibility review。
 
+Phase 0A 已用 GitHub-hosted Ubuntu / Windows runner 完成一次 Android debug APK 与 Windows debug app 的真实构建验证；后续 native build workflow 保持手动触发，避免普通 PR 重复消耗。
+
 ---
 
-## 11. GitHub Actions 零超额策略
+## 11. GitHub Actions 成本控制策略
 
-GitHub Free private 当前包含有限 Actions 分钟。真正“0 元”必须同时设置预算：
+GitHub Free private 有有限 Actions 额度。用户于 2026-09-02 明确选择**暂不设置 zero-overage budget**，并接受这一账户级计费风险；因此 budget 不再作为 Foundation、Phase 0A 或真实数据 Go/No-Go 的硬阻塞项，详见 ADR-044。
 
-- GitHub billing budget：启用 **Stop usage when budget limit is reached**；
-- PR 默认 Linux：format/analyze/unit/Local DB/RLS/secret scan；
-- Windows/Android release build 仅 Milestone/Release/手动；
+工程侧必须用触发策略控制消耗：
+- PR / `main` 默认 Linux：pub get、lockfile consistency、format、analyze、unit/widget tests；Phase 0B 后再加入适合 Linux 的 Local DB/RLS/static checks；
+- 不让 feature branch 的 `push` 与 `pull_request` 对同一提交重复跑相同轻量 CI；
+- Windows/Android native build 仅 Milestone/Release/手动；
 - 不用 larger runner；
 - artifact retention 短；
-- 无价值中间产物不上传。
+- 无价值中间产物不上传；
+- 出现异常 Actions 消耗先停无价值 workflow，再评估后续策略。
 
-CI 额度耗尽时宁可等下周期/改成本地执行，不自动产生费用。
+如果未来用户改变决定，再启用 budget stop；在此之前不要把它反复列成未完成项。
 
 ---
 
@@ -320,6 +324,8 @@ Work 适合研究、跨文件实现、PR/review；Codex/CI 适合真实终端/bu
 - **未执行**：明确列出原因和需要在哪里验证。
 
 “模型判断应该通过”不等于 CI green。
+
+如果 Work 容器没有某工具链，但 GitHub-hosted runner 或其他受控环境能提供对应工具链，应优先补真实执行证据，而不是把“当前容器不可用”永久当成项目未验证状态。
 
 ---
 
