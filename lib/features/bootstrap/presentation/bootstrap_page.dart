@@ -56,6 +56,15 @@ class BootstrapPage extends StatelessWidget {
                       icon: const Icon(Icons.route_outlined),
                       label: const Text('路由自检'),
                     ),
+                    const SizedBox(height: AppSpacing.sm),
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context)
+                            .pushNamed(AppRoutes.designPreview);
+                      },
+                      icon: const Icon(Icons.design_services_outlined),
+                      label: const Text('打开 UX/UI 设计预览'),
+                    ),
                     const SizedBox(height: AppSpacing.lg),
                     Text(
                       '当前页面仅验证工程启动状态，不代表业务功能已经接入。',

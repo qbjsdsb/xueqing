@@ -28,11 +28,55 @@ class AppShell extends StatelessWidget {
           );
         }
 
+        if (sizeClass == WindowSizeClass.medium) {
+          return Scaffold(
+            body: SafeArea(
+              child: Row(
+                children: [
+                  const _CompactRail(),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                    child: _ShellContent(title: title, child: child),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         return Scaffold(
           appBar: AppBar(title: Text(title)),
           body: SafeArea(child: child),
         );
       },
+    );
+  }
+}
+
+class _CompactRail extends StatelessWidget {
+  const _CompactRail();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 80,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Column(
+          children: [
+            Tooltip(
+              message: '工程状态',
+              child: const Icon(Icons.build_outlined, color: AppColors.accent),
+            ),
+            const Spacer(),
+            Text(
+              'Phase 0A',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

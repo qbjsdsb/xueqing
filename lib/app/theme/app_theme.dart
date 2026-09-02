@@ -13,14 +13,22 @@ abstract final class AppTheme {
           brightness: Brightness.light,
         ).copyWith(
           surface: AppColors.surface,
+          surfaceContainer: AppColors.canvas,
+          surfaceContainerLow: AppColors.canvas,
+          surfaceContainerHigh: AppColors.surfaceMuted,
           surfaceContainerHighest: AppColors.surfaceMuted,
           onSurface: AppColors.textPrimary,
           onSurfaceVariant: AppColors.textSecondary,
           outline: AppColors.border,
+          outlineVariant: AppColors.border,
           primary: AppColors.accent,
+          onPrimaryContainer: AppColors.accentStrong,
+          primaryContainer: AppColors.surfaceAccent,
           onPrimary: Colors.white,
           error: AppColors.danger,
           onError: Colors.white,
+          secondary: AppColors.textSecondary,
+          onSecondary: Colors.white,
         );
 
     const bodyLarge = TextStyle(
@@ -30,14 +38,14 @@ abstract final class AppTheme {
       fontFamilyFallback: fontFallback,
     );
     const bodyMedium = TextStyle(
-      fontSize: 14,
-      height: 1.55,
+      fontSize: 15,
+      height: 1.6,
       color: AppColors.textPrimary,
       fontFamilyFallback: fontFallback,
     );
     const bodySmall = TextStyle(
-      fontSize: 12,
-      height: 1.5,
+      fontSize: 13,
+      height: 1.55,
       color: AppColors.textSecondary,
       fontFamilyFallback: fontFallback,
     );
@@ -45,11 +53,11 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: AppColors.surface,
+      scaffoldBackgroundColor: AppColors.canvas,
       fontFamilyFallback: fontFallback,
       textTheme: const TextTheme(
         headlineSmall: TextStyle(
-          fontSize: 28,
+          fontSize: 26,
           height: 1.3,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
@@ -90,7 +98,7 @@ abstract final class AppTheme {
       appBarTheme: const AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.canvas,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppColors.textPrimary,
         centerTitle: false,
@@ -114,6 +122,10 @@ abstract final class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size(0, 44),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          foregroundColor: Colors.white,
+          backgroundColor: AppColors.accent,
+          disabledBackgroundColor: AppColors.surfaceMuted,
+          disabledForegroundColor: AppColors.textDisabled,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.small),
           ),
@@ -123,10 +135,50 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 44),
           foregroundColor: AppColors.accent,
-          side: const BorderSide(color: AppColors.accent),
+          side: const BorderSide(color: AppColors.borderStrong),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.small),
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.surface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.small),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.small),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.small),
+          borderSide: const BorderSide(color: AppColors.accent, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.small),
+          borderSide: const BorderSide(color: AppColors.danger),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.small),
+          borderSide: const BorderSide(color: AppColors.danger, width: 2),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.surfaceAccent,
+        labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+            fontFamilyFallback: fontFallback,
           ),
         ),
       ),

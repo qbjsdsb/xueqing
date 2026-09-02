@@ -33,7 +33,7 @@ void main() {
 
     expect(find.text('工程初始化完成'), findsOneWidget);
     expect(find.text('Android / Windows'), findsOneWidget);
-    expect(find.text('Phase 0A'), findsOneWidget);
+    expect(find.text('Phase 0A'), findsWidgets);
   });
 
   testWidgets('shows a safe fallback when bootstrap fails', (tester) async {
