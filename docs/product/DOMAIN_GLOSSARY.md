@@ -21,18 +21,50 @@
 
 升年级、换老师、停读后回归，Student identity 仍连续。
 
+### Student service lifecycle
+
+```text
+active → inactive → archived
+active ← inactive ← archived
+```
+
+实际命令语义：
+
+```text
+active --deactivate--> inactive --archive--> archived
+active <--reactivate-- inactive <--unarchive-- archived
+```
+
+- `active`：机构当前提供实际服务；
+- `inactive`：整体服务暂停，但仍在可管理/准备恢复状态；
+- `archived`：退出普通当前业务视图，历史保留，**可受控 unarchive 到 inactive**；
+- `merged`：重复档案合并后的终态，不可 unarchive/reactivate 为独立 Student。
+
+**Archive 不是删除，也不是终态；Merged 才是不可恢复的身份终态。**
+
+禁止：
+- `active → archived` 直跳；
+- `archived → active` 直跳；
+- `merged → active/inactive/archived`。
+
 ### Enrollment
 学生在某学期/校区/年级/班级的时间化关系。变化时新增/结束历史，不覆盖过去。
 
 ### Student Subject Profile｜学科学情主线
-同一 Student 在某一学科上的连续教学上下文。
+同一 Student 在某一学科上的连续教学上下文。换老师不新建。
 
-换老师不新建。
+其服务生命周期同样是：
 
-它有**服务生命周期**：
+```text
+active --deactivate--> inactive --archive--> archived
+active <--reactivate-- inactive <--unarchive-- archived
+```
+
 - `active`：当前持续该学科教学；
 - `inactive`：当前暂停/停止该学科教学，历史保留；
-- `archived`：退出普通当前业务视图，历史保留。
+- `archived`：退出普通当前业务视图，历史保留，可受控恢复到 inactive；
+- `unarchive` 只恢复可管理状态，不代表重新教学；
+- `reactivate` 才表示真正恢复持续教学，并要求 assignment / owner / primary Action reconciliation 已完成。
 
 ### 最重要的区分
 
@@ -50,7 +82,7 @@ Student = active
 
 ---
 
-## 3. 当前学情定位 / 优势
+## 3. Current Positioning / Strengths
 
 ### Current Positioning
 学生某学科当前教学位置的摘要，例如“中等待提升”。
@@ -66,16 +98,13 @@ Student = active
 
 ## 4. Initial Diagnosis｜初诊
 
-新接手 Student/新学科时，对当前学情进行结构化理解的**工作流**。
+新接手 Student/新学科时，对当前学情进行结构化理解的工作流。
 
-它可以形成：
-- Subject Profile context；
-- strengths；
-- candidate issues；
-- confirmed Cases；
-- first Actions。
+它可以形成：Subject Profile context、strengths、candidate issues、confirmed Cases、first Actions。
 
 Initial Diagnosis 不是第二套永久 Case 台账。
+
+任何初诊中的实际教学事实仍必须满足完整 Teaching Fact Gate；管理员不能用“授权初诊”跳过 active Profile / teacher relationship。
 
 是否另存第一次整体 baseline snapshot 待 Pilot 验证。
 
@@ -169,6 +198,8 @@ new → confirmed → intervening → pending_verification → stable → closed
 Assessment passed ≠ closed
 学生停读 ≠ closed
 某学科停课 ≠ closed
+Subject Profile archived ≠ closed
+Student archived ≠ closed
 老师离职 ≠ closed
 ```
 
@@ -177,7 +208,7 @@ closed：
 - 历史保留；
 - 问题后续真实复发走 `reopen_case`。
 
-产品教学语言推荐“已清零”。对长期顽固问题可在历史描述“已彻底清零”，但不增加第二个 closed 状态。
+产品教学语言推荐“已清零”。
 
 ---
 
@@ -185,22 +216,63 @@ closed：
 
 这不是 Case status。
 
-当 Subject Profile 从 active→inactive：
+当 Subject Profile 从 active→inactive，或进一步 inactive→archived：
 - unresolved Case 保留原 resolution status；
 - pending current Action 受控收口；
-- 写 tracking suspended event/reason；
-- Case 暂时退出普通教师 Today。
+- 写 tracking suspended/archived event/reason；
+- Case 暂时退出普通教师 Today；
+- 不允许新的普通教学事实或 Lesson；
+- **允许 formal open Case 暂时没有 pending primary Action。**
 
-当 Profile 恢复 active：
-- unresolved Cases 重新建立 owner + pending primary Action；
-- 写 tracking resumed event；
-- 然后恢复 active service。
+恢复流程：
 
-这防止“停读 = 清零”的语义污染。
+```text
+Profile archived
+→ unarchive 到 inactive
+→ 重建合法 assignment / owner / pending primary Action
+→ reactivate 到 active
+→ tracking resumed
+```
+
+如果 Profile 只是 inactive，则从 reconciliation + reactivate 开始，不需要 reopen Case，因为 Case 从未 closed。
+
+这防止“停读/归档 = 清零”的语义污染。
 
 ---
 
-## 9. Reopen｜重新打开 / 复发
+## 9. Archive / Unarchive / Reactivate
+
+### Archive｜归档
+把已 inactive 的 Student / Subject Profile 移出普通当前业务视图，同时保留完整历史。
+
+不是删除，也不代表问题解决。
+
+### Unarchive｜取消归档
+只允许：
+
+```text
+archived → inactive
+```
+
+含义：历史对象重新进入可管理范围。
+
+**Unarchive 不自动恢复 enrollment、teacher assignment、Case owner、Action 或 Lesson 权限。**
+
+### Reactivate｜恢复服务
+只允许：
+
+```text
+inactive → active
+```
+
+真正恢复持续教学前必须完成所需 reconciliation。
+
+### Merged
+Student merged 是终态；source Student 不能 unarchive/reactivate 为独立实体。
+
+---
+
+## 10. Reopen｜重新打开 / 复发
 
 `reopen_case` 是 domain command + Case Event。
 
@@ -208,11 +280,11 @@ closed：
 
 `reopened` 绝不是 status。
 
-如果 Case 只是因为 Profile inactive 暂停 tracking，Profile 恢复时叫 **resume tracking**，不是 reopen；因为 Case 从未 closed。
+如果 Case 只是因为 Profile inactive/archived 暂停 tracking，Profile 恢复时叫 **resume tracking**，不是 reopen。
 
 ---
 
-## 10. 三阶订正
+## 11. 三阶订正
 
 知识类默认教学 workflow：
 
@@ -229,27 +301,41 @@ closed：
 
 ---
 
-## 11. Evidence｜证据
+## 12. Teaching Fact Gate
+
+实际教学 actor 要产生 Intervention、Assessment、教学型 Evidence、Lesson teacher 行为，必须同时满足：
+
+```text
+live session
++ active membership
++ teacher capability
++ matching active teaching subject scope
++ target Student Subject Profile = active
++ legal active Student Assignment / controlled Lesson relationship
++ operation-specific permission
+```
+
+管理身份不能绕过该 Gate。
+
+---
+
+## 13. Evidence｜证据
 
 支持 Case 判断的来源事实，例如试卷、作业、作文、课堂练习、小测、观察，以及经教师判断后进入教学证据链的 guardian report。
 
-Evidence 不是附件数量 KPI。
-
-Guardian report 必须可追溯到来源 Parent Communication event。
+Evidence 不是附件数量 KPI。Guardian report 必须可追溯到来源 Parent Communication event。
 
 ---
 
-## 12. Intervention｜干预
+## 14. Intervention｜干预
 
 教师真实实施过的教学处理。
 
-管理者建议“应该怎么教”不是 Intervention；只有真实发生后才记录。
-
-实际教学 actor 必须满足 Teaching Fact Gate。
+管理者建议“应该怎么教”不是 Intervention；只有真实发生且通过 Teaching Fact Gate 后才记录。
 
 ---
 
-## 13. Assessment｜验证 / 检测
+## 15. Assessment｜验证 / 检测
 
 对 Case 后续表现的验证事实：passed / partial / failed / not_scored 等。
 
@@ -263,7 +349,7 @@ Assessment 描述一次验证结果；Case status 是教师基于证据做出的
 
 ---
 
-## 14. Case Action｜下一步行动
+## 16. Case Action｜下一步行动
 
 机构成员当前应该执行的具体下一步。
 
@@ -275,17 +361,17 @@ active Profile 下 formal open Case 必须有一个 pending primary Action。
 ### Review
 教学暂缓/稳定观察仍需 review；在 active Profile 下 review 应有 due_at。
 
-### Profile inactive
-服务暂停后 unresolved Case 可以暂时没有 current pending Action；这不算违反“正式 Case 有下一步”，因为该学科当前并非 active service。恢复 active 前必须重新建立下一步。
+### Profile inactive / archived
+服务暂停后 unresolved Case 可以暂时没有 current pending Action；这不违反“active teaching service 下正式 Case 有下一步”。恢复 active 前必须重新建立下一步。
 
 ---
 
-## 15. Owner / Assignee
+## 17. Owner / Assignee
 
 ### Case Owner
 当前主要推进 Case 的机构教师责任人。
 
-必须有合法 teacher capability + teaching scope + Student relationship。
+必须有合法 teacher capability + teaching scope + active Profile + Student relationship。
 
 Owner 是责任关系，不是 role。
 
@@ -296,13 +382,13 @@ Guardian 不是 membership，家庭配合不能伪装成 Case Action assignee。
 
 ---
 
-## 16. Lead / Collaborator / Advisor / Subject Lead
+## 18. Lead / Collaborator / Advisor / Subject Lead
 
 ### Lead
 Student + Subject 的主要负责教师，不等于 Subject Lead。
 
 ### Collaborator
-Student + Subject 协作教师。可记录本人真实教学事实，但关键 Case command 仍受 owner/policy。
+Student + Subject 协作教师。可在完整 Teaching Fact Gate 成立时记录本人真实教学事实；关键 Case command 仍受 owner/policy。
 
 ### Advisor
 跨学科必要摘要、协调、家校；不改专业学科结论。
@@ -312,9 +398,9 @@ Student + Subject 协作教师。可记录本人真实教学事实，但关键 C
 
 ---
 
-## 17. Parent Communication｜家校沟通事件
+## 19. Parent Communication｜家校沟通事件
 
-Parent Communication 是一次实际沟通 event，不是会不断覆盖的一条聊天记录。
+Parent Communication 是一次实际沟通 event，不是不断覆盖的一条聊天记录。
 
 ### Draft
 准备沟通的可编辑内容，不算已联系。
@@ -328,18 +414,14 @@ Parent Communication 是一次实际沟通 event，不是会不断覆盖的一�
 - conversation：电话/面谈同一 interaction 内双方交流。
 
 ### Reply
-老师上午 outbound finalized，家长晚上回复：
-
-> 新增 inbound event + reply_to 原 event。
-
-不能回头修改上午 finalized 的 guardian response。
+老师上午 outbound finalized，家长晚上回复：新增 inbound event + reply_to 原 event。不能回头修改上午 finalized 的 guardian response。
 
 ### Thread
 多条 communication events 的聚合展示关系，不是 mutable finalized document。
 
 ---
 
-## 18. Home Support｜家庭配合
+## 20. Home Support｜家庭配合
 
 家长在家庭侧配合的具体建议/约定。
 
@@ -351,20 +433,17 @@ Parent Communication 是一次实际沟通 event，不是会不断覆盖的一�
 
 ---
 
-## 19. Stage Review / Report
+## 21. Stage Review / Report
 
 某一 period 的事实摘要 + 人类专业判断 + finalized responsibility snapshot。
 
-系统自动整理已有事实，教师主要确认：
-- 整体进步；
-- 遗留问题；
-- 下一阶段计划。
+系统自动整理已有事实，教师主要确认整体进步、遗留问题、下一阶段计划。
 
 Finalized Report 不随底层 Case 改变，也不等于已经告知家长。
 
 ---
 
-## 20. Weekly Tracking / 顽固 / Governance
+## 22. Weekly Tracking / 顽固 / Governance
 
 ### Weekly Tracking
 工作节奏/派生视图，不是第二套周表。
@@ -373,11 +452,11 @@ Finalized Report 不随底层 Case 改变，也不等于已经告知家长。
 失败、持续、reopen 等事实派生，不是 Case status/第二张表。
 
 ### Governance anomaly
-orphan、long overdue、stale draft、inactive Profile 残留 Action 等需要处理的事实，不是风险分/效能分。
+orphan、long overdue、stale draft、inactive/archived Profile 残留 Action、archived→active 非法尝试等需要处理的事实，不是风险分/效能分。
 
 ---
 
-## 21. 当前最重要的等式
+## 23. 当前最重要的等式
 
 ```text
 Auth User ≠ Membership
@@ -386,9 +465,13 @@ Subject Scope ≠ Student Assignment
 Lead ≠ Subject Lead
 Advisor ≠ Subject Teacher
 Subject Profile status ≠ Case status
-Profile inactive ≠ Case closed
+Profile inactive/archived ≠ Case closed
 Assessment passed ≠ stable ≠ closed
 reopen = command/event, not status
+archive ≠ delete
+unarchive ≠ reactivate
+archived → active = forbidden direct transition
+merged Student = terminal identity state
 Parent Communication thread ≠ one mutable finalized row
 Finalized Report ≠ Parent informed
 Guardian Home Support ≠ staff Case Action
