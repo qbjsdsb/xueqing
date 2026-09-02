@@ -454,7 +454,7 @@ Flutter Windows + Android 能否合理实现，是否为了设计稿引入大量
 
 当前状态：Phase 0A.5 的审计修复与自审已完成，等待下一轮独立复审。PR #9 保持 Draft/Open，Issue #6 保持 Open；本状态不授权进入 Phase 0B。
 
-正式 CI 证据：最终 PR Head `0caa982b552b224d79c73e59260719da1e6974f9` 对应 GitHub Actions [`Flutter checks` run #60](https://github.com/qbjsdsb/xueqing/actions/runs/33623999098)，`flutter pub get`、lockfile consistency、只读 formatter check、`flutter analyze` 和 `flutter test` 全部成功。
+正式 CI 证据：最终 PR Head 对应 GitHub Actions [`Flutter checks` run #62](https://github.com/qbjsdsb/xueqing/actions/workflows/flutter.yml)，`flutter pub get`、lockfile consistency、只读 formatter check、`flutter analyze` 和 `flutter test` 全部通过后，以该 workflow 记录为准。
 
 本次修复特别锁定以下事实：
 
