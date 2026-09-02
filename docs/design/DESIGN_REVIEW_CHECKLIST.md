@@ -4,7 +4,7 @@
 
 最后更新：2026-09-02
 
-CI 证据：最终 PR Head 对应 GitHub Actions `Flutter checks` run #63（Flutter 3.47.1，Ubuntu），已通过 `flutter pub get`、独立 lockfile consistency gate、只读 Dart format check、`flutter analyze` 与全部 widget tests；run 记录见 [Flutter checks workflow](https://github.com/qbjsdsb/xueqing/actions/workflows/flutter.yml)。本地环境没有 Flutter/Dart，工程通过证据以正式 workflow 为准。
+CI 证据规则：以 PR #9 最终 Head 对应的最新成功 GitHub Actions `Flutter checks` 为合并门禁，必须真实通过 `flutter pub get`、独立 lockfile consistency gate、只读 Dart format check、`flutter analyze` 与全部 widget tests；精确 Head SHA 与 run 编号记录在 PR #9 的最终独立审计记录中，避免文档提交本身让固定 run 编号立即过期。本地环境没有 Flutter/Dart，工程通过证据以正式 workflow 为准。
 
 这份 checklist 同时是完成门槛和本阶段自审记录。发现问题必须修正事实源或 prototype；只写一份 review report 不算完成。
 
@@ -160,7 +160,7 @@ CI 证据：最终 PR Head 对应 GitHub Actions `Flutter checks` run #63（Flut
 
 ## 10. Independent audit remediation
 
-状态：已完成，等待下一轮独立复审
+状态：审计整改已完成；最终独立复审结论与精确 CI 证据以 PR #9 的 final audit record 为准。
 
 - [x] P0：`PrototypeCaseStatus` 恢复六段 Foundation 生命周期，移除 `reopened` status。
 - [x] P0：Today 使用显式 overdue/today/future/undated due bucket；pending verification 作为 Case 级互斥 bucket，并有 future fixture 与 executable widget test。
