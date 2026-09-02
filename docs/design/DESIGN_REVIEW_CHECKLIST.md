@@ -4,7 +4,7 @@
 
 最后更新：2026-09-02
 
-CI 证据：GitHub Actions `Flutter checks` run #46（Flutter 3.47.1，Ubuntu）已通过 `flutter pub get`、lockfile consistency、Dart format、`flutter analyze` 与全部 widget tests；详见 [run #46](https://github.com/qbjsdsb/xueqing/actions/runs/33616403972)。本地执行环境没有 Flutter/Dart，因此不把本地缺失工具链误写成通过。
+CI 证据：GitHub Actions `Flutter checks` run #47（Flutter 3.47.1，Ubuntu）已通过 `flutter pub get`、lockfile consistency、Dart format、`flutter analyze` 与全部 widget tests；详见 [run #47](https://github.com/qbjsdsb/xueqing/actions/runs/33616605888)。本地执行环境没有 Flutter/Dart，因此不把本地缺失工具链误写成通过。
 
 这份 checklist 同时是完成门槛和本阶段自审记录。发现问题必须修正事实源或 prototype；只写一份 review report 不算完成。
 
