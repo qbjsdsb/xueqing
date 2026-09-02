@@ -1,576 +1,254 @@
 # Product Completeness Audit｜产品完整性攻击审计
 
-> 当前状态：**Round 2 — INTERNAL PASS / READY FOR INDEPENDENT AUDIT**  
+> 当前状态：**INDEPENDENT AUDIT #1 — CHANGES REQUIRED → REMEDIATED / WAITING FOR RE-AUDIT**  
 > 日期：2026-09-02  
-> 范围：Phase 0A.6 事实源 + 回写后的 Product/Data/Commands/Auth Foundation + 领导 Excel 原型。  
-> 注意：本轮由实施主线自行执行，不冒充最终“独立审计”。PR #13 仍需未参与设计的模型终审。
+> 范围：Phase 0A.6 事实源 + Product/Data/Commands/Auth Foundation + 领导 Excel 原型。  
+> 本文件记录审计历史，不冒充独立最终结论。
 
-## 1. 审计方法
+## 1. 审计纪律
 
-不问“文档多不多”，而持续攻击：
+Phase 0A.6 采用两层审计：
 
-> 如果明天真有一个机构、多个老师、多学科、停读/复课、家长异步回复、弱网、离职交接和两个云候选，系统会在哪里语义断裂？
+1. 实施主线的 adversarial self-audit：负责主动找矛盾，但不能给最终 merge verdict；
+2. 未参与设计的独立模型审计：最终只能给 `PASS — READY FOR MERGE` 或 `CHANGES REQUIRED`。
 
-攻击维度：
-- 领导方法忠实度与来源归因；
-- Student / Subject service lifecycle；
-- Case resolution lifecycle；
-- teacher/subject/student relationships；
-- Role / Scope / Assignment / Teaching Fact permissions；
-- Initial Diagnosis；
-- 三类 Case workflow；
-- Lesson；
-- 家校事件；
-- Stage Review；
-- handoff / merge / governance；
-- concurrency / retry / draft recovery；
-- Cloud/Auth portability；
-- 数据最小化与重复台账。
-
-严重度：
-- P0：任何正式 business migration 前必须有执行证据；
-- P1：Phase 0A.6 文档/领域内部必须解决；
-- P2：可以显式推迟，但要有原因和验证计划。
+任何独立 `CHANGES REQUIRED` 后：
+- 原 final-head / CI 证据失效；
+- 必须修真实问题；
+- 重新形成新 Head；
+- 新 Head 重新跑 CI；
+- 再做独立复审；
+- 不允许沿用旧 INTERNAL PASS。
 
 ---
 
-# 2. Round 1 发现与处理结果
+## 2. 内部 Round 1｜CHANGES REQUIRED
 
-## P1-01｜Subject Scope 表达不一致
-问题：一处只像“教师学科列表”，另一处需要 teaching/leadership 区分。
+内部第一轮曾发现并修复：
+- Subject Scope teaching / leadership 不一致；
+- Subject Lead/Admin 可能被误读为可伪造教学事实；
+- 家校完全放 V1.1 会丢领导闭环；
+- Foundation 尚未吸收 0A.6；
+- Commands 缺新高风险 workflow；
+- Student/Subject service lifecycle 与 Case resolution 混淆；
+- Parent Communication follow-up 只有日期没有责任闭环；
+- Lesson start / 小班事务边界未显式。
 
-修复：统一：
-
-`membership_subject_scopes.scope_kind = teaching / leadership`
-
-结果：**RESOLVED**。
+内部修复后进入 Round 2。
 
 ---
 
-## P1-02｜Subject Lead/Admin 可能被误读为可追加教学事实
+## 3. 内部 Round 2｜曾 INTERNAL PASS，但不是最终结论
 
-修复：新增 Teaching Fact Gate：
+Round 2 又发现并修复：
+- Parent Communication finalized 不能成为会继续长大的聊天 row；
+- `closed=已清零` 与“服务停止”必须分离；
+- Lesson permission 必须要求 active Subject Profile；
+- Governance 文档残留第一轮旧结论。
+
+实施主线当时给出：
+
+`INTERNAL PASS — READY FOR INDEPENDENT AUDIT`
+
+随后独立审计证明仍有三项 P1，因此该 INTERNAL PASS **不能作为最终证据**。
+
+---
+
+# 4. Independent Audit #1｜CHANGES REQUIRED
+
+独立模型对原审阅 Head `2207290b329d3cd70737c6b5eb6d6a6a07025bea` 重新读取 PR #13、Issue #11/#12、20 个 docs changed files、diff 和 CI #99 后给出：
+
+`CHANGES REQUIRED`
+
+确认：
+- PR Draft/Open；
+- docs-only；
+- CI #99 当时成功；
+- 无 Phase 0B 越界。
+
+但发现以下 P1 blocker。
+
+---
+
+## IA1-P1-01｜Teaching Fact Gate 跨事实源不一致
+
+### 独立发现
+部分事实源缺：
+- active Subject Profile；
+- live session；
+
+Assignment 文档使用“通常要求 Profile=active”；Initial Diagnosis 还可能被误读成 admin authorization bypass。
+
+### 唯一不变量
+任何实际教学 actor 写/确认：
+- Intervention；
+- Assessment；
+- 教学型 Evidence；
+- Lesson teacher 行为；
+
+必须同时满足：
 
 ```text
 live session
 + active membership
 + teacher capability
-+ teaching scope
-+ active Subject Profile
-+ Student Assignment / Lesson relationship
-+ operation permission
++ matching active teaching subject scope
++ target Student Subject Profile = active
++ legal active Student Assignment / controlled validated Lesson relationship
++ operation-specific permission
 ```
 
-Leadership/Admin/Advisor 身份本身不能写 Intervention/Assessment/Lesson teacher。
+### 修复结果
+已统一到：
+- `AUTH_AND_PERMISSIONS.md`
+- `DATA_MODEL.md`
+- `COMMANDS_AND_INVARIANTS.md`
+- `PRODUCT.md`
+- `ROLE_WORKFLOW_MATRIX.md`
+- `INITIAL_DIAGNOSIS_WORKFLOW.md`
+- `TEACHER_SUBJECT_ASSIGNMENTS.md`
+- `LESSON_WORKFLOW.md`
 
-结果：**RESOLVED**。
+并明确：
+- active Profile 是硬条件，不是“通常要求”；
+- live session 是运行时硬条件；
+- Admin/Subject Lead/Advisor 不可 bypass；
+- 管理员做初诊治理时必须先建立合法 active Profile + teacher relationship；
+- inactive/archived Profile 的教学事实/Lesson 负向测试必须拒绝。
 
----
-
-## P1-03｜家校完全放 V1.1 会损失领导方法闭环
-
-修复：
-- V1 Internal Pilot：Student/Case context 内最小家校；
-- V1.1：独立家校工作台/更强综合视图；
-- 家长 App/微信 API 仍不做。
-
-结果：**RESOLVED**。
-
----
-
-## P1-04｜Data Model 尚未吸收 0A.6
-
-已回写：
-- subject scopes；
-- Subject Profile positioning/strengths/service lifecycle；
-- guardian_report Evidence source；
-- Parent Communication events/recipients/replies/follow-up；
-- Reports finalized/version/correction；
-- governance-derived anomalies；
-- Cloud/Auth P0 注记。
-
-结果：**RESOLVED**。
+**状态：REMEDIATED — WAITING FOR INDEPENDENT RE-AUDIT。**
 
 ---
 
-## P1-05｜Commands 尚未吸收新工作流
+## IA1-P1-02｜Profile 停用后的 Case Action 规则冲突
 
-已回写/冻结语义：
-- start_lesson；
-- revoke_teacher_subject_scope_and_handoff；
-- deactivate/reactivate Student Subject Profile；
-- Student deactivate/reactivate/archive reconciliation；
-- finalize/correct Parent Communication；
-- finalize/correct Report。
+### 独立发现
+原 `CASE_WORKFLOW_TEMPLATES.md` 无条件表达 confirmed 起必须有 pending primary Action，与 Product/Data/Commands 中 inactive/archived suspended exception 冲突。
 
-结果：**RESOLVED**。
-
----
-
-## P1-06｜Student inactive/archive 会残留 Today 或假关闭 Case
-
-Round 2 进一步发现：只讨论整个 Student 仍不够，现实会出现“继续语文、停止数学”。
-
-最终修复：
-- Student Subject Profile 自己有 `active / inactive / archived` service lifecycle；
-- Case resolution lifecycle 与 service lifecycle 正交；
-- Profile inactive 时 unresolved Case 保留真实 status；
-- current pending Action 受控收口并退出普通 Today；
-- **绝不因为停读/停科自动 closed/已清零**；
-- reactivation 前 unresolved formal Case 必须重新建立 owner + pending primary Action。
-
-结果：**RESOLVED，而且比 Round 1 方案更完整。**
-
----
-
-## P1-07｜Parent Communication follow-up 只有日期没有责任闭环
-
-最终：
-- Case-related → `Case Action(action_type=communicate)`；
-- non-case → communication 自身 lightweight assignee/due/status/completed；
-- 不建通用第二套 Todo。
-
-结果：**RESOLVED**。
-
----
-
-## P1-08｜Lesson start / 小班 finalize
-
-最终：
-- `start_lesson` 冻结为 domain command；
-- start 需要 teaching scope + assignment + **active Subject Profile**；
-- 小班 whole-lesson atomic vs per-student reconcile 明确转 Phase 0B.0 fault/transaction Spike。
-
-结果：**RESOLVED / IMPLEMENTATION SPIKE EXPLICIT**。
-
----
-
-# 3. Round 2 新发现与修复
-
-## R2-P1-01｜Finalized 家校记录不能成为“会继续长大的聊天线程”
-
-攻击场景：
-- 09:00 老师 outbound 已 finalized；
-- 20:00 家长微信回复；
-- 如果回头写进上午那条 `guardian_response`，上午 snapshot 被改变。
-
-最终模型：
-- Parent Communication = communication event；
-- outbound/inbound/conversation；
-- 异步 reply 新增 inbound event + `reply_to`；
-- 电话/面谈同一 interaction 可以一条 conversation event；
-- Thread 是 events 聚合关系，不是 mutable finalized row。
-
-Data / Commands / Product / Parent Workflow 已同步。
-
-结果：**RESOLVED**。
-
----
-
-## R2-P1-02｜`closed=已清零` 与“服务停止”存在潜在混淆
-
-攻击场景：学生停数学，未解决 Case 怎么清 Today？
-
-错误答案：批量 closed。
-
-最终语义：
-- `closed` 只表达问题真实解决、退出主动解决跟进；
-- `Profile inactive` 表达当前学科服务暂停；
-- suspended unresolved Case 不叫 reopen，恢复叫 resume tracking；
-- `student/profile inactive ≠ Case closed`。
-
-Domain Glossary 已加硬规则：
+### 唯一不变量
 
 ```text
-一次满分 ≠ closed
-学生停读 ≠ closed
-某学科停课 ≠ closed
-老师离职 ≠ closed
+Subject Profile = active
+→ formal open Case 必须有 pending primary Action
+
+Subject Profile = inactive / archived
+→ unresolved Case 保留真实 resolution status
+→ current tracking suspended
+→ 可以没有 pending primary Action
+→ 不进入普通 Today
+→ 不允许普通教学事实 / 新 Lesson
 ```
 
-结果：**RESOLVED**。
+### 恢复
+真正恢复 active 前，仍需跟进的 formal Cases 必须重新获得合法 owner + pending primary Action。
+
+### 修复结果
+`CASE_WORKFLOW_TEMPLATES.md` 已新增明确 Service-suspended exception，并与 Product/Data/Commands/Glossary/Governance 一致。
+
+**状态：REMEDIATED — WAITING FOR INDEPENDENT RE-AUDIT。**
 
 ---
 
-## R2-P1-03｜Lesson permission 未明确 Profile active
+## IA1-P1-03｜Archived Student/Profile 的归档—回归状态机未定义
 
-修复：`start_lesson/complete_lesson` 以及 Lesson Workflow 明确需要 target Subject Profile=active。
+### 独立发现
+原模型声明 active/inactive/archived，但只定义 deactivate/reactivate；archive 后是否可回归、如何回归不明确。
 
-结果：**RESOLVED**。
+### 最终决策
+Archive **可恢复但不能直接恢复教学**。
 
----
-
-## R2-P1-04｜Governance 文档仍保留第一轮旧结论
-
-发现旧描述：
-- Student inactive 的 Case plan 尚“待决定”；
-- non-case communication follow-up “可能需要 staff task”。
-
-修复：Governance 全量同步最终模型：Profile lifecycle、event reply、lightweight follow-up、不建 generic Todo。
-
-结果：**RESOLVED**。
-
----
-
-# 4. Round 2 场景攻击结果
-
-## A. 领导方法/来源
-
-### A1. 所有 Excel 列都算领导原要求？
-否。`EXCEL_SOURCE_PROVENANCE.md` 分开：
-- 源方法高置信七段；
-- Excel 结构化口径；
-- Excel 化管理建议；
-- Xueqing 工程增强。
-
-**PASS**。
-
-### A2. 软件是否把领导三阶藏掉？
-没有。Knowledge workflow 保留三阶教学语言，但底层泛化。
-
-**PASS**。
-
-### A3. Habit/Exam Strategy 是否被硬套三阶？
-没有，各自有不同默认 workflow。
-
-**PASS**。
-
----
-
-## B. Student / Subject Lifecycle
-
-### B1. 学生升年级？
-Enrollment 历史变化，Student 不重建。
-
-**PASS**。
-
-### B2. 学生继续语文、停止数学？
-Student active；语文 Profile active；数学 Profile inactive。
-
-**PASS**。
-
-### B3. 数学还有 unresolved Case？
-保留原 Case status，暂停 tracking，不伪造 closed。
-
-**PASS**。
-
-### B4. 恢复数学？
-先恢复 assignment/owner、给 unresolved Cases 建 primary Actions，再 Profile active。
-
-**PASS**。
-
-### B5. 整体停读/回归？
-逐 Profile reconciliation，再 Student inactive/reactivate；同一 Student history 连续。
-
-**PASS**。
-
----
-
-## C. Case Lifecycle
-
-### C1. 三阶满分一次自动清零？
-不允许。
-
-**PASS**。
-
-### C2. stable 后没人再看？
-active Profile 下 stable 仍需 review/verify Action。
-
-**PASS**。
-
-### C3. Profile inactive 后 Action invariant 怎么办？
-active Profile 才要求 current pending primary；inactive Profile unresolved Case 可 suspended 无 current Action。
-
-**PASS**。
-
-### C4. Profile resume 是否叫 reopen？
-不是。Case 未 closed 时只是 resume tracking；reopen 仅 closed 后真实复发。
-
-**PASS**。
-
----
-
-## D. Teacher / Permission
-
-### D1. 一个老师教三科？
-多 teaching scopes + 多 Student Assignments；Today 汇总后可 subject filter。
-
-**PASS**。
-
-### D2. 同学生同科两个老师？
-Lead + Collaborator；默认最多一个 active Lead。
-
-**PASS**。
-
-### D3. 老师仍在职但退出政治？
-subject-scope handoff，只转政治，不 disable 整人。
-
-**PASS**。
-
-### D4. Teacher 有语文 scope 但未 assignment？
-不能读具体学生详细数据。
-
-**PASS**。
-
-### D5. 纯 Subject Lead 写 Intervention？
-Teaching Fact Gate 拒绝。
-
-**PASS**。
-
-### D6. Org Admin 自己也授课？
-必须另外有 teacher capability + teaching scope + Student/Lesson relationship。
-
-**PASS**。
-
-### D7. Advisor 修改语文 Case root cause / close Case？
-默认不允许。
-
-**PASS**。
-
----
-
-## E. Lesson
-
-### E1. Profile inactive 还能开始 Lesson？
-不能。
-
-**PASS**。
-
-### E2. 课上 90 分钟后 App crash？
-事实逐步可靠保存 + encrypted draft；complete_lesson 不作为第一次保存所有内容。
-
-**PASS conceptually**。
-
-### E3. 小班一个学生 version conflict？
-领域不变量清楚，但最终事务粒度需要真实 DB fault Spike。
-
-**PASS AS EXPLICIT PHASE 0B.0 SPIKE**。
-
----
-
-## F. 家校
-
-### F1. Draft 没发送？
-不计 actual communication。
-
-**PASS**。
-
-### F2. 上午 outbound，晚上家长回复？
-新增 inbound reply，不改旧 finalized。
-
-**PASS**。
-
-### F3. 电话中双方当场交流？
-一条 conversation event 合法。
-
-**PASS**。
-
-### F4. 父母双方都收到？
-多 recipients 语义支持。
-
-**PASS**。
-
-### F5. 家长说“孩子在家经常拖延”？
-先 inbound communication；授权教师判断后才能形成 guardian_report Evidence/Case。
-
-**PASS**。
-
-### F6. 家庭任务能 assigned 给家长？
-不能。Guardian 不是 membership。
-
-**PASS**。
-
-### F7. 家校 follow-up 会制造第二套 Todo？
-Case-related 用 communicate Action；non-case 用轻量 communication follow-up。
-
-**PASS**。
-
----
-
-## G. Stage Review
-
-### G1. Report finalized 后第二天 Case reopen？
-旧 snapshot 不变。
-
-**PASS**。
-
-### G2. 补录上月 Evidence？
-不静默重写旧 finalized Report。
-
-**PASS**。
-
-### G3. Advisor 综合多个学科会改原学科结论？
-不能，只引用允许共享的 source。
-
-**PASS**。
-
-### G4. Finalized Report 等于家长已知？
-不等于；真正沟通另有 Parent Communication event。
-
-**PASS**。
-
----
-
-## H. Governance / Reliability
-
-### H1. Teacher disabled 前仍有 Cases？
-先 handoff，最后 disabled。
-
-**PASS**。
-
-### H2. Request 成功但 response 丢失？
-UUID/operation_id + 查询已有结果，不重复副作用。
-
-**PASS conceptually**。
-
-### H3. 两个老师同时修改 Case？
-version/expected_version，不 last-write-wins，保留用户输入。
-
-**PASS conceptually**。
-
-### H4. Inactive Profile 仍有 pending Action？
-治理异常；正常 deactivation command 应先阻止。
-
-**PASS**。
-
-### H5. 管理端变教师 KPI？
-明确禁止，展示可处理事实。
-
-**PASS**。
-
----
-
-# 5. 仍然 OPEN 的 P0：不是文档缺陷，而是必须实测
-
-## P0-01｜Auth Identity Portability
-
-Supabase 与 CloudBase Auth ID 类型差异已确认，但最终 identity strategy 未执行 Spike。
-
-候选：
-1. provider-specific Auth PK；
-2. business Profile UUID + external auth subject；
-3. text auth subject / weak-coupled identity link。
-
-**必须在任何正式 business migration 前解决。**
-
-状态：`OPEN → Phase 0B.0 hard gate`。
-
----
-
-## P0-02｜Revoked-session old-token 安全
-
-产品不变量：signOut/reset/disabled 后旧 token 不能读学生数据。
-
-Supabase reference 已有设计；CloudBase 等价实现尚未真实请求验证。
-
-必须测试：
-- Windows/Android；
-- old access token；
-- reset；
-- disabled；
-- app restart；
-- RLS/API request。
-
-状态：`OPEN → Phase 0B.0 hard gate`。
-
----
-
-# 6. P2 明确推迟
-
-## P2-01｜Initial Diagnosis Snapshot
-不建大表。Pilot 问：几个月后是否真的需要“一键回看初始整体基线”。需要才做轻量 immutable snapshot/event。
-
-## P2-02｜Positioning 四档物理存储
-产品可先稳定 codes/labels，不急于 PostgreSQL ENUM。
-
-## P2-03｜Realtime
-不作为 correctness 基础，后续 enhancement。
-
-## P2-04｜小班 Lesson final transaction shape
-需求和验收不变量已冻结，具体数据库事务形态由 Phase 0B.0 fault Spike 决定。
-
-这些 P2 都有明确推迟理由，不属于“忘了做”。
-
----
-
-# 7. Foundation 一致性检查
-
-当前以下文件对关键边界已给出一致答案：
-
-### Product
-`PRODUCT.md`
-
-### Data
-`DATA_MODEL.md`
-
-### Commands
-`COMMANDS_AND_INVARIANTS.md`
-
-### Auth/RLS
-`AUTH_AND_PERMISSIONS.md`
-
-### Supporting facts
-- Domain Glossary；
-- Leadership Teaching Model；
-- Excel Source Provenance；
-- Teacher Subject Assignments；
-- Role Workflow Matrix；
-- Initial Diagnosis；
-- Case Workflow Templates；
-- Lesson Workflow；
-- Parent Communication Workflow；
-- Stage Review Workflow；
-- Institutional Governance；
-- Reliability & Concurrency；
-- Cloud Backend Decision；
-- Foundation Change Proposal。
-
-关键等式一致：
+Student：
 
 ```text
-Role ≠ Subject Scope ≠ Student Assignment
-Subject Profile status ≠ Case status
-Profile inactive ≠ Case closed
-Assessment passed ≠ stable ≠ closed
-reopen ≠ tracking resume
-Parent Communication thread ≠ mutable finalized row
-Finalized Report ≠ Parent informed
-management permission ≠ teaching actor permission
+active --deactivate_student--> inactive --archive_student--> archived
+active <--reactivate_student-- inactive <--unarchive_student-- archived
 ```
 
+Subject Profile：
+
+```text
+active --deactivate_profile--> inactive --archive_profile--> archived
+active <--reactivate_profile-- inactive <--unarchive_profile-- archived
+```
+
+硬规则：
+- archive 只能 inactive→archived；
+- unarchive 只能 archived→inactive；
+- reactivate 只能 inactive→active；
+- active→archived 直跳拒绝；
+- archived→active 直跳拒绝；
+- unarchive 不自动恢复 enrollment / assignment / owner / Action；
+- reactivate 前必须完成完整 reconciliation；
+- Student `merged` 是身份终态，不允许 unarchive/reactivate。
+
+### 修复结果
+已同步到：
+- `PRODUCT.md`
+- `DATA_MODEL.md`
+- `COMMANDS_AND_INVARIANTS.md`
+- `DOMAIN_GLOSSARY.md`
+- `INSTITUTIONAL_GOVERNANCE.md`
+- `TEACHER_SUBJECT_ASSIGNMENTS.md`
+- `CASE_WORKFLOW_TEMPLATES.md`
+- 相关 acceptance scenarios。
+
+**状态：REMEDIATED — WAITING FOR INDEPENDENT RE-AUDIT。**
+
 ---
 
-# 8. Scope audit
+# 5. 额外扫尾修复
 
-当前 Phase 0A.6 没有进入：
-- production DB migrations；
-- production Auth/RLS；
-- 真实 Student/Case CRUD；
-- 真实学生/家长数据；
-- 家长 App；
-- 微信/短信 API；
-- billing/课消/CRM；
--完整排课；
-- AI 自动正式诊断；
-- KPI/风险分/效能分；
-- Realtime correctness dependency。
+在处理独立审计时，实施主线继续检查同类旁支残留并统一：
 
-**PASS。**
+### Lesson
+`start_lesson / complete_lesson / in-lesson facts` 均使用完整七项 Teaching Fact Gate；权限变化不能因 Lesson 已启动而被绕过。
+
+### Teacher Assignment
+active teacher assignment 必须同时匹配 active membership、teacher capability、active teaching scope、**active Subject Profile**。
+
+### Initial Diagnosis
+管理员“允许初诊”不是 bypass；baseline snapshot 明确为 **P2 Pilot validation**，不是 Phase 0B.0 migration blocker，也不预建 `initial_diagnoses` 表。
+
+### Governance
+archive/unarchive/reactivate、merged terminal、inactive/archived negative teaching scenarios 已进入治理异常与验收语义。
 
 ---
 
-# 9. Round 2 Verdict
+# 6. 当前仍然明确未完成的外部 P0 Gates
 
-## **INTERNAL PASS — READY FOR INDEPENDENT PRODUCT COMPLETENESS AUDIT**
+以下不是 Phase 0A.6 文档缺陷，而是必须拿真实 backend environment + 虚构数据执行的 Phase 0B.0 pre-migration gates：
 
-Phase 0A.6 内部 P1 已收口。
+## P0-A｜Auth Identity Portability
+Supabase / CloudBase Auth identity 物理类型差异，正式 migration 前通过 Spike 冻结方案。
 
-仍存在的 P0-01/P0-02 是被明确隔离到 **Phase 0B.0 pre-migration Cloud/Auth Compatibility Spike** 的执行 Gate；它们不能在 Phase 0A.6 通过文字“解决”，也不能被后续实现绕过。
+## P0-B｜Revoked Session / Old Token Security
+必须证明 signOut/reset/disabled 后旧 Access Token 立即失去学生业务访问。
 
-下一步不是直接 Merge，也不是进入 Phase 0B：
+这两项未执行不允许正式 business migrations；也不能在 Phase 0A.6 文档中伪装成已通过。
 
-1. 更新 deliverables/checklist 与 PR 证据；
-2. 最终 Head 正式 CI；
-3. 由**没有参与本轮设计的模型**读取最新 PR 全部事实源，做独立 Product Completeness Audit；
-4. 只有独立结论 `PASS — READY FOR MERGE` 才允许合并 Phase 0A.6；
-5. 合并后 Phase 0B 先开 `0B.0 Cloud/Auth Compatibility Spike`，不直接大规模建表。
+---
+
+# 7. 当前待办
+
+当前**不能**宣称 `PASS — READY FOR MERGE`。
+
+还必须：
+
+1. 对修复后的 PR #13 最新 Head 重新做 scope check；
+2. 修复后的最终 Head 跑正式 CI；
+3. CI 的 pub/lockfile/format/analyze/tests 全成功；
+4. Issue #12 / PR 描述同步到同一 final Head；
+5. 让独立模型重新读取最新 Head 和实际 diff；
+6. 独立复审给出唯一可合并结论：
+
+`PASS — READY FOR MERGE`
+
+如果独立复审仍为 `CHANGES REQUIRED`，继续修复，不自动进入 Phase 0B。
+
+---
+
+# 8. 当前 Verdict
+
+**REMEDIATED — NOT YET READY FOR MERGE**
+
+原因不是仍已知存在 P1，而是修复后的新 Head 尚需最终 CI 与独立复审重新证明。
