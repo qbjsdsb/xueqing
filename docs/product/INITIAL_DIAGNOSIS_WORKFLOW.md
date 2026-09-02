@@ -85,7 +85,7 @@ Initial Diagnosis 不是一张永久表，而是：
 
 如果是同一学生：
 - 复用已有 Student；
-- 新建/启用该 Subject Profile。
+- 新建/恢复并激活该 Subject Profile，再进入实际教学初诊。
 
 如果确认不同学生：
 - 允许继续；
@@ -99,22 +99,50 @@ Initial Diagnosis 不是一张永久表，而是：
 
 如果不存在：
 - 由受控 workflow 建立；
+- 实际产生教学事实前必须使 Profile=active；
 - 不要求老师先理解数据库概念。
 
 如果已经存在：
 - 不重复建立；
-- 初诊进入现有连续学情主线。
+- active → 进入现有连续学情主线；
+- inactive/archived → 必须先按 service lifecycle 的受控恢复流程处理，不能让初诊绕过 Profile state。
 
 ---
 
 # 6. 谁可以执行初诊
 
-执行者至少需要：
-- live session；
-- active membership；
-- teacher capability；
-- matching active teaching subject scope；
-- 对该 student+subject 有合法 assignment 或由管理员明确授权的初诊/接手流程。
+### 产生实际教学事实的初诊｜完整 Teaching Fact Gate
+
+如果初诊会写入：
+- Intervention；
+- Assessment；
+- 教学型 Evidence；
+- Lesson teacher 行为；
+
+执行者必须同时满足：
+
+```text
+live session
++ active membership
++ teacher capability
++ matching active teaching subject scope
++ target Student Subject Profile = active
++ 对该 student+subject 的合法 active teacher assignment
+  或本次由受控 command 建立并验证的合法 Lesson relationship
++ operation-specific permission
+```
+
+### 管理员“授权初诊”不是 Gate bypass
+
+管理员可以：
+- 创建/恢复 Student Subject Profile；
+- 按规则将 Profile 激活；
+- 为诊断教师建立合法、可审计的 Lead/Collaborator assignment；
+- 执行治理/分配操作。
+
+管理员不能：
+
+> 只写一个“允许某老师初诊”的管理标记，就跳过 teacher capability、active Profile 或 assignment，直接让该成员写实际教学事实。
 
 ### 新学生尚未分配老师怎么办
 
@@ -122,12 +150,13 @@ Initial Diagnosis 不是一张永久表，而是：
 
 ```text
 创建/匹配 Student
-→ 建立 Subject Profile
-→ 指定 Lead teacher（或明确临时诊断负责人）
+→ 建立/恢复 Subject Profile
+→ Profile active
+→ 建立合法 Lead/Collaborator teacher assignment
 → 初诊
 ```
 
-不建议为了初诊而绕开 assignment-level 权限，让任意同科老师看到所有新学生。
+如果需要临时诊断教师，仍应通过受控、可审计的 teacher assignment / Lesson relationship 表达，而不是绕开 assignment-level 权限。
 
 ---
 
@@ -302,7 +331,7 @@ Xueqing 应把它拆成：
 
 ```text
 1. 确认 Student / Subject
-2. 确认 Lead/诊断教师关系
+2. 确认 Profile=active + 合法诊断教师关系
 3. 记录当前学情定位（可简）
 4. 记录已观察优势（可选）
 5. 收集候选问题
@@ -329,7 +358,8 @@ Initial Diagnosis 是起点。
 - 优势会增加；
 - 原因判断会修正；
 - Case 会 stable/closed/reopen；
-- teacher assignment 会变化。
+- teacher assignment 会变化；
+- Subject Profile 可能 inactive/archived 后再按受控流程恢复。
 
 系统必须保留连续性，而不是把初诊表当永久真相。
 
@@ -447,6 +477,8 @@ Student 只创建一次
 - Subject Lead 参与复核；
 - Collaborator 补 Evidence。
 
+其中实际教学 Evidence / Intervention / Assessment 的 actor 都必须满足完整 Teaching Fact Gate；Subject Lead 仅凭 leadership scope 只能 review，不能伪造自己实施了教学。
+
 系统应记录各自真实 actor，而不是所有记录都显示 Lead teacher。
 
 最终 Case owner/专业结论确认仍按授权命令处理。
@@ -465,6 +497,8 @@ Lesson
 → Quick Capture Cases
 → post-lesson formalize
 ```
+
+这次 Lesson 同样必须通过完整 Teaching Fact Gate。
 
 是否新增 `lesson_purpose = diagnosis / regular / review` 暂不冻结；只有真实导航/统计需要时才加入。
 
@@ -548,7 +582,7 @@ Android：适合试听/课堂中快速捕捉，不适合要求在手机上完成
 
 ### E. 同时新开数学
 
-新增数学 Subject Profile，独立学科初诊；Student 不重复。
+新增数学 Subject Profile，先 active + 建立合法 teacher relationship，再独立学科初诊；Student 不重复。
 
 ### F. 初诊发现 8 个一次性错误
 
@@ -557,6 +591,10 @@ Android：适合试听/课堂中快速捕捉，不适合要求在手机上完成
 ### G. 初诊后一个月定位改变
 
 更新当前 Subject Profile context，并按最终选定历史策略保留可解释性；不修改旧 Case 事实来伪装当初就知道。
+
+### H. Profile inactive/archived，但管理员点“允许初诊”
+
+不能直接写 Intervention/Assessment/Lesson。必须先按 service lifecycle 恢复到 active，并建立合法 Teaching relationship。
 
 ---
 
@@ -571,6 +609,6 @@ Phase 0A.6 当前冻结：
 5. root cause 允许随着 Evidence 修正，不强迫第一次课编造；
 6. 初步整改方案应转化为策略方向 + 第一 primary Action；
 7. 多学科复用同一 Student identity；
-8. 初诊过程尊重 teacher subject scope / assignment 权限；
+8. **任何产生实际教学事实的初诊都必须完整通过 Teaching Fact Gate；管理员授权不能绕过 active Profile/assignment；**
 9. 当前 Subject Profile 需要增强以承载教学上下文，具体字段/历史策略待 Data Model audit；
 10. 是否需要独立 Initial Diagnosis snapshot 作为唯一尚未冻结的关键模型决策，必须在进入 Phase 0B 前给出结论。
