@@ -104,7 +104,10 @@ void main() {
       final caseButtons = find.widgetWithText(OutlinedButton, '查看 Case');
       final viewCaseButton = caseButtons.first;
       expect(
-        tester.getSemantics(viewCaseButton).hasAction(SemanticsAction.tap),
+        tester
+            .getSemantics(viewCaseButton)
+            .getSemanticsData()
+            .hasAction(SemanticsAction.tap),
         isTrue,
       );
       await tester.tap(viewCaseButton);

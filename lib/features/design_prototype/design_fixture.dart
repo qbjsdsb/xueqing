@@ -113,9 +113,9 @@ class PrototypeStudent {
 
 abstract final class DesignFixture {
   /// The fixed preview date keeps the fixture and executable tests deterministic.
-  static const previewDate = DateTime(2026, 9, 2);
+  static final previewDate = DateTime(2026, 9, 2);
 
-  static const students = <PrototypeStudent>[
+  static final students = <PrototypeStudent>[
     PrototypeStudent(
       id: 'demo-student-a',
       name: '示例学生甲',

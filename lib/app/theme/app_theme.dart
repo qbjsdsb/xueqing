@@ -192,10 +192,12 @@ abstract final class AppTheme {
           ),
         ),
       ),
-      iconButtonTheme: const IconButtonThemeData(
-        constraints: BoxConstraints(
-          minWidth: AppSpacing.touchTarget,
-          minHeight: AppSpacing.touchTarget,
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(
+            AppSpacing.touchTarget,
+            AppSpacing.touchTarget,
+          ),
         ),
       ),
     );
