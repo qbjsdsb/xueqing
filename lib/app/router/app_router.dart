@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../config/app_config.dart';
 import '../../features/bootstrap/presentation/bootstrap_page.dart';
+import '../../features/cloud/presentation/cloud_connection_page.dart';
 import '../../features/design_prototype/presentation/design_prototype_page.dart';
 
 abstract final class AppRoutes {
   static const bootstrap = '/';
+  static const cloudSpike = '/cloud-spike';
   static const designPreview = '/design-preview';
   static const routeCheck = '/route-check';
   static const notFound = '/not-found';
@@ -22,6 +24,11 @@ class XueqingRouter {
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => BootstrapPage(config: config),
+        );
+      case AppRoutes.cloudSpike:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => CloudConnectionPage(config: config),
         );
       case AppRoutes.designPreview:
         return MaterialPageRoute<void>(

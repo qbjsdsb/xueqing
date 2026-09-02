@@ -1,0 +1,40 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:xueqing/cloud/cloud_config.dart';
+
+void main() {
+  group('CloudConfig', () {
+    test('allows an empty development configuration', () {
+      const config = CloudConfig();
+
+      expect(config.isConfigured, isFalse);
+      expect(config.isPartiallyConfigured, isFalse);
+      expect(config.validate, returnsNormally);
+    });
+
+    test('requires URL and publishable key together', () {
+      const config = CloudConfig(url: 'http://127.0.0.1:54321');
+
+      expect(config.isPartiallyConfigured, isTrue);
+      expect(config.validate, throwsA(isA<FormatException>()));
+    });
+
+    test('accepts an HTTP(S) development endpoint', () {
+      const config = CloudConfig(
+        url: 'http://127.0.0.1:54321',
+        publishableKey: 'fictional-development-key',
+      );
+
+      expect(config.isConfigured, isTrue);
+      expect(config.validate, returnsNormally);
+    });
+
+    test('rejects a non-absolute endpoint', () {
+      const config = CloudConfig(
+        url: 'localhost:54321',
+        publishableKey: 'fictional-development-key',
+      );
+
+      expect(config.validate, throwsA(isA<FormatException>()));
+    });
+  });
+}
