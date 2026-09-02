@@ -1,353 +1,432 @@
 # Role / Workflow Matrix｜角色与工作流权限矩阵
 
-> 状态：Phase 0A.6 产品权限事实源。本文定义业务能力边界，正式 RLS / command policy 需在 Phase 0B 以负面测试证明。
+> 状态：Phase 0A.6 产品权限事实源。本文定义业务能力边界；正式 RLS / command policy 必须在 Phase 0B 用正向+负向测试证明。
 
-## 1. 先区分五种权力
+## 1. 权限不能只写“能/不能”
 
-不能只写“有权限/没权限”。
+至少区分五种权力：
 
-- **Read**：看得到必要事实；
-- **Append**：追加自己真实发生的事实；
-- **Edit**：修改当前可变业务快照；
-- **Confirm**：执行会改变正式领域状态/冻结快照的命令；
-- **Govern**：做交接、合并、成员/范围治理等高风险动作。
+- **Read**：读取权限允许的事实；
+- **Append**：追加本人真实发生/观察到的事实；
+- **Edit**：修改当前可变快照；
+- **Confirm**：执行改变正式领域状态或冻结快照的 command；
+- **Govern**：交接、合并、成员/范围治理、高风险纠错。
 
-一个人可以 Read，但没有 Edit；可以 Append 自己的 Intervention，但不能改另一个老师的历史 Intervention。
+一个人可以 Read 但不能 Edit；可以 Append 自己真实实施的 Intervention，但不能改写另一位老师过去已经发生的 Intervention。
 
 ---
 
-## 2. 授权计算不是只看 Role
+## 2. 最重要的硬规则：管理权限不能伪造教学事实
 
-最终业务许可至少由：
+### 教学事实写入 Gate
+
+任何成员要追加：
+- Intervention；
+- Assessment；
+- 以任课教师身份形成的教学 Evidence；
+- Lesson 内教师教学行为；
+
+至少必须满足：
 
 ```text
 live session
 + active membership
-+ role/capability
-+ active subject scope（如需）
-+ active student/staff assignment（如需）
++ teacher capability/role
++ matching active teaching subject scope
++ 对该 student+subject 的合法 active teacher assignment 或本次合法 Lesson relationship
++ operation-specific permission
+```
+
+### 明确禁止
+以下身份**单独存在时**都不能让系统把该成员记录成“实际授课教师”：
+- `subject_lead role + leadership scope`
+- `academic_admin`
+- `org_admin`
+- `student_advisor`
+
+如果 Subject Lead / Academic Admin / Org Admin 本人真的参加授课，则必须另外拥有：
+- teacher role/capability；
+- teaching subject scope；
+- 对应 Student Assignment / Lesson relationship。
+
+这样 audit 才能解释：
+
+> 这条记录是管理行为，还是这个人真的参与了教学？
+
+---
+
+## 3. 授权不是只看 Role
+
+最终许可由多层共同决定：
+
+```text
+live Auth Session
++ active Organization Membership
++ role / capability
++ active Subject Scope（如需要）
++ active Student/Staff Assignment（如需要）
 + entity current state
++ owner/assignee relation（如需要）
 + command-specific rule
 ```
 
-共同决定。
-
-Role Matrix 是能力上限，不是数据范围本身。
+Role Matrix 只定义能力上限，不能替代数据范围。
 
 ---
 
-## 3. Teacher · Student Lead
+## 4. Subject Scope 两种语义
 
-条件：
-- teacher role；
-- matching teaching subject scope；
-- student+subject active assignment role=lead。
+`membership_subject_scopes.scope_kind`：
+- `teaching`
+- `leadership`
+
+### Teaching Scope
+表示成员可以在该学科承担教师类 assignment。
+
+它**不自动授予该学科所有学生的数据访问权**；普通教师仍需 Student Assignment。
+
+### Leadership Scope
+表示 Subject Lead 的学科管理范围。
+
+它可以扩大该学科的专业治理/审阅视角，但：
+- 不自动成为每个学生的教师；
+- 不自动成为 Case owner；
+- 不自动允许写 Intervention/Assessment；
+- 不访问其他学科。
+
+---
+
+## 5. Lead Teacher
+
+前置：
+- teacher role/capability；
+- matching teaching scope；
+- student+subject active assignment=`lead`。
 
 ### 默认能力
-- Read：该学生本科详细 Subject Profile / Case / Evidence / Intervention / Assessment / Action / Lesson context；
-- Append：本人实际产生的 Evidence / Intervention / Assessment / Quick Capture；
-- Edit：本科当前可变 Case judgment/profile summary（受 version）；
-- Confirm：confirm_case、允许的 transition、stable/closed/reopen、primary Action replacement；
+- Read：本科详细 Subject Profile / Case / Evidence / Intervention / Assessment / Action / Lesson context；
+- Append：本人真实产生的教学事实；
+- Edit：本科当前可变判断/profile summary，受 version 控制；
+- Confirm：按 command policy 执行 confirm/transition/stable/closed/reopen、primary Action replacement；
+- Lesson：开始/完成本人合法授课 Lesson；
 - Parent Communication：创建/确认本科反馈；
-- Subject Stage Review：创建并 finalize 本科阶段复盘；
-- Lesson：开始/完成本人授课 Lesson；
-- Governance：无机构级 merge/member 权限。
+- Subject Stage Review：创建并 finalize 授权范围内本科阶段复盘。
 
 ### 不允许
-- 读取未 assignment 学生，仅因“我教这科”；
+- 因 teaching scope 读取未 assignment 学生；
 - 修改其他学科专业结论；
-- 修改别人已经 finalized 的历史 snapshot；
-- 改写别的老师“实际实施过”的 Intervention actor。
+- 静默覆盖 finalized 历史；
+- 把其他老师真实行为改成自己的 actor。
 
 ---
 
-## 4. Teacher · Collaborator
+## 6. Collaborator Teacher
 
-条件：
-- teacher role；
-- matching teaching subject scope；
-- student+subject assignment role=collaborator。
+前置：
+- teacher role/capability；
+- matching teaching scope；
+- student+subject assignment=`collaborator`。
 
 ### 默认能力
-- Read：本科足够完成协作的详细事实；
+- Read：本科完成协作所需的详细事实；
 - Append：本人真实 Evidence / Intervention / Assessment；
-- Action：可以承担明确 assigned Action；
+- Action：执行明确 assigned 给自己的 Action；
 - Lesson：记录本人实际授课。
 
-### 关键状态命令
-Collaborator 是否可 stable/close/reopen 不应靠 UI 猜。
+### 关键 Case command
+Collaborator 不因 assignment 自动拥有所有最终判断权。
 
 推荐默认：
-- 可以提出/执行普通干预与验证；
-- 若自己是当前 Case owner 或被明确授予 command capability，可执行相应状态命令；
-- 否则关键最终判断由 Lead/Case owner 完成。
+- 如果是当前 Case owner，按 command policy 可执行相应状态命令；
+- 如果不是 owner，能完成普通干预/验证，但 stable/close/reopen 等关键确认需由合法 owner/Lead 或明确治理 command 完成。
 
-Phase 0B command test 必须覆盖“Collaborator 有 assignment 但不是 owner”的负面/正面场景。
+Phase 0B 必须覆盖 collaborator=assigned 但 owner=false 的正负测试。
 
 ---
 
-## 5. Student Advisor / 学管
+## 7. Student Advisor / 学管
 
-条件：
-- student_advisor role；
-- active student_staff_assignment。
+前置：
+- student_advisor capability；
+- active `student_staff_assignment`。
 
 ### Read
 - 被分配学生的跨学科必要摘要；
-- 当前重点/待验证/下一步；
-- 已授权的家校素材；
+- 当前重点、待验证、下一步；
+- 权限允许的家校素材；
 - finalized subject review 摘要。
 
-### Append/Edit
-- 记录实际家校沟通；
-- 记录符合权限的综合协调事实；
+### 可以做
+- 记录本人真实进行的家校沟通；
 - 创建综合 Parent Communication draft；
+- 在权限允许范围整理多个学科的摘要；
+- 负责非学科专业性的综合 follow-up；
 - 创建综合 Stage Review draft（若机构采用）。
 
-### 不允许默认
-- 修改 subject teacher 的 root-cause judgment；
-- 把某科 Assessment result 改掉；
-- 以 Advisor 身份伪造 Intervention；
-- 直接 close/reopen 学科 Case；
-- 通过综合视角看到所有内部敏感细节。
+### 默认不能
+- 修改学科老师 root-cause judgment；
+- 修改 Assessment result；
+- 伪造 Intervention；
+- close/reopen 学科 Case；
+- 通过“综合视角”读取全部内部专业细节。
 
-### Confirm
-- 可以 finalize 自己有权限负责的综合家校沟通；
-- 综合 Stage Review finalization 是否允许取决于机构权限，但不能改变引用的 subject finalized source。
+Advisor 可以确认自己有权负责的综合家校沟通，但不能通过 composite draft 回写 subject finalized source。
 
 ---
 
-## 6. Subject Lead
+## 8. Subject Lead
 
-条件：
-- subject_lead role；
-- matching `leadership` subject scope。
+前置：
+- subject_lead role/capability；
+- matching `leadership` scope。
 
-### Read
-本科范围必要的：
-- Student Subject Profiles；
+### 默认 Read / Govern
+在本科范围内可按机构规则查看：
+- Subject Profiles；
 - Cases；
 -长期/重复问题；
--教学 Evidence/Assessment；
--阶段复盘。
-
-### 专业管理
-可以：
-- review 教师结论；
-- 提出调整；
-- 参与复杂 Case；
-- 查看本学科治理异常。
-
-### Edit/Confirm
-不能简单定义为“所有东西都能改”。
-
-推荐：
-- 可在明确治理/协作场景执行特定 command；
-- 普通历史事实仍保留实际 actor；
-- 不自动替代 Student Lead teacher 成为 owner；
-- 修改 finalized 内容走 correction/audit。
-
-### 数据范围
-leadership scope=语文，只获得语文范围，不访问历史/数学等其他科。
-
----
-
-## 7. Academic Admin
-
-机构教学管理角色。
-
-### Read
-必要跨学科：
-- Student/Subject 状态；
-- Case/Action 完整性；
--交接；
--长期异常；
+- Evidence/Assessment；
 -阶段复盘；
--必要家校协调。
+-本科治理异常。
 
-### Govern
-- assignment 调整；
--教学 handoff；
--处理 orphan；
--纠正异常；
--必要的 report/communication correction。
+可以：
+- 专业 review；
+- 提出调整建议；
+- 协助复杂 Case；
+- 执行少量明确的 subject-governance commands（需 audit）。
 
-### 不代表
-Academic Admin 有广视角，但不表示：
-- 可以伪造本人没有发生的 Intervention；
-- 自动成为每个 Case owner；
-- 默认通过 UI 修改所有教师专业正文。
+### 绝对不因 leadership scope 自动获得
+- Intervention append；
+- Assessment append；
+- Lesson teacher identity；
+- Student Assignment；
+- Case ownership。
 
-高风险操作必须 audit。
+如果 Subject Lead 真实参与某个学生教学，必须另外满足 **Teaching Fact Gate**。
 
 ---
 
-## 8. Org Admin
+## 9. Academic Admin
 
-核心职责：
-- membership；
+职责是机构教学完整性与跨学科治理。
+
+### Read / Govern
+可按最小必要原则：
+- 查看 Case/Action 完整性；
+- 处理 orphan/handoff；
+- 协调跨学科问题；
+- 处理 assignment；
+- 必要时执行 finalized snapshot correction 等治理动作。
+
+### 不能仅凭 admin 身份
+- 伪造 Intervention；
+- 伪造 Assessment；
+- 成为 Lesson teacher；
+- 自动覆盖教师专业正文；
+- 自动成为所有 Case owner。
+
+如果本人授课，同样必须通过 Teaching Fact Gate。
+
+---
+
+## 10. Org Admin
+
+主要负责：
+- membership / onboarding / reset / disable；
 - roles；
 - subject scopes；
--账号 onboarding/reset/disable；
-- student master governance；
+- Student 主档案治理；
 - merge；
-- break-glass/治理。
+- break-glass / 高风险治理。
 
-### 特别原则
-Org Admin 的“系统管理员”身份不等于“教学专家”。
+Org Admin 是系统管理身份，不等于教学专业身份。
 
-如果 Org Admin 同时实际授课：
-- 另有 teacher role；
-- teaching subject scope；
-- student assignment；
-- 真实记录按 teacher 身份/关系产生。
-
-这样 audit 能解释“这次行为是管理员治理，还是实际授课”。
+如果 Org Admin 也授课，需要另有 teacher capability + teaching scope + Student Assignment / Lesson relationship。
 
 ---
 
-## 9. Workflow Matrix
+## 11. Case Owner 是责任关系，不是 Role
 
-符号：
-- R = Read
-- A = Append own fact
-- E = Edit mutable snapshot
-- C = Confirm/domain command
-- G = Governance
-- — = 默认无权，除非另有关系/角色
+`owner_membership_id` 表示一个 Case 当前主要推进责任人。
+
+Owner 必须：
+- membership active；
+- 有 teacher capability；
+- matching teaching scope；
+- 对该 student+subject 有合法 teacher relationship；
+- 满足 command-specific rules。
+
+Owner 通常是 Lead，也可以是合法 Collaborator。
+
+**Advisor / Admin / Subject Lead 不能仅凭管理身份被设为 Case owner 来绕过教学权限。**
+
+Owner 变化必须留下 event/audit，不能只覆盖字段导致历史责任消失。
+
+---
+
+## 12. 多学科教师
+
+例如：
+
+```text
+乔老师
+- 语文 / teaching
+- 政治 / teaching
+- 历史 / teaching
+
+Student Assignments
+- 张三 · 语文 · Lead
+- 李四 · 政治 · Lead
+- 王五 · 历史 · Collaborator
+```
+
+Today 默认聚合本人所有合法 assigned Actions：
+- overdue；
+- today；
+- pending verification；
+- future；
+- undated。
+
+可按 subject filter 查看，但 filter 不是权限事实源。
+
+不要求用户进入 App 先选择一个“全局当前学科”。
+
+---
+
+## 13. Student Detail 多学科上下文
+
+从某个“语文”Action 进入 Student Detail：
+- 默认保留语文上下文；
+- 不静默跳科；
+- 有其他学科权限时可显式切换；
+- 无权限学科不泄露细节。
+
+Advisor 从综合入口进入：
+- 可以看到授权的跨学科摘要；
+- 进入专业 Case 时必须显示明确学科与专业来源。
+
+### No permission ≠ Empty
+无数学权限时不能显示：
+
+> 数学：暂无问题
+
+这会误导成“确实没有数据”。
+
+应根据 privacy spec 隐藏 section 或表达“当前不在你的可见范围”。
+
+---
+
+## 14. 家校特别边界
+
+### Subject Teacher
+基于本科正式事实形成专业反馈。
+
+### Advisor
+可以组织多个学科**被允许共享的摘要**形成综合家校沟通。
+
+正确结构：
+
+```text
+subject source facts/finalized source
+        ↓
+advisor composite draft
+        ↓
+actual parent communication snapshot
+```
+
+综合文案变化不能回写原 subject professional source。
+
+---
+
+## 15. Stage Review 边界
+
+### Subject Review
+由有学科专业确认权的教师/按机构规则的 Subject Lead review/finalize。
+
+Subject Lead 如果只是 reviewer，不因此成为该学生的 actual teacher actor。
+
+### Comprehensive Review
+Advisor / Academic Admin 可以在授权范围内组织跨学科摘要，但不能更改被引用的 subject finalized source。
+
+---
+
+## 16. 管理 Workflow Matrix
+
+符号：R=Read，A=Append actual fact，E=Edit mutable snapshot，C=Confirm command，G=Govern。
 
 | Workflow | Lead Teacher | Collaborator | Advisor | Subject Lead | Academic Admin | Org Admin |
 | --- | --- | --- | --- | --- | --- | --- |
-| 本科 Student Detail | R/E | R | 摘要 R | R | R | 治理必要 R |
-| 其他学科详细 Case | — | — | 默认摘要 | — | R（必要） | 默认不因 admin 全开正文 |
-| Quick Capture | A | A | 仅允许范围 | A（实际参与时） | 非默认教学事实 | 非默认教学事实 |
-| Evidence | R/A | R/A | 必要 R | R/A（实际参与） | R | 治理 R |
-| Intervention | R/A | R/A | R，不伪造 | R/A（实际参与） | R | R |
-| Assessment | R/A | R/A | 摘要/必要 R | R/A（实际参与） | R | R |
-| Confirm Case | C | owner/capability 时 C | — | 特定治理 C | 特定治理 C | — |
-| Stable/Close/Reopen | owner/Lead C | policy 限制 | — | 特定治理 C | 特定治理 C | — |
-| Primary Action | E/C | assigned/owner 范围 | 协调 R | 专业治理 | G | — |
-| Lesson | C 自己课程 | C 自己课程 | R 摘要 | 实际授课时 | R | — |
-| Parent Comm subject | R/E/C | 根据实际关系 | R/E/C 综合 | R/Review | G/必要 C | 治理 |
-| Stage Review subject | R/E/C | 协作/Review | 摘要 R | R/Review/C（按机构） | G | 治理必要 |
-| Stage Review comprehensive | R source | R source | R/E/C | 本科 source | R/E/C | 治理必要 |
-| Teacher assignment | — | — | — | 建议/按机构 | G | G |
+| 本科 Student Detail | R/E | R | 摘要 R | 本科 R | 必要 R | 治理必要 R |
+| 未 assignment 学生详细数据 | — | — | 仅 staff-assigned 摘要 | 本 leadership scope 治理 R | 必要 R | 治理必要 R |
+| Quick Capture | A | A | 非专业范围按 policy | **仅通过 Teaching Fact Gate 时 A** | **仅通过 Teaching Fact Gate 时 A** | **仅通过 Teaching Fact Gate 时 A** |
+| Teaching Evidence | R/A | R/A | 必要 R | **Gate 后才 A** | **Gate 后才 A** | **Gate 后才 A** |
+| Intervention | R/A | R/A | R | **Gate 后才 A** | **Gate 后才 A** | **Gate 后才 A** |
+| Assessment | R/A | R/A | 摘要/必要 R | **Gate 后才 A** | **Gate 后才 A** | **Gate 后才 A** |
+| Confirm Case | C | owner/policy 时 C | — | 特定治理 C | 特定治理 C | 默认 — |
+| Stable/Close/Reopen | C | owner/policy 时 C | — | 特定治理 C | 特定治理 C | 默认 — |
+| Primary Action | E/C | assigned/owner 范围 | 协调 R | 专业治理 | G | 治理必要 |
+| Lesson | 本人合法 Lesson C | 本人合法 Lesson C | R 摘要 | **Gate 后本人 Lesson** | **Gate 后本人 Lesson** | **Gate 后本人 Lesson** |
+| Parent Communication | 本科 R/E/C | 关系范围 | 综合 R/E/C | Review/本科治理 | G/必要 C | 治理 |
+| Subject Stage Review | R/E/C | 协作 | 摘要 R | R/Review/C 按机构 | G | 治理必要 |
+| Comprehensive Stage Review | source R | source R | R/E/C | 本科 source | R/E/C | 治理必要 |
+| Student Assignment | — | — | — | 建议/按机构 | G | G |
 | Subject Scope | — | — | — | — | 建议/部分 G | G |
-| Disable + handoff | — | — | — | 学科协助 | G | G |
-| Student merge | — | — | — | — | G（若授权） | G |
+| Handoff / Disable | — | — | — | 学科协助 | G | G |
+| Student Merge | — | — | — | — | G（若授权） | G |
 
-此表是默认模型，不替代 command-specific policy。
-
----
-
-## 10. 家校特别边界
-
-### Subject Teacher
-只基于本科正式事实形成专业反馈。
-
-### Advisor
-可以把多个学科**已经允许共享的摘要**组织成家长可理解的综合信息。
-
-不能：
-
-> Advisor 改完一句话后，原数学老师的 finalized 学科判断也被改了。
-
-正确：
-
-`subject source snapshot → advisor composite draft → parent communication snapshot`
-
-三层都可解释。
+表中任何 `Gate 后才 A` 都必须满足第 2 节 Teaching Fact Gate，而不是 leadership/admin 权限本身。
 
 ---
 
-## 11. 多学科同一教师
+## 17. Historical actor 永不因交接重写
 
-一位老师如果：
-- 语文 Lead；
-- 政治 Lead；
-- 历史 Collaborator；
+老师离职/换科后：
+- 过去 Evidence created_by 不变；
+- Intervention teacher 不变；
+- Assessment assessor 不变；
+- finalized Report/Communication 仍显示原确认者；
+- 只转移当前 owner / pending Actions / assignments。
 
-系统用各自 assignment 判断访问，不依赖“当前选择的一个全局学科”。
-
-Today 默认汇总其所有 assigned Actions，再按 subject filter 查看。
-
-Student Detail 从来源进入时保留学科上下文。
+禁止为了“当前负责人一致”修改历史 actor。
 
 ---
 
-## 12. Case Owner 是责任，不是角色
+## 18. Phase 0B 权限测试最小矩阵
 
-`owner_membership_id` 表示某个 Case 当前主要推进责任人。
-
-它必须：
-- active；
-- 有适当 role/capability；
-- matching subject scope；
-- 有合理 student relationship。
-
-Case owner 可以是 Lead，必要时也可以是合法 Collaborator；不能指向 Advisor 来绕过专业权限。
-
-Owner 变化必须 event/audit，不能只覆盖字段丢历史。
-
----
-
-## 13. Historical actor 不随权限变化重写
-
-老师离职后：
-- 过去 Evidence 的 created_by 仍是该老师；
-- Intervention teacher 仍是该老师；
-- finalized report/communication 仍显示原确认者；
-- 当前 owner/action 转交新老师。
-
-禁止因为用户 disabled 就把历史 actor 改成新老师。
-
----
-
-## 14. No-permission vs Empty
-
-UI 不能让权限不足看起来像“学生没有数据”。
-
-例如 Teacher 无权读数学 Case：
-- 不应该显示“数学：暂无问题”，因为这泄露/误导；
-- 应显示经过设计的“不在你的当前可见范围”或根本不呈现该 section。
-
-精确文案在真实 RLS 接入后 privacy review。
-
----
-
-## 15. Phase 0B 权限测试最小矩阵
-
-至少建立：
+至少建立虚构：
 - Org A / Org B；
-- Teacher A：语文 scope，学生 1 Lead；
-- Teacher B：语文 scope，学生 1 Collaborator；
-- Teacher C：语文 scope，但未 assignment；
-- Teacher D：数学 scope；
-- Subject Lead：语文 leadership scope；
-- Advisor：学生 1 staff assignment；
+- Teacher A：语文 teaching scope，Student 1 Lead；
+- Teacher B：语文 teaching scope，Student 1 Collaborator；
+- Teacher C：语文 teaching scope，但无 Student 1 assignment；
+- Teacher D：数学 teaching scope；
+- Subject Lead：语文 leadership scope、**无 teaching relationship**；
+- Subject Lead+Teacher：同时有语文 leadership + teaching scope + Student 1 assignment；
+- Advisor：Student 1 staff assignment；
 - Academic Admin；
 - Org Admin；
-- onboarding/disabled variants。
+- onboarding / disabled variants。
 
 必须证明：
-1. Teacher C 虽有语文 scope，不能读学生 1；
-2. Teacher D 不能读学生 1 语文细节；
+1. Teacher C 虽有语文 teaching scope，不能读 Student 1 详细数据；
+2. Teacher D 不能读 Student 1 语文细节；
 3. Advisor 能读允许摘要但不能 close 语文 Case；
-4. Collaborator 能追加自己事实，但关键命令按 owner policy；
-5. Subject Lead 仅在语文 leadership scope 生效；
-6. disabled/revoked 全拒绝；
-7. Org A/B 完全隔离；
-8. admin 治理能力不能被普通 teacher endpoint 冒用。
+4. Collaborator 能追加本人真实教学事实，但关键 Case command 受 owner/policy；
+5. **纯 Subject Lead（只有 leadership scope）不能写 Intervention/Assessment；**
+6. Subject Lead+Teacher 只有在真实 Student/Lesson relationship 下才可写教学事实；
+7. Academic/Org Admin 单凭 admin 身份不能伪造教学事实；
+8. disabled/revoked 全拒绝；
+9. Org A/B 完全隔离；
+10. 管理 endpoint 不能被普通 teacher 冒用。
 
 ---
 
-## 16. 当前冻结结论
+## 19. 当前冻结结论
 
-- Role、Subject Scope、Student Assignment 三层必须共同参与授权。
+- Role、Subject Scope、Student Assignment 三层共同参与授权。
+- Subject Scope 明确区分 `teaching / leadership`。
 - “能看、能追加、能改、能确认、能治理”必须分开。
-- Teacher Scope 不授予全学科学生访问。
+- Teaching Scope 不授予全学科学生访问。
+- Leadership/Admin 权限本身**绝不允许伪造实际教学事实**。
 - Advisor 是综合协作角色，不是跨学科专业编辑者。
-- Subject Lead 必须有 leadership subject scope。
-- Admin 广视角不等于伪造教学事实。
-- Case owner 是明确责任关系，并受 subject/student relationship 约束。
-- 历史 actor 永不因为交接而重写。
+- Case owner 是受教学关系约束的责任关系。
+- 历史 actor 不随 handoff 重写。
