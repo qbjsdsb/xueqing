@@ -307,6 +307,7 @@ class DesignCaseRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
+      explicitChildNodes: true,
       label: 'Case 信息：${student.name} · ${learningCase.title}',
       child: Container(
         decoration: const BoxDecoration(
