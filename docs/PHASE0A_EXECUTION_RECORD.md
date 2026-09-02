@@ -42,7 +42,7 @@
 
 ## Platform verification
 
-- Android debug build (`flutter build apk --debug`)：**FAIL / EXECUTED**；command returned `flutter: command not found`. Because the Flutter executable, Android SDK and `adb` are absent, this is an environment failure, not a project-level build diagnosis.
+- Android debug build command attempt (`flutter build apk --debug`)：**FAIL / EXECUTED**；command returned `flutter: command not found`. Actual Android build：**NOT RUN / ENVIRONMENT UNAVAILABLE**，因为 Flutter executable、Android SDK 与 `adb` 均缺失；这不是项目级 build diagnosis。
 - Windows build：**NOT RUN / ENVIRONMENT UNAVAILABLE**；当前 host 不是 Windows，且没有 MSVC / CMake / Windows Flutter toolchain。
 - Windows `CMakeLists.txt`、runner、manifest 与官方 stable 模板结构：**REVIEWED ONLY**。
 - GitHub Actions PR run `33603964885`（head `2bd7f0c942a3bc6ecdb192b89df53268bb8d6292`）：**PASS / EXECUTED**；Flutter setup、`flutter pub get`、Dart format、`flutter analyze` 与 `flutter test` 全部成功。此前 run `33603316131` 的 6 个分析问题已在提交 `0520358dd883b992d84d3909fee3d605367df3eb` 修复。
