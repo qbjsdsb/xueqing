@@ -23,13 +23,7 @@
 - branch 相对 `main`：ahead，behind = 0
 - 当前没有正式 Flutter / Supabase workflow run，因此**没有 CI green 可声称**
 - Foundation 最终建议 Squash merge
-
-### 仍需人工处理的 GitHub 设置
-
-- [x] Template repository 已关闭
-- [x] Wiki 已关闭
-- [x] repository 已 Private
-- [ ] 确认 GitHub Actions billing budget 为超额停止
+- GitHub Actions zero-overage budget：**用户明确选择暂不设置；记录为已知并接受的账户级计费风险，不再阻塞 Foundation**
 
 ---
 
@@ -290,10 +284,7 @@ V1 不做：收费 / 课消 / 招生 CRM、完整排课 ERP、大型题库、学
 - [x] branch behind main = 0
 - [x] 当前无 CI green 可声称这一事实明确
 - [x] README / ROADMAP / SECURITY / RISKS / PR 描述同步到最新规则
-
-## 仍需人工设置
-
-- [ ] 确认 Actions zero-overage budget
+- [x] Actions budget：用户明确选择暂不设置，已记录为接受的非阻塞风险
 
 ## Phase 0 才能证明
 
@@ -335,6 +326,6 @@ Flutter Windows / Android build
 
 ## 最终判断
 
-除 **Actions budget** 这一项 GitHub 账户级设置仍需人工确认外，Foundation 设计审计已经没有继续扩写理论的高价值空间。
+**Foundation v0.3 设计审计已收口。** 当前没有需要继续扩写理论或继续等待账户设置的阻塞项。
 
 下一步应冻结 Foundation v0.3，并进入 Phase 0，用真实 build / migration / RLS / Auth / restore 证据验证设计，而不是继续增加架构文档。
