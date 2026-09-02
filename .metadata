@@ -1,0 +1,26 @@
+# This file tracks properties of this Flutter project.
+# Used by the Flutter tool to assess capabilities and perform upgrades.
+#
+# This file should be version controlled and should not be manually edited.
+
+version:
+  revision: ce1f5ff8d3f0932e7ab683b7b7d2d8fa3d4e1c57
+  channel: stable
+
+project_type: app
+
+# Tracks metadata for the flutter migrate command.
+migration:
+  platforms:
+    - platform: root
+      create_revision: ce1f5ff8d3f0932e7ab683b7b7d2d8fa3d4e1c57
+      base_revision: ce1f5ff8d3f0932e7ab683b7b7d2d8fa3d4e1c57
+    - platform: android
+      create_revision: ce1f5ff8d3f0932e7ab683b7b7d2d8fa3d4e1c57
+      base_revision: ce1f5ff8d3f0932e7ab683b7b7d2d8fa3d4e1c57
+    - platform: windows
+      create_revision: ce1f5ff8d3f0932e7ab683b7b7d2d8fa3d4e1c57
+      base_revision: ce1f5ff8d3f0932e7ab683b7b7d2d8fa3d4e1c57
+
+  unmanaged_files:
+    - 'lib/main.dart'
