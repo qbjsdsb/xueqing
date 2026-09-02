@@ -1,79 +1,106 @@
 # 系统架构
 
-## 1. 架构目标
-
-V1 优先保证：
+## 1. V1 架构目标
 
 1. 多机构严格隔离；
 2. 多教师共享同一学生事实源；
-3. Auth 登录与机构授权分离；
-4. 权限在数据库/服务端真正执行；
-5. 教师高频操作快且保存可靠；
-6. 历史连续、可追溯；
-7. schema 可从 Git migrations 重建；
-8. 零额外付费 Pilot 可运行；
-9. 不提前建设微服务、复杂离线、多登录体系。
+3. Auth 与机构授权分离；
+4. 被撤销 Session 不能继续借旧 JWT 访问学生数据；
+5. 教师高频记录快且不丢；
+6. 本地 Session/草稿不成为隐私旁路；
+7. 历史连续、可追溯；
+8. schema 可从 Git migrations 重建；
+9. Free Pilot 可恢复、可控成本；
+10. 不提前建设微服务、CRDT、ERP 或多登录体系。
 
-## 2. 总体架构
+---
+
+## 2. 总体结构
 
 ```text
 ┌──────────────────────────────────────────────┐
 │ Flutter Client                               │
-│ Windows（深度管理） / Android（快速记录）    │
-└───────────────┬──────────────────────────────┘
-                │
-        ┌───────┼─────────────────────┐
-        │       │                     │
-        ▼       ▼                     ▼
- Password   普通授权读写         受控业务命令
-Supabase Auth Data API            DB/Edge Functions
-        │       │                     │
-        └───────┴──────────┬──────────┘
-                           ▼
+│ Windows：深度查看/管理   Android：快速记录   │
+│                                              │
+│ Secure Session Storage + Encrypted Drafts    │
+└──────────────┬───────────────────────────────┘
+               │
+               ▼
+       Startup Authorization Gate
+               │
+        ┌──────┼────────────────────┐
+        ▼      ▼                    ▼
+ Supabase Auth Data API       Controlled Commands
+ Password/Session PostgreSQL   DB Functions / Edge Functions
+        │      │                    │
+        └──────┴──────────┬─────────┘
+                          ▼
 ┌──────────────────────────────────────────────┐
 │ Supabase                                     │
-│ Auth | PostgreSQL | RLS | Storage            │
+│ Auth | auth.sessions | PostgreSQL | RLS      │
+│ Storage | Edge Functions                     │
 └──────────────────────────────────────────────┘
+
+GitHub：source / docs / migrations / tests / PR / CI
 ```
 
-GitHub 保存源码、migrations、tests、CI 和文档；真实业务数据不进入 GitHub。
+---
 
-## 3. Auth 与业务授权链
+## 3. 业务授权链
 
-V1 首选管理员受控开通 + Password。
+```text
+JWT user_id
+  ↓
+JWT session_id 仍对应 auth.sessions 行？
+  ↓
+organization_membership = active？
+  ↓
+role / capability 合法？
+  ↓
+student / subject assignment 合法？
+  ↓
+具体 read/write/admin 操作允许
+```
+
+缺任何一层都拒绝。
+
+### 为什么 Session 也要查
+
+Supabase global sign-out 会撤销 Sessions/Refresh Tokens，但旧 Access Token 在 `exp` 前仍可能存在。对学生敏感数据，V1 不接受“等 JWT 自然过期”作为唯一撤销机制。
+
+用非 exposed helper 校验 JWT `session_id` ↔ `auth.sessions`；Phase 0 对性能和越权做实测。
+
+---
+
+## 4. V1 Auth 架构
 
 ```text
 org_admin provision_member
-   ↓
+  ↓
 Auth User + membership(onboarding)
-   ↓
-教师用临时密码登录
-   ↓
-Auth Session
-   ↓
-membership = onboarding
-   ↓
-只允许完成账号接管，不允许读取学生业务数据
-   ↓
-complete_member_onboarding
-   ↓
-membership = active
-   ↓
-roles + assignments + RLS
+  ↓
+临时密码 + onboarding_expires_at
+  ↓
+教师登录，只能账号接管
+  ↓
+更新自己的新密码
+  ↓
+global sign-out 全部 Sessions
+  ↓
+membership active
+  ↓
+强制重新登录
 ```
 
-因此：
-- Auth User 可以存在但没有业务权限；
-- onboarding / disabled membership 都没有普通业务权限；
-- active membership 才进入机构授权链；
-- 用户不能通过知道 organization_id 或修改客户端状态获得权限；
-- 密码重置把 membership 回到 onboarding，可切断旧 Session 的业务权限。
+reset：**先 membership→onboarding，再更新 Auth 密码**。
 
-V1 不把 Email OTP / SMTP / deep link 作为硬依赖。未来可以替换 Auth 登录体验，但不能重写 membership/roles/assignments。
+Credential 响应丢失时 reissue 新密码；不持久化旧明文来实现“重复返回”。
 
-## 4. Flutter 客户端架构
+---
 
-采用关注点分离：View / ViewModel / Repository / Service。UI 可按 feature 组织。
+## 5. Flutter 架构
+
+职责：
 
 ```text
 lib/
@@ -81,11 +108,13 @@ lib/
     config/
     routing/
     theme/
+    startup/
   core/
     auth/
+    security/
+    persistence/
     errors/
     logging/
-    persistence/
   features/
     auth/
     today/
@@ -94,48 +123,93 @@ lib/
     lessons/
 ```
 
-约束：
-- Widget 不拼复杂数据库查询；
-- ViewModel 不直接依赖生产 Supabase client；
-- Repository 暴露业务 API；
-- Service 封装 Auth/Data API/Storage/Functions/本地草稿；
-- Session / Current Organization 有单一事实源；
-- 状态机和权限不能散落在多个页面各写一套；
-- Repository/Service 可 fake。
+推荐职责：
+- View：渲染/输入；
+- ViewModel：页面状态与用户动作；
+- Repository：业务 API；
+- Service：Supabase/Auth/Storage/Functions/local persistence。
 
-Flutter 官方 `compass_app` 的多环境、Repository/Service、测试是主要工程参考；不为“Clean Architecture”制造无价值空层。
+Widget 不直接拼权限/事务/多表 SQL；Repository/Service 必须可 fake/test。
 
-状态管理/DI 在正式 Flutter 初始化和首条垂直闭环中选择，一旦选定写 ADR，不并存多套框架。
+参考 Flutter 官方 `compass_app` 的多环境、Repository/Service、测试，不为“Clean Architecture”制造无业务价值空层。
 
-## 5. 环境模型
+---
+
+## 6. Startup Authorization Gate
+
+`supabase_flutter` v2 初始化可能先返回本地持久化 Session，不保证它已经远端刷新。
+
+启动顺序：
+
+```text
+读取安全本地 Session
+→ 检查 expired / refresh
+→ 远端 Auth 状态确认
+→ live-session 验证
+→ active memberships
+→ current organization
+→ 加载业务 Shell
+```
+
+在 Gate 完成前不查询/渲染学生业务。revoked/onboarding/disabled 留在账号状态页。
+
+---
+
+## 7. 本地安全
+
+### Auth Session
+Production 使用 Supabase custom `LocalStorage` + OS secure storage。Password 永不持久化。
+
+### Draft
+跨重启草稿：
+- ciphertext at rest；
+- key 在 OS secure storage；
+- user/org scope；
+- TTL；
+- sync 后删除；
+- account switch/logout/disabled 有明确清理策略。
+
+本地草稿不是第二业务事实源。
+
+---
+
+## 8. 环境模型
 
 ### Local Development
 - Supabase CLI；
-- migrations / seed / DB tests；
-- 虚构 Auth 用户；
-- 全部虚构数据；
-- 可 reset。
+- fake data/Auth；
+- migrations/seed/DB-RLS tests；
+- reset/reseed。
 
 ### Remote Development
-- 一个 Supabase Free Project；
-- 虚构数据；
-- Windows/Android Password Auth；
-- provision/onboarding/reset；
-- Session、Storage、Edge Functions、公网网络测试。
+- 一个 Free Project；
+- 只放虚构数据；
+- Password Auth、Session、Edge Functions、Storage、双端、网络/region测试；
+- 可重建。
 
 ### Production Pilot
-- 第二个 Supabase Free Project；
+- 第二个 Free Project；
 - 真实数据；
-- 独立 Auth / Storage / Secret；
-- 不运行开发 seed/reset；
-- 只执行已评审 migrations；
-- 定期自行 DB dump + Storage 备份。
+- 独立 Auth/Storage/Secret；
+- 禁 development seed/reset；
+- 只部署评审 migration；
+- 定期 off-site DB/Storage backup。
 
-Remote Development 不是 schema 的第二事实源。
+Remote Development 不是 schema 第二事实源。
 
-## 6. 数据库正式事实源
+---
 
-仓库应包含：
+## 9. Region / 中国大陆网络
+
+Supabase 当前 APAC 可选 Singapore/Tokyo/Seoul 等，没有中国大陆 region；project region 不能原地更换。
+
+Production 前必须用 Remote Dev 在实际机构 Wi‑Fi + 普通移动网络 + 无代理/VPN测试 Auth/Data/Storage/Functions。必要时重建 Dev 换 region，确认后再建 Production。
+
+Region 决定数据主要驻留位置，但不是合规证明；真实未成年人数据另做机构合规评估。
+
+---
+
+## 10. 数据库结构事实源
 
 ```text
 supabase/
@@ -146,134 +220,111 @@ supabase/
   functions/
 ```
 
-Schema、RLS、GRANT、View、Function、Trigger、Index 的正式变化都进入 migrations。
+Schema/RLS/GRANT/View/Function/Trigger/Index 正式变化全部进入 migrations。
 
-禁止长期依赖 Dashboard/Table Editor/SQL Editor 手工状态。
+禁止长期依赖 Dashboard/Table Editor/SQL Editor 的手工状态。
 
-## 7. Data API 与受控命令
+---
 
-### Data API 适合
-- 有权数据读取；
-- 简单 evidence / note 等单事实追加；
-- `new` 轻量草稿；
+## 11. Data API / DB Function / Edge Function
+
+### Data API
+适合：
+- 授权读取；
+- evidence/note 等简单事实追加；
+- `new` 草稿；
 - 普通查询。
 
 前提：RLS + GRANT + FK/约束正确。
 
-### Database Function 适合
-需要数据库事务一致性的多表命令：
+### Database Function
+适合同一 Postgres 事务内的多表不变量：
 - confirm/reopen/transition case；
-- complete_lesson；
+- replace primary action；
+- complete lesson；
 - handoff；
-- merge_students。
+- merge students。
 
-### Edge Function / 可信服务端适合
-需要 Secret/Auth Admin 或跨系统编排：
-- provision_member；
-- complete_member_onboarding；
-- reset_member_credential；
-- 未来邮件/AI/外部系统集成。
+### Edge Function / 可信服务端
+适合 Secret/Auth Admin/跨系统：
+- provision；
+- complete onboarding；
+- reset credential；
+- 未来邮件/AI/外部集成。
 
-Auth Admin 与 PostgreSQL 不是同一事务域，credential 命令必须设计安全的步骤顺序、幂等和失败恢复；不假装“调用一个 Edge Function 就天然原子”。
+Auth + PostgreSQL 不是一个事务域，必须设计安全失败顺序，不假装 Edge Function 天然原子。
 
-不要把所有请求机械塞进 Edge Function，也不要把所有逻辑写进 Flutter。
+---
 
-## 8. 零成本认证运行边界
+## 12. RLS / GRANT / View / Function
 
-临时密码：
-- 服务端随机生成；
-- provision/reset 成功后只返回一次；
-- 不进 DB/log/audit/error tracking；
-- 不使用固定弱默认密码。
-
-onboarding：
-- 可以登录 Auth；
-- 普通业务 RLS 拒绝；
-- 只允许最小账号接管能力。
-
-reset：
-- Auth 密码更新；
-- membership → onboarding；
-- 旧 Session 因非 active membership 失去业务访问。
-
-Email OTP 在未来有可靠 SMTP 时再评估，不是 V1 发布门槛。
-
-## 9. RLS、GRANT、View 与函数安全
-
-所有客户端业务表默认：
+业务表：
 - RLS 开启；
 - 最小 GRANT；
-- SELECT/INSERT/UPDATE/DELETE 分别测试；
-- 跨机构默认拒绝；
-- 进一步检查 membership = active、role、assignment。
+- live session + active membership；
+- organization/assignment 检查；
+- 高频 policy 列索引。
 
-### View
-客户端暴露的派生 View 优先 `security_invoker = true`；否则放非 exposed schema 或受控函数。
+View：客户端暴露优先 `security_invoker=true`。
 
-### Function
-默认 `security invoker`。
-
-必须 `security definer` 时：
-- 放非 exposed schema；
-- `set search_path = ''`；
+Security-definer helper：
+- 非 exposed schema；
+- `search_path=''`；
 - schema-qualified；
 - revoke 默认 execute；
 - 最小 grant；
-- 写越权测试。
+- 越权测试。
 
-RLS 高频过滤字段建立适当索引。
+RLS 只回答“谁能访问”，状态机/多表一致性仍靠约束和业务命令。
 
-## 10. RLS 不替代业务一致性
+---
 
-RLS 回答“谁能访问”，但不能保证：
-- onboarding member 不被错误激活；
-- A 机构子表不引用 B 机构父表；
-- confirmed case 真有 evidence/owner/action；
-- closed case 没有冲突 pending action；
-- complete_lesson 不半成功；
-- provision/reset 的跨系统步骤安全收敛。
+## 13. Case / Action 架构
 
-因此还需要 composite FK、CHECK、partial unique index、trigger、事务命令和受控 Edge Function。
+Case 生命周期：
 
-详细不变量见 `COMMANDS_AND_INVARIANTS.md`。
+```text
+new → confirmed → intervening → pending_verification → stable → closed
+```
 
-## 11. 保存可靠性
+`reopen` 是命令/事件。
 
-V1 online-first，但高频输入有最小本地持久化：
+行动规则：
+- new 可没有 action；
+- confirmed/intervening/pending_verification/stable 必须有一个 pending primary action；
+- 暂停/观察 = review primary action；暂停 review 必须 due_at；
+- pause_reason 仅解释；
+- closed 无 pending primary action。
+
+这样 Today 只需要消费 case_actions，不再维护第二套 `next_review_at`。
+
+---
+
+## 14. 保存可靠性 / 并发
 
 ```text
 教师输入
-  ↓
-本地 draft / memory + persistence
-  ↓
-提交
-  ↓
-云端确认
-  ↓
-标记 synced / 清理草稿
+→ encrypted local draft
+→ 提交
+→ 云端确认
+→ synced
+→ 删除 local draft
 ```
 
-要求：
-- 保存状态可见；
-- 断网/超时不清空输入；
-- App 异常退出后关键草稿可恢复；
+- 未保存/保存中/已保存/失败清晰；
 - 简单 insert 重试复用 UUID；
-- 多表命令使用 operation id/等价幂等；
-- 云端未确认前不假装已保存。
+- DB command 使用 operation id；
+- credential 响应未知走 reissue，不保存 secret；
+- 关键快照 version/expected_version；
+- 冲突不静默覆盖。
 
-本地草稿不是第二业务事实源。
+Realtime 只增强体验。
 
-## 12. 并发与 Realtime
+---
 
-关键快照可用 `version / expected_version` 乐观并发。
+## 15. Storage
 
-版本冲突：拒绝静默覆盖，刷新并让用户重新确认。
-
-V1 正确性不依赖 Realtime：页面进入、提交后、App resume、手动刷新必须足够保证正确；Realtime 只做体验增强。
-
-## 13. Storage
-
-附件默认私有 bucket。
+Private bucket + `storage.objects` RLS。
 
 建议路径：
 
@@ -281,108 +332,94 @@ V1 正确性不依赖 Realtime：页面进入、提交后、App resume、手动�
 {organization_id}/{student_id}/{object_type}/{uuid}.{ext}
 ```
 
-- 不用真实姓名做路径；
-- 授权访问/短时签名 URL；
-- DB 保存 object path + metadata；
-- DB 删除与 Storage 删除走受控流程；
-- DB 备份不等于 Storage 备份。
+- 不用姓名；
+- signed URL 短时、授权后生成、视作 bearer credential；
+- 不进日志；
+- 文件类型/大小限制；
+- DB metadata 与对象生命周期一致；
+- DB backup ≠ Storage backup。
 
-V1 严格控制大附件，1 GB Free Storage 不是无限素材库。
+---
 
-## 14. 日志与可观测性
+## 16. Backup / Recovery
 
-可记录：operation id、错误类别、App version、必要非敏感 object id。
+Free Production 至少：
+- roles/schema/data DB dump；
+- 必要 migration history；
+- Storage objects + manifest；
+- Auth/Realtime/Extensions/Secrets 等配置清单；
+- 加密 off-site；
+- restore drill。
 
-禁止记录：Password、临时凭据、Access/Refresh Token、Secret、完整学生正文、家校正文、作文/试卷全文。
+Git migrations 不是业务数据备份。详见 `DISASTER_RECOVERY.md`。
 
-生产要能定位“哪类操作失败”，不能靠泄露学生内容调试。
+---
 
-## 15. Windows / Android 职责
+## 17. GitHub / Work / CI
+
+```text
+Work/Codex
+→ feature/review branch
+→ Draft PR
+→ CI / real command evidence
+→ human review
+→ merge
+```
+
+Repo 必须 Private。GitHub Free private 没有付费级 branch protection 强制能力，所以零成本阶段靠 AGENTS + PR + 人工纪律，禁止 Work/Codex 直推 main。
+
+Actions budget 必须设置 Stop usage at limit；重型 Windows/Android build 只在 Milestone/Release。
+
+---
+
+## 18. Windows / Android 职责
 
 ### Windows
 - 学生全景；
-- 深度案例；
-- 管理员成员开通/治理；
+- 深度 case；
+- 管理员治理；
 - 批量查看；
 - 后续报告/教研。
 
 ### Android
 - 登录/Session；
-- 今日；
+- Today；
 - 学生重点；
-- 快速课程；
-- 快速证据/干预/验证/new 草稿；
+- 快速 lesson；
+- evidence/intervention/assessment/new；
 - 30–60 秒课后记录。
 
-两端共享同一业务模型和 API；不是把手机布局简单拉宽/缩小。
+两端共享业务模型，不是简单拉伸同一布局。
 
-## 16. 测试架构
+---
 
-### Flutter Unit
-- fake repositories；
-- ViewModel；
-- 状态机；
-- 失败映射。
+## 19. 不采用
 
-### Supabase Client Testing
-正式工程初始化后评估 Supabase 官方 `supabase_testing`：mock HTTP/JWT/Auth Session/Realtime 等，减少 Remote Development 依赖。
-
-### Local Supabase
-- migrations；
-- RLS；
-- DB functions；
-- constraints；
-- negative tests。
-
-### Remote Development
-只验证 Local 不能证明的公网/跨设备/Auth Admin/Storage/Edge Function 行为。
-
-## 17. ChatGPT 云端开发架构
-
-```text
-ChatGPT Project / Work
-  ↓ GitHub connector
-GitHub branch / PR
-  ↓
-GitHub Actions / Codex execution evidence
-  ↓
-Review / Merge
-```
-
-规则：
-- GitHub 不是 Work 的附件副本，而是真实仓库；
-- 一个目标通常一条 Work 会话 + 一个 PR；
-- Work 不能运行某命令时必须标记未验证；
-- GitHub Actions/Codex 负责真实 build/test 证据；
-- 达到方案内用量后等待重置，不自动购买 credits。
-
-## 18. 不采用的架构
-
-V1 不采用：
-- 每个老师一份数据库人工同步；
+- 每老师一库人工同步；
 - 微服务集群；
 - 全系统 Event Sourcing；
-- CRDT offline-first；
-- 所有请求都绕 Edge Function；
-- 全部业务逻辑放 Flutter 或全部放 Trigger；
-- 远程 Dashboard 作为 schema 事实源；
-- Email OTP / Magic Link / Password 多套主登录并存；
+- CRDT/offline-first；
+- 所有请求 Edge Function；
+- 所有业务逻辑 Flutter/Trigger；
+- Dashboard 作为 schema 源；
+- Password/Magic Link/OTP 多套主登录并存；
 - 需要付费 SMTP/SMS 才能登录；
-- fork 大型教育 ERP 作为起点。
+- fork 大型教育 ERP；
+- 为 0 元牺牲权限/恢复/隐私。
 
-## 19. 上线前技术门槛
+---
 
-- GitHub 已 Private；
+## 20. 技术 Go / No-Go
+
+真实学生数据前：
 - migrations 从空库重建；
-- RLS/GRANT/View/Function 测试；
-- Auth User 无 active membership 无业务权限；
-- onboarding/disabled 旧 Session 无业务权限；
-- Windows/Android provision/onboarding/reset 真测；
-- 临时密码不落日志/数据库；
-- 网络失败恢复；
-- DB dump + 实际恢复演练；
-- Storage 恢复方案；
-- Free Tier 使用量适合 Pilot；
-- 客户端安装/更新路径；
-- 真实机构网络验证；
-- GitHub Actions/云端开发没有自动超额付费路径。
+- live-session/RLS/GRANT/View/Function/Storage tests；
+- secure Session storage；
+- Startup Gate；
+- encrypted drafts；
+- onboarding/global sign-out/reset/expiry/reissue；
+- region/network tests；
+- DB+Storage restore drill；
+- GitHub Private + zero-overage budget；
+- 安装/升级路径；
+- 合规评估。
