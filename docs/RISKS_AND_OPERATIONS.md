@@ -402,16 +402,20 @@ Production 不能直接把默认 SharedPreferences 系列 Session 存储当最�
 
 ## R27｜GitHub Actions 超额产生费用
 
-**等级：中高**
+**等级：中高｜用户已接受残余风险**
+
+用户已明确选择暂不设置 zero-overage budget，因此不能声称平台层已经“保证零超额”。
 
 处理：
-- billing budget 设置超额停止；
-- PR 默认 Linux 快速测试；
+- 普通 PR / main 只跑 Linux 快速检查；
+- 避免 feature `push` + `pull_request` 对同一提交重复执行；
 - Windows / Android heavy build 仅 Milestone / Release / 手动；
 - 不用 larger runner；
-- artifact retention 短。
+- artifact retention 短；
+- 关注异常 Actions 消耗，出现异常先停无价值 workflow；
+- 如果用户未来改变决定，再配置 budget stop。
 
-退出：预算设置人工确认 + CI 策略落地。
+退出：这是持续性账户级风险，不再以“budget 已设置”为退出条件。当前工程退出标准是 CI 触发策略已落地且用户明确接受残余计费风险。
 
 ---
 
@@ -423,6 +427,7 @@ Production 不能直接把默认 SharedPreferences 系列 Session 存储当最�
 - 锁 stable SDK；
 - 正式初始化后提交 `pubspec.lock`；
 - CI 固定 SDK；
+- CI 在 `flutter pub get` 后检查 lockfile 无变化；
 - 依赖升级独立 PR；
 - Production 前先 Local / Remote Dev 验证。
 
@@ -487,7 +492,8 @@ Production 不能直接把默认 SharedPreferences 系列 Session 存储当最�
 处理：
 - 真实命令 / CI 输出才叫执行证据；
 - 无法执行必须标“未验证”；
-- PR 不因模型口头判断视为 green。
+- PR 不因模型口头判断视为 green；
+- 一个 Work 容器缺工具链时，继续检查是否能用受控 CI / 原生 runner 获得真实证据。
 
 ---
 
@@ -509,7 +515,7 @@ Production 不能直接把默认 SharedPreferences 系列 Session 存储当最�
 任何新外部依赖前回答：
 1. V1 不用它是否真的做不成？
 2. Free 是否够？
-3. 超额会不会自动扣费？
+3. 超额是否可能产生费用？
 4. 能否迁出？
 5. 是否接触学生敏感数据？
 
@@ -530,16 +536,35 @@ Production 不能直接把默认 SharedPreferences 系列 Session 存储当最�
 
 ---
 
+## R37｜低层 Git Data API 写入破坏完整仓库树
+
+**等级：高｜开发过程**
+
+Phase 0A 曾真实发生一次：低层 tree 更新错误地只保留少量路径。commit 创建成功，但远端仓库树已经不完整；之后通过正确 parent/base tree 重建恢复。
+
+处理：
+- 优先普通 Git 工作区提交；
+- 必须使用 blob / tree / commit / ref API 时，基于正确 parent/base tree；
+- 写入后重新读取目标 branch recursive tree；
+- 检查路径数量是否异常骤降；
+- 至少确认 `.github/`、`AGENTS.md`、`docs/`、`lib/`、`test/`、平台目录、`pubspec.yaml` / lockfile；
+- key path 缺失立即停止并恢复，不继续叠加提交。
+
+退出：最终 recursive tree `truncated=false`，关键目录/文件完整；该检查已写入 AGENTS 硬规则。
+
+---
+
 # 真实数据 Go / No-Go
 
 ## 已完成
 
 - [x] GitHub repository 已 Private
+- [x] Wiki / Template repository 已关闭
 - [x] Foundation 明确不提交真实学生数据或 Secret
+- [x] Actions budget 已有明确用户决策：暂不设置；残余计费风险已接受，CI 触发策略已收紧
 
 ## 必须在真实数据前完成
 
-- [ ] Actions 不会自动产生超额费用
 - [ ] Local / Remote Development / Production 隔离
 - [ ] organization timezone migration / 测试
 - [ ] Region 经真实无代理机构网络验证
