@@ -1,404 +1,325 @@
 # 账号与权限模型
 
-> V1 的目标不是做一个公开 SaaS 注册系统，而是让一个**已知教师团队**安全、低成本地使用同一机构数据。
+> V1 面向少量、已知、内部教师。目标不是搭建公开 SaaS 注册系统，而是在**零额外付费**前提下，把账号接管、机构授权和旧 Session 风险做对。
 
-## 1. 核心原则
-
-V1 把以下概念分开：
+## 1. 四层身份必须分开
 
 - **Auth User**：登录身份是谁；
-- **Organization Membership**：这个账号在某机构当前是否可用；
-- **Role**：这个成员承担什么职责；
-- **Assignment**：这个成员与哪些学生/学科存在业务关系。
+- **Organization Membership**：该身份在某机构当前处于什么状态；
+- **Role**：成员承担什么职责；
+- **Assignment**：成员与哪些学生/学科存在业务关系。
 
-最重要的一条：
-
-> **能够登录 Supabase Auth，不等于能够读取机构业务数据。只有 `active` membership 才进入业务授权链。**
-
-权限不是 Flutter 隐藏按钮，而是数据库 RLS / 受控服务端真正执行。
-
----
-
-## 2. V1 认证策略：管理员受控开通 + Password
-
-### 为什么不用 Email OTP 做 V1 硬依赖
-
-Passwordless Email OTP 的体验很好，但真实机构使用依赖可靠邮件投递。
-
-Supabase 默认邮件服务适合开发/演示，不应作为机构关键登录通道；正式使用通常需要可靠 Custom SMTP。为了满足本阶段 **零额外付费** 的硬约束，V1 内部试运行不让 SMTP、域名或第三方邮件服务成为前置条件。
-
-Email OTP 保留为未来可替换的登录体验，而不是 V1 数据模型的一部分。
-
-### 老师实际体验
+普通业务授权至少同时满足：
 
 ```text
-管理员新增教师
-  ↓
-受信任服务端生成账号 + 高强度临时密码
-  ↓
-教师通过机构已有可信渠道拿到临时凭据
-  ↓
-App：邮箱 + 临时密码登录
-  ↓
-membership = onboarding
-  ↓
-只进入“设置自己的新密码”页面
-  ↓
-完成 onboarding
-  ↓
-membership = active
-  ↓
-按 role + assignment 读取业务数据
+有效 Auth Session
++ membership = active
++ membership 属于目标 organization
++ role / capability
++ student / subject assignment（如该操作需要）
++ 操作类型允许
 ```
 
-不开放公网自助注册。
+**能够登录 Auth，不等于能够读取机构数据。** 前端隐藏按钮不是权限控制，RLS / 受控服务端才是。
 
 ---
 
-## 3. `organization_membership.status`
+## 2. V1 登录方案：管理员受控开通 + Password
+
+Email OTP 的体验更轻，但真实机构使用需要可靠邮件投递。V1 为了不把 SMTP、域名、短信或第三方登录变成付费前置，采用：
+
+```text
+org_admin provision_member
+  ↓
+Auth User + membership(onboarding)
+  ↓
+随机高强度临时密码，只显示一次
+  ↓
+教师登录，只能进入账号接管
+  ↓
+设置自己的新密码
+  ↓
+撤销旧 Sessions
+  ↓
+membership → active
+  ↓
+教师必须重新登录
+```
+
+不开放公网自助注册。以后有可靠邮件基础设施时，可以替换成 Email OTP，但不能重写 membership / roles / assignments。
+
+---
+
+## 3. Membership 状态
 
 V1 使用：
 
-- `onboarding`：账号已经受控创建，但尚未完成首次密码接管；
+- `onboarding`：账号已受控创建或刚被重置，尚未安全完成凭据接管；
 - `active`：正常机构成员；
-- `disabled`：离职/停用，不得访问机构业务数据。
+- `disabled`：离职/停用。
 
-### 为什么增加 onboarding
+推荐字段：
+- `joined_at`
+- `activated_at`
+- `disabled_at`
+- `onboarding_expires_at`
 
-如果一创建 Auth User 就直接给 active membership，那么管理员知道的临时密码在教师修改之前已经可以访问学生数据。
+### onboarding 的硬规则
 
-因此：
-- onboarding 用户可以建立 Auth Session；
-- 但普通机构业务 RLS 必须要求 membership = active；
-- onboarding 账号只能进入极小的账号激活流程；
-- 完成新密码设置后才激活 membership。
+- 可以建立 Auth Session；
+- 普通学生/课程/学情 RLS 全部拒绝；
+- 只允许最小账号接管能力；
+- 必须有较短的接管有效期；具体时长在 Phase 0 实测后固定，建议按小时/天而不是长期有效；
+- 过期后不能自行激活，管理员必须重新签发临时凭据；
+- 管理员可取消/停用未完成 onboarding。
 
-这让“临时凭据泄露”和“正式业务权限”之间多一道边界。
+临时密码不是“一次性 Token”，谁先拿到它谁就可能尝试接管，因此**可信交付 + 短有效期 + onboarding 无业务权限**缺一不可。
 
 ---
 
-## 4. 管理员新增成员：`provision_member`
+## 4. 业务 Session 必须仍然存活
 
-这是受控高权限命令，默认通过 Edge Function / 可信服务端完成。
+仅检查 `membership = active` 还不够。
 
-输入：
-- organization_id；
-- 教师邮箱；
-- 显示名（可选）；
-- 初始 roles。
+Supabase 的 JWT 带 `session_id`，对应 `auth.sessions`。用户 sign out 后相关 session 会从 `auth.sessions` 移除，但已经签发的 Access Token 在 `exp` 前仍可能被客户端携带使用。
+
+因此 V1 对学生业务数据采用“活 Session”防线：
+
+```text
+auth.uid() 有效
++ JWT session_id 存在
++ 对应 auth.sessions 记录仍存在
++ membership = active
++ 后续 role / assignment 检查
+```
+
+实现建议：
+- 建少量经过审计的非 exposed `security definer` helper；
+- `set search_path = ''`，所有对象 schema-qualified；
+- revoke 默认 execute，再最小 grant；
+- RLS 中用 `(select private.xxx(...))` 等方式减少重复求值；
+- Phase 0 用 EXPLAIN 和真实查询验证开销；
+- unauthenticated / revoked-session / onboarding / active / disabled / cross-org 都要有自动化负面测试。
+
+这是 V1 为学生敏感数据选择的额外安全保证，不依赖付费的单 Session/Session lifetime 功能。
+
+---
+
+## 5. 管理员开通成员：`provision_member`
+
+输入：目标机构、教师邮箱、显示名（可选）、初始 roles。
 
 服务端必须：
-1. 验证当前 Session；
-2. 验证调用者在目标机构拥有成员管理权限；
-3. 规范化邮箱；
-4. 验证角色合法；
-5. 检查目标机构是否已有对应 member；
-6. 生成足够随机的临时密码；
-7. 使用 Supabase Auth Admin 创建/受控处理 Auth User；
-8. 对本机构已知教师可使用 `email_confirm = true`，不触发确认邮件；
-9. 创建 profile / `membership(onboarding)` / roles；
-10. 写不包含密码的 audit；
-11. 把临时密码**仅在成功响应中返回一次**。
+1. 验证调用者当前 Session 与 org_admin 成员管理权限；
+2. 规范化邮箱、验证角色；
+3. 检查目标机构是否已有 member；
+4. 生成安全随机临时密码；
+5. Auth Admin 创建/受控处理 Auth User；对已知内部教师可 `email_confirm = true`；
+6. 建 profile、`membership(onboarding)`、roles，并设置 `onboarding_expires_at`；
+7. 写**不含密码**的 audit；
+8. 仅在成功响应中返回一次临时密码。
 
-### 绝对禁止
+### 禁止
 
-- 把 service_role / Secret 放进 Flutter；
-- 把临时密码写入数据库长期保存；
-- 把临时密码写入 audit / 日志 / Sentry；
-- 在 GitHub Issue/PR/测试里放真实密码；
-- 管理员自己手填一个弱默认密码如 `123456`。
+- Secret/service_role 进入 Flutter；
+- 固定默认密码如 `123456`；
+- 密码进入 PostgreSQL 业务表、日志、audit、错误上报、Issue/PR；
+- 创建后直接给 active 权限。
 
-### 临时密码交付
+### 跨系统半失败
 
-V1 是少量内部教师，因此由管理员通过机构现有可信渠道交付，例如当面或已经建立身份关系的内部通讯渠道。
+Auth Admin 与业务 PostgreSQL 不是同一事务域。
 
-不要把“把密码发到错误群聊”设计成产品流程；管理员界面要明确提示这是一次性敏感凭据。
+- Auth User 已创建、membership 失败：可能留下无 membership 的 Auth User；这是**安全失败**，因为没有业务权限。后续由受控恢复流程处理；
+- membership 不得在 Auth 身份尚未安全建立时变 active；
+- 每种半失败必须返回可识别的错误状态，不靠人工猜数据库。
+
+### “响应丢失”不能靠保存明文密码解决
+
+如果创建成功但响应丢失，管理员可能拿不到临时密码。因为系统刻意不保存明文密码，**同一 operation 不能承诺再次返回原密码**。
+
+正确流程：
+- member 保持 onboarding；
+- UI 显示“凭据交付状态未知”；
+- 管理员执行 `reissue/reset credential` 生成全新的临时密码并使旧临时密码失效；
+- 绝不为了幂等而持久化可恢复的明文凭据。
 
 ---
 
-## 5. 首次接管账号：`complete_member_onboarding`
+## 6. 首次接管：`complete_member_onboarding`
 
-教师用临时密码登录后，App 检测到 membership = onboarding，只显示设置新密码流程。
+教师用临时密码登录后只看到账号接管页。
 
-推荐由受控服务端完成：
-1. 验证当前 Auth Session；
-2. 解析当前 user_id；
-3. 验证其目标 membership = onboarding；
+受控流程：
+1. 验证当前 Auth Session、`auth.uid()` 与当前 `session_id`；
+2. membership 必须属于当前用户且为 onboarding；
+3. `onboarding_expires_at` 尚未过期；
 4. 校验新密码强度；
-5. 使用受信任 Auth Admin 能力把当前 Auth User 密码更新为新密码；
-6. membership → active；
-7. 写 audit；
-8. 返回当前 organization context。
+5. Auth Admin 更新**当前用户自己的**密码；
+6. 以当前有效 JWT 执行 global sign-out，撤销该用户所有 Auth Sessions/Refresh Tokens；
+7. **只有前两项 Auth 安全操作成功后**，服务端才把 membership → active，写 `activated_at` 和 audit；
+8. 当前旧 Session 不再用于进入业务页；App 清除本地机构上下文；
+9. 教师必须用新密码重新登录，获得一个新的 live Session，再进入机构。
 
-要求：
-- 新密码不进入业务日志；
-- 失败后可安全重试；
-- membership 激活前不能读取学生数据；
-- 不允许客户端传另一个 user_id 来修改别人密码。
+### 为什么必须“重新登录”
 
-> Auth 密码修改与业务 membership 更新不完全属于同一 PostgreSQL 事务，因此实现时要设计可恢复顺序。最重要的不变量是：**任何半失败都不能让未完成接管的账号获得 active 业务权限。**
+如果有人在教师之前偷到临时密码并建立过 Session，只改密码再直接 active，旧 Access Token 可能在过期前继续存在。global sign-out + live-session RLS guard 可以阻断这种旧 Session。
+
+### 半失败原则
+
+- 密码更新失败：membership 仍 onboarding；
+- 密码更新成功但 global sign-out 失败：membership 仍 onboarding；
+- sign-out 成功但 membership 激活失败：membership 仍 onboarding，用户用新密码重新登录后可安全重试；
+- **任何半失败都不得让 membership 提前 active。**
 
 ---
 
-## 6. 普通登录
+## 7. 普通登录与启动授权 Gate
 
 完成 onboarding 后：
 
 ```text
 邮箱 + 密码
-   ↓
-Supabase Auth Session
-   ↓
-查询当前用户 active memberships
-   ↓
+  ↓
+Supabase Auth
+  ↓
+验证本地恢复的 Session 是否仍有效/可刷新
+  ↓
+验证 live session
+  ↓
+查询 active memberships
+  ↓
 0 个：无机构访问
-1 个：直接进入
+1 个：进入
 多个：选择当前机构
 ```
 
-V1 UI 优先优化单机构使用，但数据模型不把 organization_id 永久写死在 profile 上。
+`supabase_flutter` v2 初始化时可能先返回本地持久化 Session，而不保证它已经完成远端刷新。因此：
+
+- App 启动不能因为 `currentSession != null` 就先闪出学生数据；
+- 必须经过 Auth/Session + membership 的启动 Gate；
+- 失效、revoked、onboarding、disabled 都留在登录/账号状态页；
+- 业务 Shell 只在授权解析成功后挂载。
 
 ---
 
-## 7. 忘记密码：V1 管理员协助重置
+## 8. Session 本地存储
 
-为了不依赖 SMTP，V1 内部试运行不提供邮件“忘记密码”主流程。
+`supabase_flutter` 默认使用 SharedPreferences 系列 API 持久化 Session。Production 涉及学生敏感数据时，V1 要在 Phase 0 替换为经过验证的安全本地存储实现：
 
-管理员先通过机构现有流程确认教师本人，然后执行受控 `reset_member_credential`：
+- 通过 Supabase `LocalStorage` 自定义实现；
+- 优先使用操作系统安全存储（Android Keystore、Windows 受保护凭据存储等）或经过审计的跨平台开源封装；
+- Refresh/Session token 不进入普通 Preferences、日志或 crash payload；
+- **密码本身永不本地持久化**；
+- Windows + Android 均做真机/真环境测试。
 
-1. 验证 org_admin 权限；
-2. 生成新的随机临时密码；
-3. 使用 Auth Admin 更新目标 Auth User 密码；
-4. membership → onboarding；
-5. 旧 Session 即使仍存在，也因为 membership 非 active 被 RLS 拒绝业务数据；
-6. 写 audit（不写密码）；
-7. 临时密码仅返回一次；
-8. 教师重新登录并完成 onboarding。
-
-这个设计利用 membership 状态切断旧 Session 的业务权限，而不把“Token 是否立即失效”作为唯一安全保证。
+具体库在 Phase 0 选择并写 ADR，不提前锁死。
 
 ---
 
-## 8. 首位管理员 Bootstrap
+## 9. 忘记密码：管理员协助 `reset_member_credential`
 
-第一个 org_admin 没有上级管理员。
+为了不依赖 SMTP，V1 先走人工身份核验。
 
-### Local / Remote Development
-使用虚构 seed / 明确开发脚本建立测试 organization、Auth User 与 active org_admin。
+安全顺序：
+1. 验证 org_admin 权限与目标 member；
+2. **先把 membership → onboarding**，立即切断普通业务权限；
+3. 生成新的随机临时密码；
+4. Auth Admin 更新目标 Auth User 密码，使旧临时密码失效；
+5. 设置新的 `onboarding_expires_at`；
+6. 写不含密码的 audit；
+7. 新临时密码只返回一次；
+8. 教师重新执行完整 onboarding；在完成接管时 global sign-out 所有 Session，再重新登录。
 
-### Production 首次部署
-通过一次性受信任运维流程：
-1. 创建 organization；
-2. 创建首位管理员 Auth User；
-3. 建立 onboarding 或受控 active org_admin membership；
-4. 交付一次性凭据；
-5. 完成后关闭 bootstrap 入口。
+如果 Auth 更新失败，member 仍是 onboarding——这是保守且安全的失败状态。管理员可以重试/重新签发。
 
-禁止：
-- Flutter 内置超级管理员 Secret；
-- 公开“创建第一个管理员”的长期 API；
-- Production 使用 Development seed。
+若 reset 响应丢失，同样重新签发新凭据，不保存旧明文以便“找回”。
 
 ---
 
-## 9. 已存在 Auth User
+## 10. 首位管理员与锁死风险
 
-长期模型允许一个 Auth User 属于多个 organization，但 V1 首机构试运行不为稀有场景增加复杂 UI。
+首位 org_admin 使用一次性受信任 bootstrap 建立，完成后关闭入口。
 
-### 已经是目标机构成员
-管理员进入已有成员详情，不重复建 Auth User/member。
+Production Pilot 不应只有一个无法恢复的管理员。上线前至少满足其一：
 
-### 同一平台账号需要加入第二机构
-实现时可增加受控 `link_existing_user_to_org`，但必须：
-- 管理员有目标机构权限；
-- 能可靠确定目标 Auth User；
-- 不通过重复创建 Auth User 绕过去；
-- 新 membership 从 onboarding/active 的合适状态开始；
-- 写 audit。
+- 两个由不同可信人员持有的 active org_admin；或
+- 一份经过演练的 break-glass 运维流程，由 Supabase Project Owner 在受控环境恢复管理员账号。
 
-V1 没有真实需求时可以先明确拒绝该场景，而不是猜测实现。
+break-glass 不是长期公开 API；每次使用都必须留下治理记录并立即复核权限。
 
 ---
 
-## 10. V1 角色
+## 11. 角色与权限范围
 
-### `org_admin`
-- 成员开通/停用/重置；
-- 角色管理；
-- 学生治理；
-- 交接/合并高风险操作；
-- 机构级查看。
+V1 角色：
+- `org_admin`：成员/角色/学生治理及高风险操作；
+- `academic_admin`：教学管理和必要跨学科视角；
+- `subject_lead`：本学科范围；
+- `teacher`：本人负责学生/学科；
+- `student_advisor`：学生综合视角，不随意改写任课教师专业结论。
 
-### `academic_admin`
-- 教学管理视角；
-- 跨学科查看；
-- 不默认拥有 Auth 系统最高权限。
+一个 membership 可以多角色。
 
-### `subject_lead`
-- 本学科范围查看；
-- 教研/异常视角；
-- 不默认改写其他教师全部历史事实。
-
-### `teacher`
-- 查看被分配学生；
-- 管理负责学科案例、干预、验证、课程；
-- 查看允许共享的信息。
-
-### `student_advisor`
-- 学生综合视角；
-- 综合观察与家校协调；
-- 不随意改写任课教师专业结论。
-
-一个 membership 可以有多个角色。
+`teacher` 绝不能因为角色本身读到机构全量学生。
 
 ---
 
-## 11. 权限不是只有 Role
+## 12. 停用与离职
 
-最终授权至少由：
+正确顺序：
+1. 盘点 active teacher/staff assignments；
+2. 盘点未结束 case owner、pending actions；
+3. 完成交接；
+4. 验证无意外 orphan；
+5. membership → disabled；
+6. RLS 立即拒绝业务访问；
+7. 历史记录保留原 creator/teacher。
 
-```text
-用户已登录
-  + membership = active
-  + membership 属于目标 organization
-  + membership roles/capabilities
-  + 与目标 student / subject 的有效 assignment
-  + 操作类型（read/write/admin）
-```
-
-共同决定。
-
-`teacher` 角色绝不能意味着机构全量学生可见。
-
-`onboarding` 与 `disabled` membership 对普通业务表都必须像“无业务权限”处理。
+旧 Access Token 仍可能存在，因此 active membership + live-session guard 都必须成立。
 
 ---
 
-## 12. V1 权限矩阵（概念级）
+## 13. 当前机构上下文
 
-| 操作 | 任课教师 | 学生负责人/学管 | 学科负责人 | org_admin |
-|---|---|---|---|---|
-| 查看本人负责学生基础档案 | 是 | 是 | 本科关系范围 | 是 |
-| 查看本人负责学科详细学情 | 是 | 综合/按授权 | 本科范围 | 是 |
-| 修改本人负责学科案例 | 是 | 默认否 | 按业务关系 | 受控 |
-| 查看其他学科详细学情 | 默认否 | 必要综合视角 | 默认否 | 是 |
-| 新增成员账号 | 否 | 否 | 否 | 是 |
-| 重置成员凭据 | 否 | 否 | 否 | 是 |
-| 修改机构角色 | 否 | 否 | 否 | 受控 |
-| 合并重复学生 | 否 | 否 | 否 | 受控 |
-| 停用 membership | 否 | 否 | 否 | 受控 |
+- 一个 active membership：直接进入；
+- 多个：展示机构选择器；
+- 客户端 current organization 只是 UI 上下文；
+- RLS 逐行验证 organization_id，不相信客户端自己声称“当前机构”。
 
-具体 SQL policy 以自动化负面权限测试为准。
+V1 UI 可优先优化单机构，但数据层不能把 organization_id 写死到 global profile。
 
 ---
 
-## 13. 停用与离职
+## 14. Phase 0 必测矩阵
 
-教师离职：
-1. 列出 active teacher/staff assignments；
-2. 列出未结束 learning_case owner；
-3. 列出 pending case_actions；
-4. 完成交接或显式处理责任项；
-5. 结束旧 assignments；
-6. membership → disabled；
-7. RLS 立即拒绝业务访问；
-8. 历史记录保留原 creator/teacher。
+Windows 与 Android 至少覆盖：
 
-**不允许先停用，再让责任项悄悄变成无人负责。**
-
-旧 Access Token 可能尚未过期，所以 RLS 每次必须查询数据库 membership 状态，不能只相信 JWT 中陈旧角色。
-
----
-
-## 14. 当前机构上下文
-
-一个用户只有一个 active membership 时直接进入。
-
-多个 active memberships 时：
-- 展示机构选择；
-- 客户端维护 current organization context；
-- RLS 仍逐行验证 organization_id；
-- 不相信客户端“我现在选了机构 A”就自动授权。
-
----
-
-## 15. RLS Helper
-
-允许少量经过审计的 helper function，避免每条 policy 复制大段 SQL。
-
-要求：
-- 简单、稳定、可索引；
-- `security definer` helper 放非 exposed schema；
-- `set search_path = ''`；
-- schema-qualified；
-- revoke 默认 execute 后按需 grant；
-- unauthenticated / onboarding / active / disabled / cross-org 均有测试。
-
----
-
-## 16. Phase 0 认证测试矩阵
-
-Windows 与 Android 均至少验证：
-
-| 场景 | 必测 |
+| 场景 | 结果 |
 |---|---|
-| 管理员创建测试教师 | 是 |
-| 临时密码登录 | 是 |
-| onboarding 时读取学生数据被拒绝 | 是 |
-| 设置新密码并激活 | 是 |
-| active 登录 / Session 恢复 | 是 |
-| 密码错误 | 是 |
-| 管理员重置密码 | 是 |
-| reset 后旧 Session 读取业务数据被拒绝 | 是 |
-| disabled membership 旧 Session 被拒绝 | 是 |
-| 无 membership Auth User 被拒绝 | 是 |
-| 跨机构访问被拒绝 | 是 |
-
-不把 Email OTP / deep link / SMTP 作为 V1 发布门槛。
-
----
-
-## 17. 未来升级 Email OTP
-
-当机构已经拥有可靠邮件基础设施，或经过验证的零成本 SMTP 能满足真实使用时，可以新增 ADR 把登录体验升级为 Email OTP。
-
-升级时应尽量只替换 Auth onboarding/login 层：
-- Auth User 仍是身份；
-- membership/roles/assignments 仍是权限事实源；
-- 学生、案例、课程 schema 不变；
-- RLS 仍只认可 active membership。
-
-**登录方式可以换，机构授权模型不能跟着重写。**
+| 管理员 provision 测试教师 | onboarding |
+| onboarding 读取学生数据 | 拒绝 |
+| 临时凭据过期后尝试激活 | 拒绝并要求 reissue |
+| 临时密码登录后完成接管 | global sign-out + active + 强制重新登录 |
+| 被 global sign-out 的旧 Access Token 再请求业务数据 | live-session guard 拒绝 |
+| active 新 Session 登录/恢复 | 允许 |
+| provision/reset 成功但响应模拟丢失 | 不保存密码，走 reissue |
+| 管理员 reset | 先 onboarding，旧业务访问立即拒绝 |
+| disabled 旧 Session | 拒绝 |
+| Auth User 无 membership | 拒绝 |
+| teacher 访问未分配学生 | 拒绝 |
+| A 机构访问 B 机构 | 拒绝 |
+| App 启动拿到过期/被撤销本地 Session | 不闪现业务数据 |
+| 本地 Session 安全存储 | Windows/Android 均验证 |
 
 ---
 
-## 18. 权限测试最低集合
+## 15. 未来升级
 
-任何 V1 发布候选至少验证：
-1. 未登录读取失败；
-2. Auth User 无 membership 失败；
-3. onboarding membership 业务读取失败；
-4. disabled membership 失败；
-5. A 机构成员无法读取 B 机构学生；
-6. teacher 不能扩大到未分配学生；
-7. 语文 teacher 不能修改数学核心学情；
-8. student_advisor 有综合视角但没有无限编辑权；
-9. 普通 teacher 调用 provision/reset/role admin command 被拒绝；
-10. org_admin 只能管理自己有权机构；
-11. View/Function 不绕过 RLS；
-12. 旧 Token + onboarding/disabled membership 仍被数据库拒绝。
+有可靠 SMTP、企业身份体系或家长/学生自助账号需求后，再新增 ADR 评估 Email OTP / SSO / 企业微信等。
 
----
-
-## 19. 真实机构上线前再评估
-
-V1 零成本认证适合少量、已知、内部教师。
-
-如果未来出现：
-- 大量公开注册；
-- 教师跨机构自助加入；
-- 大量忘记密码；
-- 家长/学生账号；
-- 无管理员介入的自助 onboarding；
-
-再评估 Email OTP、SSO、企业微信等方案，不提前把复杂度塞入 V1。
+升级原则：
+- 只替换登录/账号接入层；
+- membership / roles / assignments 继续是业务权限事实源；
+- 学生、案例、课程 schema 不跟着重写；
+- live Session 与 active membership 的授权底线不降低。
