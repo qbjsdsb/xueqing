@@ -2,6 +2,14 @@
 
 > 这里只保留“不提前验证就容易返工、越权、丢数据或无法运营”的风险。每项都要求有处理方式或退出证据。
 
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
+
 ## R1｜Private 不等于可以把真实数据放进 GitHub
 
 **等级：最高｜持续**
@@ -335,7 +343,7 @@ Production 不能直接把默认 SharedPreferences 系列 Session 存储当最�
 - Remote Development 只用虚构数据；
 - 实际机构 Wi-Fi + 普通移动网络 + 无代理 / VPN 测 Auth / Data API / Storage / Functions；
 - 不达标就重建 Dev 到其他 APAC region；
-- 测完才创建 Production；
+- P0 Gate A/B 通过、provider/identity/session strategy 冻结且 Go/No-Go 通过后才创建 gated Production；
 - 未成年人数据驻留 / 跨境单独做机构合规评估。
 
 退出：有真实网络测试记录 + region 决策记录 + 合规评估记录。
@@ -354,7 +362,7 @@ Production 不能直接把默认 SharedPreferences 系列 Session 存储当最�
 
 ---
 
-## R24｜Free Production 没有付费级自动日备份保障
+## R24｜未来 gated Free Production 没有付费级自动日备份保障
 
 **等级：最高｜真实数据前**
 
@@ -365,7 +373,7 @@ Production 不能直接把默认 SharedPreferences 系列 Session 存储当最�
 - 实际 restore drill；
 - Pilot 默认目标 RPO ≤ 一个教学日。
 
-如果机构不能接受这个恢复点，Free Pilot 不合格。
+如果机构不能接受这个恢复点，未来 gated Free Pilot 不合格；该风险不构成当前 Phase 0A.6 的 Production 授权。
 
 退出：真实备份恢复到新测试 Project 并完成 smoke / RLS tests。
 

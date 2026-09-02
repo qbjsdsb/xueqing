@@ -4,268 +4,227 @@
 
 **学情闭环（Xueqing）｜机构教学协作与学生成长闭环系统**
 
-不是 Excel 网页化，也不是收费排课/招生 ERP。核心是让真实教学事实形成连续、多人协作、可验证、能指导下一次教学的学生成长记录。
+不是 Excel 网页化，也不是收费/排课/招生 ERP。核心是把真实教学事实变成连续、多人协作、可验证、能指导下一次教学的学生成长记录。
 
 ### 北极星
 
-> **老师打开软件后，能否快速知道这个学生下一步做什么，并能用证据判断前一次教学是否有效？**
+> 老师打开软件后，能否快速知道这个学生下一步做什么，并能用证据判断前一次教学是否有效？
 
-不能改善这个闭环、只增加填写负担的功能，默认后置、自动化或删除。
+领导方法的高置信骨架：
 
----
+`学生档案 → 三类问题初诊 → 知识三阶闭环 → 周度跟进 → 顽固问题 → 家校沟通 → 阶段复盘`
 
-## 2. 主要用户
+Xueqing 不做七张电子表，而把发现—整改—验证—再整改—协同—复盘变成同一事实链。
 
-### 任课教师
-今天做什么、学生上次遗留什么、课中怎么快速记、课后怎么在 60 秒左右留下可靠记录。
+## 2. 用户
 
-### 学生负责人 / 学管 / 班主任
-跨学科整体状态、需要协调的事项、家校沟通。
+- 任课教师：Today、课前/课中/课后、Case/Action；
+- Advisor/班主任：跨学科必要摘要、协调、家校；
+- Subject Lead：本科专业 review/治理；
+- Academic/Org Admin：成员、scope、assignment、handoff、merge、完整性治理。
 
-### 学科负责人
-本科长期问题、高频共性问题、可沉淀教研方案。
+不以填写条数/沟通次数做核心 KPI。
 
-### 教学/机构管理员
-成员权限、学生主档案、交接、异常、数据完整性。
+## 3. Student / Subject Profile service lifecycle
 
-管理端不把“老师填多少条”做核心 KPI，避免系统退化为应付式填表。
+Student 是机构内唯一真实学生主档案。
 
----
+Student 与 Subject Profile 都使用：
 
-## 3. 核心领域对象
+```text
+active → inactive → archived
+active ← inactive ← archived
+```
 
-### Student
-同一机构一个真实学生一份主档案。姓名不是唯一标识；重复通过提示 + 受控合并治理。
+- archived 可受控 unarchive 到 inactive；
+- 真正恢复服务再 reactivate；
+- `merged` Student 是终态。
 
-### Student Subject Profile
-学生某学科的连续学情主线。换老师不新建。
+Subject service state 与 Case resolution 正交：停数学 ≠ 数学问题清零。
 
-### Learning Case
-可独立跟进的学习问题，是闭环最小业务单元。
+### Student concurrency
+Student 有 aggregate version。整体停读/回归同时验证 Student + affected Profile/Case versions/current relation set，防止多管理员 stale plan 覆盖。
 
-正式 case 至少能回答：
-- 问题是什么；
-- 证据来自哪里；
-- 当前原因判断；
-- 做过什么干预；
-- 如何验证、结果如何；
-- 下一步是什么；
-- 是否复发。
+## 4. People / authorization
 
-### Evidence
-试卷、作文、课堂练习、小测、作业、可观察事实。证据不是“附件越多越好”。
+```text
+Auth Identity
+→ Membership
+→ Role/Capability
+→ Subject Scope (teaching/leadership)
+→ Student/Staff Assignment
+→ Subject Profile state
+→ command permission
+```
 
-### Intervention
-真正实施过的教学处理。
+Teaching scope 不授予全学科学生访问；Student Assignment 决定普通教师具体学生范围。
 
-### Assessment
-后续验证结果；必须和 case status 分开。
+### Teaching Fact Gate
+以下都属于教学事实：
+- teaching Evidence；
+- Intervention；
+- Assessment；
+- Lesson teacher 行为；
+- **Quick Capture/new Learning Case**。
 
-### Case Action
-下一步行动，是 Today 的核心事实源。
+必须：
 
-### Lesson
-真实教学会话，用来关联本节课发生的事实，不是完整排课系统。
+```text
+live session
++ active membership
++ teacher capability
++ active teaching scope
++ target Profile active
++ legal active Student Teacher Assignment
++ operation permission
+```
 
----
+Advisor/Subject Lead/Admin 的管理身份本身不能 bypass。
 
-## 4. Case 生命周期
+## 5. Learning Case
+
+唯一 lifecycle：
 
 ```text
 new → confirmed → intervening → pending_verification → stable → closed
 ```
 
-- `new`：课堂 10–20 秒快速捕捉，可缺完整分类/owner/action；
-- `confirmed`：确认值得正式跟进，结构完整；
-- `intervening`：正在干预；
-- `pending_verification`：等待后续验证；
-- `stable`：已有改善证据，仍观察；
-- `closed`：退出主动跟进。
+`Assessment passed ≠ stable ≠ closed`。
 
-`reopen` 是受控命令/事件，不是第七状态。
+`reopen` 是 command/event，不是状态。
 
-一次 assessment passed 不自动 stable/closed。
+### Active Profile
+formal open Case 必须合法 owner + exactly one pending primary Action。
 
----
+### inactive/archived Profile
+unresolved Case 保留真实 status；tracking suspended；可以无 current owner/primary；退出普通 Today；不能产生 teaching facts/new Lesson/new Case。
 
-## 5. 正式 Case 永远有下一步
+## 6. Quick Capture
 
-最终规则：
-- new 可以没有 action；
-- confirmed / intervening / pending_verification / stable 必须始终有一个 pending primary action；
-- 暂时不处理不是“没有下一步”，而是建立 `review` primary action；
-- 暂缓 `review` 必须有 `due_at`；
-- `pause_reason` 只解释为什么暂缓，不替代 action；
-- closed 不存在 pending primary action。
+目标仍是课堂 10–20 秒：student/subject → 一句标题 → optional detail → new Case。
 
-这样避免“暂停后没人再看”，也让 Today 只需要一个行动事实源。
+但“快”不等于绕过权限：云端 new Case 必须完整 Teaching Fact Gate。
 
-### 无日期主行动
-部分下一步可能还不知道具体日期，可暂时无 due_at，但必须在 Today 的“待安排”区域出现。暂停/稳定观察的 review action 不允许无日期。
+- Advisor-only 不创建 teaching Case；其非专业记录走 Parent Communication/Observation；
+- inactive/archived Profile 拒绝；
+- 离线只保留 encrypted draft，恢复同步时重验 Gate。
 
----
+## 7. Reopen｜复发
 
-## 6. 分类：结构化但不困住老师
+只适用于 closed Case 在 active service 下真实复发。
 
-V1：
-- 受控 taxonomy：学科 → 模块/能力，用于统计；
-- 自由 title/description：表达真实问题。
+唯一目标：
 
-new 可暂不选完整 taxonomy；confirmed 前补齐。只做少量默认分类 + “其他/暂未分类”，不建庞大知识图谱。
+```text
+closed --reopen_case--> confirmed
+```
 
----
+必须有 post-close recurrence Evidence：server 在同一 transaction lock/re-read target Case、解析 latest committed `case_closed` event，并 lock/re-read selected Evidence；每条 Evidence 仍须属于目标 Case、committed/legal usable，且 `observed_at` 严格晚于该最新已提交 event 的 `occurred_at`；`created_at` 晚录不影响合法性。Committed Evidence 为 append-only historical fact，不得普通修改/删除/reparent `case_id`、`observed_at`、`created_at`、author/source attribution 或 provenance；错误通过 correction/superseding/invalidation event 保留原记录。旧 Evidence 不能单独 reopen。任一步 drift/invalidation/version conflict whole rollback；同一 operation_id retry 不重复副作用。另需 legal owner + new primary Action；清 current `closed_at/stable_at`、`reopened_count +1`，历史 close/stable 通过 immutable events 保留。
 
-## 7. Excel 原型怎么转成软件
+Profile inactive/archived 时不 reopen；先恢复 service，再由合法 teacher reopen。
 
-Excel 的工作表不是软件页面：
-- 学生档案 → Student / Enrollment / Assignment；
-- 初诊问题 → Learning Case；
-- 知识闭环 → Evidence + Intervention + Assessment + Event；
-- 周度跟进 → 自动派生；
-- 顽固问题 → 同一 case 的持续/失败/复发提示；
-- 家校沟通 → V1.1 Parent Communication；
-- 阶段复盘 → V1.1 Report Snapshot。
+## 8. 三类问题 workflow
 
-事实只保存一次，展示/报告尽量派生。
+- knowledge：当堂订正 → 相似题 → 延迟独立验证；
+- habit：可观察行为 → 策略干预 → 多场景观察；
+- exam_strategy：方法 → 应用 → 限时/模拟迁移 → 独立验证。
 
----
+三阶是 knowledge 教学语言，不是 schema 三列/状态，也不机械套其他类型。
 
-## 8. 导航
+## 9. Initial Diagnosis
 
-### V1
-1. 今日
-2. 学生
-3. 课程
-4. 学情
+Student → active Subject Profile → legal teacher assignment → 定位/优势 → candidate problems → Evidence → Cases → first Actions。
 
-### V1.1
-增加：家校、报告。
+管理员可以建立关系，不能代教师写教学事实。
 
-“今日”不要求完整课表，主要来自：
-- 今日/逾期 case actions；
-- 无日期待安排 actions；
-- 待验证；
-- 高优先级 case；
-- 最近负责学生。
+独立 initial baseline snapshot 是 P2 Pilot validation；V1 不建平行 `initial_diagnoses` 台账。
 
-教师能从 Today/学生直接开始 lesson。
+## 10. Lesson
 
----
+Lesson 是实际教学会话，不是完整排课 CRM。V1 所有 teaching writes 依赖 legal active Student Teacher Assignment。`start_lesson` 有分开的 Actor Gate 与 Per-Student Participant Gate：执行 actor 必须有 live active authenticated identity、valid active session、active membership、teacher capability、matching Subject Scope 与 operation permission；每个 participant 另须是 current/legal Student、active Profile，且 actor 对 Student+Subject 有 legal active assignment、organization/subject/Lesson context 一致。live identity/session 不是 Student participant 属性；`lesson_students` 只表示参与事实，不是 authorization source，scope-only 或 self-added participant 一律拒绝。
 
-## 9. 核心教师流程
+课中 assignment 被撤销后，新的 Evidence/Intervention/Assessment/Quick Capture 与普通 `complete_lesson` 全部拒绝；有治理权限的 actor 只能 controlled cancel stale Lesson，不能借 cleanup 写教学事实。新教师不能直接接管旧 Lesson，需取消旧 Lesson 后按自己的合法 assignment 开新 Lesson。
 
-### 课前：约 30 秒
-看到：上次遗留、到期行动、待验证、高优先级 case、最近关键事实。
+课前看重点/Action/待验证；课中记录事实；课后约 60 秒收口。小班最终事务粒度留 Phase 0B.0 Spike，但不能出现非法半状态。
 
-### 课中
-只记录新事实：
-- 完成/调整 action；
-- evidence；
-- intervention；
-- assessment；
-- new 快速草稿。
+## 11. Student lifecycle transaction
 
-### 课后：目标 30–60 秒
-系统整理本课事实，教师确认：
-- 处理了哪些 case；
-- 必要的 new → confirmed；
-- 旧 action 完成/取消；
-- 新 primary action；
-- 必要状态变化；
-- lesson complete。
+Deactivate/Reactivate 等 multi-Profile command 必须：operation_id + Student expected_version + affected Profile/Case versions + locks + one transaction。
 
-不要求再抄一份周总结。
+### Reactivate Student
+只处理调用前**已经 inactive**的 selected Profiles。
 
----
+`students.version` 只代表 Student root/current canonical/lifecycle snapshot；deactivate/archive/unarchive/reactivate 成功各 +1 exactly once，merge 时 source/target 各 +1 exactly once。普通 child append/transition 不机械递增 Student.version。
 
-## 10. 网络失败与本地草稿
+如果 selected Profile archived：命令拒绝；用户先显式独立 unarchive Profile。Reactivate command 不暗中跨事务 unarchive，也不使用未定义 Saga。
 
-V1 online-first，云数据库是唯一正式事实源。
+## 12. Reliability / exactly-once
 
-必须：
-- 未保存/保存中/已保存/失败清晰；
-- 网络失败不清空输入；
-- 可恢复草稿加密保存；
-- 草稿按 user/org 隔离，有 TTL，同步成功清理；
-- 重试不重复事实；
-- 云端未确认前不显示正式“已保存”。
+High-risk command：
 
-这不是 offline-first，而是“不让老师白填，也不让本地明文变第二数据库”。
+```text
+operation_id
++ expected versions
++ locks/revalidation
++ one DB transaction
++ final invariants
++ operation-bound events/audit
++ atomic commit
+```
 
----
+同 operation 重试返回原 committed result；event/audit 不重复。
 
-## 11. 跨学科协作
+Timeout response lost → 查询 operation result，不用多个 CRUD 猜测补齐。
 
-**默认隔离、必要互通**：
-- 本科教师：本科详细数据；
-- 其他任课教师：必要摘要；
-- advisor：更广综合视角，但不能随意改写专业学科结论；
-- subject lead：本科范围；
-- admin：机构治理视角。
+## 13. Student duplicate / merge
 
-“能看”与“能改”分开。
+V1 conservative safe merge，完整矩阵见 `docs/product/STUDENT_MERGE_POLICY.md`。
 
----
+- same-subject dual Profile；
+- conflicting Enrollment；
+- dual active Lead；
+- current owner/assignee 无法保持合法；
 
-## 12. V1 必须有
+这些全部 BLOCK。管理员先用正常治理命令整理，再重试。
 
-- 安全登录/机构 membership/首位管理员；
-- 学生统一主档案与查重；
-- enrollment / teacher/staff assignment 历史；
-- learning case + taxonomy；
-- evidence/intervention/assessment；
-- case action；
-- lesson；
-- Today；
-- RLS/审计/并发；
-- network recovery；
-- secure Session / encrypted draft；
-- DB + Storage recovery。
+source→merged，不删除；finalized history provenance 保留；target history 通过 merge lineage 聚合。
 
-### 可以简单
-- 附件只支持少量私有文件；
-- 管理端只做必要治理；
-- 搜索只覆盖高频字段；
-- Windows Pilot 内部分发。
+## 14. Parent Communication
 
-### 明确不做
-- 收费/课消/招生 CRM；
+一次实际沟通是 immutable finalized event。Draft 可编辑；outbound 后异步家长 reply 新增 inbound event；电话/面谈同一 interaction 可 conversation snapshot。
+
+Guardian response 经教师判断后才可形成 guardian_report Evidence。家庭配合不是 Guardian-as-Case-Action。
+
+V1 Internal Pilot 在 Student/Case context 提供最小家校；独立工作台 V1.1。
+
+## 15. Stage Review
+
+复用 reports：source_cutoff + content_snapshot + version + finalized_by/time + correction/supersede。
+
+Finalized Report 不随后续 reopen/Evidence 自动改写，也不等于 Parent informed。
+
+## 16. Today / IA
+
+V1 主导航：Today / Students / Lessons / Learning。
+
+Today 只聚合 active service context 的 action/pending verification 等；inactive/archived tracking 不继续冒普通任务。
+
+## 17. Cloud / Provider boundary
+
+Production provider 尚未冻结。Supabase 是 reference candidate；CloudBase 上海和国内自托管路线仍在候选。
+
+Phase 0B.0 在任何正式 business migration 前必须通过：
+1. Auth Identity Portability；
+2. Revoked Session / Old Token Security；
+并验证 Windows/Android、RLS/RPC/Storage/restore/大陆网络。
+
+## 18. V1 不做
+
+- billing/课消/招生 CRM；
 - 完整排课；
-- 大型题库；
-- 学情健康分/成绩预测；
-- 家长/学生独立 App（V1）；
-- AI 自动正式诊断；
-- CRDT/offline-first；
-- 多套登录方式；
-- 大量第三方 SaaS。
-
----
-
-## 13. V1 成功指标
-
-1. **低负担**：new 10–20 秒，常规课后中位 ≤60 秒；
-2. **连续性**：换老师后仍能快速看懂重点/下一步；
-3. **闭环率**：正式未关闭 case 都有主行动；
-4. **证据性**：关键结论可追溯到 evidence/assessment；
-5. **协作**：两位教师看到同一 student 的权限化数据；
-6. **安全**：revoked/onboarding/disabled 无法访问业务；
-7. **可靠**：网络失败不丢，重试不重复；
-8. **恢复**：DB/Storage 能从备份实际恢复；
-9. **可运营**：教师连续一周愿意真实使用，而不是为了验收点几次。
-
----
-
-## 14. 产品铁律
-
-1. 一个学生一份机构主档案。
-2. 事实只记录一次。
-3. 重要结论尽量有证据。
-4. 正式未关闭 case 永远有下一步。
-5. 学生历史不因换老师/升年级断裂。
-6. 数据共享与编辑权限分开。
-7. 老师少填一次，系统多自动一次。
-8. 网络失败不能让高频记录消失。
-9. 本地恢复不能以明文长期留存敏感数据为代价。
-10. Today 不偷偷变排课 CRM。
-11. AI 只做副驾驶。
-12. 功能数量永远排在数据正确、权限安全、教师可用之后。
+- 家长 App/微信短信 API 前置；
+- AI 自动正式诊断/清零/finalize；
+- KPI/学生风险分/教师效能分；
+- Realtime correctness dependency；
+- offline-first/CRDT；
+- unsafe automatic Student merge。

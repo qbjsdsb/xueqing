@@ -1,349 +1,205 @@
 # 核心用户流程
 
-> 开发页面前先确认它服务哪个真实流程。不能改善核心流程的功能默认后置。
+> 页面开发前先确认服务哪个真实流程；不能改善闭环的功能默认后置。
 
-## Flow A｜机构首次初始化
+## Flow A｜机构初始化 / 管理员接管
 
-1. 受信任运维创建 Production organization；
-2. 一次性 bootstrap 建首位 org_admin Auth User + onboarding membership；
-3. 设置 `onboarding_expires_at`；
-4. 管理员用一次性凭据登录；
-5. 只进入账号接管页；
-6. 设置自己的新密码；
-7. global sign-out 所有 Sessions；
-8. membership→active；
-9. 管理员用新密码重新登录；
-10. bootstrap 关闭。
+受信任运维 bootstrap org_admin → membership onboarding → 设置新密码 → revoke old sessions → membership active → 强制重新登录。onboarding/old token 无学生业务权限。
 
-### 验收
-- Flutter 没超级管理员 Secret；
-- onboarding 无学生数据；
-- 旧 Session 被 live-session guard 拒绝；
-- bootstrap 不长期公开；
-- Production 不用 development seed。
+## Flow B｜管理员开通成员
 
----
+org_admin provision → Auth identity + onboarding membership + roles/scopes → 随机临时密码一次显示 → 可信渠道交付。响应丢失不找回旧密码，reissue 新凭据。
 
-## Flow B｜管理员开通教师
+## Flow C｜App Startup Authorization Gate
 
-1. org_admin 打开成员管理；
-2. 输入已知教师邮箱、显示名、初始角色；
-3. `provision_member` 验证管理员 live Session/机构权限；
-4. 服务端生成强随机临时密码；
-5. Auth Admin 创建/受控处理 Auth User；
-6. 建 `membership(onboarding)` + roles + expiry；
-7. audit 不含密码；
-8. 临时密码只显示一次；
-9. 管理员通过已建立身份关系的可信渠道交付。
+secure local session → refresh/remote validation → live session → active membership → role/scope/assignment → business Shell。
 
-### 响应丢失
-如果服务端其实成功但管理员没收到响应：
-- member 保持 onboarding；
-- 不尝试“找回”原密码；
-- UI 提示凭据交付未知；
-- 管理员 reissue/reset，获得新的临时密码。
+revoked/onboarding/disabled 不能先闪学生页。
 
-### 验收
-- 密码不进 DB/log/audit/GitHub；
-- 普通 teacher 不能 provision；
-- 失败不留下 active 半状态；
-- 同一机构不重复 member。
+## Flow D｜建立 Student
 
----
+最少身份信息 → duplicate hint → 确认为新 Student → Enrollment → Subject Profiles → teacher/advisor assignments。
 
-## Flow C｜教师首次接管账号
+姓名不硬唯一；升年级不新建 Student。
 
-1. 教师邮箱 + 临时密码登录；
-2. App 启动 Gate 识别 membership=onboarding；
-3. 不挂学生业务 Shell，只显示“设置新密码”；
-4. 检查 onboarding 未过期；
-5. 教师输入自己的新密码；
-6. `complete_member_onboarding` 更新该用户密码；
-7. 服务端用当前登录 JWT global sign-out 所有 Sessions；
-8. sign-out 成功后 membership→active；
-9. App 清理旧 Session/机构上下文；
-10. 明确提示“账号已接管，请重新登录”；
-11. 教师用新密码重新登录；
-12. 新 live Session + active membership 后进入机构。
+## Flow E｜Initial Diagnosis
 
-### 验收
-- onboarding 手工 API 也无学生权限；
-- 过期凭据不能接管；
-- 保存旧 JWT，在接管完成后直接调用业务 API 必须被拒；
-- 半失败不提前 active；
-- Windows/Android 一致。
+Student → active Subject Profile → 合法 teacher assignment → 定位/优势 → candidate problems → Evidence → Learning Cases → primary Actions。
 
----
+管理员可以建立关系，但不能代教师绕过 Teaching Fact Gate 写教学事实。
 
-## Flow D｜忘记密码 / 管理员重置
+## Flow F｜Quick Capture / 课堂发现新问题
 
-1. 教师通过机构既有渠道联系管理员；
-2. 管理员确认本人；
-3. `reset_member_credential` 验证 org_admin；
-4. **先 membership→onboarding**，立即切断业务权限；
-5. 生成新的随机临时密码；
-6. Auth Admin 更新目标 Auth User 密码；
-7. 刷新 onboarding expiry；
-8. audit 不含密码；
-9. 临时密码只显示一次；
-10. 教师重新走 Flow C。
+```text
+lesson/student page
+→ student + subject context
+→ 一句标题
+→ optional detail
+→ new Case
+```
 
-### 验收
-- 不依赖 SMTP；
-- reset 中间失败优先停在无业务权限；
-- 旧客户端立即读不到学生数据；
-- 响应丢失走 reissue，不保存原密码。
+### 云端创建 Gate
+必须：
 
----
+```text
+live session
++ active membership
++ teacher capability
++ active teaching scope
++ active Subject Profile
++ legal active Student Teacher Assignment
++ operation permission
+```
 
-## Flow E｜App 启动 / Session 恢复
+因此：
+- Advisor-only 不能创建 teaching Case；
+- pure Subject Lead/Admin 不能 Quick Capture；
+- Profile inactive/archived 拒绝；
+- 无网络时只保留 encrypted local draft，恢复同步时重新验证 Gate。
 
-1. App 读取 OS 安全存储中的 Session；
-2. 检查本地 Session 过期/刷新状态；
-3. 必要时等待远端 Auth refresh/验证；
-4. 检查 JWT `session_id` 仍是 live Session；
-5. 查询 active memberships；
-6. 解析 current organization；
-7. 最后挂业务 Shell。
+目标仍是 10–20 秒，不强迫课中 root cause/taxonomy/三阶全部完成。
 
-### 分支
-- revoked/expired → 登录页；
-- onboarding → 接管页；
-- disabled/no membership → 无权限状态页；
-- active → 业务页。
+## Flow G｜Confirm new Case
 
-### 验收
-任何旧/失效 Session 都不能先闪现学生页。
+new → 最小 Evidence → taxonomy/case type → 合法 owner → pending primary Action → `confirm_case` → confirmed event。
 
----
+教学上的暂缓使用 `review + due_at`，不能没有下一步。
 
-## Flow F｜建立学生主档案
+## Flow H｜一次 Lesson
 
-1. 管理员/授权人员点新建学生；
-2. 输入最少必要身份信息；
-3. 系统提示可能重复；
-4. 已存在则进入原主档案；
-5. 确认为新学生才创建 student；
-6. 创建 enrollment；
-7. 启用所需 subject profile；
-8. 分配任课教师/学生负责人。
+课前：到期/逾期 Action、pending verification、重点 Case。
 
-验收：姓名不硬唯一；不因学科重复 student；年级/负责人变化保留历史。
+课中：完成/调整 Action、Intervention、Assessment、Quick Capture；每次云端写入重新验证 full Teaching Fact Gate。Actor Gate 先验证 `start_lesson` 执行 actor 的 live active authenticated identity、valid active session、active membership、teacher capability、Subject Scope 与 operation permission，再按 Per-Student Participant Gate 逐个验证 Student current/legal、active Profile、actor 的 legal active Student Teacher Assignment 与 context；live identity/session 不是 Student participant 属性。每个 participant 必须通过后才创建 Lesson；`lesson_students` 只表示参与事实，不能自我授权。
 
----
+课后：汇总事实 → 教师确认状态 → old primary 收口 → new primary → `complete_lesson`。
 
-## Flow G｜老师第一次接手学生
+如果 assignment 在课中被撤销，后续 teaching writes 与 ordinary complete 拒绝；治理 actor 只能 controlled cancel stale Lesson，不能借 cancel 写教学事实。新老师不能直接接管旧 Lesson。
 
-1. 打开学生；
-2. 首屏看到当前重点 case、待验证、下一 action、最近时间线；
-3. 按学科进入详细 case；
-4. 必要时看获准综合摘要；
-5. 不翻完整历史也能回答“现在最重要的三件事”。
+## Flow I｜验证失败
 
-无权学科详细内容不能暴露。
+Assessment failed/partial → 不自动 close → 继续 Intervention/原因复盘 → 新 primary Action → Case 继续 intervening/相应合法状态 → 原 Assessment 保留。
 
----
+## Flow J｜验证通过 → Stable → Closed
 
-## Flow H｜课堂快速发现新问题
+passed 只是本次通过 → 教师判断 stable → stable 仍有 review/verify Action → 后续真实稳定 → closed → closed 无 pending primary。
 
-1. 从 lesson/学生页点“发现问题”；
-2. 已知学生/学科自动带入；
-3. 输入一句最小标题；
-4. 可选说明/分类/evidence；
-5. 系统提示明显重复 case；
-6. 保存 `new`；
-7. 网络异常时进入 encrypted local draft。
+## Flow K｜Closed Case 真实复发
 
-### 目标
-- 10–20 秒；
-- 不强迫完整 taxonomy；
-- 不强迫上传图片；
-- 不强迫课中写根因/整改/下一行动。
+唯一流程：
 
----
+```text
+发现复发线索
+→ server lock/re-read Case
+→ server resolves latest committed case_closed event
+→ 创建/确认 recurrence Evidence
+→ validate Evidence.observed_at > close.occurred_at
+→ reopen_case
+→ closed → confirmed
+→ owner + new primary Action
+→ 后续实际 Intervention 再进入 intervening
+```
 
-## Flow I｜确认 new 为正式 Case
+recurrence Evidence 必须属于目标 Case，且 source_type 不设白名单；只看事实 observed_at，不看 created_at。旧 Evidence 不能单独 reopen；close A→reopen→close B 时自动使用 close B。客户端不能指定 previous close。
 
-1. 打开 new；
-2. lesson context 预填学生/学科/时间；
-3. 确认 taxonomy + case type；
-4. 确认/补最小 evidence；
-5. 确认 active owner；
-6. 创建一个 pending primary action；
-7. 执行 `confirm_case`；
-8. 写 confirmed event。
+`reopen_case` one transaction：active Profile/full Gate、lock/re-read Case、Case closed、expected Case/Evidence versions or server freshness token、server-resolved latest committed close、lock/re-read selected Evidence 并确认仍属目标 Case且 committed/legal usable、严格 `Evidence.observed_at > latest committed case_closed.occurred_at`、legal owner、新 Action、current timestamps/reopened_count、case_reopened metadata、event/audit、Case.version +1、final invariants、commit；任一步失败 whole rollback并返回 domain conflict/stale_plan/version_conflict。同一 operation_id retry 返回原 committed result，不重复副作用。Committed Evidence 是 append-only historical fact：不得普通修改/删除/reparent `case_id`、`observed_at`、`created_at`、author/source attribution 或 provenance；错误走 correction/superseding/invalidation event，保留原历史。
 
-### 暂缓
-如果暂时观察：
-- 填 pause_reason；
-- 建 `review` primary action；
-- review 必须有 due_at。
+## Flow L｜单学科暂停 / 归档 / 恢复
 
-不能只填“先观察”然后没有下一次检查。
+```text
+active --deactivate--> inactive --archive--> archived
+active <--reactivate-- inactive <--unarchive-- archived
+```
 
----
+Deactivate：同一事务收口 assignment/owner/Action + tracking event + Profile inactive；未解决 Case 不 closed。
 
-## Flow J｜一次真实课程
+Unarchive：只 archived→inactive，不恢复教学。
 
-### 课前
-1. 从 Today/学生页开始 lesson；
-2. 看到到期/逾期 action、待验证、重点 case。
+Reactivate Profile：同一事务恢复 assignment/owner/primary Actions + Profile active。
 
-### 课中
-3. 完成/调整 action；
-4. 记录 intervention；
-5. 有验证则 assessment；
-6. 新问题走 Flow H。
+## Flow M｜Student 整体暂停 / 回归
 
-### 课后
-7. 系统汇总本节新增事实；
-8. 教师确认必要状态变化；
-9. new 可进入 Flow I 或留待整理；
-10. 完成/取消旧 primary action；
-11. 创建新的 primary action；
-12. `complete_lesson` 原子完成课程。
+### deactivate_student
+Student + 所有 active Profiles 在一个事务 reconciliation；第 N 科失败 → 整体 rollback。
 
-### 验收
-- 常规课后中位 ≤60 秒；
-- 不再填一份周总结；
-- 网络失败不丢/不重复；
-- 正式未关闭 case 没有 action 空窗。
+### unarchive_student
+Student archived→inactive；Profiles 保持 archived。
 
----
+### 准备回归
+如果要恢复的某 Profile 仍 archived：
 
-## Flow K｜验证失败
+```text
+先由用户显式执行 unarchive_student_subject_profile
+→ Profile 合法停在 inactive
+```
 
-1. assessment=failed/partial；
-2. 系统不自动 close；
-3. 提示继续干预/原因复盘；
-4. 教师创建下一 primary action；
-5. case 回到/保持 intervening；
-6. 原 assessment 保留。
+### reactivate_student
+只接受**已经 inactive**的 selected Profiles。
 
----
+任何 selected Profile archived → 立即拒绝；命令内部不隐式调用 unarchive、不做跨事务 Saga。
 
-## Flow L｜验证通过 → Stable → Closed
+随后 Student reactivate 单事务恢复 enrollment + selected Profiles assignment/owner/Actions/status；第 N 科失败 → 整体 rollback。
 
-1. assessment=passed；
-2. 显示“本次验证通过”，不自动改 stable/closed；
-3. 教师确认 stable；
-4. stable 同时创建后续 `review/verify` primary action；
-5. 到期再检查；
-6. 满足退出条件后 closed；
-7. close 时 pending primary action 必须清零。
+如果此前显式 unarchive 成功、后续 reactivate 失败，Profile=inactive 是合法独立 command 结果，不属于部分 reactivate。
 
----
+## Flow N｜Teacher handoff / 离职 / 退单科
 
-## Flow M｜问题复发
+盘点 assignments/owners/pending Actions → 验证接手人 scope/Profile relationship → 单事务迁移 → no orphan → scope/membership 收口。历史 actor 保留。
 
-1. 发现和历史 stable/closed case 高度相同；
-2. 系统提示历史；
-3. 选择 reopen；
-4. 新 evidence；
-5. reopened_count +1；
-6. 建新的 primary action；
-7. 原历史保留。
+## Flow O｜网络失败 / timeout
 
----
+Simple insert：复用 UUID。
 
-## Flow N｜教师离职 / 交接
+High-risk command：复用 operation_id。
 
-1. 管理员选择成员；
-2. 盘点 active teacher/staff assignments；
-3. 盘点 active case owner；
-4. 盘点 pending actions；
-5. 选择接手人/处理方式；
-6. 受控事务结束旧关系、建立新关系、转交责任；
-7. 验证无 orphan；
-8. membership→disabled；
-9. 历史作者保持原教师。
-
-旧 JWT 也必须被业务授权拒绝。
-
----
-
-## Flow O｜网络失败 / 草稿
-
-1. 教师填写；
-2. 网络断开/超时；
-3. 显示失败/待同步；
-4. 输入以 user/org scope 加密草稿保存；
-5. 网络恢复后重试；
-6. insert 复用 UUID，DB command 复用 operation id；
-7. 云端已成功则不重复副作用；
-8. 云端确认后删除本地 draft。
-
-### Logout / Account Switch
-若仍有未同步草稿，明确让用户同步或丢弃；绝不把上一账号草稿展示给下一账号。
-
----
+如果 response lost：查询 operation result；不得生成新 operation_id 或用多个 CRUD 猜测补齐。
 
 ## Flow P｜跨学科查看
 
-- 本科教师：本科详细数据；
-- 其他教师：必要摘要；
-- advisor：综合视角；
-- 不越权修改其他学科专业 case。
+本科教师本科详细；Advisor 综合必要摘要；Subject Lead 本 leadership scope；无权限不显示成“没有数据”。
 
-手工 API 与前端行为一致。
+## Flow Q｜重复 Student / Merge
 
----
+1. 管理员确认 source/target 是同一真实学生；
+2. `generate_merge_preview` 由 server/domain logic 生成完整 merge-relevant snapshot；
+3. 预览绑定 source/target Student versions、affected Profile/Case versions、Enrollment、Teacher/Staff Assignments、owner、current Actions、target authority 与 BLOCK matrix；
+4. 管理员确认这一个 server plan（opaque `merge_plan_token`、完整 expected snapshot/values 或 server fingerprint）；
+5. 有 same-subject dual Profile / conflicting Enrollment / dual active Lead /非法 current owner、unresolved mutable Draft、in-progress Lesson 等 → **不能 merge**；
+6. 管理员先用 handoff/reassign/Enrollment correction、finalize/cancel Draft、complete/controlled cancel Lesson 等正常治理命令整理；
+7. 重新预览并重新确认；
+8. `merge_students` 锁 source/target 与所有受影响 rows，server regenerate 当前完整 snapshot；
+9. 任何 merge-relevant drift → `stale_plan/version_conflict`、whole rollback、要求重新 preview，不能静默接受 Plan B；
+10. 无 drift 且无 BLOCK 时执行 safe reparent/dedupe + record + source→merged；source/target Student.version 各 +1 exactly once，safe reparent Profile.version +1 exactly once；
+11. ordinary append-only Evidence/Intervention history 若不改变 merge decision 不单独 stale；
+12. finalized history provenance 保留；target history 通过 merge lineage 聚合；
+13. response lost 用同 operation_id 查询，不重复迁移/版本递增。
 
-## Flow Q｜合并重复学生
+## Flow R｜Parent Communication
 
-1. 管理员确认同一真实学生；
-2. 展示 source/target 与受影响数据；
-3. 选择 target；
-4. `merge_students` 检查同机构/权限/无 merge 环；
-5. 迁移/重指向必要关系；
-6. source→merged；
-7. merge record + audit；
-8. 旧 source ID 可追溯到 target。
+Draft → 人工确认 → 现实渠道沟通 → finalized event。
 
----
+异步家长回复 → 新 inbound event + reply_to，不修改旧 outbound finalized。
 
-## Flow R｜Production 备份 / 恢复演练
+Guardian response 经教师判断后才可成为 guardian_report Evidence。
 
-1. 导出 roles/schema/data；
-2. 必要时 migration history；
-3. 加密保存到 Supabase/GitHub 之外；
-4. 导出 Storage objects + manifest；
-5. 保存 Project config checklist；
-6. 新建非 Production 测试项目；
-7. 恢复 DB；
-8. 恢复 Storage/config；
-9. 跑 smoke test；
-10. 记录恢复结果/RPO。
+## Flow S｜Stage Review
 
-“文件存在”不等于可恢复。
+系统整理 source_cutoff 前事实 → 教师填写专业判断 → finalize snapshot。后续 Case reopen/补 Evidence 不修改旧 report。
 
----
+## Flow T｜Backup / Restore / Provider Gate
 
-## Flow S｜Production Region 决策
+Remote Dev 只用虚构数据。Phase 0B.0 先验证 Auth identity、old-token revoke、RLS/RPC/Storage/restore/国内网络，再冻结 Production provider。
 
-1. Remote Development 使用虚构数据；
-2. 在实际机构 Wi‑Fi 无代理测试；
-3. 普通移动网络无代理测试；
-4. Auth/Data API/Storage/Functions/恢复全部覆盖；
-5. 不合格则重建 Dev 换 APAC region；
-6. 测试合格后才创建 Production；
-7. 机构完成数据驻留/跨境合规评估。
+## V1 明确不应出现
 
----
-
-## V1 不应出现
-
-- onboarding/disabled/revoked Session 可以读学生数据；
-- 改密码后旧 Session 未撤销就直接 active；
-- 临时密码无有效期；
-- 为响应重试长期保存明文临时密码；
-- App 启动先闪学生页再验证 Session；
-- 敏感草稿明文长期落盘；
-- 暂停 case 没 review action/due_at；
-- 为开始 lesson 必须先排完整课表；
-- 老师每周再抄一份周报；
-- 一个问题多套台账；
-- 一次 passed 自动“已解决”；
-- 网络失败后要求重填；
-- AI 自动改正式 status；
-- 为参考开源项目把系统扩成收费/招生 ERP。
+- revoked/onboarding/disabled 能读学生数据；
+- management-only Quick Capture；
+- inactive/archived Profile 新 teaching Case/Lesson；
+- reopen 新增第七 status；
+- passed 自动 stable/closed；
+- archive/停科伪造 Case closed；
+- `reactivate_student` 暗中跨事务 unarchive；
+- Student command 部分学科成功、部分失败作为正常结果；
+- unsafe merge 猜测处理双 Profile/双 Lead；
+- timeout 后客户端多 CRUD 补状态；
+- finalized communication/report 被后来事实回写；
+- AI 自动正式诊断/清零/finalize。

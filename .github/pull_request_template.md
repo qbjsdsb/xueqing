@@ -54,7 +54,7 @@
 
 ## Flutter 本地安全
 
-- [ ] Production Session 使用 Supabase custom LocalStorage + OS secure storage（如相关）
+- [ ] 未来 gated Production Session 方案已在 P0 Gate A/B 后冻结；如采用 Supabase reference candidate，使用 custom LocalStorage + OS secure storage（如相关）
 - [ ] Password 不本地持久化
 - [ ] Startup Gate 在 Session/live membership 解析前不挂业务 Shell
 - [ ] expired/revoked/disabled Session 不会闪现学生数据
@@ -111,6 +111,7 @@
 - [ ] DB/RLS tests 通过
 - [ ] destructive 变化有迁移/恢复方案
 - [ ] Production 不运行 dev seed/reset
+- [ ] 正式 production migration/Auth/RLS/CRUD 在 P0 Gate A（Auth Identity Portability）与 P0 Gate B（Revoked Session / Old Token Security）通过前保持阻止
 - [ ] 若影响旧客户端，考虑 expand → migrate → contract / 兼容窗口
 
 ---
@@ -121,7 +122,7 @@
 - [ ] 实际机构 Wi‑Fi 无代理/VPN验证
 - [ ] 普通移动网络无代理/VPN验证
 - [ ] Auth/Data/Storage/Functions 均验证
-- [ ] Production region 没在测试前拍脑袋创建
+- [ ] gated Production region 没在 compatibility/network 测试、P0 Gate A/B 与 Go/No-Go 前拍脑袋创建
 - [ ] 数据驻留/跨境问题没有被“选了 region”错误当成合规完成
 
 ---

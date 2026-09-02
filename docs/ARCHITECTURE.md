@@ -4,422 +4,227 @@
 
 1. 多机构严格隔离；
 2. 多教师共享同一学生事实源；
-3. Auth 与机构授权分离；
-4. 被撤销 Session 不能继续借旧 JWT 访问学生数据；
-5. 教师高频记录快且不丢；
-6. 本地 Session/草稿不成为隐私旁路；
-7. 历史连续、可追溯；
-8. schema 可从 Git migrations 重建；
-9. Free Pilot 可恢复、可控成本；
-10. 不提前建设微服务、CRDT、ERP 或多登录体系。
+3. Auth Identity 与 organization membership 分离；
+4. revoked Session / old token 不能继续访问学生数据；
+5. teacher scope、Student Assignment、Subject Profile service state 共同参与授权；
+6. 高风险 lifecycle command 原子、可幂等恢复；
+7. 教师高频记录快且不丢；
+8. finalized history、actor、merge provenance 可解释；
+9. schema 可由 Git migrations 重建；
+10. Production provider 在 Phase 0B.0 compatibility gate 后才冻结。
 
----
-
-## 2. 总体结构
+## 2. Provider-neutral 总体结构
 
 ```text
 ┌──────────────────────────────────────────────┐
 │ Flutter Client                               │
-│ Windows：深度查看/管理   Android：快速记录   │
-│                                              │
+│ Windows：深度管理   Android：快速记录        │
 │ Secure Session Storage + Encrypted Drafts    │
 └──────────────┬───────────────────────────────┘
                │
                ▼
        Startup Authorization Gate
                │
-        ┌──────┼────────────────────┐
-        ▼      ▼                    ▼
- Supabase Auth Data API       Controlled Commands
- Password/Session PostgreSQL   DB Functions / Edge Functions
-        │      │                    │
-        └──────┴──────────┬─────────┘
+        ┌──────┼──────────────────┐
+        ▼      ▼                  ▼
+      Auth   Data API      Controlled Commands
+        │      │             DB Function / Trusted Service
+        └──────┴──────────┬───────┘
                           ▼
 ┌──────────────────────────────────────────────┐
-│ Supabase                                     │
-│ Auth | auth.sessions | PostgreSQL | RLS      │
-│ Storage | Edge Functions                     │
+│ Selected PostgreSQL-backed Cloud Provider    │
+│ Auth | PostgreSQL/RLS | Storage | Functions  │
 └──────────────────────────────────────────────┘
 
 GitHub：source / docs / migrations / tests / PR / CI
 ```
 
----
+### 当前候选
+- official Supabase APAC/Singapore — reference candidate；
+- Tencent CloudBase PG Shanghai — mainland candidate；
+- mainland self-hosted Supabase — fallback/portability path。
 
-## 3. 业务授权链
+**Production provider 尚未冻结。** 见 ADR-045。
 
-```text
-JWT user_id
-  ↓
-JWT session_id 仍对应 auth.sessions 行？
-  ↓
-organization_membership = active？
-  ↓
-role / capability 合法？
-  ↓
-student / subject assignment 合法？
-  ↓
-具体 read/write/admin 操作允许
-```
-
-缺任何一层都拒绝。
-
-### 为什么 Session 也要查
-
-Supabase global sign-out 会撤销 Sessions/Refresh Tokens，但旧 Access Token 在 `exp` 前仍可能存在。对学生敏感数据，V1 不接受“等 JWT 自然过期”作为唯一撤销机制。
-
-用非 exposed helper 校验 JWT `session_id` ↔ `auth.sessions`；Phase 0 对性能和越权做实测。
-
----
-
-## 4. V1 Auth 架构
+## 3. 授权链
 
 ```text
-org_admin provision_member
-  ↓
-Auth User + membership(onboarding)
-  ↓
-临时密码 + onboarding_expires_at
-  ↓
-教师登录，只能账号接管
-  ↓
-更新自己的新密码
-  ↓
-global sign-out 全部 Sessions
-  ↓
-membership active
-  ↓
-强制重新登录
+valid Auth identity/session
+→ membership active
+→ role/capability
+→ subject scope
+→ Student/Staff Assignment
+→ Subject Profile service state
+→ owner/assignee/entity state
+→ operation-specific permission
 ```
 
-reset：**先 membership→onboarding，再更新 Auth 密码**。
+缺一层都拒绝。
 
-Credential 响应丢失时 reissue 新密码；不持久化旧明文来实现“重复返回”。
-
----
-
-## 5. Flutter 架构
-
-职责：
+### Teaching Fact Gate
+Teaching Evidence / Intervention / Assessment / Lesson teacher / Quick Capture new Case 还必须：
 
 ```text
-lib/
-  app/
-    config/
-    routing/
-    theme/
-    startup/
-  core/
-    auth/
-    security/
-    persistence/
-    errors/
-    logging/
-  features/
-    auth/
-    today/
-    students/
-    learning_cases/
-    lessons/
+live session
++ active membership
++ teacher capability
++ active teaching scope
++ target Profile active
++ legal active Student Teacher Assignment
++ operation permission
 ```
 
-推荐职责：
-- View：渲染/输入；
-- ViewModel：页面状态与用户动作；
-- Repository：业务 API；
-- Service：Supabase/Auth/Storage/Functions/local persistence。
+Management-only 不能 bypass。
 
-Widget 不直接拼权限/事务/多表 SQL；Repository/Service 必须可 fake/test。
+V1 不存在以 Lesson participant 替代 Student Teacher Assignment 的授权旁路。`lesson_students` 只是实际参与的 business fact；`start_lesson` 创建前每个 participant 都必须已有 legal active Student Teacher Assignment。
 
-参考 Flutter 官方 `compass_app` 的多环境、Repository/Service、测试，不为“Clean Architecture”制造无业务价值空层。
 
----
+## 4. Session revoke security
 
-## 6. Startup Authorization Gate
+安全目标固定：signOut/reset/disabled 后 old access token 立即失去学生业务访问。
 
-`supabase_flutter` v2 初始化可能先返回本地持久化 Session，不保证它已经远端刷新。
+### Supabase reference
+可使用 JWT `session_id → auth.sessions` + membership guard。
 
-启动顺序：
+### Other provider
+必须在 Phase 0B.0 用 old-token API/RLS negative test 证明等价结果；不能只看 SDK signOut UI。
+
+## 5. V1 Auth UX
+
+管理员 provision known member → onboarding → temporary password → user changes credential → revoke old sessions → membership active → forced re-login。
+
+不开放 public self-register；credential 不存 DB/log/GitHub。
+
+物理 Auth user ID/link strategy留 Phase 0B.0 P0-A。
+
+## 6. Flutter layer
 
 ```text
-读取安全本地 Session
-→ 检查 expired / refresh
-→ 远端 Auth 状态确认
-→ live-session 验证
-→ active memberships
-→ current organization
-→ 加载业务 Shell
+View
+→ ViewModel
+→ Repository (business API)
+→ Service / Provider Adapter
+→ Auth/Data/Storage/Functions
 ```
 
-在 Gate 完成前不查询/渲染学生业务。revoked/onboarding/disabled 留在账号状态页。
+- ViewModel 不拼任意 status SQL；
+- Repository API 使用 domain command；
+- provider SDK 只在 adapter；
+- Repository/Service 可 fake/test。
 
----
+建议目录：app/config/routing/theme/startup；core/auth/security/persistence/errors/logging；features/today/students/cases/lessons/communication。
 
-## 7. 本地安全
+## 7. Startup Authorization Gate
 
-### Auth Session
-Production 使用 Supabase custom `LocalStorage` + OS secure storage。Password 永不持久化。
+```text
+read secure local session
+→ remote refresh/validation
+→ live-session check
+→ active membership
+→ roles/scopes/organization
+→ business shell
+```
 
-### Draft
-跨重启草稿：
-- ciphertext at rest；
-- key 在 OS secure storage；
-- user/org scope；
-- TTL；
-- sync 后删除；
-- account switch/logout/disabled 有明确清理策略。
+Gate 完成前不加载学生页。revoked/onboarding/disabled 留账号状态页。
 
-本地草稿不是第二业务事实源。
+## 8. Local security
 
----
+Session 放 OS secure storage 或 provider-independent equivalent；Password 不持久化。
 
-## 8. 环境模型
+Draft：encrypted at rest、user/org/entity/operation scoped、TTL、sync 后删除、account switch 不串数据。
+
+## 9. Environments
 
 ### Local Development
-- Supabase CLI；
-- fake data/Auth；
-- migrations/seed/DB-RLS tests；
+- local/fake PostgreSQL/Auth as feasible；
+- migrations/seed/RLS tests；
 - reset/reseed。
 
-### Remote Development
-- 一个 Free Project；
-- 只放虚构数据；
-- Password Auth、Session、Edge Functions、Storage、双端、网络/region测试；
-- 可重建。
+### Remote Development / Compatibility Spike
+- 只用虚构数据；
+- 允许分别创建 Supabase/CloudBase 等测试环境；
+- 测 Windows/Android Auth、RLS、RPC/transaction、Storage、backup/restore、国内网络。
 
 ### Production Pilot
-- 第二个 Free Project；
-- 真实数据；
-- 独立 Auth/Storage/Secret；
-- 禁 development seed/reset；
-- 只部署评审 migration；
-- 定期 off-site DB/Storage backup。
+只有 ADR-045 Phase 0B.0 gates 通过后才创建/冻结：
+- provider/region；
+- identity strategy；
+- session revoke implementation；
+- private Storage；
+- off-site backup/restore。
 
-Remote Development 不是 schema 第二事实源。
+真实数据不得进入 Compatibility Spike。
 
----
+## 10. Region / 中国大陆
 
-## 9. Region / 中国大陆网络
+Region 选择必须基于实际机构 Wi-Fi/移动网络无代理测试 + 数据驻留/合规评估。
 
-Supabase 当前 APAC 可选 Singapore/Tokyo/Seoul 等，没有中国大陆 region；project region 不能原地更换。
+Supabase 没有大陆 region；CloudBase 上海是候选；这不代表后者自动满足所有 Auth/session/SDK/security requirements。
 
-Production 前必须用 Remote Dev 在实际机构 Wi‑Fi + 普通移动网络 + 无代理/VPN测试 Auth/Data/Storage/Functions。必要时重建 Dev 换 region，确认后再建 Production。
-
-Region 决定数据主要驻留位置，但不是合规证明；真实未成年人数据另做机构合规评估。
-
----
-
-## 10. 数据库结构事实源
-
-```text
-supabase/
-  config.toml
-  migrations/
-  seed.sql
-  tests/
-  functions/
-```
-
-Schema/RLS/GRANT/View/Function/Trigger/Index 正式变化全部进入 migrations。
-
-禁止长期依赖 Dashboard/Table Editor/SQL Editor 的手工状态。
-
----
-
-## 11. Data API / DB Function / Edge Function
+## 11. Data API / DB Function / Trusted Service
 
 ### Data API
+适合授权读取、简单 append、Draft。**Quick Capture 即使是单 insert，也必须由 RLS/command policy执行完整 Teaching Fact Gate。**
+
+### DB Function / single DB transaction
 适合：
-- 授权读取；
-- evidence/note 等简单事实追加；
-- `new` 草稿；
-- 普通查询。
+- confirm/transition/reopen Case；
+- replace primary Action；
+- Subject Profile/Student lifecycle；
+- reassign/handoff；
+- Student safe merge；
+- complete Lesson。
 
-前提：RLS + GRANT + FK/约束正确。
+High-risk command contract：operation_id + expected versions + locks + final invariant validation + operation-bound events/audit + atomic commit。
 
-### Database Function
-适合同一 Postgres 事务内的多表不变量：
-- confirm/reopen/transition case；
-- replace primary action；
-- complete lesson；
-- handoff；
-- merge students。
+### Trusted Service / Edge Function
+适合 Auth Admin/Secret/跨系统。Auth +业务 DB 不是同事务域时采用 fail-closed，不假装原子。
 
-### Edge Function / 可信服务端
-适合 Secret/Auth Admin/跨系统：
-- provision；
-- complete onboarding；
-- reset credential；
-- 未来邮件/AI/外部集成。
+## 12. Student aggregate concurrency
 
-Auth + PostgreSQL 不是一个事务域，必须设计安全失败顺序，不假装 Edge Function 天然原子。
+`students.version` 只承担 Student root/current canonical/lifecycle snapshot 的 optimistic concurrency；不做所有 child rows 的全局版本号。
 
----
+成功 root/lifecycle mutation：
+- deactivate/archive/unarchive/reactivate：Student.version +1 exactly once；
+- merge_students：source.version +1 exactly once、target.version +1 exactly once；
+- 同 operation retry 不重复递增。
 
-## 12. RLS / GRANT / View / Function
+普通 Evidence/Assessment/Intervention append、普通 Case transition、普通 Assignment current-state change 不机械递增 Student.version；Profile/Case/Assignment 自身 current snapshot/version 或 locked predicate 负责并发检测。Source-only Profile safe reparent 使 Profile.version +1 exactly once；Case 仅在 current mutable snapshot 真正改变时更新。
 
-业务表：
-- RLS 开启；
-- 最小 GRANT；
-- live session + active membership；
-- organization/assignment 检查；
-- 高频 policy 列索引。
+Student multi-Profile command 必须携带 Student/Profile/Case expected versions 与 current assignment/owner/Action relation snapshot。事务按 deterministic ID 顺序 lock/re-read；任何 merge-relevant drift → stale_plan/version_conflict whole rollback。
 
-View：客户端暴露优先 `security_invoker=true`。
+Student merge preview 由 server/domain logic 根据完整 merge-relevant snapshot生成，至少绑定 root/Profile/Case versions、Enrollment、Teacher/Staff Assignment、owner、current Action、target authority 与 BLOCK matrix。允许 server-generated opaque merge_plan_token、完整 expected snapshot/values 或 server-generated fingerprint；不新增 merge_plans 表。Execute 时 server 重新生成并与 confirmed plan 比较；相关 drift 必须 stale_plan，要求重新 preview，不能静默接受新 inventory。Existing Case 的非冲突 append-only Evidence/Intervention history 若不改变 current merge decision/matrix/relationship，不单独造成 stale。
 
-Security-definer helper：
-- 非 exposed schema；
-- `search_path=''`；
-- schema-qualified；
-- revoke 默认 execute；
-- 最小 grant；
-- 越权测试。
+## 13. Operation exactly-once
 
-RLS 只回答“谁能访问”，状态机/多表一致性仍靠约束和业务命令。
+高风险 command 逻辑 operation result 唯一 `(org, operation_id)`。
 
----
+Command-generated lifecycle event/audit 使用 operation-bound stable keys，重复同 operation 不重复副作用。
 
-## 13. Case / Action 架构
+Timeout unknown result：查询 operation result；不创建新 operation_id，不由客户端多 CRUD 补齐。
 
-Case 生命周期：
+## 14. Student merge
 
-```text
-new → confirmed → intervening → pending_verification → stable → closed
-```
+V1 保守 safe merge；完整矩阵见 `docs/product/STUDENT_MERGE_POLICY.md`。
 
-`reopen` 是命令/事件。
+- preview 与 plan binding 必须 server-derived；
+- source/target root versions + affected Profile/Case/current relation snapshots 必须在 execute 时重读比较；
+- merge-relevant drift → stale_plan/version_conflict + whole rollback + new preview；
+- unresolved mutable Draft 与 in-progress Lesson → BLOCK；
+- source-only Profile reparent 使 Profile.version +1 exactly once；
+- finalized history provenance 保留，target 历史通过 merge lineage 聚合；
+- source merged 是 terminal current-business identity。
 
-行动规则：
-- new 可没有 action；
-- confirmed/intervening/pending_verification/stable 必须有一个 pending primary action；
-- 暂停/观察 = review primary action；暂停 review 必须 due_at；
-- pause_reason 仅解释；
-- closed 无 pending primary action。
+## 15. Realtime
 
-这样 Today 只需要消费 case_actions，不再维护第二套 `next_review_at`。
+V1 correctness 不依赖 Realtime。默认 page enter/save/resume/manual refresh；以后启用前必须另做 revoked-session/reconnect/cross-org 安全审计。
 
----
+## 16. Schema truth / migration gate
 
-## 14. 保存可靠性 / 并发
+正式 schema/RLS/Function/Trigger/Index 全部 Git migrations。
 
-```text
-教师输入
-→ encrypted local draft
-→ 提交
-→ 云端确认
-→ synced
-→ 删除 local draft
-```
+但 **ADR-045 两个 Phase 0B.0 P0 未通过前，不允许写会锁死 Production provider identity/session 物理策略的正式 business migration。**
 
-- 未保存/保存中/已保存/失败清晰；
-- 简单 insert 重试复用 UUID；
-- DB command 使用 operation id；
-- credential 响应未知走 reissue，不保存 secret；
-- 关键快照 version/expected_version；
-- 冲突不静默覆盖。
+## 17. Backup / restore
 
-Realtime 只增强体验。
-
----
-
-## 15. Storage
-
-Private bucket + `storage.objects` RLS。
-
-建议路径：
-
-```text
-{organization_id}/{student_id}/{object_type}/{uuid}.{ext}
-```
-
-- 不用姓名；
-- signed URL 短时、授权后生成、视作 bearer credential；
-- 不进日志；
-- 文件类型/大小限制；
-- DB metadata 与对象生命周期一致；
-- DB backup ≠ Storage backup。
-
----
-
-## 16. Backup / Recovery
-
-Free Production 至少：
-- roles/schema/data DB dump；
-- 必要 migration history；
-- Storage objects + manifest；
-- Auth/Realtime/Extensions/Secrets 等配置清单；
-- 加密 off-site；
-- restore drill。
-
-Git migrations 不是业务数据备份。详见 `DISASTER_RECOVERY.md`。
-
----
-
-## 17. GitHub / Work / CI
-
-```text
-Work/Codex
-→ feature/review branch
-→ Draft PR
-→ CI / real command evidence
-→ human review
-→ merge
-```
-
-Repo 必须 Private。GitHub Free private 没有付费级 branch protection 强制能力，所以零成本阶段靠 AGENTS + PR + 人工纪律，禁止 Work/Codex 直推 main。
-
-Actions budget 必须设置 Stop usage at limit；重型 Windows/Android build 只在 Milestone/Release。
-
----
-
-## 18. Windows / Android 职责
-
-### Windows
-- 学生全景；
-- 深度 case；
-- 管理员治理；
-- 批量查看；
-- 后续报告/教研。
-
-### Android
-- 登录/Session；
-- Today；
-- 学生重点；
-- 快速 lesson；
-- evidence/intervention/assessment/new；
-- 30–60 秒课后记录。
-
-两端共享业务模型，不是简单拉伸同一布局。
-
----
-
-## 19. 不采用
-
-- 每老师一库人工同步；
-- 微服务集群；
-- 全系统 Event Sourcing；
-- CRDT/offline-first；
-- 所有请求 Edge Function；
-- 所有业务逻辑 Flutter/Trigger；
-- Dashboard 作为 schema 源；
-- Password/Magic Link/OTP 多套主登录并存；
-- 需要付费 SMTP/SMS 才能登录；
-- fork 大型教育 ERP；
-- 为 0 元牺牲权限/恢复/隐私。
-
----
-
-## 20. 技术 Go / No-Go
-
-真实学生数据前：
-- migrations 从空库重建；
-- live-session/RLS/GRANT/View/Function/Storage tests；
-- secure Session storage；
-- Startup Gate；
-- encrypted drafts；
-- onboarding/global sign-out/reset/expiry/reissue；
-- region/network tests；
-- DB+Storage restore drill；
-- GitHub Private + zero-overage budget；
-- 安装/升级路径；
-- 合规评估。
+Production 前必须完成：DB schema/data、Storage manifest/objects、配置清单、加密离站、非 Production restore drill。Free ≠ 可恢复/有 SLA。

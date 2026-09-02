@@ -2,11 +2,14 @@
 
 > 这是 Foundation 冻结前的最终审计记录。目的不是继续增加理论，而是区分“设计已收敛”和“必须由 Phase 0 真实执行证明”的事项。
 
+> **Current boundary note:** 本历史审计记录中的 Supabase/migrations、Auth/RLS、Production 与 restore 表述，均受当前 `docs/DECISIONS.md §ADR-045` 约束：Supabase 只是 V1 reference / preferred implementation candidate；P0 Gate A（Auth Identity Portability）与 P0 Gate B（Revoked Session / Old Token Security）通过前不得执行正式 production business migrations/Auth/RLS/CRUD 或接入真实数据。
+
+
 ## 最终结论
 
 **Foundation v0.3 已达到 Freeze Candidate。**
 
-继续提高质量的主要手段应切换为：Flutter build、Supabase migrations / RLS tests、旧 JWT 攻击测试、secure Session、encrypted draft、真实机构网络 / Region 测试，以及 DB + Auth + Storage restore drill。
+继续提高质量的主要手段应切换为：Flutter build，以及在 Phase 0B.0 compatibility/security Spike 中用虚构数据验证候选 provider 的 migrations / RLS tests、旧 JWT 攻击测试、secure Session、encrypted draft、真实机构网络 / Region；P0 Gate A/B 通过后再进行 gated Production DB + Auth + Storage restore drill。
 
 没有真实执行证据的部分不得写成“已经验证”。
 
@@ -197,7 +200,7 @@ V1 学生敏感表默认不启用 Realtime，也不让业务正确性依赖 Real
 
 Production region 不提前指定。
 
-Remote Development 只用虚构数据，在实际机构 Wi-Fi、普通移动网络、无代理 / VPN 环境测试 Auth / Data API / Storage / Edge Functions / 网络恢复。不合格就换 Dev region 重测，结论稳定后才创建 Production。
+Remote Development 只用虚构数据，在实际机构 Wi-Fi、普通移动网络、无代理 / VPN 环境测试 Auth / Data API / Storage / Edge Functions / 网络恢复。不合格就换 Dev region 重测；结论稳定、P0 Gate A/B 通过且 provider/identity/session strategy 冻结后，才可创建 gated Production。
 
 Region 选择不是未成年人数据驻留 / 跨境合规结论，后者单独评估。
 
@@ -328,4 +331,4 @@ Flutter Windows / Android build
 
 **Foundation v0.3 设计审计已收口。** 当前没有需要继续扩写理论或继续等待账户设置的阻塞项。
 
-下一步应冻结 Foundation v0.3，并进入 Phase 0，用真实 build / migration / RLS / Auth / restore 证据验证设计，而不是继续增加架构文档。
+下一步应在不提前授权 Production 的前提下，进入 Phase 0B.0 compatibility/security Spike；先完成 P0 Gate A/B，再以真实执行证据验证候选 provider 设计，而不是继续增加架构文档。

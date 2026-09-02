@@ -1,340 +1,508 @@
 # 业务命令、事务与不变量
 
-> RLS 解决“谁能访问”，约束/事务命令解决“这次修改是否完整、合法、可重试”。V1 不允许 ViewModel 靠多次普通 CRUD 拼出高风险业务状态。
+> RLS 解决“谁能访问”，领域命令解决“这次修改是否完整、合法、可重试”。ViewModel 不得用多次普通 CRUD 拼接高风险状态。
 
-## 1. 两类写入
+## 1. 写入分层
 
-### 简单事实追加
-在 RLS 保护下可由 Repository → Data API：
-- 新增 evidence；
-- 允许类型的普通 note/event；
+### 1.1 简单事实追加
+在 RLS/command policy 保护下可由 Repository → Data API：
+- 合法 Evidence；
+- 通过完整 Teaching Fact Gate 的本人 Intervention / Assessment；
+- 允许的普通 note/event；
 - 单条附件 metadata；
-- 保存 `new` 快速捕捉草稿。
+- Parent Communication / Report draft；
+- **Quick Capture new Case，但它仍是教学 Case，必须通过完整 Teaching Fact Gate。**
 
-原则：客户端预生成 UUID，重试复用；服务端时间为系统时间事实源。
+简单 append 使用客户端预生成 UUID，重试复用同一 UUID。
 
-### 不变量敏感命令
-必须走受控 Database Function / Edge Function / 可信服务端：
-- `provision_member`
-- `complete_member_onboarding`
-- `reset_member_credential`
-- `confirm_case`
-- `transition_case`
-- `reopen_case`
-- `replace_primary_case_action`
-- `complete_case_action`
-- `complete_lesson`
-- `reassign_teacher`
-- `merge_students`
-- `disable_membership_and_handoff`
+### 1.2 不变量敏感命令
+至少包括：
+- identity/membership：`provision_member`、`complete_member_onboarding`、`reset_member_credential`、`disable_membership_and_handoff`；
+- assignment/service：`reassign_teacher`、`revoke_teacher_subject_scope_and_handoff`、Student/Subject Profile deactivate/archive/unarchive/reactivate；
+- Case：`confirm_case`、`transition_case`、`reopen_case`、`replace_primary_case_action`、`complete_case_action`；
+- Lesson：`start_lesson`、`complete_lesson`；
+- Lesson governance cleanup：`controlled_cancel_lesson`；
+- governance：`merge_students`；
+- snapshots：finalize/correct Parent Communication、Report。
+
+具体是 DB Function 还是可信服务端留 Phase 0B；领域 command 语义现在冻结。
 
 ---
 
-## 2. Credential 命令不是普通 CRUD
+## 2. 生命周期命令统一事务契约
 
-Auth Admin 与业务 PostgreSQL 不在同一个事务域，所以 credential 命令的目标不是“假装原子”，而是：
+### 2.1 正常结果只有完整旧状态或完整新状态
 
-> **无论在哪一步失败，都优先收敛到没有学生业务权限的状态。**
+对 Student / Subject Profile / assignment / owner / primary Action / lifecycle event/audit 的业务数据库变更：
+
+> **同一 command 内全部成功一起 commit；任一失败全部 rollback。**
+
+事务内部 staging 可以临时构造目标状态，但：
+- 不对其他 Session 可见；
+- 不分多次客户端 API commit；
+- 不能被普通 RLS 查询观察到；
+- rollback 后完全消失。
+
+### 2.2 `operation_id + expected versions + locks`
+
+每个高风险 command 至少：
+- `operation_id`：用户意图幂等键；
+- 目标 aggregate `expected_version`；
+- 必要子聚合版本快照；
+- deterministic row locks；
+- final invariant validation；
+- event/audit；
+- atomic commit。
+
+### 2.3 Student root version / child concurrency / merge-plan binding
+
+`students.version` 的职责被严格限定为 Student root/current canonical/lifecycle snapshot 的 optimistic-concurrency token。它不是 Student 下所有 child row 的全局版本号。
+
+成功的 Student root/lifecycle mutation 版本矩阵：
+
+| Command | 成功 commit 的 Student.version |
+| --- | --- |
+| `deactivate_student` | +1 exactly once |
+| `archive_student` | +1 exactly once |
+| `unarchive_student` | +1 exactly once |
+| `reactivate_student` | +1 exactly once |
+| `merge_students` | source +1 exactly once；target +1 exactly once |
+
+同一 `operation_id` 的重试返回第一次 committed result，不再次递增任何 root version。
+
+普通 child mutation 不机械递增 `students.version`，包括普通 Evidence append、普通 Case transition、Assessment append、普通 Assignment current-state change。它们分别由 Evidence/Case/Profile/Assignment 自身的 current snapshot、version 或 locked current-relation predicate 承担并发检测。只有 Student root/current canonical/lifecycle snapshot 真正改变时才递增 Student.version。
+
+如果 Student merge 将 source-only Profile safe reparent 到 target，该 Profile 的当前 aggregate identity/reference 已改变，因此 `Profile.version +1 exactly once`。若 merge 没有改变 Case 的 status、owner、Action 或其他 current mutable snapshot，不能机械递增每个 Case.version；如果 merge 确实修改了某个 Case/owner/assignee/current relationship，则只更新受影响 aggregate 的相应 version/token。
+
+Student multi-Profile command 仍必须绑定并验证：
+- `student_expected_version`；
+- 每个受影响 Profile 的 `expected_profile_version`；
+- 每个实际改变的 formal Case 的 `expected_case_version`；
+- current assignment IDs/roles/active intervals、Case owner IDs、current primary Action IDs/assignees/status；
+- command 所需的 target membership/scope current state。
+
+事务按稳定 ID 顺序 lock/re-read；上述 merge-relevant current snapshot 任一发生 drift → `stale_plan/version_conflict`，整体 rollback。
+
+#### Merge preview binding
+
+`generate_merge_preview(source,target)` 由 server/domain logic 从完整 merge-relevant snapshot 生成。客户端只能请求、查看和确认 server 返回的 plan，不能自行决定 inventory，也不能自行 hash 少量 rows 伪造 plan。
+
+Preview 至少绑定：
+- source/target Student IDs + 两个 root versions；
+- affected Profile IDs、Profile versions、subject identity；
+- merge-relevant Case IDs + Case versions；
+- Enrollment IDs 与 grade/campus/term/interval；
+- Teacher Assignment IDs、roles、active status/interval；
+- Staff current responsibility set；
+- Case owner IDs；
+- current primary Action IDs、assignee、status；
+- target membership/scope validity；
+- complete BLOCK matrix result。
+
+绑定形式可由未来 API 选择 server-generated opaque `merge_plan_token`、完整 expected snapshot/values 或 server-generated deterministic plan fingerprint；具体物理 API 留 Phase 0B，不新增 `merge_plans` 业务表。无论采用哪种形式，binding 都必须由 server 根据完整 merge-relevant snapshot 生成。
+
+`merge_students` 执行时必须 lock/re-read source/target 及受影响 Profiles/Cases/current relations，server 重新生成当前 merge-relevant snapshot，并与用户确认的 plan binding 比较。任何会改变 safe/BLOCK decision、canonical relationship、Profile structure、owner、active assignment、primary Action、Enrollment、staff responsibility、target authority 或 Student lifecycle 的 drift 都返回 `stale_plan/version_conflict`，whole rollback，要求重新 preview；不得静默接受新 inventory，也不得自动接受新的 plan。
+
+Append-only、非冲突的历史事实（例如同一现有 Case 的普通 Evidence append 或 Intervention history）若不改变上述 current merge decision、BLOCK matrix、canonical follow-up relationship，且自然跟随同一 canonical Profile/Case，则不单独造成 stale；server 仍须保留并重新验证其归属。任何影响 current snapshot 的追加都属于 merge-relevant drift。
+
+### 2.4 exactly-once command side effects
+
+高风险 command 逻辑上必须有唯一 operation result：
+
+`(organization_id, operation_id)` 唯一。
+
+每个由 command 产生的 lifecycle event/audit side effect 都必须携带同一 `operation_id`，并有稳定 `operation_event_key / operation_audit_key`。
+
+逻辑唯一键：
+
+```text
+(organization_id, operation_id, operation_event_key)
+(organization_id, operation_id, operation_audit_key)
+```
+
+重复同 operation_id：
+- 不重复 event；
+- 不重复 audit；
+- 不重复 Action/assignment/merge/finalize；
+- 返回原 committed result。
+
+物理 receipt 表/索引形式由 Phase 0B migration 决定，但 exactly-once 语义不得改变。
+
+### 2.5 timeout unknown result
+
+服务端可能已经 commit 但 response 丢失。
+
+客户端必须：
+1. 保留原 operation_id；
+2. 查询 operation result；
+3. 已 commit → 接受原 committed snapshot；
+4. 明确未 commit/rollback → 同 operation_id 安全重试；
+5. 不生成新 operation_id；
+6. 不用一串 CRUD 猜测补齐。
+
+---
+
+## 3. Provider-neutral Auth gate
+
+Phase 0A.6 只冻结安全目标；Production provider 尚未冻结。
+
+任何正式 business migration 前 Phase 0B.0 必须证明：
+1. Auth Identity Portability；
+2. Revoked Session / Old Token Security。
+
+Supabase `auth.uid()/session_id/auth.sessions` 只是 reference implementation。
+
+---
+
+## 4. Credential / membership
+
+Auth Admin 与业务 DB 可能不同事务域，采用 fail-closed。
 
 ### `provision_member`
-
-顺序：
-1. 验证 live Session、org_admin 与目标 organization；
-2. 规范化邮箱、验证 roles；
-3. 检查已有 member / 可恢复的既有 Auth User；
-4. 生成随机临时密码；
-5. Auth Admin 创建/更新受控 Auth User；
-6. 创建 profile、`membership(onboarding)`、roles、`onboarding_expires_at`；
-7. audit 不包含密码；
-8. 临时密码只在成功响应显示一次。
-
-如果 Auth User 已创建但 DB 写入失败，允许留下**无 membership Auth User**，因为它没有业务权限；后续必须有明确恢复路径。
-
-### provision 的特殊“幂等”规则
-
-credential 明文故意不持久化，因此不能要求“同 operation_id 再次返回同一临时密码”。
-
-如果后端已成功但响应丢失：
-- member 仍 onboarding；
-- 返回/展示 `credential_delivery_unknown` 或等价状态；
-- 管理员执行 reissue/reset，生成一个**新的**临时密码；
-- 旧临时密码因 Auth 密码更新失效；
-- 绝不为方便重试而保存可找回的明文密码。
+- live org_admin；
+- 创建/恢复 Auth identity；
+- membership=`onboarding`；
+- roles/scopes 可预配置但无学生业务权限；
+- 临时密码只显示一次，不持久化；
+- audit 不含 credential。
 
 ### `complete_member_onboarding`
-
-1. 验证当前 JWT、`auth.uid()`、`session_id` 与 membership=onboarding；
-2. 检查 `onboarding_expires_at`；
-3. 校验新密码；
-4. Auth Admin 更新当前用户密码；
-5. 使用当前登录 JWT 执行 **global sign-out**；
-6. global sign-out 成功后，服务端才将 membership→active；
-7. 写 audit；
-8. 客户端丢弃旧业务上下文并**强制重新登录**。
-
-业务 RLS 还必须验证当前 JWT `session_id` 对应的 `auth.sessions` 记录仍存在。这样 global sign-out 后，即使 Access Token 尚未到 `exp`，也不能因为 membership 已 active 而重新获得学生数据权限。
-
-半失败：
-- 密码更新失败 → onboarding；
-- 密码成功、global sign-out 失败 → onboarding；
-- sign-out 成功、membership 激活失败 → onboarding；用户用新密码重新登录后重试；
-- 不存在“半失败但 active”。
+- membership=onboarding + 未过期；
+- 更新 credential；
+- revoke old sessions；
+- revoke 成功后 membership→active；
+- 强制重新登录。
 
 ### `reset_member_credential`
-
-顺序必须保守：
-1. 验证 org_admin；
-2. **先 membership→onboarding**，立即切断普通业务 RLS；
-3. 生成新随机临时密码；
-4. Auth Admin 更新密码；
-5. 刷新 `onboarding_expires_at`；
-6. 写 audit；
-7. 临时密码只返回一次。
-
-如果 Auth 更新失败，账号仍 onboarding，无学生业务权限；管理员重试即可。
-
-reset 响应丢失时也走重新签发，不保存明文凭据来满足重复返回。
+先 membership→onboarding 切断业务权限，再更新 credential/revoke sessions。外部步骤失败时保持 fail-closed。
 
 ---
 
-## 3. Live Session 是业务授权不变量
+## 5. Teaching Fact Gate｜唯一硬定义
 
-普通学生业务至少要求：
-- `auth.uid()` 存在；
-- JWT 有合法 `session_id`；
-- `auth.sessions` 中对应 Session 仍存在；
-- organization membership = active；
-- 后续 role / assignment 检查成立。
+任何人要作为实际教学 actor 创建：
+- teaching Evidence；
+- Intervention；
+- Assessment；
+- Lesson teacher 行为；
+- **Quick Capture / new Learning Case**；
 
-Phase 0 要用非 exposed helper + RLS tests 验证 revoked Session 立即失败；不要只测试 UI 已退出。
+必须同时满足：
+
+```text
+live session
++ active membership
++ teacher capability
++ matching active teaching subject scope
++ target Student Subject Profile = active
++ legal active Student Teacher Assignment
++ operation-specific permission
+```
+
+管理身份不能 bypass。
+
+Advisor 如果只有 staff assignment：
+- 可以记录 Parent Communication；
+- 可以记录被允许的 Observation（该功能上线后）；
+- **不能直接创建 teaching Case / Quick Capture。**
+
+Profile inactive/archived 时 new Case 创建在服务端前置拒绝；本地未同步 draft 只能保留输入，恢复网络/服务后重新校验 Gate。
 
 ---
 
-## 4. 学情 Case 状态机
+## 6. Case lifecycle
 
-状态：
+唯一状态：
 
 ```text
 new → confirmed → intervening → pending_verification → stable → closed
 ```
 
-`reopen` 是命令/事件，不是状态。
+任何使 Case 进入 `closed` 的合法 close command，必须在同一事务写入 immutable `case_closed` lifecycle event；close transaction rollback 时不得留下该 event。该 committed event 的 `occurred_at` 是后续 recurrence 的 server-authoritative boundary。
 
-### `new`
-- 10–20 秒快速草稿；
-- 可缺 taxonomy、owner、原因、行动；
-- 不能直接当成正式闭环结论。
+`reopen` 是 command/event，不是状态。
 
-### `confirmed`
-必须同时有：
-- 有效 active owner；
-- case type / taxonomy（允许“其他/暂未分类”）；
-- 至少一条可解释来源的 evidence；
-- **一个 pending primary case_action**。
+`Assessment passed ≠ stable ≠ closed`。
 
-不再允许“只填 pause_reason、没有下一次检查”这种会永远从 Today 消失的正式案例。
+### Active Profile
+formal open Case（confirmed/intervening/pending_verification/stable）必须：
+- 合法 owner；
+- 恰好一个 pending primary Action。
 
-### 暂停不是没有下一步
-
-如果业务上需要“先观察/暂缓”：
-- 可填写 `pause_reason` 解释为什么暂缓；
-- 同时建立 `action_type = review` 的 pending primary action；
-- 该 review action **必须有 `due_at`**；
-- 到期/逾期仍会进入 Today。
-
-因此 `pause_reason` 是解释，不是替代下一步行动的第二套事实源。
-
-### `intervening`
-正在实施干预，并保持 active owner + primary action。
-
-### `pending_verification`
-主要下一步应为 `verify` action；若等待特定时间/条件，仍用有到期时间的行动表达。
-
-### `stable`
-已有证据支持改善，但仍观察。若尚未关闭，必须有下一次 `review/verify` 主行动；不能“稳定后无人再看”。
-
-### `closed`
-退出主动跟进：
-- 不存在 pending primary action；
-- 不存在“暂停等待复查”的隐含状态；
-- 复发走 reopen。
+### inactive/archived Profile
+unresolved formal Case 保留真实 status，但：
+- tracking suspended；
+- 可以无 current owner/primary Action；
+- 不进普通 Today；
+- 不产生 teaching facts/new Lesson/new teaching Case。
 
 ---
 
-## 5. `confirm_case`
+## 7. `confirm_case`
 
-原子检查/完成：
-1. case 仍为 new，expected_version 匹配；
-2. actor 对学生/学科有编辑权限；
-3. owner 同机构、active、关系有效；
-4. taxonomy 与 student subject profile 一致；
-5. 至少一条 evidence；
-6. 存在合法 pending primary action；
-7. 如果 action 表示暂停 review，则必须有 due_at；
-8. 写 confirmed event；
-9. 更新 status/version；
-10. 返回最新快照。
-
-课堂短备注可在同一事务中生成最小 observation/classwork evidence，避免先插 evidence 再确认造成半成功。
+原子检查：new + expected_version、Profile active、actor permission、合法 owner、最小 Evidence、taxonomy 一致、一个 pending primary Action；写 event/audit/version 后一次 commit。
 
 ---
 
-## 6. Assessment 与 Case Status 分离
+## 8. `reopen_case`｜唯一语义
 
-- `passed` ≠ 自动 stable；
-- `passed` ≠ 自动 closed；
-- failed/partial 不删除历史；
-- stable/closed 由授权教师结合证据确认；
-- 状态变化必须写 case event。
+### 8.1 适用范围
 
----
+只适用于：一个已经真正 `closed` 的 Case，在最近一次关闭之后出现新的、足以重新正式跟进的真实事实。
 
-## 7. 主行动不变量
-
-一个案例可有辅助行动，但最多一个 `pending + is_primary`。
-
-数据库优先用 partial unique index/受控命令保证。
-
-规则：
-- new 可没有行动；
-- confirmed/intervening/pending_verification/stable 必须有 pending primary action；
-- 暂停 review action 必须有 due_at；
-- assignee 同机构、membership=active 且关系合理；
-- closed 不得有 pending primary action；
-- 完成/取消行动保留历史。
-
-`replace_primary_case_action` 应在同一事务内结束旧主行动、创建新主行动并写 case event，不能出现两个当前主行动。
-
----
-
-## 8. `complete_lesson`
-
-一次课结束可能同时：
-- 完成旧 action；
-- 新增 intervention；
-- 新增 assessment；
-- 写 case event；
-- 合法转移 case；
-- 创建下一主行动；
-- lesson → completed。
-
-必须一个数据库事务内完成：
-1. active/live member 权限；
-2. lesson version/status；
-3. teacher/student/subject/organization 一致；
-4. 写教学事实；
-5. 合法 case transition；
-6. 替换/完成行动；
-7. 写 event/audit；
-8. lesson completed；
-9. 返回最新快照。
-
-完成课程不强迫所有 `new` 当场 confirmed；但系统要提醒长期未整理草稿。
-
----
-
-## 9. 教师交接与停用
-
-`disable_membership_and_handoff`：
-1. inventory active teacher/staff assignments；
-2. active case ownership；
-3. pending case_actions；
-4. 验证接手人 active/live 且机构/学科关系有效；
-5. 结束旧 assignment；
-6. 建立新 assignment；
-7. 转移 owner/action；
-8. 写 events/audit；
-9. 验证无 orphan；
-10. **最后** membership→disabled。
-
-中间失败不得留下“账号已停用、当前事项无人负责”。
-
----
-
-## 10. 学生合并
-
-`merge_students(source, target)`：
-- source != target；
-- 同机构；
-- actor 有治理权限；
-- 不形成 merge 环；
-- enrollment/profile/assignment/case 冲突有明确策略；
-- 整体事务化或明确可恢复；
-- source→merged + `merged_into_student_id`；
-- 写 merge record + audit；
-- operation 重试不重复迁移。
-
-source 不物理删除，旧 ID 仍可解释。
-
----
-
-## 11. 普通幂等与网络重试
-
-### 简单 insert
-客户端预生成 UUID，重试复用。
-
-### 数据库多表命令
-使用 `operation_id` / 唯一约束 / operation receipt 等方式，重复调用返回已有业务结果，不重复副作用。
-
-### Credential 命令
-凭据响应是例外：**不能为了可重复返回而保存明文秘密。** 响应未知就 reissue 新凭据。
-
-硬要求：请求成功但响应丢失，重试不得制造两套教学事实；credential 则不得制造“找回旧密码”的秘密存储。
-
----
-
-## 12. 时间与并发
-
-系统时间：`created_at / updated_at / audit_at` 服务端权威。
-
-业务发生时间：`observed_at / assessed_at / intervention occurred_at / lesson time` 可由授权用户合理修正。
-
-关键快照使用 `version / expected_version`。版本冲突必须刷新并重新确认，禁止静默 last-write-wins。
-
----
-
-## 13. Function 安全
-
-- 优先 `security invoker`；
-- 必须 `security definer` 时放非 exposed schema；
-- `set search_path = ''`；
-- schema-qualified；
-- revoke 默认 execute；
-- 最小 grant；
-- live-session / no-membership / onboarding / disabled / cross-org / cross-subject 均有负面测试。
-
----
-
-## 14. Repository API 要像业务
-
-推荐：
+唯一业务序列：
 
 ```text
-membershipRepository.provisionMember(...)
-membershipRepository.completeOnboarding(...)
-membershipRepository.resetCredential(...)
-learningCaseRepository.confirmCase(...)
-learningCaseRepository.reopenCase(...)
-learningCaseRepository.replacePrimaryAction(...)
-lessonRepository.completeLesson(...)
-studentRepository.mergeStudents(...)
-membershipRepository.disableAndHandoff(...)
+closed → post-close recurrence fact → teacher-confirmed recurrence Evidence → reopen_case → confirmed
 ```
 
-不要把数据库表名/任意 status string 直接暴露给 ViewModel 组合。
+`reopen` 是 command/event，不是第七个 Case status；不是 Profile resume，也不是重新选择旧 Evidence 后重开。
+
+### 8.2 唯一目标状态
+
+```text
+closed --reopen_case--> confirmed
+```
+
+复发已经达到正式跟进条件，但 command 本身不虚构新的 Intervention。后续实际干预再进入 `intervening`。
+
+### 8.3 Recurrence Evidence contract
+
+`reopen_case` 的客户端输入只能包括：
+- recurrence Evidence IDs；
+- `expected_case_version`；
+- expected recurrence Evidence versions 或 server-issued opaque freshness token；
+- `operation_id`；
+- proposed/legal owner；
+- 一个新的 pending primary Action。
+
+客户端不得提交 `previous_close_id`、`latest_close_id` 或 client-owned recurrence boolean 来决定边界。最近一次 close 必须由 server 在事务内自己解析。
+
+每条 recurrence Evidence 必须：
+1. 是目标 Case 的合法 Evidence；
+2. 具有非空 `observed_at`，表示事实实际发生/被观察到的业务时间；
+3. `evidence.observed_at > latest_case_closed_event.occurred_at`；
+4. 事实由有权教师确认足以重新达到正式跟进条件。
+
+`created_at` 只表示录入系统的时间，不参与 recurrence 判断。因此事实发生在 close 之后、几天后才补录仍可作为 recurrence。Evidence 的 `source_type` 不设 recurrence 白名单；exam/homework/essay/classwork/quiz/observation/guardian_report/other 等任何合法来源都必须通过同一 Evidence 合法性和专业判断门槛，source_type 本身不自动证明复发。
+
+旧 Evidence（`observed_at` 早于或等于 close boundary）不能单独作为 recurrence。它可以被新 Evidence 引用或作为复查线索，但新 Evidence 自身的 observed_at 必须晚于最近一次 close。
+
+Committed/finalized Evidence 是 append-only historical fact：commit 后不得普通修改 `case_id`、`observed_at`、`created_at`、author/source attribution、provenance 或其他 recurrence-relevant 字段，也不得物理删除。错误必须用 correction record、superseding Evidence 或 explicit correction/invalidation event 表达，并保留原 provenance；Draft 不属于 committed history，也不创建第二套 Evidence 模型。
+
+### 8.4 Server-authoritative previous close and atomic command
+
+事务从头到尾至少执行：
+
+1. live session；
+2. active membership；
+3. teacher capability；
+4. matching active teaching subject scope；
+5. target Profile active；
+6. legal active Student Teacher Assignment；
+7. actor reopen permission；
+8. lock/re-read target Case；
+9. current Case status 必须为 `closed`；
+10. 验证 `expected_case_version`；
+11. 在同一事务内从不可变、只追加的 lifecycle history 解析该 Case 最近一次**已提交（latest committed）**的 `case_closed` event；不存在该 event 则拒绝并报告 integrity anomaly；
+12. server 按稳定 Evidence ID 顺序 lock/re-read 每条 selected recurrence Evidence，并重新验证其 committed/finalized、legally usable、仍属于 target Case、expected Evidence version 或 server-issued opaque freshness token 未漂移；
+13. 若 Evidence 已被 correction/invalidation、删除、reparent 或发生任何 provenance/current-state drift，返回明确 domain conflict / `stale_plan/version_conflict`，整笔 transaction rollback；
+14. server 以该 event 作为 recurrence boundary，绝不接受客户端指定的 close ID；
+15. 逐条验证 `evidence.observed_at > latest_case_closed.occurred_at`；
+16. 验证 recurrence facts 确实支持重新进入正式跟进，不接受客户端自行声明的 recurrence 标记；
+17. 验证 legal owner；
+18. 验证新的 pending primary Action；
+19. stage `closed → confirmed`；
+20. current `closed_at → null`；
+21. current `stable_at → null`；
+22. `reopened_count += 1`；
+23. stage owner + exactly one pending primary Action；
+24. 写 `case_reopened` lifecycle event，其 metadata 必须引用 server-resolved `latest_previous_close_event_id` 与 recurrence Evidence IDs；
+25. 写 operation-bound audit；
+26. Case.version +1 exactly once；
+27. final invariant validation；
+28. 写 operation result 并 atomic commit。
+
+上述步骤必须是一个 logical DB transaction；任何一步失败（包括 Case、latest committed close event、selected Evidence、Profile/owner/assignment/version 任一 drift）whole rollback。若 `operation_id` 已有 committed operation result，retry directly returns the original committed result，不重复 `case_reopened` event、audit、Action 或 version increment。若 `close A → reopen → close B`，server 必须自动选择 close B。
+
+## 9. Subject Profile lifecycle
+
+```text
+active --deactivate--> inactive --archive--> archived
+active <--reactivate-- inactive <--unarchive-- archived
+```
+
+### `deactivate_student_subject_profile`
+单事务 staging：收口 pending Actions、结束 active assignments/current owner、写 suspended events、Profile inactive；commit 前验证无 current teaching obligation。
+
+### `archive_student_subject_profile`
+仅 inactive→archived；无 active assignment/pending Action/in-progress Lesson；不改 unresolved Case status。
+
+### `unarchive_student_subject_profile`
+仅 archived→inactive；不创建 assignment/owner/Action；不恢复教学。
+
+### `reactivate_student_subject_profile`
+仅 inactive→active。**同一事务** stage：target assignment、formal open Case owner、primary Actions、resumed events、Profile active。commit 前验证完整 active invariants。
 
 ---
 
-## 15. 完成定义
+## 10. Student lifecycle
 
-高风险命令上线前至少有：
-- 正常路径；
-- 非法状态拒绝；
-- 权限拒绝；
-- revoked Session 拒绝；
-- expected_version 冲突；
-- 重复 operation；
-- 响应丢失模拟；
-- 跨系统/事务中间失败无越权半状态；
-- 跨机构/跨学科关联拒绝；
-- handoff/merge 历史可追溯。
+`students.version` 是 Student aggregate 乐观并发载体。
+
+```text
+active --deactivate_student--> inactive --archive_student--> archived
+active <--reactivate_student-- inactive <--unarchive_student-- archived
+```
+
+`merged` 是终态。
+
+### `deactivate_student`
+- Student active + student_expected_version；
+- 锁定 Student + 所有受影响 Profiles/Cases/current relations；
+- 每个 active Profile 执行等价 staged deactivate；
+- enrollment/staff assignment 同事务收口；
+- Student staged inactive；
+- 任一学科失败 → 整体 rollback；
+- commit 后 Student.version +1 exactly once。
+
+### `archive_student`
+仅 inactive→archived；所有 Profiles 必须 inactive/archived；仍 inactive 的 Profiles 在**同一 Student archive transaction** staged archived；无 current obligations；整体 rollback/commit。
+
+### `unarchive_student`
+仅 archived→inactive；Profiles 保持 archived；不自动恢复 enrollment/assignment/Action；Student.version +1。
+
+### `reactivate_student`｜不允许跨事务偷做 unarchive
+
+前置：
+- Student=`inactive`；
+- 所有**本次要恢复的 Subject Profiles 必须在调用前已经是 `inactive`**；
+- 任何 selected Profile 如果仍 `archived` → command 拒绝，提示先显式执行独立 `unarchive_student_subject_profile`。
+
+因此 `reactivate_student` **不包含、不编排、不 saga 调用** Profile unarchive。
+
+单一事务：
+- student_expected_version + expected_profile_versions + expected_case_versions；
+- lock/revalidate 全部 affected rows；
+- staged enrollment；
+- 对 selected inactive Profiles staged assignment/owner/Actions/Profile active；
+- Student staged active；
+- final invariant validation；
+- event/audit；
+- Student.version +1 exactly once；
+- commit。
+
+任一 Profile 失败 → 本次 Student reactivate 全部 rollback。
+
+显式的“先 unarchive Profile，再稍后 reactivate Student”是两个**独立用户意图/独立 commands**。如果后者失败，前者留下 Profile=inactive 是合法、可解释的状态，不属于 reactivate partial commit。
+
+---
+
+## 11. Reassign / handoff
+
+`reassign_teacher`、`revoke_teacher_subject_scope_and_handoff` 的业务 DB 变更单事务：锁定 Profile/Case/current assignments/target teacher scope；迁移 owner/Actions；验证 no orphan；写 operation-bound event/audit；commit。
+
+`disable_membership_and_handoff` DB handoff 同理；Auth revoke 作为外部事务域采用 fail-closed，membership disabled 后业务访问已经拒绝。
+
+---
+
+## 12. Lesson
+
+### `start_lesson`
+
+`start_lesson` 是受控 domain command，必须分开验证执行 actor 与每一个 Student participant：
+
+**Actor Gate**
+1. live active authenticated identity；
+2. valid active session；
+3. active membership；
+4. teacher capability；
+5. matching active teaching Subject Scope；
+6. operation-specific permission；
+7. 其他现有 Teaching Fact Gate 前置条件。
+
+**Per-Student Participant Gate**
+对每一个 participant，server 必须确认：
+1. Student 合法且为 current；
+2. target Subject Profile active；
+3. actor 与 Student+Subject 存在 legal active Student Teacher Assignment；
+4. organization/subject/Lesson context 一致；
+5. 其他既有 participant preconditions。
+
+live identity/session 只属于 actor，不是 Student participant 的属性。`lesson_students` 只表示 participation business fact，不是 authorization source；已有 participant 不能绕过 assignment、scope、membership 或 Profile gate。只有 Actor Gate 与全部 participant gates 通过，才创建 `in_progress` Lesson + `lesson_students`；任何缺 assignment、scope-only、inactive Profile、cross-org/cross-subject 或 self-added participant → 整个 start 拒绝。
+
+临时代课只通过合法、time-bounded collaborator assignment（`active_from`/`active_to`），有效期间仍需完整 Gate；assignment/membership/scope/Profile/Session 中途失效时后续 teaching writes 与 ordinary complete fail closed。治理 actor 仅可 controlled cancel/cleanup，不得继续制造 teaching facts；V1 不新增 Lesson authorization model。
+
+### `complete_lesson`
+
+使用 `operation_id + lesson_expected_version`。每次 complete 重新验证当前 live session、membership、teacher capability、scope，以及每个相关 participant 的 active Profile 和 legal active Student Teacher Assignment；再验证 Case/Action versions、operation permission 与最终不变量。课中已成功保存的 Evidence/Intervention/Assessment 不重复创建。
+
+如果原 teacher 的 assignment、scope、membership、Profile 或 Session 在 Lesson 进行中失效：
+- 后续 Evidence、Intervention、Assessment、Quick Capture/new Case 等 teaching writes 全部拒绝；
+- 普通 `complete_lesson` 也拒绝；
+- Lesson 已开始不保留旧权限；
+- 已 committed 的合法历史事实保留，历史 actor 不改写。
+
+### Controlled cancel / governance recovery
+
+具有相应治理权限的 actor 可受控结束 stale `in_progress` Lesson，并保存 reason、governance event/audit。该行为是状态治理/cleanup，不是 teaching write：
+- 不新增 Evidence、Intervention、Assessment、Quick Capture/new Case；
+- 不假装原 teacher 完成专业判断；
+- 不利用 cancel bypass Case/Action invariant；
+- V1 不支持新 teacher 直接 complete 旧 teacher 的 Lesson 或 in-progress reparent。
+
+新 teacher 必须先让旧 Lesson 受控 cancel，再以自己的合法 Student Teacher Assignment 开新 Lesson。
+
+## 13. Student merge
+
+`merge_students` 的完整 V1 matrix 以 `docs/product/STUDENT_MERGE_POLICY.md` 为事实源。
+
+关键：
+- 一个业务 DB transaction；
+- source/target expected_version；
+- safe reparent/dedupe only；
+- 同 subject 双 Profile、冲突 Enrollment、双 active Lead 等 → **BLOCK**；
+- 先用正常治理 command 整理，再重试；
+- source→merged，source 不删除；
+- finalized history provenance 不重写；
+- operation-bound merge record/event/audit；
+- 重试不重复迁移。
+
+---
+
+## 14. Parent Communication / Report
+
+Finalized 是不可变 snapshot/event；普通 UPDATE 不覆盖。
+
+- outbound 后异步 reply → 新 inbound communication；
+- correction/supersede 保留旧 history；
+- finalization 使用 expected_version + operation_id + audit；
+- Guardian 不是 Case Action assignee。
+
+---
+
+## 15. Function / Repository safety
+
+- security invoker 优先；
+- security definer 仅非 exposed schema + fixed search_path + least grant；
+- provider secret 不进 Flutter；
+- unauthenticated/revoked/onboarding/disabled/cross-org/wrong-scope/no-assignment/inactive-profile/archived-profile 负向测试；
+- Repository API 用业务命名，不暴露任意 status mutation。
+
+---
+
+## 16. Failure Injection 最小矩阵
+
+Phase 0B 必须验证：
+- expected Student/Profile/Case version stale；
+- current assignment set 在预览后变化；
+- target teacher scope 被撤；
+- lifecycle staging 各点失败；
+- event/audit 写失败；
+- `reopen_case` event/action/reopened_count 任一步失败；
+- Student multi-Profile 第 N 个失败整体 rollback；
+- selected archived Profile 直接 reactivate Student → 拒绝；
+- Quick Capture inactive Profile / Advisor-only → 拒绝；
+- merge same-subject dual Profile / dual Lead / conflicting Enrollment → 拒绝；
+- command commit 后 response lost → 同 operation_id 返回原结果；
+- 重复 operation 不产生第二条 lifecycle event/audit。

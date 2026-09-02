@@ -38,6 +38,14 @@
 
 > 在 Phase 0 的权限、安全、恢复、网络与合规 Go / No-Go 通过前，只允许使用虚构或严格脱敏数据，不录入真实学生、家长或教师隐私材料。
 
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
+
 ---
 
 ## 一句话定位
@@ -165,7 +173,7 @@ reset 必须**先 membership → onboarding，再更新 Auth 临时密码**。
 ## 客户端本地安全
 
 ### Session
-Production 不能把 `supabase_flutter` 默认 Session 持久化直接当最终安全方案。Phase 0 使用 custom `LocalStorage` + Windows / Android OS secure storage。Password 永不本地保存。
+未来 gated Production 不能把候选 provider 的默认 `supabase_flutter` Session 持久化直接当最终安全方案；若选择 Supabase，须使用 custom `LocalStorage` + Windows / Android OS secure storage。Password 永不本地保存；provider/identity/session strategy 仍须先过 P0 Gate A/B。
 
 ### Startup Gate
 只有在 Session validity / refresh、live Session、active membership、current organization 全部解析后，App 才挂载业务 Shell；失效 Session 不得先闪现学生页面。
@@ -194,7 +202,7 @@ Windows / Android Flutter
         └─ Startup Authorization Gate
                 │
                 ▼
-Supabase Auth + Data API + Storage
+Supabase Auth + Data API + Storage（V1 reference candidate；正式 Production 使用须先过 P0 Gate A/B）
                 │
         live Session + RLS
                 │
@@ -203,7 +211,7 @@ PostgreSQL
 
 高权限 / 跨系统：Edge Functions
 数据库事务命令：Database Functions
-GitHub：source / docs / migrations / tests / PR / CI
+GitHub：source / docs / migrations / tests / PR / CI（正式 migration 仅在 P0 Gate A/B 后）
 ```
 
 Flutter 只持有客户端 Publishable Key。Secret / service_role / DB password / backup credential 不进入客户端或 GitHub。
@@ -217,9 +225,9 @@ V1 不在学生敏感业务表默认启用 Realtime，也不让业务正确性�
 ```text
 ChatGPT Project + Work / Luna
 → Private GitHub + Free Actions
-→ Supabase Local CLI
-→ Free Remote Development
-→ Free Production Pilot
+→ Supabase Local CLI（compatibility）
+→ Free Remote Development（仅虚构数据的 compatibility/security Spike）
+→ Gated Production Pilot（仅 P0 Gate A/B + Go/No-Go 后）
 ```
 
 原则：
@@ -240,7 +248,7 @@ ChatGPT Project + Work / Luna
 
 ## Region / 实际网络
 
-Production region 不提前拍脑袋决定。
+Future gated Production region 不提前拍脑袋决定；region 选择也不能替代 P0 Gate A/B。
 
 创建 Production 前必须用仅含虚构数据的 Remote Development，在真实机构场景测试：
 - 机构 Wi-Fi；
@@ -252,7 +260,7 @@ Production region 不提前拍脑袋决定。
 - Edge Functions；
 - 网络切换与恢复。
 
-不合格就换 Dev region 重测，结论稳定后再创建 Production。真实未成年人数据的数据驻留 / 跨境合规另外评估；region 选择本身不是合规证明。
+不合格就换 Dev region 重测；结论稳定、P0 Gate A/B 通过且 provider/identity/session strategy 冻结后，才可创建 gated Production。真实未成年人数据的数据驻留 / 跨境合规另外评估；region 选择本身不是合规证明。
 
 ---
 
@@ -271,7 +279,7 @@ Free Pilot 不把“有 SQL 文件”当成恢复能力。
 - 加密 off-site backup
 - **真实 restore drill**
 
-新 Supabase Project 的 JWT / API 配置可能变化，旧 Token 不应被假定继续有效；恢复后重新登录是可接受的安全默认。
+若未来选择 Supabase，新的 gated Production Project 的 JWT / API 配置可能变化，旧 Token 不应被假定继续有效；恢复后重新登录是可接受的安全默认。
 
 Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢复点，0 元 Production 方案不合格，应重新评估基础设施。
 
@@ -328,12 +336,13 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 1. Foundation v0.3 已完成最终审计并 **Squash merge 到 `main`**；
 2. Phase 0A 完成 Flutter 工程、轻量 CI 与 Android / Windows 原生构建验证；
 3. 进行 **Phase 0A 最终审计 → Phase 0A.5 UX/UI Design Foundation**；
-4. 初始化 Local Supabase migrations / fake seed / RLS tests；
-5. 实现 `organizations.time_zone` 和最小 Organization / Membership schema；
-6. 完成 secure Session + Startup Gate + encrypted draft Spike；
-7. 建 Free Remote Development，完成无代理真实网络 / Region Spike；
-8. 完成 provision / onboarding / global sign-out / live-session / reset Spike；
-9. 完成 DB + Auth + Storage recovery drill；
-10. 再进入 Organization → Student → Learning Case → Lesson / Today 的业务开发。
+4. 在 Phase 0B.0 compatibility/security Spike 中以虚构数据验证 Local Supabase migrations / fake seed / RLS tests；
+5. P0 Gate A：Auth Identity Portability Spike；P0 Gate B：Revoked Session / Old Token Security Spike；
+6. 两 Gate 通过后冻结 provider/region/identity/session strategy，再实现 `organizations.time_zone` 和最小 Organization / Membership schema；
+7. 完成 secure Session + Startup Gate + encrypted draft Spike；
+8. 建 Free Remote Development，完成无代理真实网络 / Region Spike；
+9. 完成 provision / onboarding / global sign-out / live-session / reset Spike；
+10. 完成 DB + Auth + Storage recovery drill；
+11. 再进入 Organization → Student → Learning Case → Lesson / Today 的业务开发（仅在正式 Production gates/Go-No-Go 后承载真实数据）。
 
 **从这里开始，提高质量的主要方式应该是 Phase 0 的真实执行证据，而不是继续无限增加 Foundation 文档。**

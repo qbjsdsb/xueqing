@@ -1,590 +1,439 @@
 # 核心数据模型
 
-> 目标：稳定表达真实教学事实，不为页面造表。正式数据库结构以后以 `supabase/migrations` 为事实源；本文件定义领域语义、字段边界与必须守住的不变量。
+> 目标：稳定表达真实教学事实，不为页面造表。正式 schema 最终以 migrations 为事实源；本文冻结领域语义与硬不变量。
 
 ## 1. 建模原则
 
-- 主键默认 UUID；
-- 系统事件时间使用 `timestamptz` 并按 UTC 存储；
-- “今天 / 本周 / 到期日 / 课程所属业务日期”按机构时区解释；
-- 纯业务日期使用 `date`；
-- 机构业务对象明确 `organization_id`；
-- 人员业务关系引用 membership，不直接引用裸 Auth User；
-- 身份事实、教学事实、当前快照、历史事件和派生数据分层；
-- 历史优先 append/event，不用覆盖当前字段抹掉过去；
-- 姓名和自由文本不承担唯一性；
-- 核心历史默认 RESTRICT / archived / disabled / merged，不随意 cascade；
-- 关键可变快照使用 `version` 做乐观并发；
-- 同一事实只存一次，周度、阶段、高频问题和重点提示优先派生。
+- 主键默认业务 UUID；
+- 系统事件时间 UTC `timestamptz`；业务日期按 organization timezone；
+- 机构业务对象显式 `organization_id`；
+- 人员责任引用 membership；
+- Student/Subject service lifecycle 与 Learning Case resolution lifecycle 分层；
+- 当前快照 + append-only history；
+- finalized communication/report 不随后续事实静默改写；
+- 关键 aggregate 使用 `version`；
+- 同一事实只存一次，周度/阶段/治理提示优先派生；
+- provider-specific Auth/Storage 不渗透业务对象。
+
+### Phase 0B.0 pre-migration hard gates
+
+Production provider 尚未冻结。正式 business migrations 前必须实测：
+1. Auth Identity Portability；
+2. Revoked Session / Old Token Security。
+
+Supabase 是 reference candidate，不是已锁定 provider。
 
 ---
 
-# 2. 机构、身份与授权
+## 2. Organization / Identity / Authorization
 
-## `profiles`
-
-- `id` → `auth.users(id)`
-- `display_name`
-- `avatar_path`
-- `created_at`
-- `updated_at`
-
-不写死 organization，不保存 Password / Token / Secret。
-
-## `organizations`
-
+### `organizations`
 - `id`
 - `name`
-- `time_zone`：IANA timezone，例如 `Asia/Shanghai`
+- `time_zone`
 - `status`
-- `created_at`
-- `updated_at`
+- timestamps
 
-### 时区规则
-
-`time_zone` 是机构业务日期的唯一事实源。
-
-例如：
-- Today 工作台；
-- action 到期 / 逾期；
-- 课程属于哪一天；
-- 周度 / 阶段统计边界；
-- 报告周期。
-
-这些都不能直接相信手机或电脑当前时区。
-
-系统事件仍保存 UTC；展示和业务日期计算时再转换为 organization timezone。
-
-V1 不做 campus 独立时区。未来确有跨时区机构需求，再新增 ADR。
-
-## `campuses`
-
+### `organization_memberships`
 - `id`
 - `organization_id`
-- `name`
-- `status`
+- provider-neutral auth identity link（物理类型 Phase 0B.0 冻结）
+- `status`: onboarding / active / disabled
+- timestamps / onboarding expiry
 
-## `roles`
+### `membership_roles`
+V1 roles：org_admin / academic_admin / subject_lead / teacher / student_advisor。
 
-V1 固定能力角色：
-
-`org_admin / academic_admin / subject_lead / teacher / student_advisor`
-
-角色名称用于能力组合，不把业务关系塞进 role。
-
-## `organization_memberships`
-
+### `membership_subject_scopes`
 - `id`
 - `organization_id`
-- `user_id`
-- `staff_no`（可选）
-- `display_name_override`（可选）
-- `status`：`onboarding / active / disabled`
-- `joined_at`
-- `activated_at`（可空）
-- `onboarding_expires_at`（onboarding 时必须有）
-- `disabled_at`（可空）
-
-约束：
-1. `(organization_id, user_id)` unique；
-2. V1 partial unique：同一 `user_id` 在 `status in ('onboarding','active')` 时全 project 最多一行。
-
-因此数据库可以有多个 organization，但 V1 不允许同一 Auth User 同时跨机构 onboarding / active。其他机构 disabled 历史可以保留。
-
-状态语义：
-- `onboarding`：可以 Auth 登录，但普通学生业务 RLS 全拒绝；
-- `active`：可以进入后续 role / assignment 授权；
-- `disabled`：无业务访问。
-
-`onboarding_expires_at` 只控制账号接管有效期，不保存 credential。
-
-## `membership_roles`
-
 - `membership_id`
-- `role_id`
-
-一个 membership 可以多个角色。
-
-## Auth Session
-
-Session 继续由 `auth.sessions` 管理，不复制到 public schema。
-
-普通业务授权除了 active membership，还要验证 JWT `session_id` 对应 Session 仍然有效。Phase 0 必须验证该 helper 的安全性和查询开销，不能在每行策略里无意义重复昂贵计算。
-
-## V1 不建 invitation 表
-
-管理员直接 provision onboarding member。以后启用 Email OTP / 自助加入，再引入 invitation 领域对象。
-
----
-
-# 3. 学期、年级与学生主档案
-
-## `academic_terms`
-
-- `id`
-- `organization_id`
-- `name`
-- `starts_on`
-- `ends_on`
-
-业务日期按 organization timezone 解释。
-
-## `students`
-
-- `id`
-- `organization_id`
-- `student_code`（可选）
-- `display_name`
-- `status`：`active / inactive / archived / merged`
-- `merged_into_student_id`（仅 merged）
-- `created_at`
-- `updated_at`
-- `archived_at`
-
-姓名不能做硬唯一键。
-
-## `student_enrollments`
-
-- `id`
-- `organization_id`
-- `student_id`
-- `term_id`
-- `campus_id`
-- `grade_code`
-- `class_name`（可选）
-- `starts_on`
-- `ends_on`
-
-不使用 `students.grade` 覆盖升年级历史；同时段冲突 enrollment 需要数据库约束。
-
----
-
-# 4. 家长 / 监护人（V1.1）
-
-## `guardians`
-
-- `id`
-- `organization_id`
-- `name`
-- `phone`（可选）
-- `email`（可选）
-- `notes`（严格限制用途）
-
-## `student_guardians`
-
-- `student_id`
-- `guardian_id`
-- `relationship`
-- `is_primary_contact`
-
-家长登录不是 V1 / V1.1 前置。
-
----
-
-# 5. 学科、分类与人员关系
-
-## `subjects`
-
-系统稳定学科字典。
-
-## `organization_subjects`
-
-- `id`
-- `organization_id`
-- `subject_id`
-- `display_name`
-- `status`
-- `sort_order`
-
-唯一 `(organization_id, subject_id)`。
-
-## `learning_taxonomy_nodes`
-
-- `id`
-- `organization_id`
 - `organization_subject_id`
-- `parent_id`（可空）
-- `code`
-- `name`
+- `scope_kind`: teaching / leadership
 - `status`
-- `sort_order`
+- active interval / timestamps
 
-规则：
-- parent / child 必须同 organization_subject；
-- 历史已引用节点停用而不是硬删；
-- V1 只提供少量默认节点 + “其他 / 暂未分类”。
+Teaching scope 只代表可承担该科学科教学关系，不授予全部学生访问；leadership scope 不能伪造教学 actor。
 
-## `student_subject_profiles`
+---
 
+## 3. Student aggregate
+
+### `students`
+- `id`
+- `organization_id`
+- `student_code` optional
+- `display_name`
+- `status`: active / inactive / archived / merged
+- `merged_into_student_id` only merged
+- **`version`**
+- timestamps / archived_at
+
+姓名不是硬唯一。
+
+### Student lifecycle
+
+```text
+active --deactivate_student--> inactive --archive_student--> archived
+active <--reactivate_student-- inactive <--unarchive_student-- archived
+```
+
+- archived 可恢复但必须先 inactive；
+- merged 是 current-business terminal identity；
+- `students.version` 只表示 Student root/current canonical/lifecycle snapshot；
+- 成功的 deactivate/archive/unarchive/reactivate 各使 Student.version +1 exactly once；
+- `merge_students` 成功时 source.version +1 exactly once、target.version +1 exactly once；
+- 普通 Evidence/Assessment append、普通 Case transition、普通 Assignment current-state change 不机械递增 Student.version；
+- Student multi-Profile command 必须同时验证 Student expected version、受影响子聚合 versions 与 current relation snapshot；
+- 同 operation retry 不重复 version increment。
+
+### `student_enrollments`
+- `id`
+- organization/student/term/campus
+- grade/class
+- starts_on / ends_on
+
+升年级/换校区保留历史，不新建 Student。
+
+---
+
+## 4. Subject model
+
+### `subjects` / `organization_subjects` / `learning_taxonomy_nodes`
+稳定字典 + 机构学科 + 轻量 taxonomy。历史已引用节点停用而非硬删。
+
+### `student_subject_profiles`
 - `id`
 - `organization_id`
 - `student_id`
 - `organization_subject_id`
-- `status`
-- `created_at`
-- `updated_at`
+- `status`: active / inactive / archived
+- current positioning / strengths / optional cadence note
+- `version`
+- timestamps
 
 唯一 `(organization_id, student_id, organization_subject_id)`。
 
-## `student_teacher_assignments`
+### Profile committed-state rules
 
+active：
+- 可以存在合法 active teacher assignments；
+- formal open Cases 必须 owner + pending primary Action；
+- 可以产生教学事实/Lesson。
+
+inactive/archived：
+- 无 active teacher assignment；
+- unresolved Case 可保留真实 status；
+- 无普通 pending primary Action；
+- 不进普通 Today；
+- 不产生新 teaching facts/new Lesson/new teaching Case。
+
+事务内部 staging 不属于可观察 committed state。
+
+### `student_teacher_assignments`
 - `id`
-- `organization_id`
-- `student_id`
-- `organization_subject_id`
-- `membership_id`
-- `assignment_role`：`lead / collaborator`
-- `active_from`
-- `active_to`
-- `status`
+- organization/student/organization_subject/membership
+- assignment_role: lead / collaborator
+- active interval / status
 
-同一学生 / 学科同一时点默认最多一个 active lead。当前 teacher 必须是同机构 active membership。
+Committed active assignment 必须：active membership + teacher capability + active teaching scope + Profile active。
 
-## `student_staff_assignments`
-
-- `id`
-- `organization_id`
-- `student_id`
-- `membership_id`
-- `assignment_role`：`advisor / homeroom / coordinator / other`
-- `active_from`
-- `active_to`
-- `status`
-
-班主任 / 学管不能伪装成学科教师。
+### `student_staff_assignments`
+Advisor/homeroom/coordinator 等综合职责；不伪装学科教师。
 
 ---
 
-# 6. 学情案例
+## 5. Learning Case
 
-## `learning_cases`
-
+### `learning_cases`
 - `id`
 - `organization_id`
 - `student_subject_profile_id`
-- `owner_membership_id`（new 可空；confirmed 起必须 active 且关系有效）
-- `case_type`：`knowledge / habit / exam_strategy / other`
-- `taxonomy_node_id`（new 可空）
-- `title`
-- `description`（可选）
-- `root_cause_summary`（可选；重要变化写 event）
-- `priority`：`low / medium / high / urgent`
-- `status`：`new / confirmed / intervening / pending_verification / stable / closed`
-- `pause_reason`（可选，只解释，不代替行动）
+- `owner_membership_id`
+- `case_type`: knowledge / habit / exam_strategy / other
+- taxonomy/title/description/root cause/priority
+- `status`: new / confirmed / intervening / pending_verification / stable / closed
 - `first_observed_at`
 - `stable_at`
 - `closed_at`
 - `reopened_count`
 - `version`
-- `created_by_membership_id`
-- `created_at`
-- `updated_at`
-- `archived_at`
+- created_by/timestamps
 
-“顽固问题”由失败、复发、持续时间等事实派生，不维护第二套表。
+唯一 lifecycle：
 
-### 状态不变量
+```text
+new → confirmed → intervening → pending_verification → stable → closed
+```
 
-- `new`：快速草稿，可以暂时没有完整结构和 action；
-- `confirmed / intervening / pending_verification / stable`：始终必须有一个 pending primary action；
-- 暂缓 / 观察：使用 `review` primary action，且 `due_at` 必填；`pause_reason` 只解释原因；
-- `pending_verification`：通常 primary action 为 verify；
-- `stable` 但未 closed：仍然有 review / verify；
-- `closed`：不得存在 pending primary action；
-- `reopen` 是受控命令 / event，不是第七个 status。
+`reopen` 不是 status。
 
-## `case_events`
+Active Profile formal open Case 必须 owner + exactly one pending primary Action；inactive/archived 是 tracking-suspended exception。
 
-案例不可丢失的 append-only 时间轴：
+### reopen current snapshot semantics
+`reopen_case` 唯一 target：`closed → confirmed`。
 
+Commit 后：
+- `status=confirmed`
+- `closed_at=null`
+- `stable_at=null`
+- `reopened_count += 1`
+- legal owner
+- exactly one pending primary Action
+- `version += 1`
+
+旧 stable/closed 时间保存在 Case Events。
+
+### `case_events`
 - `id`
 - `organization_id`
 - `learning_case_id`
 - `event_type`
-- `actor_membership_id`
+- actor
 - `occurred_at`
-- `metadata`（只保留必要结构化差异）
+- metadata
+- `operation_id` optional for ordinary manual events, REQUIRED for high-risk command-generated lifecycle events
+- `operation_event_key` required when operation_id is present
 
-普通业务不开放 UPDATE / DELETE 历史事件。
+`case_closed` 是 close lifecycle command 在成功事务中写入的 immutable lifecycle fact；只有 committed close 才能成为后续 `reopen_case` 的 boundary。它不能因为 current Case snapshot 后续 reopen 而消失或被改写。`case_reopened` metadata 必须引用 server-resolved latest previous `case_closed` event 与 recurrence Evidence IDs。
+
+逻辑唯一：
+
+```text
+(organization_id, operation_id, operation_event_key)
+```
+
+command retry 不得重复 lifecycle event。
+
+### `case_evidence`
+- Case/source type/title/`observed_at`/summary/storage path/created_by/`created_at`
+- `observed_at` 是事实实际发生或被观察到的业务时间；
+- `created_at` 是 Evidence 录入系统的时间，不能替代 `observed_at`；
+- `guardian_report` 可引用 source Parent Communication；
+- recurrence candidate 必须属于目标 Case、具备 non-null observed_at，并满足 `observed_at > latest committed case_closed.occurred_at`；
+- source_type 不构成 recurrence 白名单或自动证明；合法 source type 均须通过 Evidence 合法性与 teacher judgment；
+- 旧 Evidence 可被新 post-close Evidence 引用，但旧 observed_at 不能单独 reopen。
+
+#### Committed Evidence：append-only historical fact
+
+- Evidence 在服务端 commit 前可以是 Draft；只有 committed/finalized Evidence 才能进入正式 timeline、Case history 或被 `reopen_case` 作为 recurrence 依据。
+- 一旦 committed/finalized，Evidence 的历史含义与 provenance 冻结：不得通过普通 UPDATE、reparent 或物理 DELETE 改变/抹掉 `case_id`、`observed_at`、`created_at`、author/source attribution、provenance 或其他 recurrence-relevant 字段。
+- 记录错误时必须沿用现有 Evidence/Event 领域模型表达 correction record、superseding Evidence 或 explicit correction/invalidation event；不得静默改写原 Evidence，也不得为了本规则创建第二套 Evidence 模型。
+- `reopen_case` 必须在同一 logical DB transaction 内 lock/re-read 每条 selected recurrence Evidence，重新确认其仍 committed、legally usable、属于目标 Case，且其 expected Evidence version 或 server-issued opaque freshness token 未漂移；任何 drift、invalidation、reparent 或 version conflict 都整体拒绝并 rollback。
+- physical implementation（immutable revision、version 或 freshness token）可在 Phase 0B.0 provider Spike 中冻结；Phase 0A.6 先冻结以上逻辑契约。任一 Case/close-event/Evidence/Profile/assignment/version 校验失败都必须 whole rollback，并返回明确 domain conflict；
+
+### `interventions`
+Case/lesson/teacher/strategy/notes/occurred_at。
+
+### `assessments`
+Case/lesson/assessor/result/evidence/notes/assessed_at。
+
+### Teaching Fact Gate
+
+以下全部必须同时满足：
+
+```text
+live session
++ active membership
++ teacher capability
++ active teaching scope
++ target Profile active
++ legal active Student Teacher Assignment
++ operation-specific permission
+```
+
+V1 所有 teaching writes 依赖 legal active Student Teacher Assignment。Lesson participant/`lesson_students` 只记录实际参与事实，不是 authorization grant、temporary permission、capability、scope 或 Student Teacher Assignment；把 Student 加入 Lesson 不能自我授权。
+
+## 7. Case Action
+
+### `case_actions`
+- `id`
+- organization/case/assigned_membership
+- action_type: reteach / practice / verify / communicate / review / other
+- title/due_at/is_primary
+- status: pending / done / cancelled
+- completed_at/timestamps
+
+Rules：
+- 同一 Case 最多一个 pending primary；
+- active Profile formal open Case 恰好一个 pending primary；
+- inactive/archived unresolved Case 可无 primary；
+- closed 无 pending primary；
+- Guardian 不是 membership，不成为 Action assignee。
 
 ---
 
-# 7. 证据、干预与验证
+## 8. Lesson
 
-## `case_evidence`
-
+### `lessons`
 - `id`
-- `organization_id`
-- `learning_case_id`
-- `source_type`：`exam / homework / essay / classwork / quiz / observation / other`
-- `title`
-- `observed_at`
-- `summary`
-- `storage_object_path`（可选）
-- `created_by_membership_id`
-- `created_at`
-
-## `interventions`
-
-- `id`
-- `organization_id`
-- `learning_case_id`
-- `lesson_id`（可选）
-- `teacher_membership_id`
-- `strategy`
-- `notes`
-- `occurred_at`
-- `created_at`
-
-## `assessments`
-
-- `id`
-- `organization_id`
-- `learning_case_id`
-- `lesson_id`（可选）
-- `assessor_membership_id`
-- `result`：`passed / partial / failed / not_scored`
-- `evidence_id`（可选）
-- `notes`
-- `assessed_at`
-- `created_at`
-
-assessment result 与 case status 分离；一次 passed 不自动 stable / closed。
-
----
-
-# 8. 下一步行动
-
-## `case_actions`
-
-- `id`
-- `organization_id`
-- `learning_case_id`
-- `assigned_membership_id`
-- `action_type`：`reteach / practice / verify / communicate / review / other`
-- `title`
-- `due_at`（一般可空；暂停 / 稳定观察 review 时必填）
-- `is_primary`
-- `status`：`pending / done / cancelled`
-- `completed_at`
-- `created_at`
-
-规则：
-- 辅助 action 可多个；
-- 同一 case 最多一个 pending primary；
-- confirmed 起直到 closed 必须有 pending primary；
-- 暂停 / 观察统一使用 `review + due_at`，不新增 `next_review_at`；
-- 无 due_at 的普通 primary 仍进入 Today 的“待安排”；
-- done / cancelled 保留历史。
-
-`due_at` 是时间点；Today / overdue 判断按 organization timezone 转换成业务日期。
-
----
-
-# 9. 课程
-
-## `lessons`
-
-- `id`
-- `organization_id`
-- `organization_subject_id`
-- `teacher_membership_id`
-- `started_at`
-- `ended_at`
-- `status`：`in_progress / completed / cancelled`
-- `summary`（可选）
+- organization/subject/teacher
+- started_at/ended_at
+- status: in_progress/completed/cancelled
+- summary
 - `version`
-- `created_at`
-- `updated_at`
+- timestamps
 
-课程事件保存 UTC；“属于机构哪一天”按 organization timezone 计算。
+### `lesson_students`
+- lesson/student/attendance；
+- 仅表示某 Student 实际参与某次 Lesson 的 business fact；
+- 不是 authorization grant、temporary permission、Student Teacher Assignment、capability 或 scope；
+- `start_lesson` 创建前每一个 participant 都必须已有 legal active Student Teacher Assignment；
+- assignment 在 Lesson 中被撤销后，后续 teaching writes 与 ordinary complete 均拒绝；controlled governance cancel 只做 cleanup；
+- 历史 lesson teacher/participant provenance 不静默改写。
 
-## `lesson_students`
+## 9. Guardian / Communication
 
-- `lesson_id`
-- `student_id`
-- `attendance_status`
+### `guardians` / `student_guardians`
+只收集教学协作必要信息。
 
-一对一只是一个 lesson_student。课程中发生的 case 结果通过 intervention / assessment / event 关联，不另建重复结果表。
+### `parent_communications`
+一次实际沟通 event：
+- direction: outbound / inbound / conversation
+- status: draft / finalized
+- channel/occurred_at/content snapshot/home support/guardian response
+- reply_to optional
+- recorded_by/finalized_by/finalized_at
+- follow-up fields
+- `version`
 
----
+异步 reply 新增 inbound，不回写旧 finalized outbound。
 
-# 10. 综合观察（V1.5）
-
-## `observations`
-
-- `id`
-- `organization_id`
-- `student_id`
-- `observer_membership_id`
-- `organization_subject_id`（可空）
-- `category`
-- `fact_text`
-- `observed_at`
-- `visibility_scope`：`subject_team / student_team / management`
-- `created_at`
-
-只记录必要、可观察事实，避免人格化或无关敏感推断。
+多 recipient 可使用 `parent_communication_recipients`。
 
 ---
 
-# 11. 家校沟通（V1.1）
+## 10. Report / Stage Review
 
-## `parent_communications`
+### `reports`
+- student + optional subject
+- report_type/period/source_cutoff
+- template/content schema version
+- content_snapshot
+- status draft/finalized
+- `version`
+- finalized_by/time
+- correction/supersede provenance
 
-- `id`
-- `organization_id`
-- `student_id`
-- `recorded_by_membership_id`
-- `guardian_id`（可选）
-- `channel`：`phone / wechat / in_person / other`
-- `occurred_at`
-- `summary`
-- `follow_up_at`（可选）
-- `created_at`
-
-联系方式引用 guardian，不在沟通记录重复保存。
+Finalized Report ≠ Parent informed。
 
 ---
 
-# 12. 阶段报告（V1.1）
+## 11. Operation / Audit
 
-## `reports`
+### Logical `operation_receipts`
+高风险 DB command 必须有等价的 operation result registry；物理表名可在 Phase 0B 冻结。
 
-- `id`
+最小语义：
 - `organization_id`
-- `student_id`
-- `organization_subject_id`（综合报告可空）
-- `period_start`
-- `period_end`
-- `generated_at`
-- `generated_by_membership_id`
-- `source_cutoff_at`
-- `template_version`
-- `content_schema_version`
-- `content_snapshot`
-- `status`：`draft / finalized`
-
-period_start / period_end 是机构时区下的业务日期。finalized 是冻结快照，不随底层事实静默改写。
-
----
-
-# 13. 审计、幂等与合并
-
-## `audit_logs`
-
-- `id`
-- `organization_id`
-- `actor_user_id`
-- `actor_membership_id`
-- `entity_type`
-- `entity_id`
-- `action`
-- `changed_fields`
-- `operation_id`（可选）
-- `occurred_at`
-
-不复制完整敏感正文，不记录 Password / Token。
-
-## `operation_receipts`
-
-是否统一使用由 Phase 0 Spike 决定。只服务普通多表命令幂等，绝不保存 credential 明文响应。
-
-## `student_merge_records`
-
-- `id`
-- `organization_id`
-- `source_student_id`
-- `target_student_id`
-- `performed_by_membership_id`
 - `operation_id`
-- `merged_at`
+- command_type
+- target_type / target_id
+- committed result reference/fingerprint
+- committed_at
 
-source → merged，target 保留；旧 ID 仍能解释迁移去向。
+唯一 `(organization_id, operation_id)`。
+
+如果事务 rollback，不能留下“已 committed” receipt；同 operation 重试若已 committed 直接返回原结果。
+
+### `audit_logs`
+- id/org/actor identity + membership
+- entity type/id/action/changed_fields
+- **`operation_id` REQUIRED for high-risk command audit**
+- **`operation_audit_key` REQUIRED when operation_id present**
+- occurred_at
+
+逻辑唯一：
+
+```text
+(organization_id, operation_id, operation_audit_key)
+```
+
+普通低风险 audit 若无 command 可 operation_id nullable。
+
+Audit 不复制 Password/Token/完整敏感正文。
+
+### `student_merge_records`
+- source/target
+- performed_by
+- operation_id
+- merged_at
+
+source→merged，旧 ID 可解释。
+
+完整 merge matrix：`docs/product/STUDENT_MERGE_POLICY.md`。
 
 ---
 
-# 14. 派生数据
+## 12. Student multi-Profile concurrency
 
-优先派生而不是另存台账：
-- 本周新增 / 解决；
-- 待验证；
-- 到期 / 逾期 action；
-- 无日期待安排 action；
-- 复发次数；
-- 长期重点问题；
-- 报告指标；
-- 高频问题。
+Student lifecycle command 必须输入/验证：
+- `student_expected_version`；
+- affected Profile expected versions；
+- affected Case expected versions；
+- preview/command binding 中的 current assignment IDs/roles/intervals、owner IDs、primary Action IDs/assignees/status；
+- target membership/scope current validity。
 
-客户端 View 必须明确安全语义，优先 `security_invoker = true`。
+`students.version` 不是 child global counter。普通 Evidence/Intervention/Assessment append、普通 Case transition、普通 Assignment current-state change 不机械递增它；相关 aggregate 或 current relation predicate 负责并发检测。
+
+事务中按稳定 ID 顺序 lock/re-read Student → Profiles → Cases → assignments/Actions/current relations → target authority。任一 merge-relevant drift → `stale_plan/version_conflict`，整体 rollback。
+
+对于 `merge_students`：
+- preview 必须由 server/domain logic 从完整 merge-relevant snapshot 生成；
+- preview 至少绑定 source/target root versions、affected Profile/Case versions、Enrollment、Teacher/Staff Assignments、owner、current Actions、target authority、BLOCK matrix；
+- binding 可为 server-generated opaque `merge_plan_token`、完整 expected snapshot/values 或 server-generated fingerprint，不冻结 Phase 0A.6 物理 API，也不新增 `merge_plans` 表；
+- execute 时 server lock/re-read 并 regenerate current snapshot，与 confirmed plan 比较；
+- 会改变 safe/BLOCK decision、canonical relationship、Profile structure、owner、active assignment、primary Action、Enrollment、staff responsibility、authority 或 Student lifecycle 的 drift → stale_plan/version_conflict，要求重新 preview，不能静默接受新 plan；
+- ordinary append-only Evidence/Intervention history 若不改变 current merge decision/matrix/relationship，不单独造成 stale；
+- source-only Profile safe reparent 使 Profile.version +1 exactly once；Case 只有 current snapshot 真正变化时才更新 Case.version。
+
+## 13. Student merge committed semantics
+
+V1 safe merge matrix 见 `STUDENT_MERGE_POLICY.md`。
+
+硬 BLOCK：
+- source/target 同时有同 subject Profile；
+- conflicting Enrollment；
+- 双 active Lead/无法机械解决 current responsibility；
+- owner/Action 无法在 target context 保持合法；
+- unresolved mutable Parent Communication/Report Draft；
+- source 或 target 存在 `in_progress` Lesson。
+
+source.version 与 target.version 各 +1 exactly once；source-only Profile safe reparent 时 Profile.version +1 exactly once；不对所有 child Case 机械级联 +1。
+
+Finalized Communication/Report/Lesson historical provenance 不静默重写；target 历史通过 merge lineage 聚合。
+
+## 14. Derived governance anomalies
+
+优先派生：
+- active Profile formal open Case 无 primary；
+- inactive/archived Profile 残留 active assignment/pending Action；
+- long overdue / pending verification；
+- stale Quick Capture；
+- repeated failed/reopen；
+- handoff remaining；
+- communication follow-up due；
+- duplicate candidates；
+- command receipt/event/audit integrity mismatch。
+
+这些不是新的 Case status，也不做教师/学生风险评分。
 
 ---
 
-# 15. 数据库硬约束
+## 15. 数据库/command 硬约束
 
 必须防止：
-- child organization 与 parent 错配；
-- 一个 Auth User 在 V1 跨机构 onboarding / active 双活；
-- membership / assignment 跨机构；
-- 非 active owner / assignee；
-- 同一学生 / 学科冲突 active lead；
-- confirmed+ case 无 primary action；
-- 暂停 review 无 due_at；
-- closed 仍有 pending primary；
-- lesson teacher / students / subject 跨机构；
-- taxonomy parent / child 跨学科；
-- taxonomy 与 subject profile 学科不一致；
-- evidence / intervention / assessment / action 跨 case 机构；
-- merged student 继续作为新业务主档案。
+- cross-org/cross-subject；
+- active assignment without active Profile/teaching scope；
+- management-only teaching facts；
+- Quick Capture bypass；
+- active formal Case missing owner/primary；
+- closed Case pending primary；
+- inactive/archived teaching facts/Lesson/new Case；
+- archived→active direct；
+- merged Student reactivation；
+- high-risk event/audit duplicate under same operation；
+- Student lifecycle stale multi-Profile plan；
+- unsafe Student merge conflict。
 
-实现手段按适用性选择：composite FK、CHECK、partial unique index、exclusion constraint、trigger / 受控 Function。不能只相信 Flutter。
-
----
-
-# 16. 索引与性能
-
-重点索引：
-- `organization_id`
-- `membership_id`
-- `student_id`
-- `organization_subject_id`
-- `learning_case_id`
-- `status`
-- `due_at`
-- assignment active / status
-- `(organization_id, user_id)`
-
-live-session helper 关注 `auth.sessions.id = jwt session_id`。
-
-Phase 0 要求：
-- helper 语义由自动化测试证明；
-- RLS 中避免同一语句对 helper 做无意义逐行重复计算；
-- 对核心 Today / Student / Case 查询使用 `EXPLAIN (ANALYZE, BUFFERS)` 或等价证据观察计划；
-- 若 live-session 校验成为真实瓶颈，必须通过 ADR 调整实现，不能静默删除安全条件。
-
----
-
-# 17. 删除策略
-
-默认：
-- member → disabled；
-- student / case / lesson / evidence → archived / merged / 受控更正；
-- 核心历史不 cascade 丢失；
-- 纯连接或可重建缓存才考虑 cascade；
-- 真正个人信息删除 / 导出走管理员治理流程。
-
----
-
-# 18. Excel → 软件映射
-
-- 一工作簿一学生 → 机构统一 Student；
-- 年级 → enrollment 历史；
-- 授课老师 → teacher assignment；
-- 学管 → staff assignment；
-- 初诊 → learning_case；
-- 三阶闭环 → evidence / intervention / assessment / event；
-- 下周重点 → case_action；
-- 周度 → 派生；
-- 顽固问题 → 同一 case 的重点提示；
-- 阶段复盘 → report snapshot；
-- 自由分类 → taxonomy + 自由标题。
+实现可用 FK/CHECK/partial unique/exclusion/row lock/trigger/function/RLS；跨表不变量不能假装只靠一个 CHECK。

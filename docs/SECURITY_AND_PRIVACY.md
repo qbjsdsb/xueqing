@@ -2,6 +2,14 @@
 
 > 系统会处理未成年学生信息。V1 可以零额外付费，但不能用“先跑起来”或“免费”作为降低权限、备份、设备安全和隐私门槛的理由。
 
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
+
 ## 1. 数据最小化
 
 只收集完成教学闭环真正需要的信息。
@@ -49,7 +57,7 @@
 
 ## 3. Live Session 为什么是安全边界
 
-Supabase global sign-out 会撤销 Session / Refresh Token，但已经签发的 Access Token 仍可能存在到自身 `exp`。JWT 的 `session_id` 可以和 `auth.sessions` 对应，因此 V1 对学生敏感数据增加 live-session guard。
+若以 Supabase 作为 V1 reference candidate，global sign-out 对 Session / Refresh Token 与既有 Access Token 的行为、JWT `session_id` ↔ `auth.sessions` live-session guard 必须在 P0 Gate B 中用虚构数据实测；在 Spike 通过前不把该 provider-specific 方案写成 Production 已验证事实。
 
 实现要求：
 - helper 不放 exposed schema；
@@ -123,7 +131,7 @@ Supabase global sign-out 会撤销 Session / Refresh Token，但已经签发的 
 
 数据库可以有多个 organization，但 V1 同一个 Auth User 同一时点最多一个 onboarding / active membership。
 
-原因：Password 属于全局 Supabase Auth User，而 V1 org_admin 可以执行 credential reset。如果一个用户同时属于 A、B 两个机构，A 管理员重置全局密码会影响 B，这是错误的租户身份治理。
+在 Supabase reference candidate 路径中，Password 属于全局 Supabase Auth User，而 V1 org_admin 可以执行 credential reset；如果一个用户同时属于 A、B 两个机构，A 管理员重置全局密码会影响 B，这是需要由 P0 Gate A 与后续身份治理方案解决的风险。
 
 因此：
 - 其他机构只允许 disabled 历史；
@@ -135,7 +143,7 @@ Supabase global sign-out 会撤销 Session / Refresh Token，但已经签发的 
 
 ## 6. 客户端 Session 存储
 
-Production 涉及学生数据时，不能直接把 `supabase_flutter` 默认 SharedPreferences 系列持久化当最终安全方案。
+未来 gated Production 涉及学生数据时，不能直接把候选 provider 的默认 `supabase_flutter` SharedPreferences 系列持久化当最终安全方案；provider/identity/session strategy 仍须先过 P0 Gate A/B。
 
 Phase 0 必须实现：
 - Supabase custom `LocalStorage`；
@@ -338,16 +346,25 @@ Credential audit 只记录“开通 / 接管 / 重置发生过”和结果类别
 
 ## 17. 环境隔离与 Region
 
+
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
+
 环境：
 - Local Development：虚构数据；
 - Remote Development：虚构数据 + 公网 / 双设备验证；
-- Production Pilot：通过 Go / No-Go 后才使用真实数据。
+- Gated Production Pilot：仅在 P0 Gate A/B、provider/region/identity/session strategy 与 Go/No-Go 全部通过后才可使用真实数据。
 
-Production 不共享 Development 的 DB / Storage / Secret / 测试账号，不运行 development seed / reset。
+Gated Production 不共享 Development 的 DB / Storage / Secret / 测试账号，不运行 development seed / reset；Phase 0A.6 当前没有 Production 环境。
 
 ### Region 是上线决策，不是随手选择
 
-Production Project 创建前，用 Remote Development 虚构数据在实际机构场景测试：
+未来 gated Production Project 创建前，且仅在 P0 Gate A/B 通过后，用 Remote Development 虚构数据在实际机构场景测试：
 - 机构 Wi-Fi；
 - 普通移动网络；
 - **无代理 / VPN**；
@@ -393,7 +410,7 @@ Free Pilot 不具备商业级自动恢复承诺，必须自己建立恢复能力
 - 必要时 `supabase_migrations` history
 
 ### Auth
-恢复项目必须按**恢复当日 Supabase 官方流程**处理 Auth user / identity 数据，并真实验证：
+若最终选定 Supabase，恢复项目必须按**恢复当日 Supabase 官方流程**处理 Auth user / identity 数据，并真实验证；这属于 P0 Gate A/B 之后的 gated Production restore drill：
 - org_admin 登录；
 - 普通 teacher 登录；
 - membership / RLS 正确。
@@ -490,6 +507,11 @@ break-glass 使用后要复核角色、撤销临时凭据并留下治理记录�
 - [x] Actions zero-overage budget 已做明确决策：用户选择暂不设置，风险已记录并由 CI 触发策略缓解
 
 ## 真实数据前必须完成
+
+- P0 Gate A：Auth Identity Portability Spike
+- P0 Gate B：Revoked Session / Old Token Security Spike
+- provider/region/identity/session strategy 冻结并经 Go/No-Go 批准
+
 
 - [ ] Local / Remote Development / Production 隔离
 - [ ] `organizations.time_zone` migration + 边界测试
