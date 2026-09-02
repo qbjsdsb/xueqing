@@ -1,266 +1,425 @@
 # 系统架构
 
-## 1. 架构目标
+## 1. V1 架构目标
 
-V1 的技术架构优先保证：
-
-1. 多机构数据严格隔离；
+1. 多机构严格隔离；
 2. 多教师共享同一学生事实源；
-3. 权限在数据库/服务端真正执行；
-4. 教师高频操作足够快；
-5. 历史可追溯，人员变化不破坏数据；
-6. 代码可测试、可迁移、可持续由 Codex/开发者维护；
-7. 不为“未来可能有的复杂功能”提前堆叠微服务。
+3. Auth 与机构授权分离；
+4. 被撤销 Session 不能继续借旧 JWT 访问学生数据；
+5. 教师高频记录快且不丢；
+6. 本地 Session/草稿不成为隐私旁路；
+7. 历史连续、可追溯；
+8. schema 可从 Git migrations 重建；
+9. Free Pilot 可恢复、可控成本；
+10. 不提前建设微服务、CRDT、ERP 或多登录体系。
 
-## 2. 总体架构
+---
+
+## 2. 总体结构
 
 ```text
-┌─────────────────────────────────────────────┐
-│ Flutter Client                              │
-│ Windows（深度管理） / Android（快速记录）   │
-└───────────────┬─────────────────────────────┘
-                │
-        ┌───────┴────────┐
-        │                │
-        ▼                ▼
-普通授权业务读写      高权限/受控操作
-Supabase Data API     Supabase Edge Functions
-        │                │
-        └───────┬────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│ Supabase                                    │
-│ Auth | PostgreSQL | RLS | Storage           │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│ Flutter Client                               │
+│ Windows：深度查看/管理   Android：快速记录   │
+│                                              │
+│ Secure Session Storage + Encrypted Drafts    │
+└──────────────┬───────────────────────────────┘
+               │
+               ▼
+       Startup Authorization Gate
+               │
+        ┌──────┼────────────────────┐
+        ▼      ▼                    ▼
+ Supabase Auth Data API       Controlled Commands
+ Password/Session PostgreSQL   DB Functions / Edge Functions
+        │      │                    │
+        └──────┴──────────┬─────────┘
+                          ▼
+┌──────────────────────────────────────────────┐
+│ Supabase                                     │
+│ Auth | auth.sessions | PostgreSQL | RLS      │
+│ Storage | Edge Functions                     │
+└──────────────────────────────────────────────┘
+
+GitHub：source / docs / migrations / tests / PR / CI
 ```
 
-GitHub 保存源码、数据库 migrations、测试、Issue、PR 与 CI；真实业务数据不进入 GitHub。
+---
 
-## 3. Flutter 客户端架构
+## 3. 业务授权链
 
-采用 Flutter 官方当前推荐思路：**UI 与 Data 分层，使用 View / ViewModel / Repository / Service 的职责边界；只有业务复杂到确有需要时再增加 Domain Use Case 层。**
+```text
+JWT user_id
+  ↓
+JWT session_id 仍对应 auth.sessions 行？
+  ↓
+organization_membership = active？
+  ↓
+role / capability 合法？
+  ↓
+student / subject assignment 合法？
+  ↓
+具体 read/write/admin 操作允许
+```
 
-建议目录按 feature 组织：
+缺任何一层都拒绝。
+
+### 为什么 Session 也要查
+
+Supabase global sign-out 会撤销 Sessions/Refresh Tokens，但旧 Access Token 在 `exp` 前仍可能存在。对学生敏感数据，V1 不接受“等 JWT 自然过期”作为唯一撤销机制。
+
+用非 exposed helper 校验 JWT `session_id` ↔ `auth.sessions`；Phase 0 对性能和越权做实测。
+
+---
+
+## 4. V1 Auth 架构
+
+```text
+org_admin provision_member
+  ↓
+Auth User + membership(onboarding)
+  ↓
+临时密码 + onboarding_expires_at
+  ↓
+教师登录，只能账号接管
+  ↓
+更新自己的新密码
+  ↓
+global sign-out 全部 Sessions
+  ↓
+membership active
+  ↓
+强制重新登录
+```
+
+reset：**先 membership→onboarding，再更新 Auth 密码**。
+
+Credential 响应丢失时 reissue 新密码；不持久化旧明文来实现“重复返回”。
+
+---
+
+## 5. Flutter 架构
+
+职责：
 
 ```text
 lib/
   app/
-    app.dart
+    config/
     routing/
     theme/
+    startup/
   core/
     auth/
+    security/
+    persistence/
     errors/
     logging/
-    utils/
   features/
     auth/
-      data/
-      presentation/
     today/
-      data/
-      presentation/
     students/
-      data/
-      presentation/
     learning_cases/
-      data/
-      presentation/
     lessons/
-      data/
-      presentation/
 ```
 
-约束：
-- Widget 不直接拼复杂数据库查询；
-- ViewModel 负责界面状态和用户动作；
-- Repository 是业务数据入口；
-- Service 封装 Supabase、Storage、Edge Function 等外部接口；
-- 状态机和权限判断不得散落在多个页面里各写一套。
+推荐职责：
+- View：渲染/输入；
+- ViewModel：页面状态与用户动作；
+- Repository：业务 API；
+- Service：Supabase/Auth/Storage/Functions/local persistence。
 
-V1 暂不为了“架构漂亮”引入过多抽象层。
+Widget 不直接拼权限/事务/多表 SQL；Repository/Service 必须可 fake/test。
 
-## 4. 客户端与服务端边界
+参考 Flutter 官方 `compass_app` 的多环境、Repository/Service、测试，不为“Clean Architecture”制造无业务价值空层。
 
-### 4.1 Flutter 可以直接做的事
-使用 Supabase Publishable Key + 用户 Session，通过 Data API 访问经过 RLS 保护的普通业务数据，例如：
-- 读取本人有权查看的学生；
-- 新建/更新本科负责范围内的学情案例；
-- 记录课程、干预、验证和观察；
-- 读取今日待办。
+---
 
-Publishable Key 可以存在客户端；**安全性来自 RLS + 最小数据库授权，而不是把公开 key 当秘密藏起来。**
+## 6. Startup Authorization Gate
 
-### 4.2 必须走受信任服务端的事
-Flutter 永远不能持有 Secret Key / legacy service_role key。
+`supabase_flutter` v2 初始化可能先返回本地持久化 Session，不保证它已经远端刷新。
 
-以下操作优先通过 Edge Functions 或其他受信任后端：
-- 管理员邀请 Auth 用户；
-- 高权限角色授予/撤销；
-- 学生合并；
-- 跨范围批量交接；
-- 受控导出/删除；
-- 任何需要绕过普通 RLS 的维护操作。
-
-Edge Function 本身也必须验证调用者身份和机构权限，不能因为“在服务端”就默认可信。
-
-## 5. 身份模型
-
-### Auth User
-由 Supabase Auth 管理“这个登录身份是谁”。
-
-### Profile
-`public.profiles.id` 只引用 `auth.users.id` 主键，存放应用需要展示的人员资料。
-
-### Organization Membership
-表示这个账号属于哪个机构、成员状态是什么。
-
-一个账号未来可以属于多个机构，因此不要把单一 `organization_id` 写死在 profile 上。
-
-### Roles / Capabilities
-账号与角色分离；一个 membership 可以同时有多个业务角色，例如 teacher + subject_lead。
-
-V1 可以先使用固定角色集合，但权限检查应面向“能力/关系”而不是只写 `if role == admin`。
-
-## 6. 多租户与 RLS
-
-### 6.1 第一层：机构隔离
-任何机构业务数据都必须能确定所属 `organization_id`。
-
-访问的第一道判断：
+启动顺序：
 
 ```text
-当前 auth.uid()
-   ↓
-是否有 active organization_membership
-   ↓
-是否属于该 organization_id
+读取安全本地 Session
+→ 检查 expired / refresh
+→ 远端 Auth 状态确认
+→ live-session 验证
+→ active memberships
+→ current organization
+→ 加载业务 Shell
 ```
 
-### 6.2 第二层：业务关系
-机构成员并不等于能看机构全部数据。
+在 Gate 完成前不查询/渲染学生业务。revoked/onboarding/disabled 留在账号状态页。
 
-普通教师继续检查：
-- 是否负责该学生；
-- 是否负责对应学科；
-- 是否是协作教师；
-- 是否拥有班主任/学管/学科负责人等能力。
+---
 
-### 6.3 第三层：操作类型
-SELECT / INSERT / UPDATE / DELETE 分开授权。
+## 7. 本地安全
 
-“可以看”不能自动意味着“可以改”；“可以改”也不能自动意味着“可以删除”。
+### Auth Session
+Production 使用 Supabase custom `LocalStorage` + OS secure storage。Password 永不持久化。
 
-### 6.4 策略实现
-建议把重复的关系判断封装成数据库函数，例如：
-- `is_active_org_member(org_id)`
-- `can_view_student(student_id)`
-- `can_edit_subject_profile(profile_id)`
-- `has_org_capability(org_id, capability)`
+### Draft
+跨重启草稿：
+- ciphertext at rest；
+- key 在 OS secure storage；
+- user/org scope；
+- TTL；
+- sync 后删除；
+- account switch/logout/disabled 有明确清理策略。
 
-函数本身必须经过安全审查，避免通过错误的 SECURITY DEFINER 设计绕过 RLS。
+本地草稿不是第二业务事实源。
 
-## 7. 数据互通与并发
+---
 
-所有客户端都读写同一云数据库，不设计“上传/下载/同步”按钮。
+## 8. 环境模型
 
-V1 采用 **online-first**：
-- 云数据库是真实事实源；
-- 本地缓存只用于体验，不是最终真相；
-- 暂不支持复杂离线写入队列和离线冲突合并。
+### Local Development
+- Supabase CLI；
+- fake data/Auth；
+- migrations/seed/DB-RLS tests；
+- reset/reseed。
 
-### 并发策略
-V1 不做 Google Docs 式同字段实时协同。
+### Remote Development
+- 一个 Free Project；
+- 只放虚构数据；
+- Password Auth、Session、Edge Functions、Storage、双端、网络/region测试；
+- 可重建。
 
-关键可编辑对象建议包含 `updated_at`，必要对象再增加 `version` 整数做乐观并发：
-- 用户打开旧版本；
-- 保存前发现 version 已变化；
-- 提示刷新/合并，而不是静默覆盖别人更新。
+### Production Pilot
+- 第二个 Free Project；
+- 真实数据；
+- 独立 Auth/Storage/Secret；
+- 禁 development seed/reset；
+- 只部署评审 migration；
+- 定期 off-site DB/Storage backup。
 
-Realtime 可用于“数据已变化，请刷新”或列表自动更新，不承担复杂协同编辑。
+Remote Development 不是 schema 第二事实源。
 
-## 8. 数据建模原则
+---
 
-### 事实、状态、派生分层
-- **事实**：课程、证据、干预、验证、案例事件；
-- **当前状态**：案例当前阶段、负责人、未完成下一步行动；
-- **派生**：周度摘要、重点问题提示、阶段报告、管理指标。
+## 9. Region / 中国大陆网络
 
-派生数据可以重算，不作为唯一事实源。
+Supabase 当前 APAC 可选 Singapore/Tokyo/Seoul 等，没有中国大陆 region；project region 不能原地更换。
 
-### 历史优先追加
-核心业务变化尽量以 event 追加历史，再更新当前快照；不通过反复覆盖一段长文本保存全部过程。
+Production 前必须用 Remote Dev 在实际机构 Wi‑Fi + 普通移动网络 + 无代理/VPN测试 Auth/Data/Storage/Functions。必要时重建 Dev 换 region，确认后再建 Production。
 
-## 9. 附件存储
+Region 决定数据主要驻留位置，但不是合规证明；真实未成年人数据另做机构合规评估。
 
-试卷/作文图片等进入私有 Supabase Storage：
-- 默认 private bucket；
-- 数据库保存 metadata/object path，不存二进制；
-- 文件路径包含 organization_id 与不可猜测 UUID；
-- 下载使用授权策略或短时签名 URL；
-- 不把学生真实姓名作为可公开文件名。
+---
 
-V1 对附件大小和类型设置明确限制，避免免费额度被无意耗尽。
+## 10. 数据库结构事实源
 
-## 10. 审计与可追溯
+```text
+supabase/
+  config.toml
+  migrations/
+  seed.sql
+  tests/
+  functions/
+```
 
-关键动作进入 `audit_logs`，但不把完整敏感正文无脑复制一遍。
+Schema/RLS/GRANT/View/Function/Trigger/Index 正式变化全部进入 migrations。
 
-重点审计：
-- 角色与权限变化；
-- 学生合并与交接；
-- 学情案例关键状态变化；
-- 归档/恢复；
-- 高风险管理员操作。
+禁止长期依赖 Dashboard/Table Editor/SQL Editor 的手工状态。
 
-案例本身的教学生命周期由 `case_events` 负责；系统治理审计由 `audit_logs` 负责，二者不要混为一张表。
+---
 
-## 11. 环境与迁移
+## 11. Data API / DB Function / Edge Function
 
-### Development
-只允许虚构数据，用于本地/Codex/测试。
+### Data API
+适合：
+- 授权读取；
+- evidence/note 等简单事实追加；
+- `new` 草稿；
+- 普通查询。
 
-### Production
-真实机构数据；生产 schema 变化必须通过版本化 SQL migration。
+前提：RLS + GRANT + FK/约束正确。
 
-条件允许后增加 Staging。
+### Database Function
+适合同一 Postgres 事务内的多表不变量：
+- confirm/reopen/transition case；
+- replace primary action；
+- complete lesson；
+- handoff；
+- merge students。
 
-禁止只在 Supabase Dashboard 手工改表后不补 migration，否则 GitHub 不再是可重建的系统真相。
+### Edge Function / 可信服务端
+适合 Secret/Auth Admin/跨系统：
+- provision；
+- complete onboarding；
+- reset credential；
+- 未来邮件/AI/外部集成。
 
-## 12. 配置与秘密
+Auth + PostgreSQL 不是一个事务域，必须设计安全失败顺序，不假装 Edge Function 天然原子。
 
-可以进入客户端构建配置：
-- Supabase URL
-- Publishable Key
+---
 
-不能进入客户端或 GitHub：
-- Secret Key
-- legacy service_role key
-- 数据库密码
-- 外部 AI 私密 API Key
+## 12. RLS / GRANT / View / Function
 
-AI 等外部私密服务如果后续加入，优先从 Edge Functions 调用。
+业务表：
+- RLS 开启；
+- 最小 GRANT；
+- live session + active membership；
+- organization/assignment 检查；
+- 高频 policy 列索引。
 
-## 13. 备份与恢复
+View：客户端暴露优先 `security_invoker=true`。
 
-正式使用前必须明确：
-- 数据库备份频率；
-- Storage 附件备份方式；
-- 数据恢复演练；
-- 误删/错误迁移回滚策略。
+Security-definer helper：
+- 非 exposed schema；
+- `search_path=''`；
+- schema-qualified；
+- revoke 默认 execute；
+- 最小 grant；
+- 越权测试。
 
-“平台有备份”不等于产品已具备完整恢复方案，尤其数据库备份通常不自动等价于 Storage 文件备份。
+RLS 只回答“谁能访问”，状态机/多表一致性仍靠约束和业务命令。
 
-## 14. 生产上线前架构门槛
+---
 
-- RLS 覆盖所有客户端可访问业务表；
-- 分角色的权限自动化测试通过；
-- 无 Secret Key/service_role 进入 Flutter；
-- 管理员邀请/高权限动作已服务端化；
-- 教师离职与交接场景验证通过；
-- 重复学生合并有审计和回退依据；
-- migration 可以从空数据库重建 schema；
-- 备份/恢复方案已经演练；
-- 隐私与未成年人数据合规完成独立评估。
+## 13. Case / Action 架构
 
-详见 `SECURITY_AND_PRIVACY.md`。
+Case 生命周期：
+
+```text
+new → confirmed → intervening → pending_verification → stable → closed
+```
+
+`reopen` 是命令/事件。
+
+行动规则：
+- new 可没有 action；
+- confirmed/intervening/pending_verification/stable 必须有一个 pending primary action；
+- 暂停/观察 = review primary action；暂停 review 必须 due_at；
+- pause_reason 仅解释；
+- closed 无 pending primary action。
+
+这样 Today 只需要消费 case_actions，不再维护第二套 `next_review_at`。
+
+---
+
+## 14. 保存可靠性 / 并发
+
+```text
+教师输入
+→ encrypted local draft
+→ 提交
+→ 云端确认
+→ synced
+→ 删除 local draft
+```
+
+- 未保存/保存中/已保存/失败清晰；
+- 简单 insert 重试复用 UUID；
+- DB command 使用 operation id；
+- credential 响应未知走 reissue，不保存 secret；
+- 关键快照 version/expected_version；
+- 冲突不静默覆盖。
+
+Realtime 只增强体验。
+
+---
+
+## 15. Storage
+
+Private bucket + `storage.objects` RLS。
+
+建议路径：
+
+```text
+{organization_id}/{student_id}/{object_type}/{uuid}.{ext}
+```
+
+- 不用姓名；
+- signed URL 短时、授权后生成、视作 bearer credential；
+- 不进日志；
+- 文件类型/大小限制；
+- DB metadata 与对象生命周期一致；
+- DB backup ≠ Storage backup。
+
+---
+
+## 16. Backup / Recovery
+
+Free Production 至少：
+- roles/schema/data DB dump；
+- 必要 migration history；
+- Storage objects + manifest；
+- Auth/Realtime/Extensions/Secrets 等配置清单；
+- 加密 off-site；
+- restore drill。
+
+Git migrations 不是业务数据备份。详见 `DISASTER_RECOVERY.md`。
+
+---
+
+## 17. GitHub / Work / CI
+
+```text
+Work/Codex
+→ feature/review branch
+→ Draft PR
+→ CI / real command evidence
+→ human review
+→ merge
+```
+
+Repo 必须 Private。GitHub Free private 没有付费级 branch protection 强制能力，所以零成本阶段靠 AGENTS + PR + 人工纪律，禁止 Work/Codex 直推 main。
+
+Actions budget 必须设置 Stop usage at limit；重型 Windows/Android build 只在 Milestone/Release。
+
+---
+
+## 18. Windows / Android 职责
+
+### Windows
+- 学生全景；
+- 深度 case；
+- 管理员治理；
+- 批量查看；
+- 后续报告/教研。
+
+### Android
+- 登录/Session；
+- Today；
+- 学生重点；
+- 快速 lesson；
+- evidence/intervention/assessment/new；
+- 30–60 秒课后记录。
+
+两端共享业务模型，不是简单拉伸同一布局。
+
+---
+
+## 19. 不采用
+
+- 每老师一库人工同步；
+- 微服务集群；
+- 全系统 Event Sourcing；
+- CRDT/offline-first；
+- 所有请求 Edge Function；
+- 所有业务逻辑 Flutter/Trigger；
+- Dashboard 作为 schema 源；
+- Password/Magic Link/OTP 多套主登录并存；
+- 需要付费 SMTP/SMS 才能登录；
+- fork 大型教育 ERP；
+- 为 0 元牺牲权限/恢复/隐私。
+
+---
+
+## 20. 技术 Go / No-Go
+
+真实学生数据前：
+- migrations 从空库重建；
+- live-session/RLS/GRANT/View/Function/Storage tests；
+- secure Session storage；
+- Startup Gate；
+- encrypted drafts；
+- onboarding/global sign-out/reset/expiry/reissue；
+- region/network tests；
+- DB+Storage restore drill；
+- GitHub Private + zero-overage budget；
+- 安装/升级路径；
+- 合规评估。
