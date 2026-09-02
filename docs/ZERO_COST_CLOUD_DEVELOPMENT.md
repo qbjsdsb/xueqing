@@ -14,7 +14,7 @@ ChatGPT Project：Xueqing｜学情闭环开发
 Private GitHub Repo
     ├─ source / docs / migrations
     ├─ branch / Draft PR / Issues
-    └─ GitHub Actions（免费额度 + 零超额 budget）
+    └─ GitHub Actions（免费额度 + 克制触发策略）
               ↓
 Supabase Local CLI
     └─ schema / RLS / DB tests / fake seed
@@ -257,19 +257,26 @@ Supabase Flutter v2 可能先读出本地 Session，而不保证它已经远端�
 
 ---
 
-## 11. GitHub Actions：免费 ≠ 绝不会扣费
+## 11. GitHub Actions：免费额度必须主动控制
 
-GitHub Free private 当前有月度免费 Actions 分钟/存储，但超出额度可能计费。
+GitHub Free private 当前有有限 Actions 分钟/存储；没有预算保护时更不能把“免费额度”理解成无限资源。
 
-必须：
-- Billing budget 启用 **Stop usage when budget limit is reached**；
-- PR 默认 Linux format/analyze/unit/Local DB/RLS/secret scan；
-- Windows/Android heavy build 仅 Milestone/Release/手动；
+### 当前明确决策
+
+用户于 2026-09-02 明确选择**暂不设置 Actions zero-overage budget**，并接受这一账户级计费风险。该设置不再作为 Foundation、Phase 0A 或真实数据 Go / No-Go 的硬阻塞项，详见 ADR-044。
+
+因此工程侧必须：
+- 普通 PR 与 `main` 默认 Linux：pub get / lockfile / format / analyze / unit/widget tests，Phase 0B 后再加入适合 Linux 的 Local DB/RLS checks；
+- 不让同一 feature commit 因 `push` + `pull_request` 重复跑同一套轻量 CI；
+- Windows / Android native build 仅 Milestone / Release / 手动；
 - 不用 larger runner；
 - artifact retention 短；
-- 无价值构建不上传 artifact。
+- 无价值构建不上传 artifact；
+- 发现异常 Actions 消耗时先停无价值 workflow，再决定是否继续。
 
-额度用尽就等重置/转本地执行，不自动付费。
+Phase 0A 已真实完成一次 Android + Windows 原生构建验证，之后把 native build workflow 改为 `workflow_dispatch` 手动触发。
+
+如果未来用户改变决定，可再启用 budget stop；在此之前不要反复把它列为“未完成阻塞项”。
 
 ---
 
@@ -315,7 +322,7 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构无法接受这个恢�
 确实需要时先问：
 1. 不用它 V1 是否真的做不成？
 2. Free 是否够？
-3. 超额是否自动扣费？
+3. 超额是否可能产生费用？
 4. 能否迁出？
 5. 是否触碰学生敏感数据？
 
@@ -328,6 +335,7 @@ Foundation Freeze
 → repo Private
 → merge Foundation PR
 → Flutter Windows/Android bootstrap
+→ Phase 0A.5 UX/UI Design Foundation
 → Local Supabase + migrations/RLS tests
 → secure Session/draft spike
 → Remote Dev region/network spike
