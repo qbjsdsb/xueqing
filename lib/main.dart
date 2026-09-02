@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
-import 'app/xueqing_app.dart';
+import 'bootstrap/app_bootstrap.dart';
+import 'bootstrap/bootstrap.dart';
+import 'bootstrap/error_handling.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const XueqingApp());
+  configureGlobalErrorHandling();
+  runApp(AppBootstrap(loader: bootstrapFoundation));
 }
