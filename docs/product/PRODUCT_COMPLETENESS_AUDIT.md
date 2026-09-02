@@ -15,11 +15,21 @@ Phase 0A.6 使用两层审计：实施主线 adversarial self-audit + 未参与�
 - 再做独立复审；
 - 不沿用旧 INTERNAL PASS。
 
+### Final-head evidence rule
+
+仓库文档**不写死“当前最终 SHA / CI run number”作为自我证明**，因为修改该证据文本本身会产生新的 Head，使证据立即过期。
+
+最终精确证据只记录在 PR / Issue 审计记录中，并必须满足：
+
+> **审计时 PR 的实际 latest Head SHA = 成功 CI 所验证的 commit SHA。**
+
+如果 Head 再变化，原 CI 自动失效，必须重新验证。
+
 ---
 
 ## 2. Independent Audit #1｜CHANGES REQUIRED
 
-独立模型对原 Head `2207290b329d3cd70737c6b5eb6d6a6a07025bea`、CI #99、Issue #11/#12、20 个 docs changed files 和实际 diff 重新验证后给出：
+独立模型对第一次独立审计时的 PR #13 最新状态、Issue #11/#12、20 个 docs changed files、实际 diff 和当时 CI 重新验证后给出：
 
 `CHANGES REQUIRED`
 
@@ -92,7 +102,7 @@ Subject Profile 同样。
 
 ## 3. 同类旁支扫尾
 
-独立审计修复过程中又检查并统一：
+独立审计修复过程中继续检查并统一：
 - Lesson start / complete / in-lesson facts 全部使用七项 Teaching Fact Gate；
 - active teacher assignment 必须匹配 active Profile；
 - Initial Diagnosis admin authorization 不绕过 Gate；
@@ -113,26 +123,24 @@ Subject Profile 同样。
 
 ---
 
-## 5. 当前最终证据状态
+## 5. 当前 Scope 结论
 
-修复后的当前候选 Head：
+Phase 0A.6 只允许 Foundation / product documentation 与必要领域事实源修订。
 
-`cca64a33ff08cd52b5f71862a28a78f06d888a1c`
-
-Scope：20 个 changed files，全部 `docs/**`；无 production migration/RLS/Auth/CRUD/Phase 0B implementation。
-
-当前新 CI：Flutter checks run #113，**截至本次文档更新仍在执行，尚不可作为 PASS 证据**。
-
-如果 Head 再变化，本节 SHA/CI 自动失效，必须以最新 Head 重新验证。
+最终合并前必须重新证明：
+- changed files 仍全部在允许的 docs scope；
+- 没有 production migration / RLS / Auth / real CRUD；
+- 没有真实 Student/Guardian data；
+- 没有 Phase 0B implementation。
 
 ---
 
 ## 6. 当前待办
 
-1. run #113 或最新 Head 对应 CI 全成功；
+1. 修复后的**实际 latest PR Head** 对应正式 CI 全成功；
 2. 核关键 steps：packages / lockfile / format / analyze / tests；
-3. PR / Issue #12 绑定同一最终 Head/CI；
-4. 独立模型重新读取最新 PR、diff、Issue #11/#12、CI；
+3. PR / Issue #12 记录精确 final Head/CI（不再修改 branch 文档）；
+4. 独立模型重新读取 latest PR、diff、Issue #11/#12、CI；
 5. 最终只接受：
 
 `PASS — READY FOR MERGE`
