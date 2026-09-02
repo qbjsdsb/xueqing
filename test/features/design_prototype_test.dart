@@ -112,6 +112,7 @@ void main() {
             .hasAction(SemanticsAction.tap),
         isTrue,
       );
+      await tester.ensureVisible(viewCaseButton);
       await tester.tap(viewCaseButton);
       await tester.pumpAndSettle();
       expect(find.text('Assessment / Verification'), findsWidgets);
