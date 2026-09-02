@@ -1,342 +1,384 @@
 # 安全、隐私与恢复基线
 
-> V1 最低安全门槛。系统涉及未成年学生信息，任何功能不得以“先跑起来”或“为了免费”为理由绕过这些要求。
+> 系统会处理未成年学生信息。V1 可以零额外付费，但不能用“先跑起来”或“免费”作为降低权限、备份、设备安全和隐私门槛的理由。
 
 ## 1. 数据最小化
 
-只收集完成教学目的真正需要的数据。
+只收集完成教学闭环真正需要的信息。
 
-### A. 身份与联系信息（高敏感）
-- 学生姓名
-- 家长姓名与联系方式
-- 教师邮箱/联系方式
-- 学校、班级等可组合识别信息
+### 身份/联系（高敏感）
+- 学生姓名；
+- 家长姓名/联系方式；
+- 教师邮箱/联系方式；
+- 学校、班级等组合识别信息。
 
-### B. 教学与学情信息（敏感）
-- 学情案例
-- 作业、试卷、作文、测验
-- 课堂观察
-- 家校沟通
-- 成长报告
+### 教学/学情（敏感）
+- 学情案例；
+- 作业、试卷、作文、测验；
+- 课堂观察；
+- 家校沟通；
+- 成长报告。
 
-### C. 系统元数据
-- Auth User ID
-- organization / membership / role / assignment ID
-- 操作时间与对象 ID
+### 系统元数据
+- Auth User ID；
+- organization / membership / role / assignment ID；
+- operation id、时间戳、App version。
 
-开发、测试、截图、seed 仅使用明显虚构数据。
+开发、测试、截图、seed 只用明显虚构数据。不因“以后也许有用”收集无关家庭、健康、身份背景等敏感信息。
 
-不要因为“以后可能有用”收集与教学目的无关的家庭、健康、身份背景等敏感信息。
+---
 
-## 2. Password Auth 与机构授权安全边界
+## 2. Auth ≠ 业务授权
 
-V1 采用管理员受控开通 + Password，但登录身份与业务权限仍彻底分离。
+普通业务访问至少要求：
+- JWT 可识别当前 user；
+- JWT `session_id` 对应的 `auth.sessions` 记录仍存在；
+- membership = active；
+- organization 一致；
+- role / assignment 允许该操作。
 
-关键原则：
-- Auth Session 不等于机构权限；
-- 无 membership 不能读机构业务数据；
-- membership = onboarding 不能读普通业务数据；
-- membership = disabled 不能读普通业务数据；
-- 只有 active membership 才进入 roles/assignments/RLS；
-- 密码 reset 后 membership 回 onboarding，使旧 Session 也失去业务权限。
+无 membership、onboarding、disabled、revoked session 都不能读取普通学生业务。
 
-不能只依赖 JWT 中的旧角色声明判断 active 状态。
+不能只相信 JWT 中可能陈旧的角色/metadata；权限事实源是数据库 membership / roles / assignments。
 
-## 3. 临时密码安全
+---
 
-管理员开通/重置账号时产生临时凭据。
+## 3. 为什么检查 live Session
 
-要求：
-- 服务端使用安全随机源生成；
-- 不使用固定默认密码；
-- 不写 PostgreSQL 业务表；
-- 不写 audit；
-- 不写 console/server/error-tracking 日志；
-- 不写 GitHub Issue/PR；
-- 只在成功响应中返回一次；
-- 管理员通过已建立身份关系的可信渠道一次性交付；
-- 教师首次登录后完成自己的新密码接管。
+Supabase global sign-out 会撤销 Session/Refresh Token，但已签发的 Access Token 在自身 `exp` 前仍可能存在。JWT 的 `session_id` 可以与 `auth.sessions` 对应；Session 行不存在即表示该 Session 已退出。
 
-生产日志/监控的“请求 body 自动记录”必须避免抓取 credential payload。
+V1 对学生敏感数据因此增加 live-session guard。
 
-## 4. Credential 高权限操作
+实现要求：
+- 非 exposed helper；
+- `security definer` 时固定 `search_path = ''`；
+- schema-qualified；
+- 最小 execute；
+- revoked JWT 的自动化负面测试；
+- 用 EXPLAIN/真实负载确认性能，不因性能优化移除安全语义。
+
+---
+
+## 4. 临时凭据与账号接管
 
 ### `provision_member`
-- 只有有权 org_admin 可调用；
-- Secret/service_role 仅在可信服务端；
-- 创建/处理 Auth User 后只创建 onboarding membership；
-- 失败不应留下错误 active 权限。
+- 只有有权 org_admin；
+- Secret/service_role 仅可信服务端；
+- 服务端安全随机生成临时密码；
+- membership 初始 onboarding；
+- 设置 `onboarding_expires_at`；
+- 密码只在成功响应显示一次；
+- 不写 DB/audit/log/error tracking/GitHub。
+
+### 临时凭据不是永久密码
+- 通过已建立身份关系的可信渠道交付；
+- 有短有效期；
+- 过期只能 reissue；
+- 不开放“找回原临时密码”；
+- 响应丢失时生成新凭据，而不是保存旧明文满足幂等。
 
 ### `complete_member_onboarding`
-- 只能更新当前 Session 自己的凭据；
-- 先完成 Auth 密码更新，再允许 membership active；
-- 半失败优先收敛到无业务权限状态；
-- 新密码不进入日志。
+安全顺序：
+1. 验证当前 user/session + onboarding + 未过期；
+2. 更新当前用户自己的密码；
+3. global sign-out 所有 Session；
+4. 成功后 membership→active；
+5. 强制重新登录；
+6. live-session guard 拒绝所有被撤销旧 JWT。
+
+任何半失败都优先停在 onboarding。
 
 ### `reset_member_credential`
-- 管理员先按机构制度确认本人；
-- 生成新随机临时密码；
-- membership → onboarding；
-- 旧 Session 立刻因 RLS 失去业务权限；
-- 写审计，但审计不记录密码。
+1. 管理员核验本人；
+2. **先 membership→onboarding**，切断学生业务；
+3. 再生成/更新临时密码；
+4. 刷新 onboarding 有效期；
+5. 不记录密码；
+6. 教师重新完成 onboarding。
 
-Auth 和业务数据库不是同一事务域，所以实现需要明确失败恢复和幂等，而不是假设“一个 Edge Function 天然原子”。
+---
 
-## 5. 自由文本风险
+## 5. 客户端 Session 存储
 
-最容易泄露隐私的地方往往是备注，而不是结构化字段。
+`supabase_flutter` 默认会把 Session 持久化到 SharedPreferences 系列存储。Production 涉及学生数据时，Phase 0 必须替换为自定义安全 `LocalStorage`：
 
-因此：
-- Observation 强调可观察事实；
-- 家校沟通只保存必要摘要；
-- 不鼓励长期复制聊天全文；
-- 不把人格判断、未经证实的健康/家庭推断写成正式学情；
-- UI 提示避免输入无关敏感信息。
+- Session/Refresh Token 使用 OS 受保护存储；
+- Android 使用 Keystore 体系或经过审计的安全封装；
+- Windows 使用系统受保护凭据/等价安全封装；
+- 可参考 `flutter_secure_storage` 等开源实现，但在正式选型前验证 Windows + Android 当前版本行为；
+- Token 不进入普通 Preferences、日志、crash dump；
+- **密码不本地持久化**。
 
-## 6. 客户端密钥边界
+库选择在 Phase 0 写 ADR，不能因为“默认能跑”就直接进 Production。
 
-Flutter 只允许持有 Supabase Publishable Key（或旧项目 anon key）。它是公开客户端凭据，安全依赖 RLS/GRANT，而不是“把 key 藏起来”。
+---
 
-客户端绝不得包含：
-- Secret Key
-- service_role
-- 数据库密码
-- 临时/正式用户密码的持久化副本
-- SMTP Secret
-- AI/第三方私钥
+## 6. App 启动授权 Gate
 
-高权限凭据只放受信任服务端环境。
+`supabase_flutter` v2 初始化可能先读出本地 Session，而不保证它已完成远端刷新或仍有效。
 
-## 7. 数据库访问
+因此启动时：
+1. 初始化 Auth；
+2. 判断本地 Session 过期/刷新状态；
+3. 必要时等待 token refresh / 远端验证；
+4. 解析 live Session；
+5. 解析 active membership + current organization；
+6. **最后**挂载业务 Shell。
 
-所有客户端业务表：
+禁止出现“旧 Session 先显示一瞬间学生页面，然后才被踢回登录”的隐私闪现。
+
+---
+
+## 7. 本地临时草稿也是敏感数据
+
+网络失败恢复不能变成“把学生正文长期明文留在电脑/手机”。
+
+Phase 0 必须证明：
+- 草稿按 `{user_id, organization_id}` 隔离；
+- 需要跨重启恢复的正文在本地**加密存储**；
+- 加密 key 放 OS 安全存储，不和密文同文件；
+- 不存密码、Token、Secret；
+- 同步成功后及时删除；
+- 有 TTL / 清理策略；
+- 切换账号绝不展示上一账号草稿；
+- membership disabled / 授权失效后清理或锁定相关草稿；
+- 主动 logout 时若有未同步草稿，先清楚提示“同步 / 丢弃”，不能静默跨账号保留。
+
+若加密持久化尚未完成，只允许内存临时输入，不应把敏感正文用普通 Preferences/明文文件实现“伪离线”。
+
+---
+
+## 8. 客户端密钥边界
+
+Flutter 只能包含客户端 Publishable Key。它不是 Secret，安全依赖 RLS/GRANT。
+
+客户端绝不能包含：
+- Secret/service_role；
+- 数据库密码；
+- SMTP/AI/第三方私钥；
+- 临时/正式用户密码副本；
+- Production backup credential。
+
+Auth Admin 方法只在可信服务端。
+
+---
+
+## 9. 数据库 / RLS / Function
+
+客户端业务表：
 1. 显式 RLS；
 2. 最小 GRANT；
-3. SELECT / INSERT / UPDATE / DELETE 分别验证；
-4. 跨机构默认拒绝；
-5. 敏感跨学科默认拒绝；
-6. 普通业务要求 membership = active；
-7. 高频 RLS 字段建立索引。
-
-前端隐藏按钮不是安全控制。
-
-## 8. View 与 Function
+3. SELECT/INSERT/UPDATE/DELETE 分别验证；
+4. active + live session；
+5. 跨机构默认拒绝；
+6. 敏感跨学科默认拒绝；
+7. 高频 policy 字段有合理索引。
 
 ### View
-客户端暴露 View：
-- 优先 `security_invoker = true`；
-- 或放非 exposed schema / 受控函数；
-- 单独做越权测试。
+优先 `security_invoker = true`；否则非 exposed / 受控函数。单独越权测试。
 
-### Database Function
-默认 `security invoker`。
-
-确需 `security definer`：
+### Function
+默认 `security invoker`。必须 `security definer` 时：
 - 非 exposed schema；
 - `set search_path = ''`；
 - schema-qualified；
-- revoke 默认 execute，再最小 grant；
-- 必须有越权测试。
+- revoke 默认 execute；
+- 最小 grant；
+- live-session/cross-org 等负面测试。
 
 ### Edge Function
-持有 Auth Admin/Secret 的 Edge Function：
-- 每次验证调用者 Session；
-- 验证 organization 和能力；
-- 不因为运行在服务端就默认可信输入；
-- 不记录 credential 明文。
+- 每次验证调用者；
+- 再验证 organization/capability；
+- 不信任客户端传来的 user_id/organization_id；
+- credential body 不进日志；
+- 不把“运行在服务端”当成自动安全。
 
-## 9. 多租户隔离
+---
 
-- 机构数据明确 `organization_id`；
-- active membership 是机构访问第一道业务条件；
-- teacher 继续检查 student/subject assignment；
-- advisor 检查 staff assignment；
-- 跨机构请求数据库层拒绝；
-- 冗余 organization_id 防止跨机构错配。
+## 10. Storage
 
-Auth User 的存在、JWT 的存在、onboarding membership 的存在都不能替代 active membership 检查。
+附件默认 Private bucket。
 
-## 10. 高权限与不变量操作
+要求：
+- `storage.objects` policy 与组织/学生/角色边界一致；
+- 上传前后都校验当前 active/live member；
+- 路径使用 organization/student/UUID，不用姓名；
+- 限制大小与允许类型；
+- signed URL 短时有效，视为 bearer credential，不写日志/公开聊天；
+- 只在当前请求已授权后生成 signed URL；
+- 业务代码通过 Storage API，不直接把 Storage 内部表当普通业务表随意写；
+- DB metadata 删除与对象删除要有受控流程；
+- Free 1GB 不是扫描件仓库，大附件严格节制。
 
-受控操作包括：
-- 首位 org_admin bootstrap；
-- provision / onboarding / credential reset；
-- 角色提升；
-- teacher handoff + disable；
-- 学生合并；
-- 数据导出/删除；
-- 未来需要 Secret 的第三方集成。
+数据库 backup 不包含文件本体。
 
-都必须再次验证 actor、organization、状态与参数。
+---
 
-## 11. 审计
+## 11. 自由文本
 
-记录关键治理动作：
-- actor user/membership；
-- organization；
-- entity type/id；
-- action；
-- changed fields；
-- operation id；
-- occurred_at。
+- 记录可观察教学事实；
+- 家校只保存必要摘要；
+- 不长期复制完整微信聊天；
+- 不把未经证实的家庭/健康推断写成正式标签；
+- UI 提示不要输入与教学无关的敏感信息。
 
-Credential audit 只记录“开通/完成接管/重置发生过”，不记录密码。
+---
 
-不要把 audit_logs 变成第二份学生敏感正文数据库。
+## 12. 审计与日志
 
-`case_events` 与 `audit_logs` 原则上 append-only。
+Audit 记录：actor、organization、entity、action、changed fields、operation id、时间。
 
-## 12. 删除、归档与更正
+禁止记录：
+- Password/临时密码；
+- Access/Refresh Token；
+- Authorization header；
+- Secret；
+- 完整家校正文；
+- 完整作文/试卷；
+- 无必要姓名/联系方式。
 
-- 教师离职：disable membership，不删除历史；
-- 学生退班：归档；
-- 普通教师不硬删除核心事实；
-- 误录通过更正事件/归档语义处理；
-- 学生合并保留 merge mapping；
-- 真正个人信息删除/导出走管理员数据治理流程。
+Credential audit 只记“开通/接管/重置发生过”和结果类别，不记秘密。
 
-不要把日常“删除按钮”直接映射成跨表 cascade delete。
+---
 
-## 13. Storage
+## 13. 删除、归档与人员变化
 
-附件默认私有 bucket：
-- 不公开 bucket；
-- 授权访问或短时签名 URL；
-- 路径含 organization_id + 不可猜测 UUID；
-- 不用真实姓名做公开路径；
-- 限制文件类型/大小；
-- 后续按需要评估恶意文件扫描。
+- 教师离职：交接后 disabled，不删除历史；
+- 学生退班：archived；
+- 重复学生：merge，保留映射；
+- 普通教师不硬删核心事实；
+- 真正个人信息导出/删除走管理员治理流程；
+- 日常删除按钮不等于 cascade delete。
 
-DB 记录删除与 Storage 对象删除走受控一致性流程。
+---
 
-V1 使用 Free Storage 时应严格控制大附件，避免把系统变成原始扫描件仓库。
+## 14. 环境隔离与 Region
 
-## 14. 环境隔离
-
-明确：
+环境：
 - Local Development：虚构数据；
-- Remote Development：虚构数据/真实集成；
-- Production Pilot：真实机构数据。
+- Remote Development：虚构数据 + 公网/双设备验证；
+- Production Pilot：真实数据。
 
-Production 与开发环境不共享数据库、Storage、Secret、测试账号。
+Production 不共享 DB/Storage/Secret/测试账号，不跑 development seed/reset。
 
-Schema/RLS 等正式变化必须进入 Git migrations。
+### Region 是上线前决定，不是随手选
 
-Production 禁止 development reset/seed。
+Supabase project 建立后绑定 region，换 region 需要新项目迁移。当前 APAC 可选 Singapore、Tokyo、Seoul 等，但没有中国大陆 region。
 
-## 15. 日志与错误上报
+因此在创建 Production Pilot 前：
+- 用虚构 Remote Development 在**实际机构 Wi‑Fi、普通手机网络、无代理/VPN**环境测试；
+- 测 Password Auth、Data API、Storage 上传/下载、Edge Functions、网络切换与恢复；
+- 网络不可接受时，先重建 Remote Development 到另一 APAC region 再测；
+- 只在测试后创建 Production region；
+- 真实未成年人数据的数据驻留/跨境处理必须由机构做单独合规评估；region 选择本身不是合规证明。
 
-不得记录：
-- Password / 临时密码
-- Access/Refresh Token
-- Authorization header
-- Secret
-- 完整家校沟通
-- 完整作文/试卷
-- 不必要学生姓名/联系方式
+---
 
-优先记录：错误码、operation id、对象 UUID、App version、调用路径。
-
-## 16. 备份与恢复：Free Tier 仍是硬要求
-
-### PostgreSQL
-Supabase Free 不具备付费计划同等级的自动备份保障，因此：
-- 定期 `supabase db dump` / `pg_dump`；
-- 加密离站保存；
-- 保留多个时间点；
-- 定期实际恢复演练。
-
-### Storage
-数据库备份不等于附件备份。
-
-需要：
-- 对象清单；
-- 文件备份；
-- 抽样恢复；
-- DB path ↔ Storage object 一致性检查。
-
-### Git / Schema
-GitHub 保存代码和 migrations，但 migrations 不替代业务数据备份。
-
-备份“存在”不等于可恢复；恢复演练才是证据。
-
-## 17. 网络与可用性
-
-真实机构上线前测试：
-- Password 登录；
-- provision / onboarding / reset；
-- reset/disable 后旧 Session；
-- 常规读写；
-- 图片上传；
-- Functions；
-- 长时间 Session；
-- Wi-Fi/移动网络切换；
-- 断网/恢复后的草稿。
-
-不能只在开发者自己的网络环境判断可上线。
-
-## 18. 客户端保存状态
-
-高频表单至少有：
-- 未保存
-- 保存中
-- 已保存
-- 保存失败/可重试
-
-网络失败不得丢输入；本地 draft 只用于待提交恢复，不是第二套正式数据库。
-
-## 19. GitHub / ChatGPT 云端开发隐私
+## 15. GitHub / ChatGPT 云端开发隐私
 
 - 仓库进入真实开发前必须 Private；
-- Private 不等于可以提交真实学生数据；
-- ChatGPT Work/Codex 任务只使用完成开发所需的最小信息；
-- 不把真实账号凭据、学生试卷、家校正文粘到 Issue/PR/开发 seed；
-- GitHub 是代码事实源，聊天历史不是；
-- 云端 Agent 不能运行测试时必须明确“未执行”，不能伪造执行结果。
+- Private 也禁止提交真实学生数据/凭据；
+- Work/Codex 只提供完成任务所需最小上下文；
+- Issue/PR/seed/screenshot 使用虚构数据；
+- GitHub 是代码事实源，聊天不是；
+- Agent 没跑命令就必须明确“未执行”。
 
-## 20. 免费额度与成本安全
+GitHub Free 私有仓库不能依赖付费级 branch protection/ruleset 来强制流程，因此零成本阶段用：
+- AGENTS 硬规则；
+- 任务分支 + Draft PR；
+- 人工只合并有真实执行证据的 PR；
+- Work/Codex 不直接推 main。
 
-本阶段不新增：
-- SMTP/域名/SMS；
-- Supabase Pro/add-on；
-- AI API；
-- 商业错误追踪/分析 SaaS；
-- GitHub larger runner；
-- Work/Codex 额外 credits。
+以后升级 GitHub 计划再开启平台强制保护。
 
-免费额度接近上限时先限制/评审，不开启自动超额付费。
+---
 
-但“免费”不能成为关闭 RLS、删除备份、复用弱密码或省测试的理由。
+## 16. 备份与恢复
 
-## 21. 安装包与签名
+Free Tier 不含付费级自动日备份保障。
+
+数据库最小逻辑备份集：
+- `roles.sql`
+- `schema.sql`
+- `data.sql`
+- 必要时单独保存 `supabase_migrations` 历史
+
+备份必须：
+- 加密离站；
+- 保留多个时间点；
+- 不提交 GitHub；
+- 记录 App/schema 版本；
+- 实际恢复到非 Production 环境。
+
+Storage：单独备份文件、bucket/object manifest，并抽样恢复。
+
+Edge Functions 代码在 Git，但 Auth 设置、API Keys、Realtime/扩展、Secrets 等还需要独立“可重建配置清单”。
+
+恢复“有文件”不算完成，**恢复演练成功**才是证据。
+
+详细见 `DISASTER_RECOVERY.md`。
+
+---
+
+## 17. 零成本与计费安全
+
+本阶段不新增：SMTP/域名/SMS、Supabase Pro/add-on、AI API、商业监控、larger runner、Work/Codex extra credits。
+
+GitHub Actions private Free 有免费分钟，但超出额度可能计费；必须设置 budget 并启用 **Stop usage when budget limit is reached**，同时避免每个 commit 跑 Windows/Android 重构建。
+
+Supabase Free 接近容量/业务可靠性边界时先评审，不自动升级。
+
+---
+
+## 18. 安装与设备
 
 ### Android
 - keystore 不进 GitHub；
-- 安全备份；
-- 不以 Debug 包长期生产分发。
+- 独立安全备份；
+- 不长期分发 Debug build。
 
 ### Windows
-- 明确安装/升级渠道；
-- 正式部署后评估代码签名需求，降低安装警告和篡改风险。
+- Pilot 可走受控内部发行，不把付费代码签名证书作为 V1 硬依赖；
+- 仍要明确版本、哈希/来源、升级路径；
+- 未来广泛分发时再评估公信代码签名。
 
-## 22. 真实数据 Go / No-Go
+---
 
-至少完成：
-- GitHub 仓库已 Private；
-- Local / Remote Development / Production 隔离；
-- migrations 从空库重建；
-- RLS/GRANT/View/Function 越权测试；
-- Auth User 无 active membership 无业务权限；
-- onboarding/disabled 旧 Session 无业务权限；
-- Windows/Android provision/onboarding/reset 测试；
-- 临时密码不进入 DB/log/audit/GitHub；
-- 网络失败输入恢复与幂等；
-- 教师交接演练；
-- 学生合并/查重治理；
-- DB dump + 恢复演练；
-- Storage 恢复方案；
-- 日志无 Password/Token/Secret/敏感正文；
-- 实际机构网络测试；
-- 安装/升级路径；
-- GitHub Actions 与 Supabase 使用量不会自动产生额外费用；
-- 根据部署地区完成未成年人个人信息、机构授权与数据合规评估。
+## 19. 管理员 Break-glass
+
+无 SMTP 的 Password 模式不能让唯一管理员忘记密码后全机构锁死。
+
+真实 Pilot 前至少：
+- 两名独立可信 org_admin；或
+- 已演练的 Supabase Project Owner break-glass 恢复步骤。
+
+break-glass 使用后要复核角色、撤销临时凭据并留治理记录。
+
+---
+
+## 20. 真实数据 Go / No-Go
+
+以下关键项必须全部通过：
+- [ ] GitHub 已 Private
+- [ ] Local / Remote Development / Production 隔离
+- [ ] Production region 已通过无代理真实机构网络测试
+- [ ] migrations 从空库重建
+- [ ] live-session + active membership RLS 负面测试
+- [ ] global sign-out 后旧 JWT 立即无法业务访问
+- [ ] onboarding expiry / reissue / 响应丢失路径验证
+- [ ] Session 使用安全本地存储
+- [ ] App 启动不会闪现失效 Session 的业务数据
+- [ ] 本地敏感 draft 加密、分用户/机构、TTL/清理验证
+- [ ] 网络失败草稿恢复与幂等
+- [ ] Storage policy / signed URL 边界测试
+- [ ] 教师交接、学生合并治理验证
+- [ ] DB roles/schema/data dump + 实际恢复演练
+- [ ] Storage 独立备份/恢复抽测
+- [ ] 两个管理员或 break-glass 已验证
+- [ ] 日志无 Password/Token/Secret/敏感正文
+- [ ] 安装/升级路径明确
+- [ ] GitHub Actions budget 不会自动超额付费
+- [ ] Supabase Free 使用量适合 Pilot
+- [ ] 部署地区的未成年人信息、数据驻留/跨境等合规评估完成
+
+任一关键项未满足，只使用虚构/脱敏数据。
