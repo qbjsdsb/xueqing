@@ -17,7 +17,7 @@
 - repository：`qbjsdsb/xueqing`
 - visibility：**Private**
 - Wiki：**已关闭**
-- Template repository：**仍开启（`is_template=true`）**
+- Template repository：**已关闭（用户已在 GitHub 设置中完成）**
 - Foundation branch：`review/foundation-v0.3`
 - PR #1：open + Draft
 - branch 相对 `main`：ahead，behind = 0
@@ -26,12 +26,10 @@
 
 ### 仍需人工处理的 GitHub 设置
 
-- [ ] 关闭 **Template repository**
+- [x] Template repository 已关闭
 - [x] Wiki 已关闭
 - [x] repository 已 Private
 - [ ] 确认 GitHub Actions billing budget 为超额停止
-
-Template 开关不影响代码正确性，但本项目不是模板，继续开启没有收益，容易造成后续误操作。
 
 ---
 
@@ -288,13 +286,13 @@ V1 不做：收费 / 课消 / 招生 CRM、完整排课 ERP、大型题库、学
 - [x] open-source 借鉴边界
 - [x] repository Private
 - [x] Wiki 关闭
+- [x] Template repository 关闭
 - [x] branch behind main = 0
 - [x] 当前无 CI green 可声称这一事实明确
 - [x] README / ROADMAP / SECURITY / RISKS / PR 描述同步到最新规则
 
 ## 仍需人工设置
 
-- [ ] 关闭 Template repository
 - [ ] 确认 Actions zero-overage budget
 
 ## Phase 0 才能证明
@@ -337,6 +335,6 @@ Flutter Windows / Android build
 
 ## 最终判断
 
-除 **Template repository** 与 **Actions budget** 这两个 GitHub 设置项外，Foundation 设计审计已经没有继续扩写理论的高价值空间。
+除 **Actions budget** 这一项 GitHub 账户级设置仍需人工确认外，Foundation 设计审计已经没有继续扩写理论的高价值空间。
 
-完成最后只读 diff / keyword scan 后，如无新的硬冲突，Foundation v0.3 应冻结并进入 Phase 0，而不是继续增加架构文档。
+下一步应冻结 Foundation v0.3，并进入 Phase 0，用真实 build / migration / RLS / Auth / restore 证据验证设计，而不是继续增加架构文档。
