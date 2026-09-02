@@ -454,9 +454,10 @@ Flutter Windows + Android 能否合理实现，是否为了设计稿引入大量
 
 当前状态：Phase 0A.5 的审计修复与自审已完成，等待下一轮独立复审。PR #9 保持 Draft/Open，Issue #6 保持 Open；本状态不授权进入 Phase 0B。
 
+正式 CI 证据：最终 PR Head `0caa982b552b224d79c73e59260719da1e6974f9` 对应 GitHub Actions [`Flutter checks` run #60](https://github.com/qbjsdsb/xueqing/actions/runs/33623999098)，`flutter pub get`、lockfile consistency、只读 formatter check、`flutter analyze` 和 `flutter test` 全部成功。
+
 本次修复特别锁定以下事实：
 
 - Case status 只使用 `new → confirmed → intervening → pending_verification → stable → closed`；`reopen` 只作为 command/event/timeline fact。
 - Today 的 `overdue`、`today`、`future`、`undated` 与 Case 级 `pending verification` 互斥；future fixture 和 widget test 是可执行证据。
 - prototype 的 Case 状态命令只展示设计预览提示，不伪造领域状态变化；Android 关键触控目标统一由 `AppSpacing.touchTarget = 48dp` 提供。
-
