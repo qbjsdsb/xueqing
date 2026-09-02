@@ -1,21 +1,21 @@
 # AGENTS.md
 
-本文件是 ChatGPT Work、Codex 与后续开发者的**硬约束索引**。详细设计以 `docs/` 对应专题文档为准；不要在代码里静默推翻已接受 ADR。
+本文件是 ChatGPT Work、Codex 与后续开发者的**硬约束索引**。详细语义以 `docs/` 对应专题和已接受 ADR 为准。不得在代码中静默改方向。
 
 ## 1. 优先级
-
-从高到低：
 
 1. 数据正确与权限安全
 2. 学生历史连续
 3. 教师高频流程低负担
-4. 保存可靠
+4. 保存/恢复可靠
 5. 可追溯
 6. 可维护
-7. 零额外付费 V1 约束
+7. 零额外付费 Pilot 约束
 8. 功能数量
 
-本项目不是 Excel 网页化、传统填表教务系统、收费排课 CRM，也不是为了展示 AI 的 Demo。
+本项目不是 Excel 网页化、传统教务 ERP、收费排课 CRM，也不是 AI Demo。
+
+---
 
 ## 2. V1 边界
 
@@ -27,217 +27,214 @@
 
 家校、报告进入 V1.1。
 
-V1 暂不做：收费排课 CRM、大型题库、成绩预测/学情综合分、家长/学生独立 App、AI 自动正式诊断、Google Docs 式协同、复杂离线多主同步、庞大知识图谱、自助 SaaS 注册。
+V1 暂不做：收费/课消/招生 CRM、完整排课、大型题库、学情综合分、成绩预测、家长/学生独立 App、自助 SaaS 注册、AI 自动正式诊断、Google Docs 式协同、复杂 offline-first/CRDT、庞大知识图谱。
 
-## 3. 不可违反的业务规则
+---
+
+## 3. 业务铁律
 
 - 同一机构一个真实学生只有一份主档案；姓名不是唯一键。
-- 升年级、换老师、换班/校区必须保留历史。
-- 任课教师关系与学管/班主任关系分开建模。
-- 教师离职不得删除历史教学事实。
-- `new` 是 10–20 秒快速捕捉草稿；不要把完整诊断表单重新塞回课中。
-- `confirmed` 开始必须满足正式分类、有效 owner、最小 evidence、主行动或 pause reason。
-- assessment passed 不自动等于 stable/closed。
-- 周度、长期问题提示、阶段指标优先派生，不重复录入。
-- “今日”由 case_actions/待验证驱动，不以完整排课为前提。
-- AI 只做草稿/建议，不静默修改正式学情。
+- 升年级、换老师、换班/校区保留历史。
+- 任课教师与学管/班主任关系分开。
+- 离职不删除历史事实。
+- `new` 是 10–20 秒快速捕捉，不把完整诊断表塞回课堂。
+- assessment passed 不自动 stable/closed。
+- 周度/长期问题/阶段指标优先派生。
+- Today 由 case_actions 驱动，不依赖完整排课。
+- AI 只做 draft/建议，不静默修改正式学情。
 
-详细语义：`docs/PRODUCT.md`、`docs/USER_FLOWS.md`、`docs/COMMANDS_AND_INVARIANTS.md`。
+### 正式 Case 永远有下一步
+- new 可没有行动；
+- confirmed/intervening/pending_verification/stable 必须有一个 pending primary action；
+- 暂缓 = `review` primary action + `due_at`；`pause_reason` 只解释；
+- closed 不得有 pending primary action。
 
-## 4. V1 Auth 与机构权限
+---
 
-V1 首选 **管理员受控开通 + Password + onboarding membership**，不把 Email OTP/SMTP 作为硬依赖。
+## 4. Auth / Session / Membership
 
-- 不开放公网自助注册。
-- org_admin 通过受信任 `provision_member` 开通已知教师。
-- 服务端生成高强度临时密码；绝不写入 DB、日志、audit 或 GitHub。
-- 新 membership 先是 `onboarding`。
-- onboarding Auth User 可以登录，但普通机构业务 RLS 必须拒绝。
-- 完成 `complete_member_onboarding` 设置自己的新密码后，membership → active。
-- 只有 active membership 才进入业务授权链。
-- 管理员重置凭据后 membership 回 onboarding，使旧 Session 立即失去业务数据权限。
-- disabled membership 即使旧 Token 尚有效也必须被 RLS 拒绝。
-- 权限事实源是 membership / roles / assignments，不是 `user_metadata`。
+V1：管理员受控开通 + Password + onboarding。
 
-Email OTP 可在以后有可靠邮件基础设施时替换登录 UX，但不能重写 membership 权限模型。
+- 不开放公网注册。
+- 临时密码强随机、短有效期，只显示一次，不进 DB/log/audit/GitHub。
+- membership 初始 onboarding，普通业务 RLS 全拒绝。
+- `complete_member_onboarding`：更新密码 → global sign-out 所有 Sessions → 成功后 active → 强制重新登录。
+- 普通业务授权还必须验证 JWT `session_id` 对应 `auth.sessions` 仍存在。
+- `reset_member_credential`：**先 membership→onboarding，再更新 Auth 密码**。
+- provision/reset 响应丢失：reissue 新密码，绝不保存旧明文满足幂等。
+- onboarding 必须有 `onboarding_expires_at`；过期只能 reissue。
+- disabled / revoked Session 即使 JWT 尚未到 `exp` 也不能访问业务。
+- 权限事实源是 membership / roles / assignments，不是 user_metadata。
+- 真实 Pilot 至少两个可信 org_admin，或已演练 break-glass。
 
-详细规则：`docs/AUTH_AND_PERMISSIONS.md`。
+详见 `docs/AUTH_AND_PERMISSIONS.md`。
 
-## 5. 技术边界
+---
 
-### Flutter
+## 5. Flutter 客户端安全
+
 - Windows + Android 优先。
-- View / ViewModel / Repository / Service 职责分层，UI 可按 feature 组织。
-- Widget 不承载复杂查询、权限、事务或状态机。
+- View / ViewModel / Repository / Service 职责分离；UI 可 feature-oriented。
+- Widget 不拼复杂权限、事务或表查询。
 - 不允许页面散落 `Supabase.instance.client.from(...)`。
-- Repository/Service 必须可 fake/test。
-- 优先参考 Flutter 官方 `compass_app` 的多环境、Repository/Service、测试模式；不要为架构而制造空层。
+- Repository/Service 可 fake/test。
+- 优先参考 Flutter 官方 `compass_app`，不要为“Clean Architecture”造空层。
 
-### Supabase
+### Session
+- Production 不使用默认 SharedPreferences Session 存储作为最终方案；
+- Supabase custom `LocalStorage` + OS secure storage；
+- Password 不本地持久化；
+- App 启动通过 Session/live membership Gate 后才能挂业务 Shell；
+- expired/revoked/disabled 不得闪现学生页。
+
+### Draft
+跨重启敏感 draft：
+- 加密；
+- key 在 OS secure storage；
+- user/org scope；
+- TTL；
+- sync 后清除；
+- account switch 不串数据；
+- 不存 Token/Password。
+
+---
+
+## 6. Supabase / 数据库
+
 - PostgreSQL + Auth + Storage + RLS。
-- 普通授权读写可走 Data API。
-- 需要 Secret/Auth Admin 的操作走可信服务端。
-- 事务性多表命令可使用受控 Database Function。
-- Flutter/Supabase 测试优先 fake/local/`supabase_testing`，不让所有测试依赖 Remote Development。
-
-### Secret
-Flutter/GitHub 绝不包含：Secret Key、service_role、数据库密码、临时/正式用户密码、SMTP/AI/第三方私钥。
-
-## 6. 环境与 Migration
-
-必须区分：
-- **Local Development**：Supabase CLI、虚构 seed、schema/RLS/tests；
-- **Remote Development**：一个 Supabase Free Project，仅虚构数据，用于 Auth/Storage/Functions/Windows+Android 公网联调；
-- **Production Pilot**：第二个 Supabase Free Project，真实数据前通过发布门槛。
-
-`supabase/migrations` 是 schema / RLS / View / Function / Trigger / Index 的正式事实源。
-
-禁止：
-- 只在 Dashboard/SQL Editor 改结构而不回写 migration；
-- Production 执行 development reset/seed；
-- Development/Production 共用 Secret、数据库、Storage 或测试账号。
-
-详细流程：`docs/DEVELOPMENT_WORKFLOW.md`、`docs/ZERO_COST_CLOUD_DEVELOPMENT.md`。
-
-## 7. 数据库与权限硬规则
+- 普通授权读写 Data API；
+- Secret/Auth Admin 走可信服务端；
+- 数据库内多表不变量走受控 Function。
 
 新增/修改业务表必须检查：
-- organization_id 归属与父子机构一致性；
-- RLS 开启；
-- GRANT 最小；
-- SELECT/INSERT/UPDATE/DELETE 分别授权；
-- unauthenticated / no-membership / onboarding / disabled / cross-org / cross-subject 负面测试；
-- 核心历史 FK 不意外 cascade 删除；
-- RLS 高频过滤列有必要索引。
+- organization_id 归属一致；
+- RLS；
+- 最小 GRANT；
+- live-session + active membership；
+- cross-org/cross-subject/cross-student 负面测试；
+- 核心历史 FK 不意外 cascade；
+- 高频 RLS 字段索引。
 
-对客户端暴露 View：优先 `security_invoker = true`。
+View 优先 `security_invoker=true`。
 
-`security definer` Function：
-- 放非 exposed schema；
-- `set search_path = ''`；
-- schema-qualified；
-- revoke 默认 execute，再按需 grant；
-- 有越权测试。
+`security definer`：非 exposed schema、`search_path=''`、schema-qualified、revoke 默认 execute、最小 grant、越权测试。
 
-## 8. 事务与不变量
+Storage：private bucket + storage.objects policy；signed URL 短时且只在授权后生成，不进日志。
 
-RLS 只回答“谁能改”，不回答“这样改是否合法”。
+---
+
+## 7. 环境与 Migration
+
+- Local：Supabase CLI + fake seed + schema/RLS/tests；
+- Remote Development：一个 Free Project，仅虚构数据；
+- Production Pilot：第二个 Free Project，真实数据前通过 Go/No-Go。
+
+`supabase/migrations` 是 schema/RLS/View/Function/Trigger/Index 正式事实源。
+
+禁止：
+- 只改 Dashboard/SQL Editor 不回写 migration；
+- Production seed/reset；
+- Development/Production 共享 Secret/Storage/账号。
+
+### Region
+Production region 必须先用 Remote Dev 在实际机构 Wi‑Fi + 普通移动网络 + **无代理/VPN**测试 Auth/Data/Storage/Functions；不合格就重建 Dev 换 APAC region。不要先建 Production 再后悔 region。
+
+---
+
+## 8. 事务 / 幂等 / 并发
 
 以下不得由 ViewModel 拼多次 CRUD：
-- provision / reset / complete member onboarding
+- provision / complete onboarding / reset
 - confirm / transition / reopen case
 - replace primary action
 - complete lesson
 - teacher handoff + disable
 - merge students
 
-受控命令至少考虑：权限、当前状态、expected_version、多表原子性、operation_id/幂等、失败恢复。
+业务命令考虑：权限、状态、expected_version、事务、operation_id、失败恢复。
 
-不要写：
+Credential 是特殊例外：明文密码不持久化，因此响应丢失时 reissue，不承诺重复返回同一 secret。
 
-```text
-update case.status
-insert event
-update action
-insert assessment
-```
+关键快照使用乐观并发；冲突不静默覆盖。
 
-然后假设四次请求永远全部成功。
+Realtime 只增强体验，正确性不依赖它。
 
-## 9. 保存、网络与并发
+---
 
-V1 online-first，但高频输入不能白填：
-- 未保存 / 保存中 / 已保存 / 失败状态明确；
-- 网络失败保留输入；
-- 必要时持久化本地临时 draft；
-- 简单 insert 重试复用 UUID；
-- 多表 command 使用 operation id/等价幂等；
-- 云端确认前不显示正式“已保存”。
+## 9. 隐私
 
-关键快照使用 expected_version/乐观并发；冲突不静默覆盖。
+开发/测试/截图/seed 只用虚构数据。
 
-Realtime 只增强体验，正确性不能依赖它。
+不得提交：真实学生/家长联系方式、作文/试卷照片、家校正文、真实账号密码、Token/Secret、真实 backup。
+
+自由文本只收集必要教学事实；日志/audit 不复制完整敏感正文。
+
+---
 
 ## 10. 零额外付费硬约束
 
-V1 内部试运行默认不新增现金支出的：
+默认不新增现金支出：
 - SMTP/域名/SMS；
 - AI API；
-- 商业 UI/监控/分析 SaaS；
-- GitHub Actions larger runner；
 - Supabase Pro/add-ons；
-- Work/Codex 额外 credits。
+- 商业 UI/监控/分析 SaaS；
+- GitHub larger runner；
+- Work/Codex extra credits；
+- Windows 付费公信签名作为 Pilot 硬依赖。
 
-如果某功能声称“必须付费服务才能实现”，先提出免费替代/人工运营流程，并更新 ADR 后再决定。
+GitHub：
+- repo 必须 Private；
+- Free private 无付费级 branch protection 强制能力，靠 branch + Draft PR + 人工合并纪律；
+- Work/Codex 禁直推 main；
+- Actions budget 开启 **Stop usage when budget limit is reached**。
 
-达到 ChatGPT Work/Codex 方案内用量后等待重置；不要自行购买 credits。
+Supabase Free：
+- Remote Dev + Production Pilot 两个项目；
+- 定期 roles/schema/data dump；
+- Storage 独立 backup；
+- 实际 restore drill；
+- Pilot 默认 RPO ≤ 一个教学日。
 
-GitHub Actions 必须控制在 Free 私有仓库额度内；重构建只在 Milestone/Release 跑。
+达到 ChatGPT 方案内 agentic 用量后等待重置，不自行购买 credits。
 
-Supabase Free Production 必须自行定期 DB dump + Storage 备份和恢复演练；不能因为免费就省略数据安全。
+---
 
-详细规则：`docs/ZERO_COST_CLOUD_DEVELOPMENT.md`。
+## 11. 测试与完成定义
 
-## 11. ChatGPT Work / Codex 工作方式
+数据库 PR 至少证明：
+- Local 从空库 migrations + seed 成功；
+- DB/RLS tests；
+- unauth/no-member/revoked/onboarding/disabled/cross-org 等负面测试。
 
-- 一个 ChatGPT Project 作为 Xueqing 长期上下文。
-- 若要在 Project 中使用 Work，不启用当前会禁用 Work 的 Project-only memory。
-- GitHub 是代码事实源，聊天记忆不是。
-- 一个可验收目标通常对应一条 Work 会话 + 一个 PR。
-- 新会话先读取本文件与相关 docs，不复制整段旧聊天当真相。
-- Work 适合研究、跨文件修改、PR/文档/复审；需要真正运行 Flutter/Supabase 命令时用 Codex 或 GitHub Actions 提供执行证据。
-- 用户界面若提供 Luna + Max reasoning，优先留给 RLS、migration、事务、并发、安全、Milestone 终审；机械任务不要无脑 Max。
+Auth Phase 0 至少：
+- onboarding expiry/reissue；
+- global sign-out；
+- 保存旧 JWT 后直接请求仍被拒；
+- reset 顺序和故障注入；
+- Session secure storage；
+- Startup Gate；
+- 双平台。
 
-## 12. 隐私
-
-开发、测试、截图、seed 只使用明显虚构数据。
-
-不得提交真实学生/家长联系方式、试卷作文照片、家校正文、真实账号密码。
-
-自由文本只收集必要教学事实；日志/审计不复制完整敏感正文。
-
-仓库进入真实开发前必须改为 Private。
-
-## 13. 开源参考规则
-
-外部项目只借经验，不成为第二事实源。
-
-优先级：
-1. Flutter / Supabase 官方资料；
-2. 本仓库 ADR 与业务不变量；
-3. 成熟开源项目的模式；
-4. 社区 starter。
-
-不得直接 fork 大型学校 ERP 来“删功能”；不得因为某 starter 方便就绕过 RLS/事务/隐私规则。
-
-参考清单：`docs/OPEN_SOURCE_REFERENCES.md`。
-
-## 14. 测试与完成定义
-
-数据库相关 PR 至少证明：
-- Local 从空库执行 migrations + seed 成功；
-- DB/RLS tests 通过；
-- 未登录、无 membership、onboarding、disabled、跨机构等负面场景按预期拒绝。
-
-业务命令至少测试：
+业务命令至少：
 - 合法/非法状态；
-- expected_version 冲突；
-- 事务/多系统中间失败；
+- expected_version；
+- 中间失败；
 - 重复 operation；
-- 网络重试不重复副作用。
+- 响应丢失；
+- 网络重试不重复事实。
 
-Flutter 关键 ViewModel/Repository 有单元测试；高频流程有 widget/integration 验证策略。
+一个功能只有在正常/错误/权限/网络/测试/migration/文档都同步后才完成。
 
-一个功能只有在正常路径、错误路径、权限、网络失败、测试、migration、文档都同步后才算完成。
+---
 
-## 15. Git / PR
+## 12. Git / PR
 
-- 较大功能使用 feature/review branch + PR。
-- schema、migration、RLS、代码和受影响文档同 PR。
-- 应用正式初始化后提交 `pubspec.lock`。
-- 依赖升级单独 PR。
-- 不把大重构和无关 UI 修改混在一起。
-- 若改变关键方向，先更新 `docs/DECISIONS.md`。
-- 不把真实 Secret/账号凭据贴进 PR/Issue。
+- 较大功能 branch + Draft PR；
+- schema/RLS/代码/受影响文档同 PR；
+- 正式初始化后提交 `pubspec.lock`；
+- 依赖升级独立 PR；
+- 不把大重构和无关 UI 混一起；
+- 改关键方向先更新 `docs/DECISIONS.md`；
+- 未实际运行的检查必须明确“未执行”。
 
 PR 检查项见 `.github/pull_request_template.md`。
