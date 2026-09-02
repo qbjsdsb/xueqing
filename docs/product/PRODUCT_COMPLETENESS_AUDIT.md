@@ -1,7 +1,7 @@
 # Product Completeness Audit｜产品完整性攻击审计
 
 > 当前状态：**INDEPENDENT AUDIT #3 — CHANGES REQUIRED → REMEDIATION PREPARED / WAITING FOR NEW HEAD CI + RE-AUDIT**  
-> 本文件记录历史，不冒充最终独立 PASS。
+> 本文件记录历史，不冒充最终独立复审结论。
 
 ## 1. 审计纪律
 
@@ -13,7 +13,7 @@ Phase 0A.6 的任何独立 `CHANGES REQUIRED` 都使此前“final candidate Hea
 3. 形成新 Head；
 4. 新 Head 重新跑 CI；
 5. 独立模型重新读 latest Head/diff/Issue/CI；
-6. 只接受 `PASS — READY FOR MERGE` 或继续 `CHANGES REQUIRED`。
+6. 最终独立结论必须由独立复审决定；当前若有缺陷则标记 `CHANGES REQUIRED`。
 
 ### Final evidence rule｜PR workflow 的 Head 与 checkout 必须区分
 
