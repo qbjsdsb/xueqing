@@ -16,12 +16,11 @@ Phase 0A.6 使用两层审计：实施主线 adversarial self-audit + 未参与�
 - 不沿用旧 INTERNAL PASS。
 
 ### Final-head evidence rule
-
-仓库文档**不写死“当前最终 SHA / CI run number”作为自我证明**，因为修改该证据文本本身会产生新的 Head，使证据立即过期。
+仓库文档不写死“当前最终 SHA / CI run number”作为自我证明，因为修改证据文本本身会产生新 Head，使证据立即过期。
 
 最终精确证据只记录在 PR / Issue 审计记录中，并必须满足：
 
-> **审计时 PR 的实际 latest Head SHA = 成功 CI 所验证的 commit SHA。**
+> **审计时 PR 的 actual latest Head SHA = 成功 CI 所验证的 commit SHA。**
 
 如果 Head 再变化，原 CI 自动失效，必须重新验证。
 
@@ -29,11 +28,11 @@ Phase 0A.6 使用两层审计：实施主线 adversarial self-audit + 未参与�
 
 ## 2. Independent Audit #1｜CHANGES REQUIRED
 
-独立模型对第一次独立审计时的 PR #13 最新状态、Issue #11/#12、20 个 docs changed files、实际 diff 和当时 CI 重新验证后给出：
+独立模型重新读取 PR #13、Issue #11/#12、changed files、实际 diff 和当时 CI 后给出：
 
 `CHANGES REQUIRED`
 
-确认当时 PR Draft/Open、docs-only、CI 绿、无 Phase 0B 越界，但存在三个 P1 blocker。
+确认 PR Draft/Open、docs-only、无 Phase 0B 越界，但存在三个 P1 blocker。
 
 ### P1-01｜Teaching Fact Gate 跨事实源不一致
 最终统一硬定义：
@@ -123,7 +122,7 @@ Subject Profile 同样。
 
 ---
 
-## 5. 当前 Scope 结论
+## 5. Scope 结论
 
 Phase 0A.6 只允许 Foundation / product documentation 与必要领域事实源修订。
 
@@ -137,9 +136,9 @@ Phase 0A.6 只允许 Foundation / product documentation 与必要领域事实源
 
 ## 6. 当前待办
 
-1. 修复后的**实际 latest PR Head** 对应正式 CI 全成功；
+1. 修复后的 actual latest PR Head 对应正式 CI 全成功；
 2. 核关键 steps：packages / lockfile / format / analyze / tests；
-3. PR / Issue #12 记录精确 final Head/CI（不再修改 branch 文档）；
+3. PR / Issue #12 记录精确 final Head/CI；
 4. 独立模型重新读取 latest PR、diff、Issue #11/#12、CI；
 5. 最终只接受：
 
