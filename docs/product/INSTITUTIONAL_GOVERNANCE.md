@@ -77,7 +77,7 @@ Profile inactive/archived 时发现复发线索：
 
 Tracking resume 与 Case reopen 是两个不同动作。
 
-Reopen recurrence integrity：server 在 `reopen_case` 同一 logical transaction 内 lock/re-read target Case，解析该 Case 最新已提交 `case_closed` event，并 lock/re-read 每条 selected recurrence Evidence；Evidence 必须仍 committed、合法且属于 target Case，`observed_at` 必须严格满足 `evidence.observed_at > latest committed case_closed event.occurred_at`。旧 Evidence 不能单独 reopen，late entry 只按 observed_at 判断。Evidence commit 后为 append-only historical fact：不得静默修改/删除 `case_id`、`observed_at`、`created_at`、author/source attribution、provenance 或其他 recurrence-relevant 字段；correction 必须保留原 provenance。任一 drift/invalidation/version conflict → whole rollback；同一 operation_id retry 不重复副作用。
+Reopen recurrence integrity：server 在 `reopen_case` 同一 logical transaction 内 lock/re-read target Case，解析该 Case 的 latest committed `case_closed` event（最新已提交的关闭事件），并 lock/re-read 每条 selected recurrence Evidence；Evidence 必须仍 committed、合法且属于 target Case，`observed_at` 必须严格满足 `evidence.observed_at > latest committed case_closed event.occurred_at`。旧 Evidence 不能单独 reopen，late entry 只按 observed_at 判断。Evidence commit 后为 append-only historical fact：不得静默修改/删除 `case_id`、`observed_at`、`created_at`、author/source attribution、provenance 或其他 recurrence-relevant 字段；correction 必须保留原 provenance。任一 drift/invalidation/version conflict → whole rollback；同一 operation_id retry 不重复副作用。
 
 
 ## 8. Long-running / repeated failure

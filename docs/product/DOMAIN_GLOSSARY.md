@@ -81,7 +81,7 @@ Profile inactive/archived 时：
 closed → post-close recurrence fact → teacher-confirmed recurrence Evidence → reopen_case → confirmed
 ```
 
-Server 在 `reopen_case` transaction 内从 immutable committed Case Events 解析该 Case 最新 committed `case_closed` lifecycle event；客户端不能指定 previous close。每条 recurrence Evidence 必须属于目标 Case，并满足：
+Server 在 `reopen_case` transaction 内从 immutable committed Case Events 解析该 Case 的 latest committed `case_closed` lifecycle event（最新已提交的关闭事件）；客户端不能指定 previous close。每条 recurrence Evidence 必须属于目标 Case，并满足：
 
 `evidence.observed_at > latest committed case_closed.occurred_at`
 
