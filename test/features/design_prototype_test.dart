@@ -36,54 +36,51 @@ void main() {
     );
   });
 
-  testWidgets(
-    'Today keeps pending verification and date buckets exclusive',
-    (tester) async {
-      addTearDown(() => _resetView(tester));
-      await _pumpPreview(tester, const Size(390, 844));
+  testWidgets('Today keeps pending verification and date buckets exclusive', (
+    tester,
+  ) async {
+    addTearDown(() => _resetView(tester));
+    await _pumpPreview(tester, const Size(390, 844));
 
-      final today = find.byKey(const Key('today-work-section'));
-      final pending = find.byKey(
-        const Key('pending-verification-section'),
-      );
-      final future = find.byKey(const Key('future-actions-section'));
-      final undated = find.byKey(const Key('undated-actions-section'));
-      const pendingTitle = '异分母比较时把分子分母直接相加';
-      const futureTitle = '下次课检查两道依据题';
+    final today = find.byKey(const Key('today-work-section'));
+    final pending = find.byKey(const Key('pending-verification-section'));
+    final future = find.byKey(const Key('future-actions-section'));
+    final undated = find.byKey(const Key('undated-actions-section'));
+    const pendingTitle = '异分母比较时把分子分母直接相加';
+    const futureTitle = '下次课检查两道依据题';
 
-      expect(find.text('已逾期'), findsOneWidget);
-      expect(find.text('今天到期'), findsWidgets);
-      expect(find.text('未来'), findsOneWidget);
-      expect(find.text('待验证'), findsWidgets);
-      expect(find.text('待安排'), findsWidgets);
-      expect(
-        find.descendant(of: pending, matching: find.text(pendingTitle)),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: today, matching: find.text(pendingTitle)),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: future, matching: find.text(futureTitle)),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: today, matching: find.text(futureTitle)),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: undated, matching: find.text(futureTitle)),
-        findsNothing,
-      );
+    expect(find.text('已逾期'), findsOneWidget);
+    expect(find.text('今天到期'), findsWidgets);
+    expect(find.text('未来'), findsOneWidget);
+    expect(find.text('待验证'), findsWidgets);
+    expect(find.text('待安排'), findsWidgets);
+    expect(
+      find.descendant(of: pending, matching: find.text(pendingTitle)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: today, matching: find.text(pendingTitle)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: future, matching: find.text(futureTitle)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: today, matching: find.text(futureTitle)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: undated, matching: find.text(futureTitle)),
+      findsNothing,
+    );
 
-      final futureAction = DesignFixture.cases
-          .firstWhere((learningCase) => learningCase.id == 'demo-case-b3')
-          .primaryAction!;
-      expect(futureAction.dueBucket, PrototypeActionDueBucket.future);
-      expect(futureAction.dueDate!.isAfter(DesignFixture.previewDate), isTrue);
-    },
-  );
+    final futureAction = DesignFixture.cases
+        .firstWhere((learningCase) => learningCase.id == 'demo-case-b3')
+        .primaryAction!;
+    expect(futureAction.dueBucket, PrototypeActionDueBucket.future);
+    expect(futureAction.dueDate!.isAfter(DesignFixture.previewDate), isTrue);
+  });
 
   testWidgets(
     'navigates Student to Case and back with separate Case controls',
@@ -94,10 +91,7 @@ void main() {
       await _pumpPreview(tester, const Size(390, 844));
       const caseTitle = '异分母比较时把分子分母直接相加';
 
-      expect(
-        find.bySemanticsLabel('打开 $caseTitle 的 Case 详情'),
-        findsNothing,
-      );
+      expect(find.bySemanticsLabel('打开 $caseTitle 的 Case 详情'), findsNothing);
       expect(
         find.bySemanticsLabel('Case 信息：示例学生甲 · $caseTitle'),
         findsOneWidget,
@@ -107,9 +101,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('现在最重要的事'), findsOneWidget);
 
-      final viewCaseButton = find
-          .widgetWithText(OutlinedButton, '查看 Case')
-          .first;
+      final caseButtons = find.widgetWithText(OutlinedButton, '查看 Case');
+      final viewCaseButton = caseButtons.first;
       expect(
         tester.getSemantics(viewCaseButton).hasAction(SemanticsAction.tap),
         isTrue,
@@ -121,10 +114,7 @@ void main() {
 
       await tester.tap(find.widgetWithText(FilledButton, '确认稳定'));
       await tester.pumpAndSettle();
-      expect(
-        find.text('设计预览：确认稳定只展示命令入口，不改变领域状态。'),
-        findsOneWidget,
-      );
+      expect(find.text('设计预览：确认稳定只展示命令入口，不改变领域状态。'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, '确认稳定'), findsOneWidget);
 
       await tester.tap(find.byTooltip('返回学生详情'));
@@ -147,9 +137,7 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
   });
 
-  testWidgets('shows Today work queue and opens quick capture', (
-    tester,
-  ) async {
+  testWidgets('shows Today work queue and opens quick capture', (tester) async {
     addTearDown(() => _resetView(tester));
     await _pumpPreview(tester, const Size(390, 844));
 
@@ -165,10 +153,7 @@ void main() {
     await tester.tap(find.byType(DropdownButtonFormField<PrototypeStudent>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('示例学生甲 · 数学').last);
-    await tester.enterText(
-      find.byType(TextField).first,
-      '记录一个新的课堂问题',
-    );
+    await tester.enterText(find.byType(TextField).first, '记录一个新的课堂问题');
     await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
     await tester.pump(const Duration(milliseconds: 260));
     await tester.pumpAndSettle();

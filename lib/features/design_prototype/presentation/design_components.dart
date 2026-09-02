@@ -652,7 +652,7 @@ Color _actionColor(PrototypeAction action) {
   return switch (action.dueBucket) {
     PrototypeActionDueBucket.overdue => AppColors.danger,
     PrototypeActionDueBucket.undated => AppColors.warning,
-    PrototypeActionDueBucket.today || PrototypeActionDueBucket.future =>
-      AppColors.accent,
+    PrototypeActionDueBucket.today ||
+    PrototypeActionDueBucket.future => AppColors.accent,
   };
 }
