@@ -118,7 +118,9 @@ void main() {
       expect(find.text('Assessment / Verification'), findsWidgets);
       expect(find.widgetWithText(FilledButton, '确认稳定'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, '确认稳定'));
+      final confirmStableButton = find.widgetWithText(FilledButton, '确认稳定');
+      await tester.ensureVisible(confirmStableButton);
+      await tester.tap(confirmStableButton);
       await tester.pumpAndSettle();
       expect(find.text('设计预览：确认稳定只展示命令入口，不改变领域状态。'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, '确认稳定'), findsOneWidget);
