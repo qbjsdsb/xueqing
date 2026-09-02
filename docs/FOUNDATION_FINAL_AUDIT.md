@@ -1,336 +1,409 @@
-# Foundation v0.3｜最终全面审计与冻结门槛
+# Foundation v0.3｜最终全面审计与冻结结论
 
-> 目的：结束“继续写理论”的阶段。这里记录 Foundation 冻结前最后一轮产品、权限、数据、设备、云端 Agent、免费基础设施和恢复审计。**只有这里列出的 Phase 0 假设被真实执行验证后，才进入真实学生数据。**
+> 本文是 Foundation 冻结前的最终审计记录。目标不是继续增加理论，而是明确：哪些设计已经收敛、哪些只能靠 Phase 0 的真实执行来证明。
 
 ## 结论
 
-Foundation v0.3 已经可以作为 **Freeze Candidate**。
+**Foundation v0.3 已达到 Freeze Candidate。**
 
-后续继续提高质量的主要方式不再是增加架构文档，而是：
-- Flutter 真正 build；
-- Supabase migrations/RLS tests；
-- Windows/Android 真机/真实网络；
-- 旧 JWT 攻击式测试；
-- encrypted draft / secure Session；
-- backup restore drill。
+当前最有价值的下一步不再是增加架构文档，而是：
+- Flutter Windows / Android 真正 build；
+- Supabase migrations + RLS tests；
+- Auth / Session 攻击式测试；
+- secure Session storage + Startup Gate；
+- encrypted draft；
+- 实际机构网络 / Region 测试；
+- DB + Storage 恢复演练。
 
-没有执行证据的部分继续标记为“设计已收敛、尚未验证”。
-
----
-
-# A. 产品审计
-
-## 已通过
-- 产品核心仍是“学生连续档案 + 学情 case + 证据 + 干预 + 验证 + 下一步”；
-- V1 只保留 Today / 学生 / 课程 / 学情；
-- 不复制 Excel 的周表/顽固问题第二台账；
-- lesson 没扩成排课收费 CRM；
-- AI 没成为正式事实源；
-- 管理端不以填表量做核心 KPI。
-
-## 最终修正：暂停 Case
-旧规则允许“primary action 或 pause_reason”，可能让一个问题永久失踪。
-
-冻结规则：
-- new 可没有 action；
-- confirmed/intervening/pending_verification/stable 始终有 pending primary action；
-- 暂缓 = `review` action + `due_at`；
-- pause_reason 只解释；
-- closed 无 pending primary action。
-
-**不新增 `next_review_at`**，避免第二套日期事实源。
+没有真实执行证据的部分，只能称为“设计已收敛”，不能称为“已经验证”。
 
 ---
 
-# B. 账号 / 身份 / 多租户审计
+# 1. 当前 GitHub / PR 事实
 
-## 最终 Auth 流程
+- 仓库：`qbjsdsb/xueqing`
+- 仓库已改为 **Private**；
+- Foundation 分支：`review/foundation-v0.3`；
+- PR #1 仍为 Draft；
+- 当前 Foundation 分支相对 `main` 只有 ahead，没有 behind；
+- 当前没有正式 Flutter / Supabase CI workflow run，因此不能声称 CI green；
+- Foundation 仍应优先 Squash merge，避免把大量评审过程 commit 当成长期主线历史。
+
+当前连接无法可靠确认的仓库设置，不写成已完成事实：
+- Template repository 是否关闭；
+- Wiki 是否关闭；
+- Actions billing budget 是否已经设置为超额停止。
+
+这些属于 GitHub 设置项，不影响设计冻结，但在正式 CI / Pilot 前应人工确认。
+
+---
+
+# 2. 产品审计：通过
+
+V1 核心仍然是：
 
 ```text
-provision
-→ onboarding + expiry
+Student continuous profile
+→ Learning Case
+→ Evidence
+→ Intervention
+→ Assessment
+→ Next Action
+→ Lesson / Today
+```
+
+已确认：
+- 不把 Excel 的 8 张表变成 8 个软件模块；
+- V1 主导航只保留 Today / 学生 / 课程 / 学情；
+- 家校 / 报告进入 V1.1；
+- lesson 不是完整排课 / 收费 / 课消 CRM；
+- 周度、阶段、顽固问题尽量从原始事实派生；
+- AI 只做 draft / 建议，不成为正式事实源；
+- 管理端不以“老师填了多少条”作为核心 KPI。
+
+### 正式 Case 永远有下一步
+
+冻结规则：
+- `new` 可以没有 action；
+- `confirmed / intervening / pending_verification / stable` 必须有一个 pending primary action；
+- 暂缓 / 观察 = `review` action + `due_at`；
+- `pause_reason` 只解释原因；
+- `closed` 不存在 pending primary action。
+
+不再允许“只有 pause_reason、没有下一次检查”的正式案例。
+
+---
+
+# 3. 时间语义审计：已修正
+
+最终审计发现原模型缺少机构时区，这会污染 Today、逾期、课程日期和报告周期。
+
+已修正：
+- `organizations.time_zone` 使用 IANA timezone，例如 `Asia/Shanghai`；
+- 系统事件时间保存 UTC / `timestamptz`；
+- Today、action 业务日期、课程属于哪一天、周度 / 报告周期统一按 organization timezone 解释；
+- V1 不做 campus 独立时区；
+- 不能直接相信教师设备时区。
+
+这项已同步到 `DATA_MODEL.md`。
+
+---
+
+# 4. Auth / Session / Membership 审计：设计通过，Phase 0 必须实测
+
+## 最终账号接管
+
+```text
+provision_member
+→ membership(onboarding) + onboarding_expires_at
 → 临时密码登录
-→ 设置新密码
-→ global sign-out all sessions
+→ 设置自己的新密码
+→ global sign-out all Sessions
 → membership active
 → 强制重新登录
 ```
 
-reset：**先 onboarding，再更新 Auth 密码**。
-
-Credential 响应丢失：reissue 新 secret，不保存旧明文。
-
-## Live Session
-业务访问要求：
+管理员 reset：
 
 ```text
-JWT session_id 仍存在于 auth.sessions
-+ membership active
-+ organization
-+ role/assignment
+先 membership → onboarding
+→ 再更新 Auth 临时密码
+→ 刷新 onboarding expiry
+→ 教师重新完整接管
 ```
 
-Phase 0 必须保存一个旧 JWT，完成 global sign-out 后直接调用业务 API，证明立即拒绝。
+Credential 响应丢失时：
+- 不保存明文 secret；
+- 不尝试“找回原密码”；
+- 直接 reissue 新临时密码。
 
-## 最终新增边界：V1 不开放跨机构同账号
+## Live Session
 
-密码属于全局 Auth User。若同一 user 同时属于两个机构，A 机构 org_admin 重置其密码会影响 B 机构，这是不合理的跨租户身份治理。
+普通学生业务授权至少要求：
+
+```text
+JWT session_id 对应仍存在的 auth.sessions
++ active membership
++ organization
++ role / assignment
+```
+
+Phase 0 必须保存旧 JWT，在 global sign-out / reset / disable 后直接请求业务 API，证明旧 Access Token 即使尚未过 `exp` 也被拒绝。
+
+### 性能边界
+
+live-session guard 是安全机制，不应被写成每行重复昂贵查询。
+
+Phase 0 必须：
+- 封装稳定 helper；
+- 让 planner 可尽量按语句级求值，而不是业务结果每行重复无意义计算；
+- 为 Today / Student / Case 核心查询检查执行计划；
+- 如果成为瓶颈，只能通过 ADR 优化实现，不能静默删除 live-session 安全条件。
+
+---
+
+# 5. V1 多租户边界：通过
+
+数据库从第一天支持多个 organization，但 V1 **不开放同一 Auth User 跨机构同时 active/onboarding**。
+
+原因：Password 属于全局 Auth User。如果一个用户同时属于 A、B 两个机构，A 机构 org_admin 的密码 reset 会影响 B 的登录，这不是合理的租户边界。
 
 因此 V1：
-- 数据库仍从第一天多租户；
-- **同一个 Auth User 同一时点最多一个 `onboarding/active` membership**；
-- 可以保留其他机构 disabled 历史；
-- `provision_member` 发现目标 Auth User 已在另一机构 onboarding/active 时拒绝，并提示 V1 不支持跨机构账号；
-- 不做“机构 A 管理员可以重置一个跨机构用户的全局密码”。
+- 同一 `user_id` 同一时点最多一个 `onboarding / active` membership；
+- 其他 organization 可以保留 disabled 历史；
+- `provision_member` 遇到另一机构非 disabled membership 时拒绝；
+- UI 不做跨机构切换器。
 
-未来如果要支持同一个教师加入多个机构，先新增 ADR，改成中央身份恢复、Email OTP/SSO 或其他不会让单一机构管理员控制全局 credential 的方案，再移除限制。
-
----
-
-# C. 管理员单点故障审计
-
-无 SMTP 自助恢复时，唯一管理员是单点故障。
-
-真实 Pilot 至少：
-- 2 个独立可信 active org_admin；或
-- 已演练 Project Owner break-glass。
-
-并增加规则：
-- 不能通过普通 UI 停用最后一个可恢复 org_admin；
-- 重置另一个 org_admin 也要有审计；
-- break-glass 不是公开 API。
+未来确有跨机构账号需求时，再采用中央身份恢复、Email OTP、SSO 或等价模型后新增 ADR。
 
 ---
 
-# D. Flutter 设备安全审计
+# 6. 管理员恢复：通过设计，待演练
+
+没有 SMTP 自助恢复时，唯一 org_admin 是单点故障。
+
+真实 Pilot 至少满足一个：
+- 2 个独立可信 active org_admin；
+- 或已经演练 Project Owner break-glass。
+
+普通 UI 不能停用最后一个可恢复 org_admin。
+
+---
+
+# 7. Flutter 设备安全：设计通过，Phase 0 必须实测
 
 ## Session
-`supabase_flutter` 默认用 SharedPreferences 系列持久化 Session。Production 必须：
+
+Production 不把 `supabase_flutter` 默认 SharedPreferences 系列 Session 存储直接当最终方案。
+
+要求：
 - custom `LocalStorage`；
-- Windows/Android OS secure storage；
-- Password 不持久化。
+- Windows / Android OS secure storage；
+- Password 永不本地持久化。
 
 ## Startup Gate
-Flutter v2 初始化不保证本地 Session 已完成远端刷新。业务 Shell 只有在：
-- Session valid/refreshed；
-- live session；
+
+业务 Shell 只有在以下全部解析完成后才能挂载：
+- Session valid / refreshed；
+- live Session；
 - active membership；
-- current organization
+- current organization。
 
-全部解析后才挂载。
-
-禁止旧/disabled Session 闪现学生页面。
+禁止旧 / expired / disabled Session 先闪现学生数据再被踢回登录。
 
 ## Draft
-跨重启敏感 draft：
+
+跨重启敏感草稿：
 - encrypted at rest；
-- key 在 OS secure storage；
-- user/org scope；
+- key 存 OS secure storage；
+- user / org scope；
 - TTL；
-- sync 后删除；
+- sync 成功删除；
 - account switch 不串数据；
-- logout 明确同步/丢弃；
-- disabled/revoked 后不继续解锁；
-- 不存 Token/Password。
+- logout / disabled 有明确处理；
+- 不存 Token / Password。
 
 ---
 
-# E. Realtime 审计
+# 8. Realtime：V1 明确后置
 
-V1 **不在学生敏感业务表依赖或默认开启 Realtime**。
+V1 不在学生敏感业务表默认开启 Realtime，也不依赖 Realtime 保证正确性。
 
-理由：
-- 正确性本来就要求 refresh/App resume 能恢复；
-- Session revoke 对已有长连接的语义需要单独测试；
-- 为“看起来实时”不值得增加额外攻击面和调试复杂度。
-
-V1 使用：
+V1 正确性必须靠：
 - 页面进入刷新；
 - 保存后刷新；
 - App resume 刷新；
 - 手动刷新。
 
-以后要开启 Realtime，新增 ADR + revoked-session / reconnect / cross-org 测试。
+以后开启 Realtime 前必须新增 ADR，并测试 revoked-session / reconnect / cross-org 行为。
 
 ---
 
-# F. Storage 审计
+# 9. Storage：设计通过，Phase 0 / Pilot 前验证
 
 - private bucket；
-- `storage.objects` RLS 与 organization / assignment 同步；
-- signed URL 只在授权后生成、短时、视作 bearer credential；
-- signed URL 不进日志/聊天/长久缓存；
-- 文件大小/类型限制；
+- `storage.objects` RLS 与 organization / assignment 一致；
+- signed URL 只在授权后生成，TTL 短；
+- signed URL 视作 bearer credential，不进日志 / 长期缓存；
+- 文件类型 / 大小有限制；
 - DB metadata 与 Storage object 生命周期一致；
-- Storage 文件单独 backup。
+- Storage 文件本体必须单独备份。
 
-Phase 0 必须有跨机构直接下载攻击测试。
-
----
-
-# G. Supabase Region / 中国大陆网络审计
-
-当前没有中国大陆 region；APAC 可选 Singapore/Tokyo/Seoul 等，且 project region 不能原地修改。
-
-最终流程：
-1. Remote Development 只用虚构数据；
-2. 实际机构 Wi‑Fi，无代理/VPN；
-3. 普通移动网络，无代理/VPN；
-4. Auth/Data API/Storage/Functions/重连；
-5. 不合格就重建 Dev 换 APAC region；
-6. 测试合格后再建 Production；
-7. 机构单独评估未成年人信息的数据驻留/跨境合规。
+必须有跨机构直接下载攻击测试。
 
 ---
 
-# H. GitHub / AI Agent 治理审计
+# 10. Region / 中国大陆网络：必须真实验证
 
-## 当前必须手工调整的 repo 设置
-- [ ] Public → **Private**
-- [ ] 取消 **Template repository**（本项目不是模板）
-- [ ] 关闭 GitHub **Wiki**，避免形成 repo/docs 之外的第二文档事实源
-- [ ] 可选：合并后自动删除 feature branch
-- [ ] Foundation PR 最终优先 **Squash merge**，把大量评审中间 commit 收敛成一个清晰基线
+Production region 不提前拍脑袋决定。
 
-## GitHub Free private 的限制
-私有 branch protection/rulesets 需要更高 GitHub 计划，所以零成本阶段不能假装平台会强制 PR。
+流程：
+1. Remote Development 只使用虚构数据；
+2. 实际机构 Wi-Fi，无代理 / VPN；
+3. 普通移动网络，无代理 / VPN；
+4. 测 Auth / Data API / Storage / Edge Functions / 网络恢复；
+5. 不达标则重建 Dev 并换 APAC region；
+6. 测试合格后才创建 Production；
+7. 未成年人数据驻留 / 跨境合规由机构单独评估。
 
-流程替代：
-- Work/Codex 禁止直推 main；
-- branch + Draft PR；
-- 真实执行证据；
-- 人工合并。
-
-## Actions 成本
-- budget 开启 `Stop usage when budget limit is reached`；
-- PR 只跑 Linux 快速检查；
-- Windows/Android heavy build 只在 Milestone/Release；
-- 不用 larger runner。
-
-## Agent 连接原则
-- GitHub 可作为常规 Work 默认连接；
-- Supabase 开发连接默认只指向 Local/Remote Development；
-- **Production 不作为普通 Work 会话的默认可写环境**；
-- Production migration/repair 应是单独 Release/Incident 任务，有明确范围、备份和 smoke test；
-- Agent 没执行命令必须写“未执行”。
+Region 选择不是合规结论。
 
 ---
 
-# I. 免费备份 / 恢复审计
+# 11. Database / 数据模型：通过
 
-Free 不等于有自动日备份。
-
-恢复集合：
-- roles.sql
-- schema.sql
-- data.sql
-- 必要 migration history
-- Storage objects + manifest
-- Auth/Realtime/Extensions/Secrets/project config checklist
-- Git 中的 Edge Functions/migrations
-
-目标：
-- Pilot RPO ≤ 一个教学日；
-- 真 restore 到非 Production 新项目；
-- smoke + RLS 负面测试；
-- backup 不进 GitHub。
-
-详细见 `DISASTER_RECOVERY.md`。
-
----
-
-# J. 数据模型审计
-
-已确认：
-- Student 不因学科/教师/年级重复；
-- enrollment/assignment 历史；
-- advisor 与 teacher 分表；
-- case current snapshot + events；
-- evidence/intervention/assessment/action 分事实；
-- lesson 一对多，不重复保存 case 结果；
+当前核心事实边界已经稳定：
+- Student 不因学科 / 教师 / 年级重复；
+- enrollment 保存年级 / 班级 / 校区历史；
+- teacher assignment 与 advisor / homeroom staff assignment 分开；
+- Case 使用 current snapshot + append-only events；
+- Evidence / Intervention / Assessment / Action 分事实；
+- Lesson 一对多，不重复保存 Case 结果；
 - merged student 保留映射；
-- operation id 不存 credential secret。
+- credential secret 不进入 operation receipt；
+- organization timezone 是业务日期事实源。
 
-Phase 0/Milestone 1 需新增数据库限制：
+Milestone 1 / 3 的 migration 必须真正实现并测试：
 - `(organization_id, user_id)` unique；
-- V1 对 `user_id` 的 onboarding/active membership 再加 partial unique，禁止同一用户同时跨机构活跃；
-- active owner/assignee membership；
-- primary action partial unique；
-- cross-org composite FK / function validation。
+- V1 单 user 跨机构 active/onboarding partial unique；
+- active owner / assignee；
+- 一个 pending primary action；
+- paused review 必须 due_at；
+- cross-org composite FK / Function validation；
+- 非法状态跳转拒绝。
 
 ---
 
-# K. 删除 / 离职 / 交接审计
+# 12. 备份 / 恢复：设计通过，必须实际演练
 
-- 不删除教师历史；
-- handoff 完成后才 disabled；
-- case owner / pending actions 不 orphan；
-- student merge 不物理抹掉 source；
-- 最后一个可恢复 org_admin 不允许普通流程停用。
+Free Pilot 不把“有 SQL 文件”当成恢复能力。
 
----
+完整恢复集合至少包括：
+- roles；
+- schema；
+- data；
+- 必要 migration history；
+- Auth user / identity 数据按当前 Supabase 官方流程恢复并实际登录验证；
+- Storage objects + manifest；
+- Auth / Realtime / Extensions / Edge Functions / Secrets 名单 / project config checklist；
+- Git 中的 migrations / Functions source。
 
-# L. 仍然明确不做
+重要边界：
+- 新 Supabase Project 通常有新的 JWT secret，因此旧 token 默认不应被假定继续有效；恢复后用户重新登录是可接受且更安全的默认；
+- 数据库备份不包含 Storage 文件本体；
+- backup 不进入 GitHub。
 
-- 收费/课消/招生 CRM
-- 完整排课 ERP
-- 大型题库
-- 学情综合分/预测
-- 复杂 offline-first / CRDT
-- 同时维护 Password/OTP/Magic Link 多套主登录
-- Realtime 作为 V1 正确性前提
-- 公开自助 SaaS 注册
-- AI 自动修改正式学情
-- 为“免费”牺牲恢复/权限/隐私
+Pilot 默认目标：**RPO ≤ 一个教学日**。
 
----
-
-# M. Foundation Freeze Checklist
-
-只有以下都完成，Foundation PR 才从 Draft 进入可合并状态：
-
-### 文档一致性
-- [x] PRODUCT
-- [x] ARCHITECTURE
-- [x] AUTH_AND_PERMISSIONS
-- [x] DATA_MODEL
-- [x] COMMANDS_AND_INVARIANTS
-- [x] SECURITY_AND_PRIVACY
-- [x] RISKS_AND_OPERATIONS
-- [x] DEVELOPMENT_WORKFLOW
-- [x] ZERO_COST_CLOUD_DEVELOPMENT
-- [x] ROADMAP
-- [x] DISASTER_RECOVERY
-- [x] AGENTS
-- [x] ADRs
-
-### GitHub 手工设置
-- [ ] repo Private
-- [ ] Template repo 关闭
-- [ ] Wiki 关闭
-- [ ] Actions zero-overage budget 设置
-
-### PR 事实
-- [ ] 最终 diff 人工/Agent 再审一次
-- [ ] 没把 Foundation 占位源码描述成“可运行 App”
-- [ ] PR 明确：当前没有正式 Flutter/Supabase CI，所以**没有 CI green 可声称**
-
-完成后建议 **Squash merge** Foundation v0.3。
+必须恢复到新的非 Production Project，并跑 smoke + RLS 负面测试。
 
 ---
 
-# N. Phase 0 的第一条真正验收链
+# 13. GitHub / Work / Luna 审计：通过
 
-最值得先证明的不是“学生列表页面”，而是：
+## GitHub
+
+仓库现在已 Private。
+
+零额外付费阶段：
+- Work / Codex 禁止直推 main；
+- branch + Draft PR；
+- 有真实执行证据才合并；
+- 人工合并；
+- Foundation 建议 Squash merge。
+
+GitHub 设置仍建议人工确认：
+- Template repository 关闭；
+- Wiki 关闭；
+- Actions budget 超额停止。
+
+## ChatGPT Work / Codex
+
+- GitHub 是代码事实源；
+- migrations 是 schema 事实源；
+- 聊天记忆不是代码事实源；
+- 一个可验收目标通常一条 Work 会话 + 一个 PR；
+- Agent 不能运行命令时必须明确“未执行”。
+
+## Luna / Max
+
+不把“LunaMax”写成稳定 API model id。
+
+Max / 高推理优先：
+- RLS；
+- migration；
+- Auth / Session；
+- 事务 / 并发 / 幂等；
+- 安全审计；
+- Milestone 终审。
+
+机械 UI / 重命名 / 已有模式 CRUD 不需要无脑 Max。
+
+---
+
+# 14. 明确不做
+
+V1 不做：
+- 收费 / 课消 / 招生 CRM；
+- 完整排课 ERP；
+- 大型题库；
+- 学情综合分 / 预测；
+- 复杂 offline-first / CRDT；
+- 同时维护 Password / OTP / Magic Link 多套主登录；
+- Realtime 作为正确性前提；
+- 公开自助 SaaS 注册；
+- AI 自动修改正式学情；
+- 为“永久免费”牺牲备份、权限、隐私或恢复能力。
+
+---
+
+# 15. Foundation Freeze Checklist
+
+## 已完成
+
+- [x] 产品边界收敛
+- [x] V1 / V1.1 边界统一
+- [x] Auth / Membership / Role / Assignment 语义统一
+- [x] Case 状态与 Next Action 不变量统一
+- [x] 数据模型与 Excel 映射统一
+- [x] 机构时区进入基础模型
+- [x] 设备端 Session / Draft 安全边界明确
+- [x] Realtime V1 后置
+- [x] zero-cost Pilot 边界明确
+- [x] disaster recovery runbook
+- [x] Work / Codex / GitHub 事实源规则
+- [x] Open-source 借鉴边界
+- [x] 仓库已 Private
+- [x] 最新分支没有落后 main
+- [x] 当前没有 CI green 可声称这一事实已明确
+
+## 仍需人工 / Phase 0 完成
+
+- [ ] Template repository / Wiki 设置人工确认
+- [ ] GitHub Actions zero-overage budget 人工确认
+- [ ] Flutter 双平台真正初始化并 build
+- [ ] Local Supabase 从空库 migrations + seed 重建
+- [ ] live-session / RLS 攻击式测试
+- [ ] secure Session storage 双平台验证
+- [ ] encrypted draft 双平台验证
+- [ ] Remote Dev 无代理网络 / Region 测试
+- [ ] DB + Storage 实际 restore drill
+
+这些不是继续写 Foundation 文档能证明的事项。
+
+---
+
+# 16. 第一条 Phase 0 验收链
 
 ```text
 Private repo
-→ Flutter 双平台可 build
-→ Local Supabase 可 reset
-→ RLS live session tests
+→ Flutter Windows / Android build
+→ Local Supabase db reset
+→ organization.time_zone
+→ RLS / live-session tests
 → secure Session + Startup Gate
 → encrypted drafts
-→ Remote Dev 无代理网络/region
+→ Remote Dev 无代理 network / region
 → provision teacher
 → onboarding expiry
 → set new password
@@ -339,7 +412,15 @@ Private repo
 → new login active
 → admin reset
 → old access denied
-→ DB + Storage backup/restore
+→ DB + Storage backup / restore
 ```
 
-这条链真正跑通后，再开始学生/学情 UI，后面的返工风险会大幅下降。
+这条链真正跑通以后，才开始大量开发 Student / Learning Case / Lesson / Today UI。
+
+---
+
+# 最终判断
+
+**Foundation v0.3 可以停止继续“理论扩写”。**
+
+如果最终 PR diff 和 PR 描述同步到本文件当前规则，没有新增硬冲突，就可以结束 Foundation 设计阶段。之后质量提升必须来自 Phase 0 的真实执行证据，而不是继续堆文档。
