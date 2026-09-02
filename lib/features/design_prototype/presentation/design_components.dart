@@ -391,6 +391,9 @@ class DesignActionRow extends StatelessWidget {
             decoration: TextDecoration.lineThrough,
           )
         : titleStyle;
+    final dueIcon = action.dueBucket == PrototypeActionDueBucket.undated
+        ? Icons.event_busy_outlined
+        : Icons.event_outlined;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
@@ -421,10 +424,7 @@ class DesignActionRow extends StatelessWidget {
                         ),
                         DesignMetadata(
                           isCompleted ? '已完成' : action.dueLabel,
-                          icon: action.dueBucket ==
-                                  PrototypeActionDueBucket.undated
-                              ? Icons.event_busy_outlined
-                              : Icons.event_outlined,
+                          icon: dueIcon,
                         ),
                       ],
                     ),

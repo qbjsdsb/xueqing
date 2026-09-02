@@ -92,13 +92,14 @@ void main() {
       final semanticsHandle = tester.ensureSemantics();
       addTearDown(semanticsHandle.dispose);
       await _pumpPreview(tester, const Size(390, 844));
+      const caseTitle = '异分母比较时把分子分母直接相加';
 
       expect(
-        find.bySemanticsLabel('打开 异分母比较时把分子分母直接相加 的 Case 详情'),
+        find.bySemanticsLabel('打开 $caseTitle 的 Case 详情'),
         findsNothing,
       );
       expect(
-        find.bySemanticsLabel('Case 信息：示例学生甲 · 异分母比较时把分子分母直接相加'),
+        find.bySemanticsLabel('Case 信息：示例学生甲 · $caseTitle'),
         findsOneWidget,
       );
 

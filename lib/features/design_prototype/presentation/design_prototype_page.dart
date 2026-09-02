@@ -155,27 +155,22 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     }
 
     final ordinaryActions = actionGroups.values.expand((items) => items);
-    final overdue = ordinaryActions
-        .where(
-          (item) =>
-              item.action.dueBucket == PrototypeActionDueBucket.overdue,
-        )
-        .toList();
-    final dueToday = ordinaryActions
-        .where(
-          (item) => item.action.dueBucket == PrototypeActionDueBucket.today,
-        )
-        .toList();
-    final future = ordinaryActions
-        .where(
-          (item) => item.action.dueBucket == PrototypeActionDueBucket.future,
-        )
-        .toList();
-    final undated = ordinaryActions
-        .where(
-          (item) => item.action.dueBucket == PrototypeActionDueBucket.undated,
-        )
-        .toList();
+    final overdue = _actionsInBucket(
+      ordinaryActions,
+      PrototypeActionDueBucket.overdue,
+    );
+    final dueToday = _actionsInBucket(
+      ordinaryActions,
+      PrototypeActionDueBucket.today,
+    );
+    final future = _actionsInBucket(
+      ordinaryActions,
+      PrototypeActionDueBucket.future,
+    );
+    final undated = _actionsInBucket(
+      ordinaryActions,
+      PrototypeActionDueBucket.undated,
+    );
     final pendingVerification = DesignFixture.students
         .expand(
           (student) => student.cases.map(
@@ -308,6 +303,13 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
         ),
       ],
     );
+  }
+
+  List<_ActionWithContext> _actionsInBucket(
+    Iterable<_ActionWithContext> actions,
+    PrototypeActionDueBucket bucket,
+  ) {
+    return actions.where((item) => item.action.dueBucket == bucket).toList();
   }
 
   List<Widget> _buildActionGroups(List<_ActionWithContext> items) {
