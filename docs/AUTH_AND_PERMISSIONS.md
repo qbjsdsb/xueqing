@@ -4,12 +4,12 @@
 
 ## 1. 五层授权必须分开
 
-Phase 0A.6 后，业务授权不再只有“四层”，而是明确五层：
+Phase 0A.6 后，业务授权明确五层：
 
 1. **Auth Identity**：登录身份是谁；
 2. **Organization Membership**：该身份在某机构当前处于什么状态；
 3. **Role / Capability**：成员承担什么职责、具有什么能力上限；
-4. **Subject Scope**：这些 subject-scoped 能力在哪些学科有效；
+4. **Subject Scope**：subject-scoped 能力在哪些学科有效；
 5. **Student / Staff Assignment**：成员当前具体负责哪些学生/学科或学生综合职责。
 
 普通业务授权至少同时满足：
@@ -19,15 +19,14 @@ Phase 0A.6 后，业务授权不再只有“四层”，而是明确五层：
 + membership = active
 + membership 属于目标 organization
 + role / capability
-+ matching subject scope（如该操作是学科范围能力）
-+ matching student/staff assignment（如该操作涉及具体学生）
-+ owner/assignee relation（如 command 需要）
-+ entity state / operation rule
++ matching subject scope（如需要）
++ matching student/staff assignment（如需要）
++ entity state
++ owner/assignee relation（如需要）
++ operation-specific permission
 ```
 
-**能够登录 Auth，不等于能够读取机构数据。**
-
-前端隐藏按钮不是权限控制，RLS / 受控服务端 / command policy 才是。
+**能够登录 Auth，不等于能够读取机构数据。** 前端隐藏按钮不是权限控制，RLS / 受控服务端 / command policy 才是。
 
 ---
 
@@ -65,7 +64,7 @@ Supabase reference 可以用 `JWT session_id → auth.sessions`；其他 provide
 
 ## 3. V1 登录方案：管理员受控开通 + Password
 
-为了不把 SMTP、短信、第三方登录变成 V1 前置，默认仍采用：
+为了不把 SMTP、短信、第三方登录变成 V1 前置，默认采用：
 
 ```text
 org_admin provision_member
@@ -87,12 +86,7 @@ membership → active
 
 不开放公网自助注册。
 
-以后有可靠邮件/企业身份体系时可以替换 Auth 登录方式，但不能因此重写：
-- organization membership；
-- roles；
-- subject scopes；
-- student/staff assignments；
-- Learning Case / Lesson 业务模型。
+以后有可靠邮件/企业身份体系时可以替换 Auth 登录方式，但不能因此重写 organization membership、roles、subject scopes、student/staff assignments、Learning Case / Lesson 业务模型。
 
 ---
 
@@ -111,7 +105,7 @@ V1：
 - 只允许账号接管能力；
 - 必须有较短有效期；
 - 过期后不能自行激活，管理员重新签发；
-- 可以预配置 role/subject scope，但这些关系在 membership active 前不授予学生业务权限。
+- 可以预配置 role/subject scope，但 membership active 前不授予学生业务权限。
 
 临时密码不是“一次性 Token”，因此**可信交付 + 短有效期 + onboarding 无业务权限**缺一不可。
 
@@ -129,7 +123,7 @@ V1 因此：
 - provision 发现另一机构仍 onboarding/active 时拒绝；
 - UI 不做跨机构切换器。
 
-未来如果确有跨机构同账号需求，先改为中央身份恢复 / Email OTP / SSO 等不由单一机构管理员控制全局 credential 的方案，再解除限制。
+未来确有跨机构同账号需求时，先改为中央身份恢复 / Email OTP / SSO 等不由单一机构管理员控制全局 credential 的方案，再解除限制。
 
 ---
 
@@ -143,7 +137,7 @@ V1 因此：
 Auth identity 有效
 + 当前 Session 仍有效
 + membership = active
-+ 后续 role/scope/assignment/command checks
++ 后续 role/scope/assignment/entity/command checks
 ```
 
 ### Supabase Reference
@@ -155,19 +149,10 @@ auth.uid()
 + membership active
 ```
 
-实现可用少量经过审计的非 exposed helper，并避免 RLS 重复昂贵求值。
-
 ### 其他 Provider
 必须证明等价结果，而不是“SDK signOut 看起来成功”就算通过。
 
-Phase 0B.0 要用真实 old-token API/RLS request 验证：
-- unauthenticated；
-- revoked；
-- onboarding；
-- active；
-- disabled；
-- reset 后旧 token；
-- App restart / persisted old token。
+Phase 0B.0 要用真实 old-token API/RLS request 验证：unauthenticated、revoked、onboarding、active、disabled、reset 后旧 token、App restart/persisted old token。
 
 ---
 
@@ -183,26 +168,14 @@ V1 roles：
 Role 回答“可以做哪一类事情”，**Subject Scope 回答“在哪个学科有效”。**
 
 ### `scope_kind = teaching`
-适用于 teacher capability。
-
-表示：
-
-> 可以被分配在该学科承担教师类 Student Assignment / Lesson responsibility。
+适用于 teacher capability，表示可以在该学科承担教师类 Student Assignment / Lesson responsibility。
 
 它**不意味着能读取该学科所有学生。**
 
 ### `scope_kind = leadership`
-适用于 subject_lead capability。
+适用于 subject_lead capability，表示该学科的专业管理/审阅范围。
 
-表示：
-
-> 该学科的专业管理/审阅范围。
-
-它可以扩大本科治理视角，但不自动：
-- 成为 Student teacher；
-- 成为 Case owner；
-- 写 Intervention/Assessment；
-- 访问其他学科。
+它可以扩大本科治理视角，但不自动成为 Student teacher、Case owner，也不自动允许写 Intervention/Assessment 或访问其他学科。
 
 示例：
 
@@ -224,8 +197,6 @@ scopes =
 
 普通 Teacher 访问具体学生本科数据仍要匹配 `student_teacher_assignment`。
 
-因此：
-
 ```text
 Teacher C
 role=teacher
@@ -235,7 +206,7 @@ scope=语文/teaching
 
 结果：**不能读取张三语文详细学情。**
 
-这条必须由 RLS 负面测试证明，不能只依赖 UI 不显示入口。
+这条必须由 RLS 负面测试证明。
 
 ### Lead / Collaborator
 
@@ -243,77 +214,71 @@ scope=语文/teaching
 某 Student + Subject 的主要负责教师；通常是 Case owner 的默认候选，并承担关键专业确认责任。
 
 #### Collaborator
-可以在合法 assignment 下读取协作所需事实、记录本人真实教学行为、承担 assigned Action；但如果不是当前 owner，不自动拥有 stable/close/reopen 等全部关键命令。
+可以在合法 assignment 下读取协作所需事实、记录本人真实教学行为、承担 assigned Action；如果不是当前 owner，不自动拥有 stable/close/reopen 等全部关键命令。
 
 Case owner 是责任关系，不是组织角色。
 
 ---
 
-## 9. Teaching Fact Gate
+## 9. Teaching Fact Gate｜唯一硬定义
 
-这是 Phase 0A.6 新增的硬权限规则。
+这是所有核心事实源必须使用的统一不变量。
 
-任何成员要以“实际教学 actor”身份追加：
+任何成员要以“实际教学 actor”身份追加或确认：
 - Intervention；
 - Assessment；
 - 教学型 Evidence；
 - Lesson teacher 行为；
 
-至少需要：
+**必须同时满足：**
 
 ```text
 live session
 + active membership
 + teacher capability
 + matching active teaching subject scope
-+ 对该 student+subject 的合法 active teacher assignment 或本次合法 Lesson relationship
++ target Student Subject Profile = active
++ 对该 student+subject 的合法 active teacher assignment
+  或本次由受控 command 建立并验证的合法 Lesson relationship
 + operation-specific permission
 ```
 
+### 解释
+- `active Subject Profile` 是硬条件，不是“通常要求”；
+- `live session` 是运行时权限硬条件，即使数据库模型文件没有把它当字段保存，也不能省略；
+- assignment / Lesson relationship 不能由 admin role 临时口头绕过；
+- inactive/archived Profile 表示当前没有持续该学科教学，普通流程不得产生新的实际教学事实或新 Lesson。
+
 ### 管理身份不能伪造教学事实
-以下身份单独存在时不够：
+以下身份单独存在时都不够：
 - Subject Lead + leadership scope；
 - Academic Admin；
 - Org Admin；
 - Student Advisor。
 
-如果这些人本人确实参与授课，必须另外拥有 teacher capability + teaching scope + Student/Lesson relationship。
+如果这些人本人确实参与授课，必须另外通过完整 Teaching Fact Gate。
 
-这保证 audit 可以解释：
+### 初诊也不能绕过 Gate
+管理员可以执行治理动作：
+- 创建/恢复 active Subject Profile；
+- 为诊断教师建立合法、可审计的 teacher assignment（可以是明确期限/角色的受控关系）；
+- 再由该教师执行初诊教学事实。
 
-> 这条记录是管理行为，还是这个人真的实施了教学？
+管理员**不能**用“明确授权初诊”作为跳过 assignment、active Profile 或 teacher capability 的后门。
 
 ---
 
 ## 10. Advisor / Subject Lead / Admin 边界
 
 ### Student Advisor
-需要：
-- 被分配学生的跨学科必要摘要；
-- 协调老师；
-- 家校沟通；
-- 综合 follow-up / Stage Review draft。
+可读取被分配学生的跨学科必要摘要、协调老师、进行家校沟通、负责综合 follow-up / Stage Review draft。
 
-默认不能：
-- 修改专业 root-cause judgment；
-- 改 Assessment result；
-- close/reopen 学科 Case；
-- 伪造 Intervention；
-- 因 Advisor role 读取机构所有学生。
+默认不能修改专业 root-cause judgment、Assessment result、close/reopen 学科 Case、伪造 Intervention，也不能因 Advisor role 读取机构所有学生。
 
 ### Subject Lead
-必须有 matching leadership scope。
+必须有 matching leadership scope。可本学科专业审阅、查看治理异常、参与复杂 Case review、执行少量明确 subject-governance command。
 
-可以：
-- 本学科专业审阅；
-- 查看本科治理异常；
-- 参与复杂 Case review；
-- 执行少量明确 subject-governance command。
-
-不能仅因 leadership scope：
-- 写实际教学事实；
-- 成为每个 Student 的教师；
-- 改其他学科。
+不能仅因 leadership scope 写实际教学事实、成为每个 Student 的教师或改其他学科。
 
 ### Academic Admin
 可以有必要跨学科治理视角与 handoff/异常处理权，但管理权限不等于实际授课身份。
@@ -338,47 +303,30 @@ live session
 8. audit 不含密码；
 9. 成功响应只返回一次临时密码。
 
-### 禁止
-- provider service secret 进入 Flutter；
-- 固定默认密码；
-- 密码进入业务表、日志、audit、错误上报、Issue/PR；
-- 创建后直接给 active 学生权限。
+禁止 provider service secret 进入 Flutter、固定默认密码、密码进入业务表/日志/audit/Issue/PR、创建后直接给 active 学生权限。
 
-### 跨系统半失败
-Auth Admin 与业务 PostgreSQL 不是同一事务域。
-
-Auth identity 已创建、membership 失败时允许留下无 membership identity，因为没有业务权限；必须提供恢复流程。
-
-### 响应丢失
-member 保持 onboarding；管理员 reissue/reset 生成全新临时密码，不保存旧明文满足幂等。
+Auth identity 已创建、membership 失败时允许留下无 membership identity，因为没有业务权限；必须提供恢复流程。响应丢失时 member 保持 onboarding，管理员 reissue/reset 新临时密码，不保存旧明文。
 
 ---
 
 ## 12. 首次接管：`complete_member_onboarding`
 
-流程语义：
 1. 验证当前 Auth Session；
 2. membership 属于当前 identity 且为 onboarding；
 3. `onboarding_expires_at` 未过期；
 4. 校验新密码；
 5. Auth Admin 更新当前 credential；
 6. 撤销该 identity 的旧 Sessions / Refresh Tokens；
-7. **只有 Auth 安全操作成功后** membership→active；
+7. 只有 Auth 安全操作成功后 membership→active；
 8. 写 audit；
 9. App 清理旧机构上下文；
 10. 强制使用新 credential 重新登录。
 
-### 半失败
-- 密码更新失败 → onboarding；
-- 密码成功、Session revoke 失败 → onboarding；
-- revoke 成功、membership 激活失败 → onboarding；
-- 任何半失败都不得提前 active。
+任何半失败都不得提前 active。
 
 ---
 
 ## 13. 普通登录与启动授权 Gate
-
-完成 onboarding 后：
 
 ```text
 登录
@@ -393,13 +341,7 @@ member 保持 onboarding；管理员 reissue/reset 生成全新临时密码，�
 
 `currentSession != null` 不能直接等于“可以渲染学生数据”。
 
-必须区分：
-- revoked/expired → 登录页；
-- onboarding → 接管页；
-- disabled/no membership → 无权限页；
-- active → 再进入业务授权上下文。
-
-App 启动不得先闪出旧学生数据再异步发现 Session 已失效。
+必须区分 revoked/expired、onboarding、disabled/no membership、active。App 启动不得先闪出旧学生数据再异步发现 Session 已失效。
 
 ---
 
@@ -422,7 +364,7 @@ Production 涉及学生敏感数据时：
 1. 教师通过机构既有可信渠道联系管理员；
 2. 管理员确认本人；
 3. 验证 org_admin 与目标 membership；
-4. **先 membership→onboarding**，立即切断普通业务权限；
+4. 先 membership→onboarding，立即切断普通业务权限；
 5. 生成新随机临时密码；
 6. Auth Admin 更新目标 credential；
 7. 撤销旧 Sessions；
@@ -443,56 +385,37 @@ Production Pilot 至少满足：
 - 两个由不同可信人员持有的 active org_admin；或
 - 已演练的 provider project owner / break-glass。
 
-额外规则：
-- 普通 UI 不允许停用最后一个可恢复 org_admin；
-- 对另一个 org_admin 做 credential reset 必须审计；
-- break-glass 不是长期公开 API；
-- provider 切换不能让 break-glass 方案消失而无人负责。
+普通 UI 不允许停用最后一个可恢复 org_admin；对另一个 org_admin 做 credential reset 必须审计；break-glass 不是长期公开 API。
 
 ---
 
 ## 17. Subject Scope 撤销与离职是两个流程
 
 ### 老师仍在职但退出某学科
-使用受控 subject-scope handoff：
-- inventory 该学科 assignments；
-- Case ownership；
-- pending Actions；
-- 建立接手关系；
-- 验证无 orphan；
-- 最后结束该 teaching scope。
+使用受控 subject-scope handoff：inventory 该学科 assignments、Case ownership、pending Actions，建立接手关系，验证无 orphan，最后结束该 teaching scope。
 
-不能因为退出政治学科把语文/历史权限也一起撤掉。
+不能因为退出政治学科把语文/历史权限一起撤掉。
 
 ### 整个人离职/停用
-1. 盘点全部 teacher/staff assignments；
-2. 盘点 Case owner/pending Actions；
-3. 盘点 subject scopes；
-4. 完成交接；
-5. 验证无 orphan；
-6. 最后 membership→disabled；
-7. revoke Session；
-8. 历史 creator/teacher/finalized_by 保留原成员。
-
-禁止普通流程停用最后一个可恢复 org_admin。
+盘点全部 teacher/staff assignments、Case owner/pending Actions、subject scopes；完成交接、验证无 orphan；最后 membership→disabled 并 revoke Session；历史 creator/teacher/finalized_by 保留原成员。
 
 ---
 
-## 18. Student lifecycle 权限
+## 18. Student / Subject Profile lifecycle 权限
 
-普通 Teacher 不能直接把 Student 改 inactive/archive 来“清 Today”。
+普通 Teacher 不能直接通过 Student/Profile status 变化来“清 Today”。
 
-Student inactive/archive 是治理动作，必须先 reconciliation：
-- enrollment；
-- assignments；
-- active Cases；
-- pending Actions；
-- 合理的 future review/cancel/keep strategy；
-- audit。
+### Subject Profile
+- `active`：允许正常教学 tracking；
+- `inactive`：服务暂停，禁止新教学事实/新 Lesson；
+- `archived`：退出普通业务视图，禁止新教学事实/新 Lesson。
 
-inactive 不自动 close Case。
+Profile inactive/archive/reactivate/unarchive 都是治理动作并要求 reconciliation。
 
-Student restart 时继续同一 Student/Subject Profile 历史。
+### Student
+Student inactive/archive 也是治理动作，必须先处理 enrollment、profiles、assignments、active Cases、pending Actions 和 audit。
+
+**Student/Profile inactive/archive 均不自动 close Case。**
 
 ---
 
@@ -514,41 +437,25 @@ Student restart 时继续同一 Student/Subject Profile 历史。
 治理/纠错权限不等于默认家长沟通责任人。
 
 ### Finalized
-Finalized Parent Communication 是历史快照：
-- Draft 不等于已联系；
-- finalized 普通 UPDATE 禁止；
-- correction 保留旧 snapshot；
-- 家庭配合不是 Guardian-as-Case-Action；
-- 家长回应经教师判断后才形成 Evidence/Case。
+Finalized Parent Communication 是历史快照：Draft 不等于已联系；finalized 普通 UPDATE 禁止；correction 保留旧 snapshot；家庭配合不是 Guardian-as-Case-Action；家长回应经教师判断后才形成 Evidence/Case。
 
 ---
 
 ## 20. Stage Review / Report 权限
 
-### Subject Stage Review
-由对应学科有专业确认权的 Teacher 创建/finalize；Subject Lead 可 review/按机构规则做明确治理命令，但不因此成为实际授课 actor。
+Subject Stage Review 由对应学科有专业确认权的 Teacher 创建/finalize；Subject Lead 可 review/按机构规则做明确治理命令，但不因此成为实际授课 actor。
 
-### Comprehensive Stage Review
-Advisor / Academic Admin 可以组织授权范围内跨学科摘要，但不能修改被引用的各科 finalized source。
+Comprehensive Stage Review 可由 Advisor / Academic Admin 组织授权范围内跨学科摘要，但不能修改被引用的各科 finalized source。
 
-### AI
-可以整理 Draft，不能代替 finalized_by。
+AI 可以整理 Draft，不能代替 finalized_by。
 
 ---
 
 ## 21. Realtime 边界
 
-V1 学生敏感业务表默认不让业务正确性依赖 Realtime。
-
-使用：
-- 页面进入；
-- 保存后刷新；
-- App resume；
-- 手动刷新。
+V1 学生敏感业务表默认不让业务正确性依赖 Realtime。使用页面进入、保存后刷新、App resume、手动刷新。
 
 未来若开启 Realtime，必须新 ADR + revoked-session、token refresh、reconnect、cross-org、subscription cleanup 安全测试。
-
-Cloud provider Realtime 能力不同不应影响 V1 correctness。
 
 ---
 
@@ -556,8 +463,8 @@ Cloud provider Realtime 能力不同不应影响 V1 correctness。
 
 至少建立虚构：
 - Org A / Org B；
-- Teacher A：语文 teaching scope，Student 1 Lead；
-- Teacher B：语文 teaching scope，Student 1 Collaborator；
+- Teacher A：语文 teaching scope，Student 1 Lead，Profile active；
+- Teacher B：语文 teaching scope，Student 1 Collaborator，Profile active；
 - Teacher C：语文 teaching scope，但无 Student 1 assignment；
 - Teacher D：数学 teaching scope；
 - Subject Lead E：语文 leadership scope，无 teaching relationship；
@@ -565,58 +472,45 @@ Cloud provider Realtime 能力不同不应影响 V1 correctness。
 - Advisor G：Student 1 staff assignment；
 - Academic Admin；
 - Org Admin；
-- onboarding / disabled variants。
+- onboarding / disabled variants；
+- Student 2：语文 Profile inactive；
+- Student 3：语文 Profile archived。
 
 必须证明：
 
 | 场景 | 结果 |
 |---|---|
-| provision 测试教师 | onboarding |
 | onboarding 读取学生数据 | 拒绝 |
-| 同 Auth identity 第二机构 provision | 拒绝（V1） |
-| 临时凭据过期后激活 | 拒绝并 reissue |
-| 完成接管 | 改密码 + revoke old sessions + active + 强制重新登录 |
 | 被撤销旧 token 请求业务数据 | 拒绝 |
-| active 新 Session | 允许 |
-| provision/reset 响应模拟丢失 | 不保存密码，走 reissue |
-| reset | 先 onboarding，旧业务访问立即拒绝 |
 | disabled 旧 Session | 拒绝 |
-| Auth identity 无 membership | 拒绝 |
-| Teacher C 有语文 scope 但未 assignment | 拒绝 Student 1 详细数据 |
+| Teacher C 有 scope 无 assignment | 拒绝 Student 1 详细数据 |
 | Teacher D 数学 scope 访问 Student 1 语文 | 拒绝 |
-| Collaborator 写本人实际 Intervention | 允许 |
+| Collaborator 写本人实际 Intervention | 允许（仅完整 Gate 成立） |
 | Collaborator 非 owner 执行受限 close | 拒绝/按 command policy |
 | 纯 Subject Lead 写 Intervention/Assessment | 拒绝 |
-| Subject Lead+Teacher 有真实 Student relation 写教学事实 | 允许 |
+| Academic/Org Admin 单凭管理身份写教学事实 | 拒绝 |
 | Advisor close 语文 Case | 拒绝 |
-| Advisor 读取授权跨学科摘要 | 允许 |
-| Academic/Org Admin 伪造教学事实 | 拒绝 |
+| **Profile inactive 时，即使旧 teacher assignment/scope 仍存在，写 Intervention/Assessment/教学 Evidence** | **拒绝** |
+| **Profile inactive 时 start_lesson** | **拒绝** |
+| **Profile archived 时任何普通教学写入/start_lesson** | **拒绝** |
+| 管理员“授权初诊”但未建立合法 teacher assignment | 拒绝教学事实写入 |
+| 管理员先建立合法诊断 teacher assignment + active Profile 后教师初诊 | 允许 |
 | A 机构访问 B 机构 | 拒绝 |
-| App 启动拿到失效本地 Session | 不闪业务数据 |
-| secure local Session storage | Windows/Android 验证 |
 | subject-scope handoff | 只撤目标学科且无 orphan |
 | membership disable | 全关系交接后才 disabled |
 
 ### 性能
-RLS/permission helper 还必须：
-- 对核心 Today / Student / Case 查询观察执行计划；
-- Subject Scope + Assignment 多层过滤不能产生不可接受逐行开销；
-- 若 live-session guard 成真实瓶颈，必须 ADR 调整，不能静默删除安全条件。
+RLS/permission helper 还必须观察 Today / Student / Case 核心查询计划；若 live-session guard 成真实瓶颈，必须 ADR 调整，不能静默删除安全条件。
 
 ---
 
 ## 23. 未来升级
 
-有可靠 SMTP/企业身份体系，或确实需要：
-- 同账号跨机构；
-- 家长/学生自助登录；
-- 企业微信/SSO；
-
-再新增 ADR。
+有可靠 SMTP/企业身份体系，或确实需要同账号跨机构、家长/学生自助登录、企业微信/SSO，再新增 ADR。
 
 升级原则：
 - 登录/身份治理层可替换；
 - membership/roles/subject scopes/assignments 继续是业务权限事实源；
 - Student/Case/Lesson schema 不因登录方式重写；
-- active + live Session 的安全底线不降低；
-- Teaching Fact Gate 不因管理角色或 provider 变化而降低。
+- active + live Session 安全底线不降低；
+- **Teaching Fact Gate 的七项条件不因管理角色、初诊场景或 provider 变化而降低。**
