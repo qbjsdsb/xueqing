@@ -2,16 +2,6 @@ name: Phase 0A platform builds
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - phase0/flutter-bootstrap
-    paths:
-      - '.github/workflows/phase0a-platform-builds.yml'
-      - 'android/**'
-      - 'windows/**'
-      - 'lib/**'
-      - 'pubspec.yaml'
-      - 'pubspec.lock'
 
 permissions:
   contents: read
