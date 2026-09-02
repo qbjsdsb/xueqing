@@ -574,6 +574,7 @@ class _InteractiveSurfaceState extends State<_InteractiveSurface> {
       onExit: (_) => setState(() => _hovering = false),
       child: Semantics(
         button: true,
+        explicitChildNodes: true,
         label: widget.label,
         child: InkWell(
           onTap: widget.onTap,
