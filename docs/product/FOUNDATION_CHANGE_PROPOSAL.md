@@ -1,33 +1,37 @@
 # Phase 0A.6 Foundation Change Proposal
 
-> 状态：产品/领域变更提案。用于集中记录 Phase 0A.6 对既有 `PRODUCT / DATA_MODEL / COMMANDS_AND_INVARIANTS / AUTH_AND_PERMISSIONS` 的必要修订。正式回写前还需 Product Completeness Audit；标为 `PENDING SPIKE` 的项不得提前进入 migration。
+> 状态：Phase 0A.6 领域变更提案。本文集中记录对既有 `PRODUCT.md / DATA_MODEL.md / COMMANDS_AND_INVARIANTS.md / AUTH_AND_PERMISSIONS.md` 的必要修订。它不是 migration，也不授权进入真实 Auth/RLS/CRUD。
 
-## 1. 原则
+## 1. 决策纪律
 
-只允许三类结果：
+每个缺口只允许归入三类：
 
-- **ACCEPT**：Phase 0A.6 已有充分产品依据，应回写 Foundation。
-- **PENDING SPIKE**：确有重要问题，但实现方案需要 Phase 0B 最小实验才能决定。
-- **REJECT / DERIVE**：不新增领域对象，继续从已有事实派生。
+- **ACCEPT**：已经有充分产品依据，应回写 Foundation；
+- **PENDING SPIKE**：需求真实，但实现必须由 Phase 0B.0 最小实验决定；
+- **REJECT / DERIVE**：不新增领域对象，继续从现有事实派生。
 
-目标不是“让模型更完整”，而是减少未来返工同时保持教师低负担。
+判断标准始终是：
+
+> 这是新的真实业务事实，还是同一事实的另一种展示/总结？
+
+如果只是展示/总结，默认派生；如果只是为了让表结构看起来完整，默认不建。
 
 ---
 
-# 2. ACCEPT｜Teacher Subject Scope
+## 2. ACCEPT｜Teacher Subject Scope
 
-## 问题
-现有模型只有：
-- membership role；
-- student+subject assignment。
+### 当前缺口
+现有 Foundation 能表达：
+- membership / role；
+- 某老师当前负责哪个 Student + Subject。
 
-无法明确表达：
+但不能独立回答：
 
-> 这个老师在机构内被允许/被安排从事哪些学科教学？
+> 这个 membership 在机构内被授权在哪些学科承担教学或学科管理工作？
 
-不能从“当前恰好负责哪些学生”反推老师的学科范围。
+这不能从当前 Student Assignment 反推。
 
-## 建议新增
+### 建议新增
 
 `membership_subject_scopes`
 
@@ -36,504 +40,509 @@
 - `organization_id`
 - `membership_id`
 - `organization_subject_id`
-- `status`：active/inactive（最终命名与 assignment status 对齐）
+- **`scope_kind`：`teaching / leadership`**
+- `status`：active/inactive（最终命名与 assignment 历史策略对齐）
 - `active_from`
 - `active_to`
 - `created_at`
 - `updated_at`
 
-### 语义
-Subject Scope = **可以在该学科承担被授权角色/assignment 的范围**。
+### 三层授权必须分开
 
-它不自动授予该学科所有学生读取权。
+```text
+Membership
+  ↓
+Role / capability
+  ↓
+Subject Scope
+  ↓
+Student Subject Assignment
+```
 
-Teacher 的具体学生范围仍来自 `student_teacher_assignments`。
+- `teacher role + teaching scope`：表示可以在该学科承担教师 assignment；
+- `subject_lead role + leadership scope`：表示该学科的管理范围；
+- **Subject Scope 不是学生数据通行证**；普通教师仍需有效 Student Assignment 才能读取/修改具体学生本科数据。
 
-Subject Lead 同样需要 subject scope；role 负责“能做什么”，scope 负责“在哪个学科”。
+示例：
 
-Academic/Admin 是否 bypass subject scope 按能力模型明确，不伪造 assignment。
+```text
+某老师 roles = teacher + subject_lead
+subject scopes:
+- 语文 / teaching
+- 历史 / teaching
+- 语文 / leadership
+```
 
-## 必要约束
-- 同 organization；
-- membership active 才能新增 active scope；
-- teacher assignment 新建时必须有 matching active subject scope；
-- 不能直接删除仍被 active assignment / Case owner / pending Action 使用的 scope。
+表示他教语文和历史，但只负责语文学科管理。
 
-## 命令影响
-评估新增：
+### 不变量
+- membership / subject / scope 必须同 organization；
+- active teacher assignment 必须匹配 active `teaching` scope；
+- subject lead 权限必须匹配 active `leadership` scope；
+- 不能直接结束一个仍被 active assignment / Case owner / pending Action 使用的 teaching scope；
+- leadership scope 本身不允许伪造教学事实。
+
+### 命令影响
+评估/冻结：
 
 `revoke_teacher_subject_scope_and_handoff`
 
-用于“老师仍在职但退出某学科”。
+用于“老师仍在职，但以后不再教某一学科”。必须先交接该科 assignments、Case ownership、pending Actions，再结束 scope。
 
-**Decision：ACCEPT**
+**Decision：ACCEPT。**
 
 ---
 
-# 3. ACCEPT｜Student Subject Profile 当前定位与优势
+## 3. ACCEPT｜Student Subject Profile 增加当前定位与优势
 
-## 问题
-领导 Excel 的“学情定位 + 学科/课堂优势”是教学上下文，不应丢失；现有 `student_subject_profiles` 过于空。
+领导方法中“学情定位 + 学科/课堂优势”是有教学价值的上下文；现有 `student_subject_profiles` 过于空。
 
-## 建议增强
-
-候选字段：
+建议增强候选：
 - `current_positioning_code`（可选）
 - `current_positioning_summary`（可选）
 - `strengths_summary`（可选）
-- `teaching_cadence_note`（可选，只有机构确实使用时）
+- `teaching_cadence_note`（可选，仅在真实使用证明有价值时）
 - `version`
 
-### 规则
-- 定位不是“能力分”；
-- Strengths 不强制填写；
-- summary 是当前快照，可更新；
-- 重大历史变化由 Case/Report/必要 event 解释，不把 profile 变成长文本历史库。
+规则：
+- 定位不是学生能力评分；
+- 优势不强制填写；
+- 当前摘要允许更新；
+- 重大历史变化由 Case / Report /必要 event 解释；
+- 不把 profile 变成长文本历史库。
 
-### Positioning code
-领导 Excel 现有粗定位可以作为默认选择：
-- 基础薄弱；
-- 中等待提升；
-- 中等稳定；
-- 培优拔高。
+Excel 当前四档可作为默认产品口径参考：基础薄弱 / 中等待提升 / 中等稳定 / 培优拔高，但不急于写死成 PostgreSQL ENUM。
 
-但正式数据库不急于硬编码不可扩展 enum。优先评估 stable code + UI label/机构配置，避免未来术语变化触发数据库 enum migration。
-
-**Decision：ACCEPT 当前定位/优势语义；具体 code 存储形式待 migration design。**
+**Decision：ACCEPT 语义；具体 code 存储形式待 migration design。**
 
 ---
 
-# 4. PENDING SPIKE｜Initial Diagnosis Snapshot
+## 4. PENDING PRODUCT VALIDATION｜Initial Diagnosis Snapshot
 
-## 真实需求
-当前 profile summary 会变化，但机构可能需要明确回答：
+初诊工作流必须有，但**不默认新增 `initial_diagnoses` 大表**。
 
-> 第一次试听/正式建档时，老师当时如何判断这个学生？
+大部分初诊事实已有自然归属：
+- Student；
+- Subject Profile；
+- Evidence；
+- Learning Case；
+- Action。
 
-这对：
-- 后续阶段对比；
-- 教师交接；
-- 向领导解释初始基线；
-- 纠纷/历史解释；
+唯一仍可能有真实价值的新事实是：
 
-可能有真实价值。
+> 第一次试听/正式建档时，老师当时的整体基线判断。
 
-## 不允许
-不能再造一套“初诊问题表”，与 Learning Case 双维护。
+候选：
+- A：不建独立 snapshot，只依赖当前 profile + 最早 Evidence/Case；
+- B：formalize 时生成轻量、不可变 initial-baseline snapshot/event，只保存 diagnosed_at/by、positioning/strengths snapshot、source cutoff/related Cases。
 
-## 候选
-A. 不保存独立 snapshot，只保留当前 profile + 最早 Evidence/Case。
+Pilot 要专门验证：几个月后领导/教师是否真的需要“一键回看当时整体初诊”。如果不需要，不造表。
 
-B. 初诊 formalize 时保存一个**轻量、一次性、不可变 snapshot/event**：
-- diagnosed_at/by；
-- positioning snapshot；
-- strengths snapshot；
-- related Case IDs/source cutoff。
-
-## 决策 Gate
-用真实机构流程回答：
-
-> 几个月后是否确实需要“一键看到当时初诊整体基线”，而不仅是逐条翻最早 Case？
-
-**Decision：PENDING PRODUCT VALIDATION。不得先建 `initial_diagnoses` 大表。**
+**Decision：DEFER WITH VALIDATION。**
 
 ---
 
-# 5. ACCEPT｜三类 Case Workflow 只改产品模板，不改生命周期
+## 5. ACCEPT｜三类 Case Workflow，REJECT 三套 schema
 
-Knowledge / Habit / Exam Strategy 共享：
+统一底层继续使用：
 - Learning Case；
 - Evidence；
 - Intervention；
 - Assessment；
 - Action；
-- status lifecycle。
+- Case Event。
 
-不新增：
-- knowledge_case 表；
-- habit_case 表；
-- three_stage_status lifecycle。
+产品默认 workflow：
+- `knowledge`：当堂订正 → 相似题 → 延迟独立验证 → stable/review/清零；
+- `habit`：可观察行为 → 策略干预 → 多场景连续观察 → 稳定/调整；
+- `exam_strategy`：方法 → 针对性应用 → 限时/模拟迁移 → 独立验证。
 
-三阶订正是 knowledge 默认 workflow template，不是 schema 三列。
+知识“三阶订正”是产品教学模板，不是三列数据库状态。
 
 **Decision：ACCEPT workflow；REJECT parallel tables/statuses。**
 
 ---
 
-# 6. ACCEPT｜`closed` 的产品语言可映射“已清零”，但数据库仍用 closed
+## 6. ACCEPT｜“清零”只映射产品语言，不改生命周期
 
-冻结：
-- assessment passed = 本次验证通过；
-- stable = 已改善/稳定观察；
-- closed = 退出主动跟进，产品语境可显示“已清零”；
+继续保持：
+
+```text
+Assessment passed ≠ stable ≠ closed
+```
+
+产品语言：
+- passed = 本次验证通过；
+- pending_verification = 等待判断/待验证；
+- stable = 已改善 / 稳定观察；
+- closed = 已清零 / 退出主动跟进；
 - reopen = command/event。
 
-“满分通关”不直接把 status 改 closed。
+“满分通关”不能自动把 Case 改为 closed。
 
-**Decision：不改 Foundation lifecycle。**
+**Decision：生命周期不变。**
 
 ---
 
-# 7. ACCEPT｜Lesson Workspace 与 start command review
+## 7. ACCEPT｜Lesson Workspace + `start_lesson`
 
-现有 `complete_lesson` 是正确方向。
+Lesson 是教学事实工作台，不是排课/收费 ERP。
 
-Phase 0A.6 新增：开始 Lesson 可能同时验证 teacher/subject/student 并创建 lesson + lesson_students，因此评估受控：
+冻结：
+- 课前约 30 秒看旧问题、到期 action、待验证、最近事实；
+- 课中 Evidence / Intervention / Assessment / Quick Capture 逐步可靠保存；
+- 课后 30–60 秒由 `complete_lesson` 收口 Case/Action/Lesson state；
+- 周度跟进优先从这些事实派生。
+
+因为开始 Lesson 可能同时验证 teacher/subject/student relationship 并建立 `lesson + lesson_students`，建议增加受控领域命令：
 
 `start_lesson`
 
-而不是 Flutter 自己拼多个 inserts。
+小班 Lesson 的最终事务边界（整 Lesson 一个事务 vs 逐 Student/Case reconcile 后 finalize）**PENDING Phase 0B.0 fault/transaction Spike**，不在文档阶段假定。
 
-### 已冻结
-- Lesson 不是完整排课；
-- Evidence/Intervention/Assessment 可课中逐步可靠保存；
-- `complete_lesson` 最后收口 Action/Case/Lesson state；
-- 小班 transaction boundary 需 Phase 0B Spike。
-
-**Decision：ACCEPT workflow；`start_lesson` command 候选 ACCEPT，具体事务边界在 Commands review 固定。**
+**Decision：ACCEPT。**
 
 ---
 
-# 8. ACCEPT｜Parent Communication 必须区分 Draft 与真实沟通
+## 8. ACCEPT｜家校进入 V1 Internal Pilot 的最小闭环，独立工作台仍 V1.1
+
+领导方法中家校协同是闭环一环，因此“V1 完全没有家校”会损失方法完整性；但为此提前做家长 App/微信 API 又是 scope creep。
+
+冻结版本边界：
+
+### V1 Internal Pilot
+在 **Student Detail / Case context** 内提供最小家校能力：
+- 从已有教学事实生成/整理 Draft；
+- 教师/Advisor 审阅；
+- 复制到微信/电话/面谈等现实渠道；
+- 记录实际沟通内容、recipient、家庭配合、家长回应、follow-up；
+- finalized snapshot。
+
+**不增加第五个教师主导航。**
+
+### V1.1
+再考虑：
+- 独立家校工作台；
+- 更强周度/阶段综合反馈；
+- 批量/协调视图。
+
+仍明确不做：家长 App、微信 API、短信网关、已读回执等作为 V1 前置。
+
+**Decision：ACCEPT。**
+
+---
+
+## 9. ACCEPT｜Parent Communication Draft 与 Finalized 必须分离
 
 现有 `parent_communications(summary)` 语义过弱。
 
-至少需要表达：
-- communication type；
-- direction；
-- draft vs finalized；
-- actual channel/time；
-- content snapshot；
-- finalized_by/time；
--家庭配合内容；
-- guardian response；
-- follow-up；
-- version（draft 并发）；
-- correction/supersede 语义。
-
-### 推荐实现方向
-继续一个 `parent_communications` 主对象，不拆“草稿表/已发送表”。
-
-主记录候选字段：
+主对象至少要能表达：
 - `communication_type`
 - `direction`
-- `status: draft/finalized`
-- `channel`（finalized 时）
-- `occurred_at`（finalized 时）
-- `content_snapshot` / structured content
+- `status = draft / finalized`
+- channel / occurred_at（真实沟通后）
+- `content_snapshot`
+- home-support snapshot
+- guardian-response snapshot
 - `recorded_by_membership_id`
 - `finalized_by_membership_id`
 - `finalized_at`
-- `follow_up_at`（可选）
-- `follow_up_assigned_membership_id`（若最终采用）
+- follow-up 语义
 - `version`
-- `created_at / updated_at`
+- correction/supersede history。
 
-不要因为字段名字就把完整家长聊天原文塞进系统。
+原则：
+- Draft 不计“已联系”；
+- finalized 是当时真实沟通快照，不随后续 Case 静默变化；
+- 普通 UPDATE 不覆盖 finalized 历史。
 
-**Decision：ACCEPT 语义增强。**
+**Decision：ACCEPT。**
 
 ---
 
-# 9. ACCEPT｜Parent Communication 多 recipient 语义
+## 10. ACCEPT｜Parent Communication 多 recipient
 
-当前单 `guardian_id` 无法稳定表达一次沟通给父母双方/多监护人。
+产品语义支持一次沟通对应一个或多个实际监护人。
 
-产品语义支持多个实际 recipient。
-
-数据库候选：
+推荐候选：
 
 `parent_communication_recipients`
-- communication_id
-- guardian_id
-- recipient_role/metadata（如真实需要）
+- `communication_id`
+- `guardian_id`
 
-只有 Pilot 明确永远单联系人，才可以暂缓 join table。
+如果 Pilot 证明机构永远只记一个实际联系人，可推迟 join table，但领域语义不能被单 `guardian_id` 锁死。
 
-**Decision：ACCEPT product semantics；schema timing 可随 V1/Pilot。**
-
----
-
-# 10. ACCEPT｜Guardian response 来源语义
-
-家长提供的教学相关事实不能永远塞 `case_evidence.source_type = other`。
-
-候选：
-- Evidence 增加 `guardian_report`；或
-- 使用 future Observation + communication source reference。
-
-### 判断
-如果家长回应被教师认定足以作为 Case Evidence，应明确保留来源。
-
-考虑 Observation 当前规划为 V1.5，而家校可能更早，因此 V1.1 最小路线优先评估：
-
-`case_evidence.source_type += guardian_report`
-
-并提供 source communication id/reference。
-
-**Decision：ACCEPT 显式来源语义；最终 FK/link 结构待 Data Model revision。**
+**Decision：ACCEPT product semantics；schema timing 依 Pilot。**
 
 ---
 
-# 11. ACCEPT｜Home support request 不是 Case Action
+## 11. ACCEPT｜Guardian response 必须保留来源语义
+
+家长提供的新信息不能默认自动成为诊断。
+
+流程：
+
+`Guardian response → 有权限教师判断 → 必要时 Observation/Evidence/Case/Action`
+
+如果进入 Case Evidence，需要明确知道来源是 guardian communication；长期塞进 `other` 会丢失语义。
+
+优先评估：
+- `case_evidence.source_type += guardian_report`
+- 加 source communication reference。
+
+Observation 当前规划较晚，因此不应把家校 V1 路线强依赖 V1.5 Observation。
+
+**Decision：ACCEPT 显式来源语义。**
+
+---
+
+## 12. ACCEPT｜家庭配合不是 Case Action
 
 Guardian 不是 organization membership。
 
-家庭配合要求属于 Parent Communication snapshot/协作语义。
+家庭配合要求属于 communication snapshot，不允许把家长塞进 `case_actions.assigned_membership_id`。
 
-只有机构员工需要执行的后续，例如“周五由 Advisor 再联系”，才产生 staff follow-up/Case Action。
+只有机构员工需要执行的后续动作才分配 membership。
 
-**Decision：REJECT guardian-as-case-assignee。**
-
----
-
-# 12. PENDING MODEL｜Communication Follow-up
-
-现有 `follow_up_at` 没有负责人/完成事实，闭环不够。
-
-但新增全局 `staff_tasks` 会让产品滑向第二套 Todo。
-
-候选：
-
-A. 与 Learning Case 直接相关 → 使用 `case_actions(action_type=communicate)`。
-
-B. 非 Case 的沟通跟进 → parent communication 自带一个轻量 follow-up owner/status。
-
-C. 真正出现大量跨领域任务后，再设计通用 staff task。
-
-**Decision：当前优先 A+B；REJECT 现在建立通用 Todo 系统。**
+**Decision：REJECT guardian-as-assignee。**
 
 ---
 
-# 13. ACCEPT｜Reports 继续承载 Stage Review
+## 13. ACCEPT｜Communication Follow-up 最小闭环，不建通用 Todo
 
-不新增 `stage_reviews` 表。
+仅有 `follow_up_at` 没有负责人/完成事实会形成假闭环。
 
-现有 reports 已有：
-- period；
-- source_cutoff；
-- schema/template version；
-- content_snapshot；
-- draft/finalized。
+冻结最小规则：
 
-建议增强候选：
+### 与 Learning Case 直接相关
+复用：
+
+`case_actions(action_type = communicate)`
+
+### 不属于某一个 Case 的纯家校跟进
+Parent Communication 自身提供轻量 follow-up：
+- `follow_up_assigned_membership_id`
+- `follow_up_at`
+- `follow_up_status`（pending/done/cancelled 或等价）
+- `follow_up_completed_at`
+
+不建立通用 `staff_tasks` / 第二套 Todo 系统。
+
+**Decision：ACCEPT A+B；REJECT generic Todo now。**
+
+---
+
+## 14. ACCEPT｜Reports 继续承载 Stage Review
+
+**不新增 `stage_reviews` 表。**
+
+现有 reports 已有正确基础：period、source_cutoff、template/content schema version、content_snapshot、draft/finalized。
+
+建议增强：
 - `report_type`
 - `version`
 - `finalized_by_membership_id`
 - `finalized_at`
 - correction/supersede link/event。
 
-### 原则
-Subject review 与 comprehensive review 可由 report_type + organization_subject_id 表达。
+Subject vs comprehensive 由 report type + optional subject context 表达。
 
-Parent Communication 仍是对外真实沟通事实，不能用 report status 替代。
+Finalized Report 不等于已告知家长；真正沟通仍需要 Parent Communication。
 
 **Decision：ACCEPT。**
 
 ---
 
-# 14. ACCEPT｜Finalized snapshot correction 是受控动作
+## 15. ACCEPT｜Finalized snapshot 的确认/纠错必须受控
 
-Finalized Report / Parent Communication 不允许普通 UPDATE 静默覆盖。
-
-候选命令：
+至少需要领域 API/command 语义：
 - `finalize_parent_communication`
 - `correct_parent_communication`
 - `finalize_report`
-- `supersede_report` / `correct_report`
+- `correct_report` / `supersede_report`
 
-是否每个都单独 function，留 Commands design；至少必须有明确 domain API，不暴露任意 status update。
+是否最终拆成四个 DB Functions 在 Commands design 决定，但 ViewModel 不能任意改 status 覆盖历史。
 
-**Decision：ACCEPT command semantics。**
+**Decision：ACCEPT。**
 
 ---
 
-# 15. DERIVE｜Weekly tracking
+## 16. DERIVE｜周度跟进
 
-周度：
-- 旧问题进展；
-- 新问题；
-- 本周动作；
-- 验证；
-- 下周重点；
+旧问题进度、新问题、本周动作、验证结果、下周重点优先从 Lesson/Case/Evidence/Assessment/Action 派生。
 
-全部优先从 Lesson/Case/Evidence/Assessment/Action 派生。
-
-可允许教师加一条周度综合 judgment，但不建立必须填写的 `weekly_tracking` 表。
+可以让教师补一条真正有价值的周度综合 judgment，但不建立强制 `weekly_tracking` 平行表。
 
 **Decision：DERIVE。**
 
 ---
 
-# 16. DERIVE｜Stubborn / long-running problems
+## 17. DERIVE｜顽固 / 长期问题
 
-不建 `stubborn_cases`。
+由持续时间、failed/partial assessment、多轮 intervention、reopen 等事实派生。
 
-由：
-- duration；
-- failed/partial assessments；
-- intervention count/context；
-- reopen count；
--跨周期；
-
-派生。
+**不建 `stubborn_cases`。**
 
 **Decision：DERIVE。**
 
 ---
 
-# 17. DERIVE｜Governance anomalies
+## 18. DERIVE｜机构治理异常
 
-Orphan / long overdue / stale draft / long pending verification / handoff remaining 等优先 query/view 派生。
+Orphan、长期 overdue、长期 pending verification、stale new Case、handoff remaining、duplicate candidate、附件不一致等优先由安全 query/view/function 派生。
 
-如果未来确实需要异常工单 lifecycle，再单独设计 Governance Case。
+只有未来真的需要“异常工单 lifecycle”时才单独设计 Governance Case。
 
-**Decision：DERIVE，当前不建 anomaly tables。**
+**Decision：DERIVE。**
 
 ---
 
-# 18. ACCEPT｜Student inactive/archive 不能裸改 status
+## 19. ACCEPT｜Student inactive/archive 必须先 reconciliation
 
-学生停止学习时，直接：
+不能裸执行：
 
 `students.status = inactive`
 
-可能留下：
-- pending Actions；
-- active Cases；
-- Today 永久 overdue；
-- assignments 不一致。
+因为可能留下 active Cases、pending Actions、Today 永久 overdue、无效 assignments。
 
-Commands review 需要定义受控流程，候选：
+受控工作流至少：
+1. 结束/调整 enrollment；
+2. 处理 active staff/teacher assignments；
+3. 逐 active Case 决定合法处置；
+4. pending Action 合理完成/取消/替换为未来 review；
+5. **inactive 不自动 closed Case**；
+6. 写 reason + audit；
+7. 再更新 Student lifecycle state。
+
+Restart：恢复/新增 enrollment 与 assignments，继续同一 Student/Subject Profile 历史。
+
+Commands review 评估：
 - `deactivate_student`
 - `archive_student`
 
-至少要求 reconciliation：
-- enrollment；
-- assignments；
-- Case/Action plan；
-- future review（如需要）；
-- audit。
-
-Restart 则重建 enrollment/assignments，不新建 Student。
-
-**Decision：ACCEPT domain workflow；命令名称待收口。**
+**Decision：ACCEPT domain workflow。**
 
 ---
 
-# 19. ACCEPT｜Concurrency / Draft 语义，不新增第二数据库
+## 20. ACCEPT｜Concurrency / Draft 语义
 
-保留：
+继续保留：
 - version / expected_version；
 - operation_id；
 - append-only UUID idempotency；
-- encrypted local draft；
-- explicit version conflict。
+- encrypted device-local draft；
+- explicit conflict UX。
 
 不做：
+- last-write-wins；
 - CRDT；
 - offline-first；
--本地完整学生数据库。
+- 本地完整学生数据库。
 
-**Decision：维持 Foundation，补 UX/故障测试。**
+**Decision：维持并强化 Foundation。**
 
 ---
 
-# 20. P0 PENDING SPIKE｜Auth identity portability
+## 21. P0 PENDING SPIKE｜Auth identity portability
 
-当前 Foundation：
+当前 Foundation 的 `profiles.id → auth.users(id)` 偏 Supabase UUID 心智；CloudBase PG 的 Auth ID 类型并不相同。
 
-`profiles.id → auth.users(id)`
-
-Supabase `auth.users.id` 与 CloudBase PG `auth.users.id varchar(64)` 类型心智不同。
-
-在正式 migrations 前必须决定：
+Phase 0B.0 在任何正式 business migration 前必须比较：
 - provider-specific auth PK；
-- business profile UUID + external auth_subject_id；
-- text auth subject without hard FK。
+- business Profile UUID + `auth_subject_id text`；
+- text auth subject、弱化 hard FK。
 
-必须用 RLS/EXPLAIN/provisioning complexity 决定。
+用 RLS、provisioning、EXPLAIN、migration/restore 证据决定。
 
-**Decision：PENDING CLOUD SPIKE；这是 Phase 0B migration 前 P0 gate。**
-
----
-
-# 21. P0 PENDING SPIKE｜Revoked Session Security
-
-产品不变量：revoked/reset/disabled Session 不能继续读学生数据。
-
-Supabase 当前设计使用 JWT session_id + auth.sessions helper。
-
-CloudBase 已有 token revoke/session，但是否可原样达到该 RLS guarantee 未验证。
-
-**Decision：PENDING CLOUD SPIKE；不能为了国内免费节点降低安全基线。**
+**Decision：PENDING CLOUD/AUTH SPIKE；正式 migrations 的 P0 Gate。**
 
 ---
 
-# 22. REJECT｜Realtime dependency
+## 22. P0 PENDING SPIKE｜Revoked Session Security
 
-CloudBase 与 Supabase Realtime 能力不同。
+安全不变量不变：
 
-Foundation 已决定业务正确性不依赖 Realtime。
+> signOut / credential reset / disabled 后，旧 access token 不能继续读取学生数据。
 
-因此继续：
-- save 后 refresh；
-- page enter；
-- app resume；
-- manual refresh；
+Supabase reference 方案使用 JWT session_id + auth.sessions live-session helper；CloudBase 是否能达到等价保证必须在 Windows/Android + old-token + RLS/API 实测。
 
-未来 Realtime 是 enhancement，不是 correctness foundation。
+不能为了大陆免费节点降低这一基线。
+
+**Decision：PENDING CLOUD/AUTH SPIKE；正式 migrations 的 P0 Gate。**
+
+---
+
+## 23. REJECT｜Realtime 作为业务正确性基础
+
+Provider 能力不同，但 Foundation 已决定 correctness 不依赖 Realtime。
+
+V1 继续使用：页面进入、保存后、App resume、手动刷新等可靠路径。
+
+Realtime 以后可作为 enhancement，需要单独 ADR/安全测试。
 
 **Decision：REJECT Realtime-as-core。**
 
 ---
 
-# 23. Foundation 回写清单
+## 24. Foundation 回写清单
 
-## `PRODUCT.md`
-应补：
--领导教学语言/三类 workflow；
+### `PRODUCT.md`
+必须吸收：
+- 三类 Case Workflow 与领导教学语言；
 - teacher subject scope vs assignment；
--家校最小闭环可能需要进入 Pilot 而不是完全忽略；
-- Stage Review 人工确认；
-- governance anomaly；
-- provider portability gate。
+- **V1 Internal Pilot 最小家校闭环，独立家校/报告工作台 V1.1**；
+- Stage Review = 自动事实 + 人工确认；
+- 机构治理异常不做伪 KPI；
+- cloud/provider gate。
 
-## `DATA_MODEL.md`
-应补/改：
-- membership_subject_scopes；
-- student_subject_profile positioning/strengths/version；
-- parent communication draft/finalized/recipients；
-- report finalize/version/correction；
-- guardian-report evidence source；
-- identity portability 注记/P0；
-- derived anomalies。
+### `DATA_MODEL.md`
+必须吸收：
+- `membership_subject_scopes` + `scope_kind teaching/leadership`；
+- Student Subject Profile positioning/strengths/version；
+- Parent Communication draft/finalized/multi-recipient/follow-up；
+- Report finalize/version/correction；
+- guardian-report Evidence source；
+- identity portability P0 注记；
+- derived governance anomalies。
 
-## `COMMANDS_AND_INVARIANTS.md`
-应评估/补：
-- start_lesson；
-- revoke_teacher_subject_scope_and_handoff；
+### `COMMANDS_AND_INVARIANTS.md`
+必须评估/吸收：
+- `start_lesson`；
+- `revoke_teacher_subject_scope_and_handoff`；
 - student deactivate/archive reconciliation；
-- finalize/correct communication；
-- finalize/correct report；
-- current handoff/merge semantics 与新 scope 一致。
+- finalize/correct Parent Communication；
+- finalize/correct Report；
+- 新 scope 与现有 handoff/assignment/Case owner 不变量。
 
-## `AUTH_AND_PERMISSIONS.md`
-应补：
-- subject scope 是授权维度，不等于 assignment；
-- subject lead 必须 scoped；
-- teacher scope 不授予全学科学生；
-- advisor family/report rights；
-- Cloud provider identity/session implementation 仍需 P0 Spike。
+### `AUTH_AND_PERMISSIONS.md`
+必须吸收：
+- role / subject scope / student assignment 三层；
+- subject lead 的 leadership scope；
+- teacher teaching scope 不授予全学科学生；
+- **任何人追加 Intervention/Assessment 等实际教学事实，都必须同时具备 teacher capability + teaching scope + 对应 student/lesson relationship；leadership/admin 权限本身不能伪造授课事实**；
+- Advisor family/report 权限边界；
+- provider identity/live-session 实现仍受 P0 Spike gate。
 
 ---
 
-# 24. 不允许进入 Phase 0B 的剩余 Gate
+## 25. 进入 Phase 0B 前 Gate
 
-1. Product Completeness Audit 完成；
-2. 本 proposal 中 ACCEPT 与 Foundation 无冲突；
-3. P0 cloud/auth issues 明确进入 Phase 0B Spike 前置；
-4. Initial Diagnosis Snapshot 做产品决定或明确推迟理由；
-5. Communication follow-up 模型不能形成第二套混乱 Todo；
-6. 最终 PR Head CI success；
-7. 独立审计无 P0/P1 blocker。
+Phase 0A.6 内部必须先：
+1. Product Completeness Audit 无内部 P1 blocker；
+2. ACCEPT 项与各事实源一致；
+3. Foundation 核心文档完成机械回写；
+4. P0 cloud/auth 未验证项明确标为 **Phase 0B.0 pre-migration hard gates**；
+5. Initial Diagnosis Snapshot 保持明确的 deferred validation，不暗中建表；
+6. Communication follow-up 不产生第二套 Todo；
+7. 最终 PR Head CI success；
+8. 独立终审通过。
+
+随后路线：
+
+```text
+Phase 0A.6 merge
+→ Phase 0B.0 Cloud/Auth Compatibility Spike（虚构数据）
+→ 解决 Auth ID + revoked-session P0
+→ Cloud Provider Gate
+→ Phase 0B.1 正式 Auth/Membership/RLS/migrations Vertical Slice
+```
