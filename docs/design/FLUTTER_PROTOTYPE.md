@@ -27,7 +27,7 @@
 | `lib/features/design_prototype/design_fixture.dart` | 最小、集中、虚构 fixture；不接生产数据 |
 | `lib/features/design_prototype/presentation/design_components.dart` | prototype 使用的真实高频 row/section/state/input 组件 |
 | `lib/features/design_prototype/presentation/design_prototype_page.dart` | adaptive shell、四个导航入口、详情和 Quick Capture |
-| `test/features/design_prototype_test.dart` | Today、compact Quick Capture、选择学生、保存反馈 smoke test |
+| `test/features/design_prototype_test.dart` | Case lifecycle、Today 的 overdue/today/future/undated/pending verification 互斥、Student → Case → back、compact/expanded navigation、Case 语义边界和 Quick Capture smoke test |
 
 ## 3. Fixture 边界
 
@@ -42,11 +42,12 @@ fixture 只包含 `示例学生甲`、`示例学生乙` 和少量虚构 Case/Act
 - Quick Capture compact 使用不可通过背景点击/拖拽关闭的 modal bottom sheet，expanded/medium 使用不可通过背景点击关闭的 dialog；脏内容由表单的 `PopScope` 保护。
 - Quick Capture 使用 `SafeArea`、`MediaQuery.viewInsetsOf`、可滚动内容和动态 bottom padding 处理软键盘。
 - `PopScope` 在 detail 层处理 Android back；Case detail 返回 Student Detail，Student Detail 返回来源列表。
-- 自定义行保留 hover、InkWell focus、Semantic label；核心操作用 Material button 以获得键盘和辅助功能基础行为。
+- Student row 保留 hover、InkWell focus、Semantic label；Case row 是静态信息容器，使用独立的查看按钮和主操作按钮，避免嵌套交互；核心操作用 Material button 以获得键盘和辅助功能基础行为。
 
 ## 5. 不能从原型推断的内容
 
 - 原型的 fixture 状态不等于领域 command/invariant 已实现。
+- Case 状态严格使用六段 Foundation 生命周期；确认稳定、安排下一次检查、重新打开只展示 command 入口，不调用普通 action completion，也不模拟领域状态变化。
 - prototype save 不代表 online-first、encrypted draft、reconnect、RLS 或权限检查已实现。
 - prototype 的视觉字号和断点是 foundation token，不替代真实设备上的字体、键盘、TalkBack、screen reader、高对比度和窗口 resize 测试。
 - demo 的 “课程”入口只验证 lesson entry 的信息位置，不是排课/收费模块。

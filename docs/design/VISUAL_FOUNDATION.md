@@ -94,6 +94,7 @@ Flutter 先通过 `fontFamilyFallback` 保留上述 fallback，不在 Phase 0A.5
 | `lg` | 24 | section 间距、窄屏页面边距 |
 | `xl` | 32 | 宽屏主要区块间距 |
 | `xxl` | 40 | 页面 header 与主工作区之间 |
+| `touchTarget` | 48 | Android 和触控布局的关键最小操作目标 |
 
 页面不靠增加卡片数量制造层级；分组间距和分隔线应优先表达关系。
 
@@ -146,6 +147,7 @@ Flutter 先通过 `fontFamilyFallback` 保留上述 fallback，不在 Phase 0A.5
 | focus/keyboard | Material controls + `FocusTraversalGroup` / `Shortcuts` |
 | safe area/IME | `SafeArea` + `MediaQuery.viewInsetsOf` |
 | semantics | `Semantics`、清楚的 button label、状态文字 |
+| key touch target | `AppSpacing.touchTarget` + `AppTheme` 中的 button/icon constraints |
 
 这些 token 服务于 prototype 和后续生产组件；不要在 feature 内另写一套颜色、间距或字体常量，除非先更新本文件并说明原因。
 
@@ -155,7 +157,7 @@ Flutter 先通过 `fontFamilyFallback` 保留上述 fallback，不在 Phase 0A.5
 | --- | --- | --- |
 | `AppColors` 的中性画布、深色正文、青绿色 accent | 值得保留的方向，与产品关键词一致 | 保留色相关系；补充 surface、focus、borderStrong、info 和语义背景，降低把颜色当装饰分类的风险 |
 | 原 `surface` 同时承担页面背景和工作面 | 命名/层级不足 | 分成 `canvas` 与 `surface`；页面背景使用 canvas，工作面使用白色 surface |
-| 4/8/12/16/24/32 间距骨架 | 值得保留 | 增加 20/40 供中文长内容和页面呼吸；不在 feature 内另建间距 |
+| 4/8/12/16/24/32 间距骨架 | 值得保留 | 增加 20/40 供中文长内容和页面呼吸；不在 feature 内另建间距；48dp 触控目标单独作为交互 token |
 | 6/10/12 radius | 可用但偏向 bootstrap | 收敛常用 radius 到 4/8/12 关系，保留小号 6 以兼容既有 bootstrap；不大面积使用圆角 |
 | Microsoft YaHei / Noto Sans CJK SC fallback | 只是工程占位，不等于完成中文排版 | 按中文真实层级调整字号/行高；保留 fallback，后续在目标设备复测系统字体 |
 | Material 3 seed color / CardTheme | 可作为 Flutter 基线 | 覆盖 surface、outline、button、input、navigation 状态；原型优先使用 rows/dividers，Card 不作为默认分组 |

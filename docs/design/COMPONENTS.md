@@ -49,11 +49,11 @@
 
 ### `CaseRow`
 
-显示：Case title、status marker、最近关键事实或更新时间、Next Action 的短文案。Case status 与 action status 分开显示；“待验证”不能被写成“逾期”。整行进入 Case Detail，行尾可有一个主要 action。
+显示：Case title、status marker、最近关键事实或更新时间、Next Action 的短文案。Case status 与 action status 分开显示；“待验证”不能被写成“逾期”。Case row 是信息容器，不是包住其他按钮的父级 button；使用独立的 `查看 Case` 导航按钮，再用一个分开的主操作按钮，避免 row navigation 与 action 的嵌套 focus/semantics。
 
 ### `ActionRow`
 
-显示：动作标题、关联学生/Case、due 文案（今天到期/已逾期/待安排）、动作类型或对象。`完成` 是直接动作，`查看 Case` 是次动作；同一学生的多条 Action 由父级 Student cluster 合并姓名。
+显示：动作标题、关联学生/Case、due 文案（今天到期/已逾期/未来日期/待安排）、动作类型或对象。`完成` 是直接 action；Case 状态命令（如确认稳定、重新打开）不使用普通 `完成` 语义。`查看 Case` 是次动作；同一学生的多条 Action 由父级 Student cluster 合并姓名。
 
 动作完成后保留可理解的反馈：已完成、撤销窗口或进入详情；不将 Case 自动关闭。
 
@@ -151,7 +151,7 @@
 
 ## 9. Accessibility contract
 
-- 关键 touch target ≥48dp；文字与图标之间有足够间距。
+- 关键 touch target 统一为 `AppSpacing.touchTarget = 48dp`；文字与图标之间有足够间距，button/icon theme 不另设 44dp 等第二个事实源。
 - 文字、状态、按钮名称可被 TalkBack/Windows screen reader 读出；同一状态使用同一中文 label。
 - focus ring 不被 canvas 或 surface 吞掉；Tab 顺序按阅读顺序。
 - 可点击整行需要 button semantics，不让静态文本假装可操作。

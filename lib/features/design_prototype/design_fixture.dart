@@ -3,15 +3,22 @@
 /// These names and facts are intentionally fictional. This file must not
 /// become a production data source or a substitute for repositories.
 enum PrototypeCaseStatus {
+  // Dart's `new` is a keyword; `newCase` represents the Foundation `new` state.
   newCase,
+  confirmed,
   intervening,
   pendingVerification,
   stable,
   closed,
-  reopened,
 }
 
 enum PrototypeActionKind { evidence, intervention, verification, review }
+
+/// Date semantics for an ordinary action queue.
+///
+/// `pendingVerification` is deliberately not a value here: it is a Case-level
+/// bucket and therefore cannot be duplicated in an ordinary action bucket.
+enum PrototypeActionDueBucket { overdue, today, future, undated }
 
 class PrototypeAction {
   const PrototypeAction({
@@ -19,16 +26,21 @@ class PrototypeAction {
     required this.title,
     required this.dueLabel,
     required this.kind,
-    this.isOverdue = false,
-    this.isUndated = false,
-  });
+    required this.dueBucket,
+    this.dueDate,
+  }) : assert(
+         dueBucket == PrototypeActionDueBucket.undated
+             ? dueDate == null
+             : dueDate != null,
+         'Undated actions have no dueDate; dated actions must have one.',
+       );
 
   final String id;
   final String title;
   final String dueLabel;
   final PrototypeActionKind kind;
-  final bool isOverdue;
-  final bool isUndated;
+  final PrototypeActionDueBucket dueBucket;
+  final DateTime? dueDate;
 }
 
 class PrototypeTimelineEvent {
@@ -100,6 +112,9 @@ class PrototypeStudent {
 }
 
 abstract final class DesignFixture {
+  /// The fixed preview date keeps the fixture and executable tests deterministic.
+  static const previewDate = DateTime(2026, 9, 2);
+
   static const students = <PrototypeStudent>[
     PrototypeStudent(
       id: 'demo-student-a',
@@ -144,6 +159,8 @@ abstract final class DesignFixture {
             title: '确认是否稳定',
             dueLabel: '今天到期',
             kind: PrototypeActionKind.verification,
+            dueBucket: PrototypeActionDueBucket.today,
+            dueDate: previewDate,
           ),
         ),
         PrototypeCase(
@@ -177,7 +194,8 @@ abstract final class DesignFixture {
             title: '课后复述一道题的数量关系',
             dueLabel: '已逾期 8 月 31 日',
             kind: PrototypeActionKind.intervention,
-            isOverdue: true,
+            dueBucket: PrototypeActionDueBucket.overdue,
+            dueDate: DateTime(2026, 8, 31),
           ),
         ),
       ],
@@ -227,7 +245,72 @@ abstract final class DesignFixture {
             title: '补充一条题目证据后再整理',
             dueLabel: '待安排',
             kind: PrototypeActionKind.evidence,
-            isUndated: true,
+            dueBucket: PrototypeActionDueBucket.undated,
+          ),
+        ),
+        PrototypeCase(
+          id: 'demo-case-b2',
+          title: '句子语境中近义词选择不稳定',
+          status: PrototypeCaseStatus.intervening,
+          statusLabel: '干预中',
+          priorityLabel: '常规跟进',
+          subject: '英语',
+          problem: '在两个相近词的语境选择中，仍会依赖中文直译，回答前缺少复述步骤。',
+          evidence: '9 月 2 日课堂口头练习中，4 题有 1 题先猜中文含义后再改答案。',
+          judgement: '需要先稳定语境复述，再观察选择是否能独立完成。',
+          intervention: '每道题先用英文短句复述语境，再说明选择依据。',
+          assessment: '尚未安排下一次验证。',
+          nextAction: '课堂中复述一句例句',
+          nextActionDue: '今天到期',
+          timeline: <PrototypeTimelineEvent>[
+            PrototypeTimelineEvent(
+              dateLabel: '9 月 2 日',
+              typeLabel: 'Intervention',
+              text: '开始用短句复述语境后再选择近义词。',
+            ),
+            PrototypeTimelineEvent(
+              dateLabel: '9 月 2 日',
+              typeLabel: 'Evidence',
+              text: '口头练习中有一题先依赖中文直译。',
+            ),
+          ],
+          primaryAction: PrototypeAction(
+            id: 'demo-action-b2',
+            title: '课堂中复述一句例句',
+            dueLabel: '今天到期',
+            kind: PrototypeActionKind.intervention,
+            dueBucket: PrototypeActionDueBucket.today,
+            dueDate: previewDate,
+          ),
+        ),
+        PrototypeCase(
+          id: 'demo-case-b3',
+          title: '阅读理解中概括依据不足',
+          status: PrototypeCaseStatus.intervening,
+          statusLabel: '干预中',
+          priorityLabel: '常规跟进',
+          subject: '英语',
+          problem: '概括段落时容易只复述结论，没有指出答案对应的原文依据。',
+          evidence: '课后练习中有两题写出结论，但没有标出对应句子。',
+          judgement: '需要在下一次练习中继续观察“结论—依据”的对应关系。',
+          intervention: '先圈出依据句，再用一句话概括答案。',
+          assessment: '尚未安排下一次验证。',
+          nextAction: '下次课检查两道依据题',
+          nextActionDue: '9 月 6 日',
+          timeline: <PrototypeTimelineEvent>[
+            PrototypeTimelineEvent(
+              dateLabel: '9 月 2 日',
+              typeLabel: 'Intervention',
+              text: '开始练习先标出依据句，再概括答案。',
+            ),
+          ],
+          primaryAction: PrototypeAction(
+            id: 'demo-action-b3',
+            title: '下次课检查两道依据题',
+            dueLabel: '9 月 6 日',
+            kind: PrototypeActionKind.review,
+            dueBucket: PrototypeActionDueBucket.future,
+            dueDate: DateTime(2026, 9, 6),
           ),
         ),
       ],

@@ -12,7 +12,7 @@ CI 证据：GitHub Actions `Flutter checks` run #47（Flutter 3.47.1，Ubuntu）
 
 状态：已完成
 
-- [x] Today 以 due / overdue / pending verification / undated action 为工作队列，不是 dashboard。
+- [x] Today 以互斥的 overdue / today / pending verification / future / undated bucket 为工作队列，不是 dashboard。
 - [x] 同一学生多项 action 有学生簇去重规则，具体 action 仍可逐条完成。
 - [x] 无日期 action 明确进入 `待安排`，不会因日期筛选消失。
 - [x] Student Detail 首屏以当前重点、最多三件事、当前 Cases、待验证、最近关键事实为先。
@@ -20,11 +20,11 @@ CI 证据：GitHub Actions `Flutter checks` run #47（Flutter 3.47.1，Ubuntu）
 - [x] Case status 与 action status 分开表达。
 - [x] Assessment passed 只表示本次检查通过，不自动 stable/closed。
 - [x] stable 仍显示 review/verify action；stable 不等于 closed。
-- [x] closed 没有 pending primary action；reopen 保留历史连续性。
+- [x] Case status 严格使用 `new → confirmed → intervening → pending_verification → stable → closed`；closed 没有 pending primary action，reopen 只作为 command/event/timeline fact 保留历史连续性。
 - [x] Quick Capture 只要求已知上下文 + 问题标题；完整 formalize 延后。
 - [x] 研究和附件 Excel 的有用连续性已映射为 Case/Evidence/Intervention/Assessment/Action/timeline，没有复制宽表格。
 
-审查修正记录：初稿曾把“待验证”设想为 Today 的独立高亮卡；本轮改为与 action queue 共享对象、以学生簇去重，并在 Case 页面显示确认稳定/继续跟进。这样没有改变数据模型，也避免把待验证误读为逾期。
+审查修正记录：初稿曾把“待验证”设想为 Today 的独立高亮卡；本轮明确它是 Case 级互斥 bucket，不重复进入普通 action queue，并在 Case 页面显示确认稳定/继续跟进。这样没有改变数据模型，也避免把待验证误读为逾期。
 
 ## 2. 教师效率审查
 
@@ -41,7 +41,7 @@ CI 证据：GitHub Actions `Flutter checks` run #47（Flutter 3.47.1，Ubuntu）
 ### 30 秒课前理解
 
 - [x] Today 首屏先显示行动语义，不先显示统计。
-- [x] overdue、today due、pending verification、undated 有不同文字。
+- [x] overdue、today due、pending verification、future、undated 有不同文字和位置。
 - [x] Student Detail 首屏最多三件当前重点，历史按需展开。
 - [x] 宽屏可并列但不无限拉宽；窄屏不以缩小中文来塞信息。
 
@@ -83,7 +83,7 @@ CI 证据：GitHub Actions `Flutter checks` run #47（Flutter 3.47.1，Ubuntu）
 - [x] fixture 集中管理，数量最小，明显是虚构数据。
 - [x] adaptive 由 `LayoutBuilder`/window size class 决定，不以 Android/Windows 平台名静默改业务语义。
 - [x] Windows rail、compact rail、bottom navigation、dialog/sheet 都有轻量 Flutter 映射。
-- [x] Android SafeArea、IME padding、48dp touch target、back/脏内容保护都有规格。
+- [x] Android SafeArea、IME padding、共享 `AppSpacing.touchTarget = 48dp`、back/脏内容保护都有规格，并由 Flutter theme 实现。
 - [x] Windows hover、focus、Tab、Enter/Space、Ctrl+Enter、滚轮都有规格。
 - [x] 文档、theme、prototype 可独立审查，未触碰 Supabase/Auth/RLS/真实 CRUD/Realtime/AI API。
 - [x] 所有修改完成后执行 format、analyze、test；若环境缺少 Android/Windows 工具链，记录为环境限制而非绕过检查。
@@ -99,6 +99,7 @@ CI 证据：GitHub Actions `Flutter checks` run #47（Flutter 3.47.1，Ubuntu）
 - [x] Android 关键目标按 ≥48dp 设计。
 - [x] 长中文、text scale 1.3/1.5、失败/错误文案允许自然增高和滚动。
 - [x] SafeArea 和键盘 inset 规则已写进 screen spec。
+- [x] Case row 的导航按钮与主操作按钮是独立 focus/semantics 边界；静态 row 不伪装为父级 button。
 - [ ] 真实 Windows screen reader、TalkBack 和高对比度模式：需要在 Phase 0B 真机/系统环境中补测。
 - [ ] 真实键盘布局（中文输入法、Alt/Command 组合）需要在目标设备上补测。
 
@@ -122,7 +123,7 @@ CI 证据：GitHub Actions `Flutter checks` run #47（Flutter 3.47.1，Ubuntu）
 - [x] many overdue actions
 - [x] student just created
 - [x] Case closed
-- [x] Case reopened
+- [x] Case has a reopen command/event/timeline fact（不作为额外 status）
 
 每个 state 在 `SCREEN_SPECS.md` 有 screen-level 行为，在 `UX_COPY.md` 有可见文案或说明。
 
@@ -132,6 +133,7 @@ CI 证据：GitHub Actions `Flutter checks` run #47（Flutter 3.47.1，Ubuntu）
 - [x] Linear、Notion、Todoist 的具体模式已写明“解决什么、借鉴什么、为何适合、什么不复制、如何映射教师场景”。
 - [x] 用户提供的 Excel 原型已读；只提取连续性线索，未把它作为生产 schema 或界面模板。
 - [x] 现有 `app_colors.dart`、`app_spacing.dart`、`app_theme.dart` 已按 Visual Foundation 审计后再修改，而非盲目换色。
+- [x] Android 关键触控目标由 `AppSpacing.touchTarget` 单一事实源提供，theme button/icon constraints 与文档一致。
 - [x] Draft PR #9 保持 Draft/open；不 push main、不自动 merge。
 - [x] Phase 0B 范围明确不实现：Supabase migrations、schema、RLS、Auth、onboarding、secure session、encrypted draft 正式实现、repositories、真实 CRUD、Realtime、AI API、Report、家校。
 
@@ -155,3 +157,16 @@ CI 证据：GitHub Actions `Flutter checks` run #47（Flutter 3.47.1，Ubuntu）
 4. Android 软键盘、中文输入法和 edge-to-edge 行为需要目标 Android 版本复测。
 5. no permission 与 empty 的文案需要结合真实权限模型做隐私 review。
 6. 离线草稿的加密、生命周期和正式同步语义留给 Phase 0B；prototype 不能暗示已经实现。
+
+## 10. Independent audit remediation
+
+状态：已完成，等待下一轮独立复审
+
+- [x] P0：`PrototypeCaseStatus` 恢复六段 Foundation 生命周期，移除 `reopened` status。
+- [x] P0：Today 使用显式 overdue/today/future/undated due bucket；pending verification 作为 Case 级互斥 bucket，并有 future fixture 与 executable widget test。
+- [x] P1：确认稳定/安排下一次检查/重新打开等 Case command 不调用普通 `_completeAction`；prototype 明确提示“不改变领域状态”。
+- [x] P1：48dp touch target 由 `AppSpacing.touchTarget` 统一提供并映射到 Flutter theme。
+- [x] P1：Case row 改为静态信息容器 + 独立导航/主操作按钮，消除嵌套交互与父级 button semantics。
+- [x] P1：补充生命周期、Today bucket、Student → Case → back、compact/expanded navigation 与语义边界测试。
+- [x] P2：IA、Screen Specs、prototype 的 Today bucket 定义已统一。
+- [x] P2：本任务书的完成 checklist 与本 checklist/最终 CI 证据关系已明确。

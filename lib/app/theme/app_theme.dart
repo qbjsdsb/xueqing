@@ -120,7 +120,7 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, AppSpacing.touchTarget),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           foregroundColor: Colors.white,
           backgroundColor: AppColors.accent,
@@ -133,7 +133,7 @@ abstract final class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, AppSpacing.touchTarget),
           foregroundColor: AppColors.accent,
           side: const BorderSide(color: AppColors.borderStrong),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -180,6 +180,22 @@ abstract final class AppTheme {
             color: AppColors.textPrimary,
             fontFamilyFallback: fontFallback,
           ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, AppSpacing.touchTarget),
+          foregroundColor: AppColors.accent,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.small),
+          ),
+        ),
+      ),
+      iconButtonTheme: const IconButtonThemeData(
+        constraints: BoxConstraints(
+          minWidth: AppSpacing.touchTarget,
+          minHeight: AppSpacing.touchTarget,
         ),
       ),
     );

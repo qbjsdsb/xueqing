@@ -27,7 +27,7 @@ Xueqing 的最小工作对象如下：
 
 | 入口 | 核心任务 | 首要内容 | 不承载 |
 | --- | --- | --- | --- |
-| 今日 | 今天先做什么 | due、overdue、pending verification、undated、最近学生、进入课堂 | KPI、图表、总分 |
+| 今日 | 今天先做什么 | overdue、today、pending verification、future、undated、最近学生、进入课堂 | KPI、图表、总分 |
 | 学生 | 找到并理解一个学生 | 搜索、最近学生、学科上下文、当前重点 | 全量历史默认展开 |
 | 课程 | 从一次教学进入记录 | 最近/今天的 lesson entry、学生与动作 | 排课、考勤、收费 |
 | 学情 | 找到需要复盘的 Case | Case 列表、筛选、状态与待验证 | 大数据 dashboard、伪风险 |
@@ -62,11 +62,11 @@ flowchart TD
 
 ### 4.1 Today
 
-Today 的列表项可以直接完成一个明确的 Case Action；点击标题/学生名进入详情。完成 action 后保留当前位置并更新该学生簇，不把教师送回顶部。
+Today 的普通 action 列表项可以直接完成一个明确的 Case Action；pending verification 列表项只提供 Case 命令入口，不伪装成普通 action completion。点击标题/学生名进入详情。完成 action 后保留当前位置并更新该学生簇，不把教师送回顶部。
 
 ### 4.2 Student Detail
 
-Student Detail 的首屏是“当前工作摘要 + 可继续深入的 Case”。返回回到来源列表并恢复滚动位置；从 Today 进入时优先回 Today，从学生搜索进入时回学生搜索。
+Student Detail 的首屏是“当前工作摘要 + 可继续深入的 Case”。返回回到来源列表并恢复滚动位置；从 Today 进入时优先回 Today，从学生搜索进入时回学生搜索。Case row 使用明确的 `查看 Case` 按钮进入详情，不让静态 row 与行内 action 共享一个父级点击区。
 
 ### 4.3 Learning Case
 
@@ -80,17 +80,19 @@ Quick Capture 是短暂任务层：
 - Windows medium/expanded：dialog 或右侧 panel；不离开底层上下文；Esc 在无改动时关闭，有改动时确认。
 - 保存成功后默认关闭并回到原上下文；可提供“继续记录”和“查看学生”，不自动强迫进入 formalize 表单。
 
-## 5. Today 的去重与排序
+## 5. Today 的互斥 bucket、去重与排序
 
-Today 使用单一工作队列，不为同一事件生成多个视觉副本。排序和合并规则：
+Today 先按语义分 bucket，再在每个 bucket 内按学生聚簇；同一 action/event 只能进入一个 bucket，不为同一事件生成多个视觉副本。固定顺序为：
 
-1. 已逾期 action：按逾期严重性/日期排序，明确写“已逾期”。
-2. 今天到期 action：按今天的时间或教师配置的顺序排序，写“今天到期”。
-3. 待验证：Case 已有检查结果但仍等待教师确认；写“待验证”，不改写成“逾期”。
-4. 待安排：没有 due date 的 pending primary action，写“待安排”，置于有日期事项之后，但永不隐藏。
-5. 最近学生：只做发现入口，不制造额外 action。
+1. `overdue`：已逾期的普通 action，明确写“已逾期”。
+2. `today`：今天到期的普通 action，明确写“今天到期”。
+3. `pending verification`：Case 已有检查结果但仍等待教师确认；这是 Case 级 bucket，明确写“待验证”，不改写成逾期，也不同时进入 `overdue`/`today`/`future`/`undated`。
+4. `future`：due date 晚于当前工作日的普通 action，显示具体未来日期；不能落入“今天的工作”。
+5. `undated`：没有 due date 的普通 pending primary action，明确写“待安排”；置于有日期事项之后，但永不隐藏。
 
-同一学生的 action 形成一个视觉簇：学生姓名只出现一次；簇内最多展示三条主要事项，其余显示“还有 N 项”。待验证如果正好是该学生的主要事项，留在簇内，不再在页面另一处复制；如果全局待验证需要跨学生扫视，可由同一数据视图提供分组切换，而不是重复实体。
+`overdue`、`today`、`future`、`undated` 由 action 的显式 due bucket/date 语义决定，不能用“不是逾期且不是无日期”推断为 today。`pending verification` 的 Case 命令只在自己的 section 出现，不调用普通 action 完成，也不因为 primary action 有日期而重复出现。
+
+同一 bucket 内，同一学生的多个 action 形成一个视觉簇：学生姓名只出现一次；簇内最多展示三条主要事项，其余显示“还有 N 项”。跨 bucket 不复制同一事件；学生可以分别出现在不同 bucket，但每个 action/event 仍只有一个归属。
 
 ## 6. Student Detail 的首屏优先级
 
@@ -127,9 +129,9 @@ Case 详情需要同时让教师“做下一步”和“解释为什么”。当
 | --- | --- | --- | --- |
 | Today action | 完成 | 当前 action 更新 | Today 原学生簇与滚动位置 |
 | Today student | 学生名 | Student Detail | Today |
-| Student current case | Case 标题 | Case Detail | Student Detail |
+| Student current case | `查看 Case` | Case Detail | Student Detail |
 | Student header | 记录问题 | Quick Capture | Student Detail |
-| Case primary action | 开始/完成 | action sheet 或轻量编辑 | Case Detail |
+| Case primary action | 普通 action 开始/完成，或明确的 Case command | action sheet、轻量编辑或 command confirmation | Case Detail |
 | 学生搜索结果 | 行 | Student Detail | 搜索结果与查询 |
 | 学情 Case 行 | 行 | Case Detail | Case 列表筛选条件 |
 | 课程入口 | 学生/问题 | Student 或 Case | 课程入口 |

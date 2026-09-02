@@ -39,7 +39,7 @@ Xueqing 采用 adaptive 规则：同一套产品语言和对象，在不同可�
 
 - 学生簇是主要视觉单位；学生名只出现一次。
 - 每条 action 直接提供一个主完成操作，次操作进入详情。
-- `待验证` 和 `待安排` 分成明确 section，不使用横向 tabs 隐藏。
+- `今天的工作` 只包含 `overdue` 和 `today`；`待验证`、`未来`、`待安排` 是互斥的明确 section，不使用横向 tabs 隐藏。
 - 头部保留搜索学生、记录问题两个高频入口；筛选通过 bottom sheet。
 
 ### Medium
@@ -66,11 +66,11 @@ Xueqing 采用 adaptive 规则：同一套产品语言和对象，在不同可�
 - Compact：固定纵向叙事顺序；Case status 和 Next Action 贴近顶部；编辑 Evidence/判断/干预用 sheet 或分步区域。
 - Medium：保留纵向叙事；action/metadata 可在顶部右侧排列但不缩小标题。
 - Expanded：主列是问题到 Verification 的叙事，侧栏固定显示 status、priority、owner、due 和 primary action；timeline 位于主内容之后或独立可滚动区。
-- `passed`、`stable`、`closed`、`reopened` 必须以文字区分，不能只通过侧栏颜色区分。
+- `passed`、`stable`、`closed` 和带有 `reopen` event 的当前 Case 必须以文字区分，不能只通过侧栏颜色区分；`reopen` 不是 status。
 
 ## 7. Android-specific input rules
 
-- 所有需要点击的关键目标至少 48dp × 48dp；列表行如果承载多个动作，扩大可点击区域并分离危险操作。
+- 所有需要点击的关键目标使用共享 `AppSpacing.touchTarget = 48dp`；列表行如果承载多个动作，分离导航与 action 的可点击区域及语义。
 - 页面 body 使用 SafeArea；Quick Capture 的底部操作区根据 `viewInsets` 随软键盘上移。
 - 键盘弹起后标题输入仍可见，保存按钮可滚动到或保持在可视区域；不把底部按钮固定在键盘后面。
 - 返回行为：第一次返回收起键盘；有未保存文字时第二次返回给出保留/放弃确认；无改动才直接关闭。
@@ -116,7 +116,7 @@ Quick Capture 的 focus 顺序固定为：学生/学科确认 → 问题标题 �
 | 字体 | 1.0、1.3、1.5 text scale |
 | 内容 | 无 Case、无 due、1 项、同一学生 3 项、很多逾期、长中文 title |
 | 输入 | touch、mouse hover/click、Tab/Shift+Tab、Enter/Space、滚轮、Android back |
-| 状态 | loading、empty、error、no permission、saving、failed、offline/draft、reopened |
+| 状态 | loading、empty、error、no permission、saving、failed、offline/draft、reopen event |
 | 环境 | Android portrait/landscape、Windows 窄窗/宽窗 |
 
 ## 12. Flutter implementation rule

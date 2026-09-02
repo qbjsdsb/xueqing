@@ -9,6 +9,9 @@ abstract final class AppSpacing {
   static const lg = 24.0;
   static const xl = 32.0;
   static const xxl = 40.0;
+
+  /// Minimum size for a key interactive target on Android and touch layouts.
+  static const touchTarget = 48.0;
 }
 
 abstract final class AppRadii {

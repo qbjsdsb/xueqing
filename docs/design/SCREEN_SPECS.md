@@ -32,17 +32,19 @@
 ### 1.3 Information priority
 
 1. 页面标题 `今日` + 一句工作说明。
-2. 已逾期和今天到期的 pending primary actions。
-3. 待验证的 Case actions/确认入口。
-4. 待安排的无日期 primary actions。
-5. 重点 Case（只有在它尚未被 action queue 覆盖时出现）。
-6. 最近学生和进入课程入口。
+2. `overdue`：已逾期的普通 pending primary actions。
+3. `today`：今天到期的普通 pending primary actions。
+4. `pending verification`：等待教师确认的 Case 级入口，不进入普通 action queue。
+5. `future`：有明确未来日期的普通 actions，不进入“今天的工作”。
+6. `undated`：没有日期的普通 pending primary actions。
+7. 重点 Case（只有在它尚未被 action queue 覆盖时出现）。
+8. 最近学生和进入课程入口。
 
-同一学生多个事项合并成一个学生簇：姓名只出现一次，最多直出三项，其余用“还有 N 项”。同一待验证事件不在两个 section 复制；如果切换分组视图，改变的是组织方式，不是产生新对象。
+每个 action/event 只能进入一个语义 bucket：`overdue`、`today`、`future`、`undated`；`pending verification` 是 Case 级 bucket，覆盖该 Case 的普通 action 入口。不能以“不是逾期/不是无日期”隐式推断 today。每个 bucket 内同一学生多个事项合并成一个学生簇：姓名只出现一次，最多直出三项，其余用“还有 N 项”；跨 bucket 不复制同一事件。
 
 ### 1.4 Primary action
 
-页面 primary action 是当前第一条最需要处理的 action 的具体动词，例如 `完成`、`确认稳定` 或 `补充证据`。页面右上可有一个上下文动作 `记录问题`，但不能用“查看 Dashboard”替代工作动作。
+页面 primary action 是当前第一条最需要处理的 action 的具体动词，例如 `完成` 或 `补充证据`；`确认稳定`、`安排下一次检查`、`重新打开` 是 Case command 入口，不等同于普通 action completion。页面右上可有一个上下文动作 `记录问题`，但不能用“查看 Dashboard”替代工作动作。
 
 ### 1.5 Secondary actions
 
@@ -68,6 +70,9 @@
 待验证
   示例学生甲 · 分数概念      本次验证通过，待确认是否稳定 [查看 Case]
 
+未来
+  示例学生乙 · 阅读理解      9 月 6 日            [查看 Case] [完成]
+
 待安排
   示例学生乙 · 词义辨析      尚未安排日期        [安排日期]
 
@@ -89,17 +94,18 @@ wireframe 只用于推理；最终实现使用真实 Flutter rows/sections，不
 | Offline | 显示连接状态；若是 Quick Capture 草稿，明确“本机草稿，未计入正式学情”；Today 不把未同步内容显示为正式完成 |
 | Draft | 可恢复的本机草稿显示来源和恢复入口，不与正式 Case/action 混排为已保存 |
 | Long content | 长 title 最多自然三行后继续可见/进入详情；操作区随内容下移，不覆盖文字 |
-| Many actions | 先按逾期/今天/待验证/待安排分组，学生簇减少重复；提供“还有 N 项”，不横向塞满 |
+| Many actions | 先按逾期/今天/待验证/未来/待安排分组，学生簇减少重复；提供“还有 N 项”，不横向塞满 |
 | No due date | `待安排` 独立 section；默认可见，不因日期筛选消失 |
+| Future action | 有明确未来日期的 action 独立进入 `未来`；不进入“今天的工作” |
 | Closed Case | 不出现在 pending action 队列；若在最近学生中出现，明确 `已关闭`，提供查看历史/重新打开 |
-| Reopened Case | 显示 `重新打开` 的 timeline 事实和当前新的 Next Action；不覆盖旧 closed 历史 |
+| Reopen event | 显示 `重新打开` 的 timeline 事实和当前新的 Next Action；不把 event 当作 status，也不覆盖旧 closed 历史 |
 
 ### 1.8 Windows layout
 
 - Expanded：232px expanded rail + max-width 工作区；主列工作队列，右侧可放最近学生/轻量上下文，不无限拉宽。
 - Medium：72px compact rail；工作队列单列，行尾可放日期/操作。
 - hover 显示行可操作区域；focus ring 明显；Tab 按 header action → section → row → row action 顺序。
-- mouse wheel 滚动列表；点击学生名/标题进入详情，完成 action 不离开当前队列。
+- mouse wheel 滚动列表；学生行或 Case row 的 `查看 Case` 按钮进入详情，完成 action 不离开当前队列。
 - 窄窗口从双列退回单列，不能把字体缩小到不可读。
 
 ### 1.9 Android layout
@@ -120,7 +126,7 @@ Tab/Shift+Tab 依次访问可操作元素；Enter/Space 激活当前 button/row�
 
 ### 1.12 Touch behavior
 
-关键行/按钮至少 48dp；整行点击区域与行尾 action 分离，避免误触。完成 action 后给出短反馈，不把 Case 自动变成 closed。
+关键行/按钮至少 48dp；Student row 的导航与 Action row 的具体按钮，以及 Case row 的 `查看 Case` 与主操作按钮分别拥有清楚的可点击边界，避免误触。完成 action 后给出短反馈，不把 Case 自动变成 closed。
 
 ### 1.13 Privacy / permission visibility
 
@@ -132,7 +138,7 @@ Tab/Shift+Tab 依次访问可操作元素；Enter/Space 激活当前 button/row�
 
 ### 1.15 Acceptance scenarios
 
-1. 有一个逾期 action、一个待验证、一个待安排 action：教师能在首屏分别说出三者含义和下一步。
+1. 有一个逾期 action、一个今天 action、一个待验证、一个未来 action、一个待安排 action：教师能在首屏分别说出五者含义和下一步，且未来 action 不出现在“今天的工作”。
 2. 同一学生有三条 action：学生姓名只出现一次，三条仍可单独操作。
 3. 375px 宽和 1280px 宽：内容关系一致，宽屏没有无限拉宽，窄屏 action 没被截断。
 4. 点击完成失败：action 仍可见，输入/上下文没有丢，出现重试。
@@ -206,7 +212,7 @@ Tab/Shift+Tab 依次访问可操作元素；Enter/Space 激活当前 button/row�
 | Many cases | 当前/待验证优先；其余折叠或按需展开，不能让首屏淹没在历史中 |
 | No due date | action 仍显示为 `待安排` |
 | Closed Case | current list 可折叠；显示已关闭和重新打开历史，不当作 active action |
-| Reopened Case | 置于当前 Cases，显示新的 Next Action 和 reopen 事件 |
+| Reopen event | 置于当前 Cases，显示新的 Next Action 和 reopen 事件；当前 status 仍属于六段生命周期 |
 
 ### 2.8 Windows layout
 
@@ -222,7 +228,7 @@ Expanded 的辅助事实列在 Medium/Compact 移到当前 Cases 之后；不删
 
 ### 2.11 Keyboard behavior
 
-`Alt/Command+Left` 仅在无文本编辑冲突时返回；Tab 能访问每个可操作 row。打开 Case 后 focus 进入 Case title 或 primary action，而不是静态装饰。
+`Alt/Command+Left` 仅在无文本编辑冲突时返回；Tab 只访问可操作的学生 row、Case row 按钮和 action 按钮。打开 Case 后 focus 进入 Case title 或 primary action，而不是静态装饰。
 
 ### 2.12 Touch behavior
 
@@ -271,7 +277,7 @@ Expanded 的辅助事实列在 Medium/Compact 移到当前 Cases 之后；不删
 
 ### 3.4 Primary action
 
-只显示当前状态允许的下一步：例如 `补充证据`、`记录教学动作`、`记录一次检查`、`确认稳定`、`安排下一次检查`、`重新打开`。主操作不根据颜色猜测，且不把 Assessment passed 自动转为 stable/closed。
+只显示当前状态允许的下一步：例如 `补充证据`、`记录教学动作`、`记录一次检查`、`确认稳定`、`安排下一次检查`、`重新打开`。后面三项是 Case command；在本阶段 prototype 中只展示命令入口并明确提示不会改变领域状态，不调用普通 action completion。主操作不根据颜色猜测，且不把 Assessment passed 自动转为 stable/closed。
 
 ### 3.5 Secondary actions
 
@@ -321,7 +327,7 @@ Assessment / Verification
 | Many events | 当前工作段优先；timeline 按时间分页/折叠，默认显示最近关键事件 |
 | No due date | Next Action 明确 `待安排`，并提供安排日期动作 |
 | Closed Case | status 文案 `已关闭；当前没有待完成的主要行动。`；primary action 为 `重新打开`，无 pending action |
-| Reopened Case | 保留 closed 和 reopen 事件；当前 status/Next Action 按新流程显示 |
+| Reopen event | 保留 closed 和 reopen 事件；当前 status/Next Action 按新流程显示，reopen 不成为额外 status |
 | Assessment passed | 文字为 `本次验证通过，仍待确认是否稳定。`，提供确认稳定/继续跟进，不自动切换 |
 | Stable | 文案 `稳定；仍需安排下一次检查。`；仍有 review/verify action |
 
@@ -343,7 +349,7 @@ Tab 按 status/Next Action → 当前段 action → 后续段 action → timelin
 
 ### 3.12 Touch behavior
 
-每个段落主 action ≥48dp；Evidence 文本区域可滚动；状态/历史不可点击时不做成大面积伪按钮。确认 stable、重新打开等状态变化需要明确按钮和必要确认。
+每个段落主 action 使用共享 48dp 目标；Evidence 文本区域可滚动；状态/历史不可点击时不做成大面积伪按钮。确认 stable、重新打开等状态命令需要明确按钮和必要确认；prototype 不伪造领域状态变化。
 
 ### 3.13 Privacy / permission visibility
 
@@ -428,7 +434,7 @@ Case detail 遵循 subject assignment/role 可见范围。可查看不可编辑�
 | Many cases | 提示只显示少量相近结果和 `查看全部`，不在课堂 sheet 展开完整历史 |
 | No due date | 快速记录不要求 due date；保存后由课后 formalize 安排 |
 | Closed Case | 相近提示可说明已有已关闭 Case，但新问题仍可记录为新 Case/稍后处理，不静默写入旧 Case |
-| Reopened Case | 如果上下文是 reopened Case，明确显示当前 Case status，不把 Quick Capture 当作重新打开操作 |
+| Reopen event | 如果上下文包含 reopen event，明确显示当前 Case status，不把 Quick Capture 当作重新打开操作 |
 
 ### 4.8 Windows layout
 
@@ -471,7 +477,7 @@ title 输入时允许 Enter 完成（note 未展开/单行语境）；note 多�
 
 | 目标 | Today | Student Detail | Learning Case | Quick Capture |
 | --- | --- | --- | --- | --- |
-| 30 秒课前理解 | 逾期/到期/待验证/待安排 | 三件事 + 最近事实 | 当前 status + Next Action | 不参与 |
+| 30 秒课前理解 | 逾期/今天/待验证/未来/待安排 | 三件事 + 最近事实 | 当前 status + Next Action | 不参与 |
 | 10–20 秒课堂记录 | 提供入口 | 提供入口 | 提供入口 | 核心指标 |
 | 60 秒课后闭环 | 完成/进入上下文 | 从学生理解 Case | 补证据/动作/验证 | 稍后整理 |
 | 语义正确 | Action queue | 当前学生上下文 | 六段证据叙事 | new/待整理 |

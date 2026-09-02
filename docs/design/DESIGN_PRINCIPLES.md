@@ -35,6 +35,8 @@ Xueqing 的核心关系必须在 UI 中保持可追溯：
 
 `学生档案 → 发现问题 → Evidence → Intervention → Assessment / Verification → Stable / 继续跟进 → Next Action`
 
+Learning Case status 只能沿用 Foundation 生命周期：`new → confirmed → intervening → pending_verification → stable → closed`。`reopen` 是 command/event/timeline fact，用来保留历史连续性，不是第七个 status。
+
 - Evidence 是可观察事实、作品、回答、错误、课堂表现或附件引用；不等于教师解释。
 - 教师判断说明如何理解 Evidence；不能把判断伪装成客观事实。
 - Intervention 是已经采取或计划采取的教学动作。
@@ -57,9 +59,10 @@ Xueqing 的核心关系必须在 UI 中保持可追溯：
 
 ## 6. Today 不是 Dashboard
 
-Today 是教师当天的工作队列，不是统计页。首屏先呈现：今天到期、已逾期、待验证、待安排、重点 Case、最近学生和进入课堂的动作。
+Today 是教师当天的工作队列，不是统计页。首屏按互斥语义组织：`overdue`、`today`、`pending verification`、`future`、`undated`，再提供重点 Case、最近学生和进入课堂的动作。
 
 - 逾期表达“需要补救”，待验证表达“等待判断”；两者不使用同一套文案。
+- `future` 由明确未来 due date/bucket 决定，不能用“不是逾期且不是无日期”推断为 today；pending verification 的 Case 级入口不重复进入普通 action queue。
 - 无日期行动进入明确的“待安排”，不能因为没有日期而从列表消失。
 - 同一学生的多个事项以学生为视觉锚点合并，避免重复轰炸；具体动作仍可逐条完成。
 - 直接可完成的动作留在 Today；需要理解上下文的判断进入 Student Detail 或 Learning Case。
@@ -94,7 +97,7 @@ Learning Case 不是巨大表单，而是一条可逐步补全的解释链：
 
 ## 11. 状态是内容，不是装饰
 
-核心流程的每个可变状态都要能在不看颜色的情况下理解：loading、empty、error、no permission、saving、save failed、offline、draft、long content、many items、closed、reopened。
+核心流程的每个可变状态都要能在不看颜色的情况下理解：loading、empty、error、no permission、saving、save failed、offline、draft、long content、many items、closed，以及带有 reopen event 的重新打开历史。
 
 状态至少用文字或结构表达，颜色只做辅助。核心信息不得依赖极小浅灰文字。错误说明下一步，草稿说明是否计入正式学情，权限说明可查看和可操作的边界。
 

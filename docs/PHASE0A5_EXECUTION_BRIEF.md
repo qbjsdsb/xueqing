@@ -426,24 +426,37 @@ Flutter Windows + Android 能否合理实现，是否为了设计稿引入大量
 
 只有满足以下条件才可声明 Phase 0A.5 完成：
 
-- [ ] #7 研究完成并有来源记录
-- [ ] Design Principles 完成
-- [ ] IA 完成
-- [ ] Visual Foundation 完成
-- [ ] Responsive Rules 完成
-- [ ] Components 完成
-- [ ] Today spec 完成
-- [ ] Student Detail spec 完成
-- [ ] Learning Case spec 完成
-- [ ] Android Quick Capture spec 完成
-- [ ] UX Copy 完成
-- [ ] Accessibility 规则完成
-- [ ] Anti-AI-style checklist 完成
-- [ ] Windows / Android 差异明确
-- [ ] Flutter mapping 可实现
-- [ ] 无 Supabase / Auth / RLS 越界
-- [ ] 无真实学生数据
-- [ ] Draft PR 记录设计决策与未决问题
-- [ ] 独立自审完成
+- [x] #7 研究完成并有来源记录
+- [x] Design Principles 完成
+- [x] IA 完成
+- [x] Visual Foundation 完成
+- [x] Responsive Rules 完成
+- [x] Components 完成
+- [x] Today spec 完成
+- [x] Student Detail spec 完成
+- [x] Learning Case spec 完成
+- [x] Android Quick Capture spec 完成
+- [x] UX Copy 完成
+- [x] Accessibility 规则完成
+- [x] Anti-AI-style checklist 完成
+- [x] Windows / Android 差异明确
+- [x] Flutter mapping 可实现
+- [x] 无 Supabase / Auth / RLS 越界
+- [x] 无真实学生数据
+- [x] Draft PR 记录设计决策与未决问题
+- [x] 独立自审完成
 
 完成后停止，等待人工/ChatGPT 审计，不自动进入 Phase 0B。
+
+## 19. 当前执行状态（2026-09-02）
+
+本任务书的完成条件 checklist 已与最终设计事实源对齐；逐项审查证据和最终 CI 结果以 `docs/design/DESIGN_REVIEW_CHECKLIST.md` 与 Draft PR #9 为准，不以本文件单独替代审查记录。
+
+当前状态：Phase 0A.5 的审计修复与自审已完成，等待下一轮独立复审。PR #9 保持 Draft/Open，Issue #6 保持 Open；本状态不授权进入 Phase 0B。
+
+本次修复特别锁定以下事实：
+
+- Case status 只使用 `new → confirmed → intervening → pending_verification → stable → closed`；`reopen` 只作为 command/event/timeline fact。
+- Today 的 `overdue`、`today`、`future`、`undated` 与 Case 级 `pending verification` 互斥；future fixture 和 widget test 是可执行证据。
+- prototype 的 Case 状态命令只展示设计预览提示，不伪造领域状态变化；Android 关键触控目标统一由 `AppSpacing.touchTarget = 48dp` 提供。
+

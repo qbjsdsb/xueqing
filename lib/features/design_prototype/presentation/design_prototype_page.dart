@@ -154,23 +154,27 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       }
     }
 
-    final overdue = actionGroups.values
-        .expand((items) => items)
-        .where((item) => item.action.isOverdue)
-        .toList();
-    final dueToday = actionGroups.values
-        .expand((items) => items)
+    final ordinaryActions = actionGroups.values.expand((items) => items);
+    final overdue = ordinaryActions
         .where(
           (item) =>
-              !item.action.isOverdue &&
-              !item.action.isUndated &&
-              item.learningCase.status !=
-                  PrototypeCaseStatus.pendingVerification,
+              item.action.dueBucket == PrototypeActionDueBucket.overdue,
         )
         .toList();
-    final undated = actionGroups.values
-        .expand((items) => items)
-        .where((item) => item.action.isUndated)
+    final dueToday = ordinaryActions
+        .where(
+          (item) => item.action.dueBucket == PrototypeActionDueBucket.today,
+        )
+        .toList();
+    final future = ordinaryActions
+        .where(
+          (item) => item.action.dueBucket == PrototypeActionDueBucket.future,
+        )
+        .toList();
+    final undated = ordinaryActions
+        .where(
+          (item) => item.action.dueBucket == PrototypeActionDueBucket.undated,
+        )
         .toList();
     final pendingVerification = DesignFixture.students
         .expand(
@@ -203,6 +207,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
         ),
         if (overdue.isNotEmpty || dueToday.isNotEmpty) ...[
           DesignSection(
+            key: const Key('today-work-section'),
             title: '今天的工作',
             count: '${overdue.length + dueToday.length} 项',
             child: Column(
@@ -235,6 +240,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           ),
         const SizedBox(height: AppSpacing.lg),
         DesignSection(
+          key: const Key('pending-verification-section'),
           title: '待验证',
           count: '${pendingVerification.length} 个 Case',
           showTopDivider: true,
@@ -251,17 +257,26 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                         student: item.student,
                         learningCase: item.learningCase,
                         onOpen: () => _openCase(item.learningCase),
-                        onPrimaryAction: item.learningCase.primaryAction == null
-                            ? null
-                            : () => _completeAction(
-                                item.learningCase.primaryAction!,
-                              ),
+                        onPrimaryAction: _casePrimaryAction(item.learningCase),
+                        primaryActionLabel: _casePrimaryLabel(
+                          item.learningCase,
+                        ),
                       ),
                   ],
                 ),
         ),
         const SizedBox(height: AppSpacing.lg),
+        if (future.isNotEmpty)
+          DesignSection(
+            key: const Key('future-actions-section'),
+            title: '未来',
+            count: '${future.length} 项',
+            showTopDivider: true,
+            child: Column(children: _buildActionGroups(future)),
+          ),
+        if (future.isNotEmpty) const SizedBox(height: AppSpacing.lg),
         DesignSection(
+          key: const Key('undated-actions-section'),
           title: '待安排',
           count: '${undated.length} 项',
           showTopDivider: true,
@@ -440,9 +455,8 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                   student: item.student,
                   learningCase: item.learningCase,
                   onOpen: () => _openCase(item.learningCase),
-                  onPrimaryAction: item.learningCase.primaryAction == null
-                      ? null
-                      : () => _completeAction(item.learningCase.primaryAction!),
+                  onPrimaryAction: _casePrimaryAction(item.learningCase),
+                  primaryActionLabel: _casePrimaryLabel(item.learningCase),
                 ),
             ],
           ),
@@ -506,9 +520,8 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                     student: student,
                     learningCase: learningCase,
                     onOpen: () => _openCase(learningCase),
-                    onPrimaryAction: learningCase.primaryAction == null
-                        ? null
-                        : () => _completeAction(learningCase.primaryAction!),
+                    onPrimaryAction: _casePrimaryAction(learningCase),
+                    primaryActionLabel: _casePrimaryLabel(learningCase),
                   ),
               ],
             ),
@@ -531,6 +544,8 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                         student: student,
                         learningCase: learningCase,
                         onOpen: () => _openCase(learningCase),
+                        onPrimaryAction: _casePrimaryAction(learningCase),
+                        primaryActionLabel: _casePrimaryLabel(learningCase),
                       ),
                   ],
                 ),
@@ -553,6 +568,8 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                         student: student,
                         learningCase: learningCase,
                         onOpen: () => _openCase(learningCase),
+                        onPrimaryAction: _casePrimaryAction(learningCase),
+                        primaryActionLabel: _casePrimaryLabel(learningCase),
                       ),
                   ],
                 ),
@@ -582,7 +599,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           actions: [
             DesignStatusMarker(label: learningCase.statusLabel),
             FilledButton(
-              onPressed: () => _completeCaseAction(learningCase),
+              onPressed: _casePrimaryAction(learningCase),
               child: Text(_casePrimaryLabel(learningCase)),
             ),
           ],
@@ -664,14 +681,36 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     );
   }
 
-  void _completeCaseAction(PrototypeCase learningCase) {
+  bool _isCaseStateCommand(PrototypeCase learningCase) {
+    return switch (learningCase.status) {
+      PrototypeCaseStatus.pendingVerification ||
+      PrototypeCaseStatus.stable ||
+      PrototypeCaseStatus.closed => true,
+      _ => false,
+    };
+  }
+
+  VoidCallback _casePrimaryAction(PrototypeCase learningCase) {
+    if (_isCaseStateCommand(learningCase)) {
+      return () => _showCaseCommandNotice(learningCase);
+    }
+
     final action = learningCase.primaryAction;
     if (action != null) {
-      _completeAction(action);
-    } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('这里将进入对应的 Case 状态操作。')));
+      return () => _completeAction(action);
     }
+
+    return () => _showPrototypeNotice('处理下一步');
+  }
+
+  void _showCaseCommandNotice(PrototypeCase learningCase) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '设计预览：${_casePrimaryLabel(learningCase)}只展示命令入口，不改变领域状态。',
+        ),
+      ),
+    );
   }
 
   void _showPrototypeNotice(String actionLabel) {

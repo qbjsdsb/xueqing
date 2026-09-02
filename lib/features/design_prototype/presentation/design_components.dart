@@ -293,6 +293,7 @@ class DesignCaseRow extends StatelessWidget {
     required this.learningCase,
     required this.onOpen,
     this.onPrimaryAction,
+    this.primaryActionLabel,
     super.key,
   });
 
@@ -300,41 +301,45 @@ class DesignCaseRow extends StatelessWidget {
   final PrototypeCase learningCase;
   final VoidCallback onOpen;
   final VoidCallback? onPrimaryAction;
+  final String? primaryActionLabel;
 
   @override
   Widget build(BuildContext context) {
-    return _InteractiveSurface(
-      label: '打开 ${learningCase.title} 的 Case 详情',
-      onTap: onOpen,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    learningCase.title,
-                    style: Theme.of(context).textTheme.titleSmall,
+    return Semantics(
+      container: true,
+      label: 'Case 信息：${student.name} · ${learningCase.title}',
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      learningCase.title,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                DesignStatusMarker(label: learningCase.statusLabel),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.xxs,
-              children: [
-                DesignMetadata('${student.name} · ${learningCase.subject}'),
-                DesignMetadata(learningCase.priorityLabel),
-                DesignMetadata('下一步：${learningCase.nextAction}'),
-              ],
-            ),
-            if (onPrimaryAction != null) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  DesignStatusMarker(label: learningCase.statusLabel),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.xxs,
+                children: [
+                  DesignMetadata('${student.name} · ${learningCase.subject}'),
+                  DesignMetadata(learningCase.priorityLabel),
+                  DesignMetadata('下一步：${learningCase.nextAction}'),
+                ],
+              ),
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: AppSpacing.xs,
@@ -344,14 +349,15 @@ class DesignCaseRow extends StatelessWidget {
                     onPressed: onOpen,
                     child: const Text('查看 Case'),
                   ),
-                  FilledButton(
-                    onPressed: onPrimaryAction,
-                    child: const Text('处理下一步'),
-                  ),
+                  if (onPrimaryAction != null)
+                    FilledButton(
+                      onPressed: onPrimaryAction,
+                      child: Text(primaryActionLabel ?? '处理下一步'),
+                    ),
                 ],
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -415,7 +421,8 @@ class DesignActionRow extends StatelessWidget {
                         ),
                         DesignMetadata(
                           isCompleted ? '已完成' : action.dueLabel,
-                          icon: action.isUndated
+                          icon: action.dueBucket ==
+                                  PrototypeActionDueBucket.undated
                               ? Icons.event_busy_outlined
                               : Icons.event_outlined,
                         ),
@@ -642,7 +649,10 @@ IconData _actionIcon(PrototypeActionKind kind) {
 }
 
 Color _actionColor(PrototypeAction action) {
-  if (action.isOverdue) return AppColors.danger;
-  if (action.isUndated) return AppColors.warning;
-  return AppColors.accent;
+  return switch (action.dueBucket) {
+    PrototypeActionDueBucket.overdue => AppColors.danger,
+    PrototypeActionDueBucket.undated => AppColors.warning,
+    PrototypeActionDueBucket.today || PrototypeActionDueBucket.future =>
+      AppColors.accent,
+  };
 }
