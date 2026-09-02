@@ -4,11 +4,22 @@
 
 ## 当前状态
 
-**Foundation v0.3｜Final Audit / Freeze Candidate**
+**Foundation v0.3｜Final Audit / Squash Merge 已完成**
 
 产品边界、核心数据模型、Auth/权限、安全、本地存储、零成本云端开发、恢复与运行风险已经完成正式开发前的总审计。
 
-**当前仍不是完整可运行 Flutter App。** `lib/` 仍是占位源码；正式 `flutter create`、Supabase migrations、RLS tests、Windows / Android build 和真实网络验证将在 Phase 0 完成。
+**Phase 0A｜Flutter Windows + Android Bootstrap 已建立工程基线。** 当前实现位于 `phase0/flutter-bootstrap`，并继续更新 Draft PR #4；`main` 不接收本阶段直接 push。
+
+当前仓库已经包含正式 Flutter 工程入口、Android / Windows platform project、typed environment config、App bootstrap、内置 Navigator 路由、轻量 Theme / responsive foundation、错误/加载兜底、测试基线与轻量 CI。
+
+本次云端执行环境没有 Flutter、Dart、Android SDK 或 Windows toolchain，因此版本探针、Dart/Flutter 检查、Android build 和 Windows build 的真实结果按执行证据记录，不能从本地推断为通过。CI workflow 使用 Flutter stable `3.47.1` 作为可重复执行的基线。
+
+### Phase 0A 尚未实现
+
+- Supabase、Auth、RLS、Realtime、secure Session 与 encrypted draft；
+- Student、Learning Case、Evidence、Intervention、Assessment、Lesson、Today 等正式业务功能；
+- 最终 UX/UI、正式导航信息架构、Dashboard、统计或 AI 页面；
+- Production signing、发布渠道与真实网络 / 设备验证。
 
 当前 GitHub 仓库已经是 **Private**。
 
@@ -299,9 +310,9 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 
 ## Foundation 冻结后的正确顺序
 
-1. 完成本 PR 的最后一致性检查并 **Squash merge Foundation v0.3**；
-2. 建 ChatGPT Project：`Xueqing｜学情闭环开发`；
-3. 正式初始化 Flutter Windows + Android；
+1. Foundation v0.3 已完成最终审计并 **Squash merge 到 `main`**；
+2. 完成本分支 Phase 0A 的真实命令与平台验证；
+3. 进行 **Phase 0A 审计 → Phase 0A.5 UX/UI Design Foundation**；
 4. 初始化 Local Supabase migrations / fake seed / RLS tests；
 5. 实现 `organizations.time_zone` 和最小 Organization / Membership schema；
 6. 完成 secure Session + Startup Gate + encrypted draft Spike；

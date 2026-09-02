@@ -16,7 +16,7 @@
 
 ## 2. 本阶段唯一目标
 
-建立一个真正的 Flutter 工程基线，使后续 Phase 0B 可以在不返工 Flutter 外壳的前提下接入 Local Supabase。
+建立一个真正的 Flutter 工程基线，使后续后端与安全阶段可以在不返工 Flutter 外壳的前提下接入 Local Supabase。
 
 本阶段不是做业务功能。
 
@@ -87,7 +87,7 @@ Phase 0A 不做：
 - 付费 SaaS；
 - 为未来需求提前造复杂抽象。
 
-这些分别属于后续 Phase 0B/0C 或业务 Milestone。
+这些分别属于后续 Phase 0B 或业务 Milestone。
 
 ## 5. 必须真实执行的命令
 
@@ -145,7 +145,7 @@ PR 正文至少包含：
 6. Android build 状态；
 7. Windows build 状态；
 8. 已知限制；
-9. Phase 0B 的明确交接点；
+9. Phase 0A.5 UX/UI Design Foundation 以及后续后端阶段的明确交接点；
 10. “未执行”的检查清单。
 
 ## 9. 完成定义
@@ -164,3 +164,14 @@ PR 正文至少包含：
 - 没有提前实现 Phase 0B 及之后的功能。
 
 完成后停止，不自动继续 Phase 0B；先等待 PR 审查/合并。
+
+## 当前执行状态（2026-09-02）
+
+Phase 0A 的工程源文件已经在既有 `phase0/flutter-bootstrap` 分支上补齐，并继续使用 Draft PR #4。当前云端 host 是 Linux，未安装 Flutter、Dart、Android SDK、Gradle、CMake 或 Windows toolchain；JDK 17 可用。因此以下执行证据必须保持区分：
+
+- `flutter --version`、`dart --version`、`flutter doctor -v`：**FAIL / EXECUTED**，命令返回 `command not found`；
+- `flutter pub get`、format、analyze、test：**FAIL / EXECUTED**，命令返回 `flutter/dart: command not found`；
+- Android debug build：**FAIL / EXECUTED**，Flutter executable 与 Android SDK 缺失；
+- Windows build：**NOT RUN / ENVIRONMENT UNAVAILABLE**；Windows runner 仅做 **REVIEWED ONLY** 静态审查。
+
+详细结果见 `docs/PHASE0A_EXECUTION_RECORD.md`。这些环境限制不能被写成工程构建通过。

@@ -245,3 +245,11 @@ V1 的 Password 是全局 Supabase Auth credential，而 `reset_member_credentia
 因此 V1 默认不把学生/学情敏感表加入 Realtime publication，也不写依赖 Realtime 才正确的业务逻辑。
 
 以后需要 Realtime 时，新增 ADR，至少测试 revoked session、token refresh/re-auth、reconnect、cross-org、subscription cleanup 后再开启。
+---
+
+## ADR-043｜Phase 0A 使用 Flutter SDK 内置 Navigator
+**Accepted（Phase 0A）**
+
+Phase 0A 只有 Bootstrap 页面与路由自检页，没有 deep link、Auth redirect、复杂路由参数或嵌套路由需求。使用 `MaterialApp.onGenerateRoute` 与集中 `XueqingRouter` 足以覆盖当前启动链路，同时不增加 `go_router` 依赖。
+
+后续出现 Auth/租户重定向、deep link、强类型路由参数或路由状态恢复需求时，再以真实需求评估路由包；本决定不预先锁定 Phase 0A.5 的导航视觉或业务信息架构。

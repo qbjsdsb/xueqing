@@ -30,6 +30,8 @@
 - Actions zero-overage budget 是否生效。
 
 ### 验收
+
+> 当前源码与配置基线已建立；由于执行环境没有 Flutter/Android/Windows toolchain，下面的真实构建验收仍保持未勾选。
 - 新任务只靠 GitHub + AGENTS + docs 能理解当前规则；
 - PR 没执行证据不合并；
 - 不依赖付费 branch protection 才能遵守流程。
@@ -38,14 +40,24 @@
 
 ## 0B. Flutter 正式工程
 
-- [ ] 用当前 stable Flutter 正式初始化 Windows + Android
-- [ ] 提交 `pubspec.lock`
-- [ ] typed AppConfig / Development / Production 配置
-- [ ] View / ViewModel / Repository / Service 职责分层
-- [ ] 基础 theme / router / error boundary / logging
-- [ ] format / analyze / test 基线
-- [ ] 参考 Flutter 官方 `compass_app` 的多环境 / Repository / Service / 测试
-- [ ] 不在 Widget 中散落 Supabase 表查询、权限和事务逻辑
+> 文档映射：本仓库当前执行任务书中的 **Phase 0A** 对应本节 Flutter 工程基线；后续 Local Supabase 属于 Phase 0B。保留原有 0A/0B/0C 编号以避免 Foundation 文档历史引用断裂。
+
+### Phase 0A 当前实现状态
+
+- [x] Flutter project metadata、Android 与 Windows platform source 已加入既有分支
+- [x] `xueqing` package 与 `com.xueqing.app` application id 已固定
+- [x] typed environment、bootstrap、router、theme、responsive、error/loading foundation 已加入
+- [x] 最小 unit/widget tests 与轻量 GitHub Actions workflow 已加入
+- [ ] Flutter/Android/Windows 的本地真实执行验证（当前环境不可用，见 `docs/PHASE0A_EXECUTION_RECORD.md`）
+
+- [x] 按当前 stable Flutter 官方模板形态准备 Windows + Android 工程文件（本地 SDK 不可用，未宣称 build 通过）
+- [x] 提交 `pubspec.lock`
+- [x] typed AppConfig / Development / Production 配置
+- [x] 以 Bootstrap/Widget 边界保持轻量；业务 data/service/repository 在需要时再出现
+- [x] 基础 theme / router / error boundary / logging
+- [x] format / analyze / test 的 CI 基线文件
+- [x] REVIEWED ONLY：参考 Flutter 官方 stable template 的平台结构
+- [x] Widget 中没有 Supabase 表查询、权限或事务逻辑
 
 ### 验收
 - [ ] Windows debug/build 能真实执行
@@ -55,7 +67,7 @@
 
 ---
 
-## 0C. Local Supabase
+## Phase 0B（原 0C）. Local Supabase
 
 - [ ] 初始化 `supabase/`
 - [ ] migrations
