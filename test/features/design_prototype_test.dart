@@ -97,7 +97,9 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.bySemanticsLabel('打开 示例学生甲 的学生详情'));
+      final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
+      await tester.ensureVisible(studentRow);
+      await tester.tap(studentRow);
       await tester.pumpAndSettle();
       expect(find.text('现在最重要的事'), findsOneWidget);
 
