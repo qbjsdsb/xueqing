@@ -1,6 +1,7 @@
 # 零额外付费的云端开发方案
 
 > 目标：使用现有 ChatGPT 方案能力 + GitHub Free + Supabase Free，把 Xueqing 做到可测试、可安装、可供少量内部教师 Pilot；不额外购买服务器、SMTP、域名、短信、AI API、CI、Supabase add-on 或 Work/Codex credits。
+
 > **Phase 0B.0 provider / production hard boundary**
 >
 > 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：

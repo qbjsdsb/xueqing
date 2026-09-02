@@ -1,6 +1,7 @@
 # Disaster Recovery｜零成本 Pilot 恢复手册
 
 > 这份文档定义 **未来 gated Production Pilot 在 P0 Gate A/B 与 Go/No-Go 后才可使用的恢复流程**。它不是“备份提醒”，而是恢复演练检查表。任何真实密码、连接串、Backup 文件都不得提交 GitHub。
+
 > **Phase 0B.0 provider / production hard boundary**
 >
 > 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：

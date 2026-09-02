@@ -1,6 +1,7 @@
 # 开发、数据库与发布工作流
 
 > 目标：任何新 Work/Codex 会话或新电脑都能从 GitHub 重建真实开发状态；不依赖某次聊天记忆、某台电脑或 Remote Dashboard 的隐性修改。
+
 > **Phase 0B.0 provider / production hard boundary**
 >
 > 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：

@@ -1,4 +1,6 @@
-# AGENTS.md# Provider / production boundary
+# AGENTS.md
+
+## Provider / production boundary
 
 > **Phase 0B.0 provider / production hard boundary**
 >

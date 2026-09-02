@@ -1,6 +1,7 @@
 # 安全、隐私与恢复基线
 
 > 系统会处理未成年学生信息。V1 可以零额外付费，但不能用“先跑起来”或“免费”作为降低权限、备份、设备安全和隐私门槛的理由。
+
 > **Phase 0B.0 provider / production hard boundary**
 >
 > 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：

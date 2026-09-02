@@ -28,6 +28,7 @@
 7. 官方 Supabase / 中国大陆候选 / 国内自托管路径需要在不锁厂商的前提下做兼容性决策。
 
 这些问题一旦在 migration/RLS 后才修改，会显著增加返工成本，因此先做 Phase 0A.6。
+
 > **Phase 0B.0 provider / production hard boundary**
 >
 > 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
