@@ -327,13 +327,11 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
                     label: 'Organization',
                     value: userContext?.organizationName ?? '—',
                   ),
-                  _SummaryRow(
-                    label: 'Role',
-                    value: userContext?.role ?? '—',
-                  ),
+                  _SummaryRow(label: 'Role', value: userContext?.role ?? '—'),
                   _SummaryRow(
                     label: 'Accessible Student Count',
-                    value: (userContext?.accessibleStudentCount ?? 0).toString(),
+                    value: (userContext?.accessibleStudentCount ?? 0)
+                        .toString(),
                   ),
                 ],
               ),
@@ -406,9 +404,8 @@ class _SummaryPanel extends StatelessWidget {
                   ),
                   Text(
                     rows[index].value,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                 ],
               ),

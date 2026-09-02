@@ -45,7 +45,9 @@ class SupabaseStudentRepository implements StudentRepository {
 
     final organizationId = membership['organization_id'] as String?;
     if (organizationId == null) {
-      throw const FormatException('Membership did not include an organization.');
+      throw const FormatException(
+        'Membership did not include an organization.',
+      );
     }
 
     final organization = await _client

@@ -1,8 +1,5 @@
 class CloudConfig {
-  const CloudConfig({
-    this.url = '',
-    this.publishableKey = '',
-  });
+  const CloudConfig({this.url = '', this.publishableKey = ''});
 
   factory CloudConfig.fromDartDefines() {
     return CloudConfig(

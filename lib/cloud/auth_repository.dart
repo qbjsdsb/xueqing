@@ -5,10 +5,7 @@ abstract interface class AuthRepository {
 
   Stream<AuthState> get authStateChanges;
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  });
+  Future<void> signIn({required String email, required String password});
 
   Future<void> signOut();
 }
@@ -25,10 +22,7 @@ class SupabaseAuthRepository implements AuthRepository {
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
   @override
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     final response = await _client.auth.signInWithPassword(
       email: email,
       password: password,
