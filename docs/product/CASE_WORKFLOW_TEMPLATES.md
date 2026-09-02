@@ -69,14 +69,37 @@ new → confirmed → intervening → pending_verification → stable → closed
 
 1. `new` 可先快速捕捉；
 2. confirmed 前必须有可解释 Evidence；
-3. confirmed 起必须有一个 pending primary Action；
+3. **当 Student Subject Profile = active 时，confirmed/intervening/pending_verification/stable 必须有一个 pending primary Action；**
 4. Intervention 表达“已经做了什么”；
 5. Action 表达“下一步准备做什么”；
 6. Assessment 是一次检查结果，不自动改变最终状态；
 7. failed/partial 不删除历史；
-8. stable 仍需 review/verify Action；
+8. **当 Profile=active 时，stable 仍需 review/verify Action；**
 9. closed 后复发使用 reopen；
 10. 不因某模板步骤“完成”而绕过 Case lifecycle command。
+
+### Service-suspended exception｜服务暂停例外
+
+Case resolution lifecycle 与 Subject Profile service lifecycle 是两个维度。
+
+当 Profile 从 active→inactive，或已经 archived：
+- unresolved Case 保留原真实 status；
+- 当前 pending Action 由受控 lifecycle command 完成/取消并写 suspension reason/event；
+- Case 退出普通教师 Today；
+- 此时**允许 formal open Case 暂无 pending primary Action**；
+- 这不是 `closed`，也不是“已清零”；
+- 不允许继续产生普通 Intervention/Assessment/Lesson 教学事实。
+
+恢复服务时：
+- archived 必须先受控 `unarchive → inactive`；
+- inactive 再通过 `reactivate`；
+- 在 Profile 真正变回 active 前，所有仍需继续的 unresolved formal Cases 必须重新获得合法 owner + pending primary Action。
+
+因此模板中的“下一步”不变量始终理解为：
+
+> **active teaching service 下，正式未解决 Case 必须有下一步。**
+
+不能用模板文档覆盖 service lifecycle 的 suspended exception。
 
 ---
 
@@ -117,7 +140,7 @@ new → confirmed → intervening → pending_verification → stable → closed
 
 若一阶失败：
 - Case 仍 intervening；
-- 下一 Action 继续 reteach/review；
+- **Profile active 时**下一 Action 继续 reteach/review；
 - 不进入二阶只是为了“走流程”。
 
 ---
@@ -137,7 +160,7 @@ new → confirmed → intervening → pending_verification → stable → closed
 
 若 partial/failed：
 - 教师可补新的 Intervention；
-- 再安排 practice；
+- Profile active 时再安排 practice；
 - 不强制每个 Case 恰好只有一次二阶。
 
 ---
@@ -172,7 +195,7 @@ new → confirmed → intervening → pending_verification → stable → closed
 三阶通过后：
 - Case 可进入 `pending_verification`；
 - 授权教师确认是否有足够证据进入 `stable`；
-- stable 后保留后续 review/verify；
+- **Profile active 时** stable 后保留后续 review/verify；
 - 最终才可能 closed/清零。
 
 ---
@@ -196,6 +219,8 @@ new → confirmed → intervening → pending_verification → stable → closed
 → review
 → closed
 ```
+
+这是 active teaching service 下的典型路径。若中途 Profile inactive，则 tracking suspended，原 Case status 保留；未来恢复 active 后从真实现状重新建立 Action，而不是为了模板连续性伪造中间步骤。
 
 系统必须允许这种历史，不得为了“阶段进度 3/3”强迫老师改事实。
 
@@ -390,7 +415,7 @@ Phase 0A.6 不规定：
 
 `other` Case：
 - 仍遵守统一 lifecycle；
-- 仍需要 Evidence/Action；
+- **active Profile 时**仍需要 Evidence/Action；
 - 教师自定义 Intervention/Verification；
 - UI 不强制显示“三阶”。
 
@@ -429,7 +454,7 @@ current_stage = 2
 三阶｜延迟独立验证    待验证
 ```
 
-这是工作视图，不是第二套 lifecycle。
+这是 active service 下的工作视图，不是第二套 lifecycle。Profile inactive/archived 时，UI 应明确显示“当前学科服务已暂停/归档”，而不是继续渲染成今天必须推进的三阶任务。
 
 ---
 
@@ -462,6 +487,8 @@ student/subject 已知
 → new Case
 ```
 
+普通课堂 Quick Capture 仍必须发生在合法 teaching service context；Profile inactive/archived 时不能因为“只是 new”而绕开权限建立新的教学 Case。
+
 不要求当场：
 - 判断三类；
 - 选择 workflow；
@@ -487,6 +514,8 @@ new Case
 → confirm_case
 ```
 
+`confirm_case` 本身要求 Profile=active。
+
 例如 Knowledge：
 
 > 建议下一步：完成当堂订正并记录一次即时检查。
@@ -505,7 +534,7 @@ Exam Strategy：
 
 # 13. Case 状态与 Workflow 的关系
 
-一个典型 Knowledge Case：
+一个典型 active-profile Knowledge Case：
 
 ```text
 new
@@ -529,6 +558,8 @@ pending_verification
 ```
 
 如果合法状态转移规则允许，则通过受控 command 记录为什么继续干预。
+
+如果 Profile inactive/archived：Case resolution status 不因为 service lifecycle 自动迁移；Workflow 只进入 tracking-suspended 展示，不制造新 status。
 
 Workflow 不能自行创造非法 lifecycle transition。
 
@@ -582,6 +613,8 @@ Workflow 不能自行创造非法 lifecycle transition。
 
 Lesson 是 Workflow 的主要执行上下文之一。
 
+只有完整 Teaching Fact Gate 成立、Profile=active 时才能开始/记录新的实际教学 Lesson。
+
 课前：
 - 显示本节要执行/验证的阶段；
 
@@ -622,6 +655,8 @@ Lesson 是 Workflow 的主要执行上下文之一。
 
 状态仍统一显示 Foundation lifecycle 的教师友好文案。
 
+当 Profile inactive/archived 时，服务状态文案必须与 Case 解决状态分开展示，不能把“已停课/已归档”显示成“已清零”。
+
 ---
 
 # 18. Acceptance scenarios
@@ -650,6 +685,18 @@ Case 可继续/重新干预；历史不覆盖。
 
 进入长期重点提醒，优先重新分析原因；不自动创建第二个“顽固问题”。
 
+### G. Profile active 时 formal open Case 没有 primary Action
+
+非法。必须由数据库/command 不变量阻止或治理检测发现。
+
+### H. Profile inactive，Case 仍 intervening，但没有 primary Action
+
+合法的 service-suspended 状态：Case 不进入普通 Today，也不伪造 closed；必须有 tracking suspended reason/event。
+
+### I. Profile archived 仍显示“三阶待验证”并生成 Today Action
+
+非法。Archived service 不产生当前教学任务；需要恢复时先 unarchive→inactive，再 reactivate 并重新建立 Action。
+
 ---
 
 # 19. 决策结论
@@ -663,6 +710,7 @@ Phase 0A.6 当前冻结：
 5. Exam Strategy 必须验证接近真实考试条件下的迁移；
 6. 不设置统一自动 stable/clear 阈值；
 7. Assessment passed 永远不自动 closed；
-8. workflow 阶段优先从事实派生，不新建第二套权威状态；
-9. V1 暂不要求 workflow template entity/version；
-10. Quick Capture 不被完整 workflow 阻塞。
+8. **active Profile 的 formal open Case 必须有 pending primary Action；inactive/archived 是明确的 service-suspended exception；**
+9. workflow 阶段优先从事实派生，不新建第二套权威状态；
+10. V1 暂不要求 workflow template entity/version；
+11. Quick Capture 不被完整 workflow 阻塞，但不能绕过 Teaching Fact Gate / service state。
