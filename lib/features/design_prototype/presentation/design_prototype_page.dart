@@ -137,7 +137,11 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     for (final student in DesignFixture.students) {
       for (final learningCase in student.cases) {
         final action = learningCase.primaryAction;
-        if (action == null || _completedActionIds.contains(action.id)) continue;
+        if (action == null ||
+            _completedActionIds.contains(action.id) ||
+            learningCase.status == PrototypeCaseStatus.pendingVerification) {
+          continue;
+        }
         actionGroups
             .putIfAbsent(student.id, () => <_ActionWithContext>[])
             .add(
