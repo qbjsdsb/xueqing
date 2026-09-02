@@ -81,28 +81,29 @@ request() {
 login() {
   local email="$1"
   local password="$2"
-  local response_file="$3"
   local payload
   payload="$(jq -n --arg email "$email" --arg password "$password" \
     '{email: $email, password: $password}')"
 
+  local response
   local status
-  status="$(printf '%s' "$payload" | curl --silent --show-error \
-    --output "$response_file" \
-    --write-out '%{http_code}' \
+  response="$(printf '%s' "$payload" | curl --silent --show-error \
+    --write-out '\n%{http_code}' \
     --request POST \
     --url "$base_url/auth/v1/token?grant_type=password" \
     --header "apikey: $XUEQING_SUPABASE_PUBLISHABLE_KEY" \
     --header 'Content-Type: application/json' \
     --data-binary @-)"
+  status="${response##*$'\n'}"
 
   if [ "$status" != "200" ]; then
     echo "Password login failed (HTTP $status)." >&2
     exit 1
   fi
 
-  jq --exit-status --raw-output '.access_token | strings | select(length > 0)' \
-    "$response_file"
+  response="${response%$'\n'*}"
+  printf '%s' "$response" | jq --exit-status --raw-output \
+    '.access_token | strings | select(length > 0)'
 }
 
 assert_json() {
@@ -152,9 +153,6 @@ student_b_id="30000000-0000-0000-0000-000000000002"
 organization_a_id="00000000-0000-0000-0000-000000000001"
 organization_b_id="00000000-0000-0000-0000-000000000002"
 
-teacher_a_login="$temp_dir/teacher-a-login.json"
-teacher_b_login="$temp_dir/teacher-b-login.json"
-no_membership_login="$temp_dir/no-membership-login.json"
 teacher_a_students="$temp_dir/teacher-a-students.json"
 teacher_a_cross_student="$temp_dir/teacher-a-cross-student.json"
 teacher_a_cross_org="$temp_dir/teacher-a-cross-org.json"
@@ -173,11 +171,11 @@ after_logout_students="$temp_dir/after-logout-students.json"
 after_logout_app_user="$temp_dir/after-logout-app-user.json"
 
 teacher_a_token="$(login "$XUEQING_SPIKE_TEACHER_A_EMAIL" \
-  "$XUEQING_SPIKE_TEACHER_A_PASSWORD" "$teacher_a_login")"
+  "$XUEQING_SPIKE_TEACHER_A_PASSWORD")"
 teacher_b_token="$(login "$XUEQING_SPIKE_TEACHER_B_EMAIL" \
-  "$XUEQING_SPIKE_TEACHER_B_PASSWORD" "$teacher_b_login")"
+  "$XUEQING_SPIKE_TEACHER_B_PASSWORD")"
 no_membership_token="$(login "$XUEQING_SPIKE_NO_MEMBERSHIP_EMAIL" \
-  "$XUEQING_SPIKE_NO_MEMBERSHIP_PASSWORD" "$no_membership_login")"
+  "$XUEQING_SPIKE_NO_MEMBERSHIP_PASSWORD")"
 
 teacher_a_status="$(request GET \
   "$base_url/rest/v1/app_users?select=display_name,auth_provider" \
