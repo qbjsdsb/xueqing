@@ -271,6 +271,7 @@ closed --reopen_case--> confirmed
 `reopen_case` 的客户端输入只能包括：
 - recurrence Evidence IDs；
 - `expected_case_version`；
+- expected recurrence Evidence versions 或 server-issued opaque freshness token；
 - `operation_id`；
 - proposed/legal owner；
 - 一个新的 pending primary Action。
@@ -287,6 +288,8 @@ closed --reopen_case--> confirmed
 
 旧 Evidence（`observed_at` 早于或等于 close boundary）不能单独作为 recurrence。它可以被新 Evidence 引用或作为复查线索，但新 Evidence 自身的 observed_at 必须晚于最近一次 close。
 
+Committed/finalized Evidence 是 append-only historical fact：commit 后不得普通修改 `case_id`、`observed_at`、`created_at`、author/source attribution、provenance 或其他 recurrence-relevant 字段，也不得物理删除。错误必须用 correction record、superseding Evidence 或 explicit correction/invalidation event 表达，并保留原 provenance；Draft 不属于 committed history，也不创建第二套 Evidence 模型。
+
 ### 8.4 Server-authoritative previous close and atomic command
 
 事务从头到尾至少执行：
@@ -302,24 +305,25 @@ closed --reopen_case--> confirmed
 9. current Case status 必须为 `closed`；
 10. 验证 `expected_case_version`；
 11. 在同一事务内从不可变、只追加的 lifecycle history 解析该 Case 最近一次**已提交（latest committed）**的 `case_closed` event；不存在该 event 则拒绝并报告 integrity anomaly；
-12. server 以该 event 作为 recurrence boundary，绝不接受客户端指定的 close ID；
-13. 验证所有 recurrence Evidence 属于目标 Case 且自身合法；
-14. 逐条验证 `observed_at > latest case_closed.occurred_at`；
-15. 验证 recurrence facts 确实支持重新进入正式跟进，不接受客户端自行声明的 recurrence 标记；
-16. 验证 legal owner；
-17. 验证新的 pending primary Action；
-18. stage `closed → confirmed`；
-19. current `closed_at → null`；
-20. current `stable_at → null`；
-21. `reopened_count += 1`；
-22. stage owner + exactly one pending primary Action；
-23. 写 `case_reopened` lifecycle event，其 metadata 必须引用 server-resolved `latest_previous_close_event_id` 与 recurrence Evidence IDs；
-24. 写 operation-bound audit；
-25. Case.version +1 exactly once；
-26. final invariant validation；
-27. 写 operation result 并 atomic commit。
+12. server 按稳定 Evidence ID 顺序 lock/re-read 每条 selected recurrence Evidence，并重新验证其 committed/finalized、legally usable、仍属于 target Case、expected Evidence version 或 server-issued opaque freshness token 未漂移；
+13. 若 Evidence 已被 correction/invalidation、删除、reparent 或发生任何 provenance/current-state drift，返回明确 domain conflict / `stale_plan/version_conflict`，整笔 transaction rollback；
+14. server 以该 event 作为 recurrence boundary，绝不接受客户端指定的 close ID；
+15. 逐条验证 `evidence.observed_at > latest_case_closed.occurred_at`；
+16. 验证 recurrence facts 确实支持重新进入正式跟进，不接受客户端自行声明的 recurrence 标记；
+17. 验证 legal owner；
+18. 验证新的 pending primary Action；
+19. stage `closed → confirmed`；
+20. current `closed_at → null`；
+21. current `stable_at → null`；
+22. `reopened_count += 1`；
+23. stage owner + exactly one pending primary Action；
+24. 写 `case_reopened` lifecycle event，其 metadata 必须引用 server-resolved `latest_previous_close_event_id` 与 recurrence Evidence IDs；
+25. 写 operation-bound audit；
+26. Case.version +1 exactly once；
+27. final invariant validation；
+28. 写 operation result 并 atomic commit。
 
-上述步骤必须是一个 logical DB transaction；任何一步失败 whole rollback。若 `close A → reopen → close B`，server 必须自动选择 close B。
+上述步骤必须是一个 logical DB transaction；任何一步失败（包括 Case、latest committed close event、selected Evidence、Profile/owner/assignment/version 任一 drift）whole rollback。若 `operation_id` 已有 committed operation result，retry directly returns the original committed result，不重复 `case_reopened` event、audit、Action 或 version increment。若 `close A → reopen → close B`，server 必须自动选择 close B。
 
 ## 9. Subject Profile lifecycle
 
@@ -406,19 +410,28 @@ active <--reactivate_student-- inactive <--unarchive_student-- archived
 
 ### `start_lesson`
 
-这是受控 domain command。创建 Lesson 前，对**每一个 participant**分别验证：
+`start_lesson` 是受控 domain command，必须分开验证执行 actor 与每一个 Student participant：
 
-1. live session；
-2. active membership；
-3. teacher capability；
-4. matching active teaching subject scope；
-5. target Subject Profile active；
-6. legal active Student Teacher Assignment；
-7. operation-specific permission。
+**Actor Gate**
+1. live active authenticated identity；
+2. valid active session；
+3. active membership；
+4. teacher capability；
+5. matching active teaching Subject Scope；
+6. operation-specific permission；
+7. 其他现有 Teaching Fact Gate 前置条件。
 
-全部 participant 通过后，才在受控 command 中创建 `in_progress` Lesson + `lesson_students`。任何 participant 缺 assignment、只有 scope、Profile 不 active、cross-org/cross-subject，或仅被 teacher 自己加入 participants → 整个 start 拒绝。
+**Per-Student Participant Gate**
+对每一个 participant，server 必须确认：
+1. Student 合法且为 current；
+2. target Subject Profile active；
+3. actor 与 Student+Subject 存在 legal active Student Teacher Assignment；
+4. organization/subject/Lesson context 一致；
+5. 其他既有 participant preconditions。
 
-`lesson_students` 只保存实际参与/attendance business fact，不能创造 assignment、capability、scope 或任何 temporary permission。临时代课统一通过 time-bounded collaborator assignment（`active_from`/`active_to`）工作；有效期内仍需完整 Gate，结束后立即失效。V1 不新增 Lesson authorization model。
+live identity/session 只属于 actor，不是 Student participant 的属性。`lesson_students` 只表示 participation business fact，不是 authorization source；已有 participant 不能绕过 assignment、scope、membership 或 Profile gate。只有 Actor Gate 与全部 participant gates 通过，才创建 `in_progress` Lesson + `lesson_students`；任何缺 assignment、scope-only、inactive Profile、cross-org/cross-subject 或 self-added participant → 整个 start 拒绝。
+
+临时代课只通过合法、time-bounded collaborator assignment（`active_from`/`active_to`），有效期间仍需完整 Gate；assignment/membership/scope/Profile/Session 中途失效时后续 teaching writes 与 ordinary complete fail closed。治理 actor 仅可 controlled cancel/cleanup，不得继续制造 teaching facts；V1 不新增 Lesson authorization model。
 
 ### `complete_lesson`
 

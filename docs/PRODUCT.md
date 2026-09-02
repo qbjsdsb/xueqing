@@ -119,7 +119,7 @@ unresolved Case 保留真实 status；tracking suspended；可以无 current own
 closed --reopen_case--> confirmed
 ```
 
-必须有 post-close recurrence Evidence：server 解析最新已提交 `case_closed` event，且每条 Evidence 的 `observed_at` 严格晚于该 event 的 `occurred_at`；`created_at` 晚录不影响合法性。旧 Evidence 不能单独 reopen。另需 legal owner + new primary Action；清 current `closed_at/stable_at`、`reopened_count +1`，历史 close/stable 通过 immutable events 保留。
+必须有 post-close recurrence Evidence：server 在同一 transaction lock/re-read target Case、解析 latest committed `case_closed` event，并 lock/re-read selected Evidence；每条 Evidence 仍须属于目标 Case、committed/legal usable，且 `observed_at` 严格晚于该最新已提交 event 的 `occurred_at`；`created_at` 晚录不影响合法性。Committed Evidence 为 append-only historical fact，不得普通修改/删除/reparent `case_id`、`observed_at`、`created_at`、author/source attribution 或 provenance；错误通过 correction/superseding/invalidation event 保留原记录。旧 Evidence 不能单独 reopen。任一步 drift/invalidation/version conflict whole rollback；同一 operation_id retry 不重复副作用。另需 legal owner + new primary Action；清 current `closed_at/stable_at`、`reopened_count +1`，历史 close/stable 通过 immutable events 保留。
 
 Profile inactive/archived 时不 reopen；先恢复 service，再由合法 teacher reopen。
 
@@ -141,7 +141,7 @@ Student → active Subject Profile → legal teacher assignment → 定位/优�
 
 ## 10. Lesson
 
-Lesson 是实际教学会话，不是完整排课 CRM。V1 所有 teaching writes 依赖 legal active Student Teacher Assignment；`lesson_students` 只表示实际参与事实，不是 authorization grant。`start_lesson` 创建前逐个 participant 验证 assignment；scope-only 或 self-added participant 一律拒绝。
+Lesson 是实际教学会话，不是完整排课 CRM。V1 所有 teaching writes 依赖 legal active Student Teacher Assignment。`start_lesson` 有分开的 Actor Gate 与 Per-Student Participant Gate：执行 actor 必须有 live active authenticated identity、valid active session、active membership、teacher capability、matching Subject Scope 与 operation permission；每个 participant 另须是 current/legal Student、active Profile，且 actor 对 Student+Subject 有 legal active assignment、organization/subject/Lesson context 一致。live identity/session 不是 Student participant 属性；`lesson_students` 只表示参与事实，不是 authorization source，scope-only 或 self-added participant 一律拒绝。
 
 课中 assignment 被撤销后，新的 Evidence/Intervention/Assessment/Quick Capture 与普通 `complete_lesson` 全部拒绝；有治理权限的 actor 只能 controlled cancel stale Lesson，不能借 cleanup 写教学事实。新教师不能直接接管旧 Lesson，需取消旧 Lesson 后按自己的合法 assignment 开新 Lesson。
 

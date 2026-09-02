@@ -1,12 +1,19 @@
 # 开发、数据库与发布工作流
 
 > 目标：任何新 Work/Codex 会话或新电脑都能从 GitHub 重建真实开发状态；不依赖某次聊天记忆、某台电脑或 Remote Dashboard 的隐性修改。
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
 
 ## 1. 四个事实源
 
 - **GitHub**：源码、文档、migrations、测试、CI；
-- **`supabase/migrations`**：数据库 schema / RLS / View / Function / Trigger / Index 的正式结构事实源；
-- **Supabase Production Pilot**：真实业务数据事实源；
+- **Phase 0B.0 approved migration source**：若 P0 Gate A/B 通过且选定 Supabase，`supabase/migrations` 才是该 provider 路径的 schema / RLS / View / Function / Trigger / Index 正式结构事实源；
+- **Gated Production Pilot**：仅在 P0 Gate A/B、provider/region/identity/session strategy 与 Go/No-Go 全部通过后，才可成为真实业务数据事实源；Phase 0A.6 当前不存在 Production data source；
 - **ChatGPT Project / Work**：协作/执行上下文，不是代码或数据库事实源。
 
 Remote Dashboard 与聊天历史都不能覆盖 Git。
@@ -35,18 +42,18 @@ Remote Dashboard 与聊天历史都不能覆盖 Git。
 
 它不是 schema 第二事实源，可以重建/删除。
 
-### Production Pilot
-第二个 Supabase Free Project：
+### Gated Production Pilot（未来目标）
+第二个 Supabase Free Project 只能在 P0 Gate A/B 通过、provider/region/identity/session strategy 冻结并完成全部 Go/No-Go 后创建：
 - 真实数据；
 - 不执行 development seed/reset；
 - 只部署已在 Local + Remote Development 验证的 migrations；
 - 独立 Auth/Storage/Secrets；
 - 定期 DB + Storage 离站备份；
-- 进入真实数据前通过全部 Go/No-Go。
+- 本节不是 Phase 0A.6 的当前授权路径。
 
 ---
 
-## 3. Region 先测试，后建 Production
+## 3. Region 先做 compatibility Spike；Production 仍受 Gate 阻止
 
 Supabase project 绑定 region，换 region 需要建新项目迁移。因此：
 
@@ -54,8 +61,8 @@ Supabase project 绑定 region，换 region 需要建新项目迁移。因此：
 2. 使用虚构数据，在实际机构 Wi‑Fi、普通移动网络、无代理/VPN下测试；
 3. 覆盖 Auth、Data API、Storage、Edge Functions、网络切换；
 4. 不合格则重建 Remote Development 到另一 APAC region；
-5. 只有测试结论稳定后，才创建 Production Pilot；
-6. 真实未成年人数据的数据驻留/跨境处理另做机构合规评估。
+5. 测试结论稳定后仍必须先通过 P0 Gate A/B，并冻结 provider/identity/session strategy；
+6. 之后才可按 Go/No-Go 创建 gated Production Pilot；真实未成年人数据的数据驻留/跨境处理另做机构合规评估。
 
 不要为了省一次重建，把错误 region 固化进 Production。
 
@@ -110,15 +117,17 @@ git clone
 
 ## 6. 数据库修改唯一正式路径
 
-1. `supabase/migrations` 新 migration；
+Phase 0A.6 不创建 production migration。Phase 0B.0 只能先在 Local / Remote Development compatibility/security Spike 中使用虚构数据验证：
+1. `supabase/migrations`（仅在选定 Supabase 后作为候选 provider 路径的 migration source）；
 2. Local `db reset`；
 3. fake seed；
 4. DB/RLS tests；
 5. Flutter Repository/Service 测试；
 6. PR review；
 7. Remote Development deploy；
-8. 集成验证；
-9. Production migration + smoke test。
+8. 集成验证。
+
+P0 Gate A/B 通过并冻结 provider/region/identity/session strategy 后，才可另行进行 formal production migration + smoke test；这不是当前授权路径。
 
 禁止：
 - 只改 Dashboard Table Editor；
@@ -126,7 +135,7 @@ git clone
 - Remote 先跑通却不回写 migration；
 - Production 直接试 SQL 再补文件。
 
-Production migrations 一律向前滚动；已部署 migration 不靠本地重写历史“回滚”。破坏性修改采用 expand → migrate → contract 或明确恢复方案。
+未来 gated Production migrations 一律向前滚动；已部署 migration 不靠本地重写历史“回滚”。破坏性修改采用 expand → migrate → contract 或明确恢复方案。
 
 ---
 
@@ -227,7 +236,7 @@ Production 不使用默认 SharedPreferences Session 存储作为最终方案。
 - Android build；
 - Windows build；
 - 关键 integration/smoke；
-- Production migration compatibility review。
+- future gated Production migration compatibility review（仅 P0 Gate A/B 后）。
 
 Phase 0A 已用 GitHub-hosted Ubuntu / Windows runner 完成一次 Android debug APK 与 Windows debug app 的真实构建验证；后续 native build workflow 保持手动触发，避免普通 PR 重复消耗。
 
@@ -250,10 +259,10 @@ GitHub Free private 有有限 Actions 额度。用户于 2026-09-02 明确选择
 
 ---
 
-## 12. Supabase Free 运行边界
+## 12. Supabase Free 运行边界（候选实现，不是当前 Production 授权）
 
-- 一个 Remote Development；
-- 一个 Production Pilot；
+- 一个 Remote Development compatibility 项目；
+- 一个 gated Production Pilot（仅 P0 Gate A/B、provider/identity/session strategy 冻结及 Go/No-Go 后）；
 - Local CLI 不占云 project；
 - 定期看 DB/Storage/Egress；
 - 低活动可能 pause；
@@ -265,7 +274,7 @@ GitHub Free private 有有限 Actions 额度。用户于 2026-09-02 明确选择
 
 ## 13. Backup / Restore
 
-Production Pilot 至少保存：
+Gated Production Pilot（仅完成 P0 Gate A/B 后）至少保存：
 - `roles.sql`
 - `schema.sql`
 - `data.sql`

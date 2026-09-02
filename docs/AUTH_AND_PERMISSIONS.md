@@ -80,6 +80,12 @@ live session
 + operation-specific permission
 ```
 
+### `start_lesson` actor / participant contract
+
+Actor Gate 与 Per-Student Participant Gate 必须分开解释：执行 `start_lesson` 的 member/teacher 才需要 live active authenticated identity、valid active session、active membership、teacher capability、required teaching Subject Scope、operation permission 与其他 Teaching Fact Gate 条件；Student participant 本身不需要、也不“拥有” live identity/session。对每一个 participant，server 另须验证 Student current/legal、Subject Profile active、actor 对该 Student+Subject 的 legal active Student Teacher Assignment，以及 organization/subject/Lesson context 一致。
+
+`lesson_students` 只表达 participation business fact，不是 authorization source。已有 participant 不能绕过 assignment；assignment 在 Lesson 中途撤销后，后续 teaching writes 与 ordinary complete fail closed，治理 actor 仅可 controlled cancel/cleanup。临时代课只能使用有效期明确的 collaborator assignment。
+
 ### V1 Lesson authorization rule
 
 V1 所有教学写权限必须依赖 legal active Student Teacher Assignment。Lesson 或 `lesson_students` participant 记录只表达实际参与事实，不能替代 assignment、grant temporary permission 或创建 capability/scope。

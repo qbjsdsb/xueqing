@@ -28,6 +28,13 @@
 7. 官方 Supabase / 中国大陆候选 / 国内自托管路径需要在不锁厂商的前提下做兼容性决策。
 
 这些问题一旦在 migration/RLS 后才修改，会显著增加返工成本，因此先做 Phase 0A.6。
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
 
 ## 2. 本阶段不是做什么
 
@@ -321,7 +328,7 @@ finalized report/review 必须是冻结 snapshot，包含 finalized_by / finaliz
 
 ## 13. Workstream J｜Cloud Backend Decision
 
-云端是产品正式目标；多人机构数据互通不能依赖单机数据库。
+云端是产品正式目标；多人机构数据互通不能依赖单机数据库，但 Phase 0A.6 不冻结 production provider 或执行 production business migration。
 
 ### 候选
 
@@ -366,7 +373,7 @@ Phase 0A.6 可以提出对 `DATA_MODEL.md`、`COMMANDS_AND_INVARIANTS.md`、`AUT
 2. 说明为什么领导理念或真实机构工作流要求修订；
 3. 区分新增事实与派生视图；
 4. 评估 RLS/命令/历史迁移影响；
-5. 不直接写 production migration；
+5. 不直接写 production migration；正式 migration/Auth/RLS/CRUD 仍须等待 P0 Gate A/B；
 6. 有 independent audit。
 
 ## 15. 计划交付文件

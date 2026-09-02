@@ -49,7 +49,10 @@ live session
 + operation-specific permission
 ```
 
-`lesson_students` 只表示实际参与 business fact，不是 authorization grant、temporary permission、capability、scope 或 Student Teacher Assignment。每个 participant 在 `start_lesson` 前必须已有 assignment；self-added participant 不能自我授权。time-bounded collaborator assignment 是 V1 临时代课唯一方式。
+Lesson authorization 由两个独立 gate（Actor Gate / Per-Student Participant Gate）组成：执行 `start_lesson` 的 actor 必须有 live active authenticated identity、valid active session、active membership、teacher capability、matching teaching Subject Scope、operation permission；对每个 Student participant，server 另须验证 Student current/legal、Subject Profile active、actor 与该 Student+Subject 的 legal active Student Teacher Assignment，以及 organization/subject/Lesson context 一致。live identity/session 不是 Student participant 的属性。
+
+`lesson_students` 只表示实际参与 business fact，不是 authorization grant、temporary permission、capability、scope 或 Student Teacher Assignment；self-added participant 不能自我授权。time-bounded collaborator assignment 是 V1 临时代课唯一方式，且有效期内仍需完整 Gate。assignment/membership/scope/Profile/Session 中途失效时后续 teaching writes 与 ordinary complete fail closed；治理 actor 仅可 controlled cancel/cleanup，不得继续制造 teaching facts。
+
 
 ## 6. Exactly-once semantics
 
@@ -106,15 +109,21 @@ V1 unresolved mutable Parent Communication/Report Draft、source/target `in_prog
 closed → post-close recurrence fact → teacher-confirmed recurrence Evidence → reopen_case → confirmed
 ```
 
-事务内 lock/re-read Case，确认 current status closed + expected_case_version；server 从 immutable committed lifecycle history 自动解析最新 `case_closed` event。client 不得提供 close boundary/previous_close_id。
+同一 logical DB transaction 内 lock/re-read target Case，确认 current status closed + expected_case_version；server 从 immutable committed lifecycle history 自动解析该 Case 最新 **committed** `case_closed` event。client 不得提供 close boundary/previous_close_id。
 
-每条 recurrence Evidence 必须属于 Case、`observed_at` 非空，且：
+server 随后按稳定 ID 顺序 lock/re-read 每条 selected recurrence Evidence，确认其仍 committed/finalized、legally usable、属于 target Case，expected Evidence version/freshness 未漂移，且：
 
-`evidence.observed_at > latest_case_closed.occurred_at`
+`evidence.observed_at > latest committed case_closed.occurred_at`
 
 只看 observed_at，不看 created_at；late entry 合法。old Evidence 不能单独 reopen；新 Evidence 可引用旧 Evidence，但自己的 observed_at 必须 post-close。source_type 不设 recurrence 白名单，source_type 本身不证明复发。
 
-同一 transaction 还要验证 active service、full Teaching Fact Gate、owner、new pending primary Action，stage `closed→confirmed`、clear current closed/stable timestamps、reopened_count +1、写 `case_reopened` metadata（server-resolved close event + recurrence IDs）、operation-bound audit、Case.version +1、final invariants、atomic commit。无 committed close event、任何合同失败或 authority 失效 → reject/rollback。
+同一 transaction 还要验证 active service、full Teaching Fact Gate、owner、new pending primary Action，stage `closed→confirmed`、clear current closed/stable timestamps、reopened_count +1、写 `case_reopened` metadata（server-resolved latest committed close event + recurrence IDs）、operation-bound audit、Case.version +1、final invariants、atomic commit。无 latest committed close event、任何合同失败、Evidence reparent/invalidation 或 authority/version/freshness drift → reject/rollback；同一 operation_id retry 返回原 committed result，不重复副作用。
+
+### 9.1 Committed Evidence immutable history
+
+Committed/finalized Evidence 是 append-only historical fact。Draft 可以在本地暂存，但一旦 committed，不得普通修改或删除 `case_id`、`observed_at`、`created_at`、author/source attribution、provenance 或其他 recurrence-relevant 字段；错误必须用现有 Evidence/Event 模型的 correction record、superseding Evidence 或 explicit correction/invalidation event 表达，并保留原 provenance。
+
+`reopen_case` 在同一 logical DB transaction 内按稳定 ID 顺序 lock/re-read target Case、latest committed `case_closed` event 与每条 selected recurrence Evidence，重新验证 committed/legal usability、target Case relationship、expected versions/freshness token 与 `evidence.observed_at > latest committed case_closed.occurred_at`。任一 reparent、invalidation、version/freshness drift 或其他前置条件失败，都返回明确 domain conflict / `stale_plan/version_conflict` 并 whole rollback；同一 `operation_id` retry 返回原 committed result，不重复 event/audit/Action/version 副作用。物理 revision/version 方案留待 Phase 0B.0 provider Spike，不新增第二套 Evidence 模型。
 
 ## 10. Lesson authority revoke / controlled cancel
 

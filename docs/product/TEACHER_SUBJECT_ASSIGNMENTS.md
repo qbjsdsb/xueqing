@@ -63,6 +63,9 @@ live session
 
 Advisor-only/management-only 不可借 Quick Capture 创建 teaching Case。
 
+Actor Gate：`start_lesson` 的执行 actor 必须有 live active authenticated identity、valid active session、active membership、teacher capability、required teaching Subject Scope 与 operation permission。Per-Student Participant Gate：每一个 Student participant 另须有 active Profile、current/legal Student、actor 对 Student+Subject 的 legal active assignment、及一致的 organization/subject/Lesson context；live identity/session 不属于 participant。已有 `lesson_students` 不能成为权限来源。assignment 在课中撤销后 fail closed；temporary substitute 只能走 time-bounded collaborator assignment，治理 actor 仅可 controlled cancel/cleanup。
+
+
 ## 5. Lead / Collaborator
 
 Lead：主要负责教师、默认 Case owner 候选、关键专业确认。

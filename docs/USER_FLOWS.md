@@ -69,7 +69,7 @@ new → 最小 Evidence → taxonomy/case type → 合法 owner → pending prim
 
 课前：到期/逾期 Action、pending verification、重点 Case。
 
-课中：完成/调整 Action、Intervention、Assessment、Quick Capture；每次云端写入重新验证 full Teaching Fact Gate。每个 participant 在 `start_lesson` 前必须已有 legal active Student Teacher Assignment；`lesson_students` 只表示参与事实，不能自我授权。
+课中：完成/调整 Action、Intervention、Assessment、Quick Capture；每次云端写入重新验证 full Teaching Fact Gate。Actor Gate 先验证 `start_lesson` 执行 actor 的 live active authenticated identity、valid active session、active membership、teacher capability、Subject Scope 与 operation permission，再按 Per-Student Participant Gate 逐个验证 Student current/legal、active Profile、actor 的 legal active Student Teacher Assignment 与 context；live identity/session 不是 Student participant 属性。每个 participant 必须通过后才创建 Lesson；`lesson_students` 只表示参与事实，不能自我授权。
 
 课后：汇总事实 → 教师确认状态 → old primary 收口 → new primary → `complete_lesson`。
 
@@ -101,7 +101,7 @@ passed 只是本次通过 → 教师判断 stable → stable 仍有 review/verif
 
 recurrence Evidence 必须属于目标 Case，且 source_type 不设白名单；只看事实 observed_at，不看 created_at。旧 Evidence 不能单独 reopen；close A→reopen→close B 时自动使用 close B。客户端不能指定 previous close。
 
-`reopen_case` one transaction：active Profile/full Gate、Case closed、expected_version、latest committed close、Evidence freshness、legal owner、新 Action、current timestamps/reopened_count、case_reopened metadata、event/audit、Case.version +1、final invariants、commit；任一步失败 whole rollback。
+`reopen_case` one transaction：active Profile/full Gate、lock/re-read Case、Case closed、expected Case/Evidence versions or server freshness token、server-resolved latest committed close、lock/re-read selected Evidence 并确认仍属目标 Case且 committed/legal usable、严格 `Evidence.observed_at > latest committed case_closed.occurred_at`、legal owner、新 Action、current timestamps/reopened_count、case_reopened metadata、event/audit、Case.version +1、final invariants、commit；任一步失败 whole rollback并返回 domain conflict/stale_plan/version_conflict。同一 operation_id retry 返回原 committed result，不重复副作用。Committed Evidence 是 append-only historical fact：不得普通修改/删除/reparent `case_id`、`observed_at`、`created_at`、author/source attribution 或 provenance；错误走 correction/superseding/invalidation event，保留原历史。
 
 ## Flow L｜单学科暂停 / 归档 / 恢复
 

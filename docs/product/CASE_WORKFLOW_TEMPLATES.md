@@ -133,7 +133,7 @@ Profile 必须 active。
 closed --reopen_case--> confirmed
 ```
 
-必须有 server-resolved latest committed `case_closed` boundary 后的 recurrence Evidence：每条 `observed_at` 严格晚于 boundary `occurred_at`；晚录只看 observed_at，不看 created_at。旧 Evidence 不能单独 reopen。另需合法 owner、新 pending primary Action；`closed_at/stable_at` 清当前快照，历史通过 immutable Case Events 保留，`reopened_count +1`。
+必须有 server-resolved latest committed `case_closed` boundary 后的 recurrence Evidence：每条 `observed_at` 严格晚于 boundary `occurred_at`；晚录只看 observed_at，不看 created_at。旧 Evidence 不能单独 reopen。Committed Evidence 是 append-only historical fact，不能普通修改/删除或 reparent `case_id`；`observed_at`、`created_at`、author/source attribution 与 provenance 同样冻结；reopen_case 必须在同一 transaction lock/re-read selected Evidence 并验证 committed、归属与 freshness/version。错误走 correction/superseding/invalidation event。另需合法 owner、新 pending primary Action；`closed_at/stable_at` 清当前快照，历史通过 immutable Case Events 保留，`reopened_count +1`。
 
 Profile inactive/archived 时不 reopen；那是 service resume 问题，不是 Case reopen。
 

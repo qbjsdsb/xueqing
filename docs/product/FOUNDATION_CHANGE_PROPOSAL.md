@@ -48,7 +48,7 @@ Advisor-only/pure management 不可创建 teaching Case；非专业事实走 Par
 closed → confirmed
 ```
 
-要求 active Profile、server-resolved latest committed `case_closed` boundary 后的 recurrence Evidence（`observed_at > close.occurred_at`）、legal owner、新 primary Action；`created_at` 晚录仍合法，旧 Evidence 不能单独 reopen。current closed_at/stable_at 清空，history 通过 immutable events 保留，reopened_count+1。
+要求 active Profile、server-resolved latest committed `case_closed` boundary 后的 recurrence Evidence（`observed_at > close.occurred_at`）；reopen_case 必须在同一 transaction lock/re-read Case、latest committed close 与 selected Evidence，重新确认 Evidence committed、仍属于目标 Case、freshness/version 未漂移。Committed Evidence 为 append-only historical fact；不得静默修改/删除/reparent `case_id`、`observed_at`、`created_at`、author/source attribution 或 provenance。错误走 correction/superseding/invalidation event，保留原历史。legal owner、新 primary Action；`created_at` 晚录仍合法，旧 Evidence 不能单独 reopen。任一步 drift → domain conflict/stale_plan/version_conflict + whole rollback；current closed_at/stable_at 清空，history 通过 immutable events 保留，reopened_count+1。
 
 Inactive/archived Profile reopen 拒绝。
 

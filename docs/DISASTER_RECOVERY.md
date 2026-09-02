@@ -1,6 +1,13 @@
 # Disaster Recovery｜零成本 Pilot 恢复手册
 
-> 这份文档定义 **Production Pilot 真正可以恢复** 的最低流程。它不是“备份提醒”，而是恢复演练检查表。任何真实密码、连接串、Backup 文件都不得提交 GitHub。
+> 这份文档定义 **未来 gated Production Pilot 在 P0 Gate A/B 与 Go/No-Go 后才可使用的恢复流程**。它不是“备份提醒”，而是恢复演练检查表。任何真实密码、连接串、Backup 文件都不得提交 GitHub。
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
 
 ## 1. Pilot 恢复目标
 
@@ -21,7 +28,7 @@ V1 Free Pilot 默认目标：
 
 1. **GitHub**
    - source
-   - `supabase/migrations`
+   - 若 P0 Gate A/B 通过且最终选定 Supabase，才纳入其 `supabase/migrations`
    - Edge Functions source
    - docs / recovery runbook
 
@@ -30,7 +37,7 @@ V1 Free Pilot 默认目标：
    - schema
    - data
    - 必要 migration history
-   - Auth user data（按 Supabase 官方 backup/restore 流程验证）
+   - 若最终选定 Supabase，Auth user data（按恢复当日官方 backup/restore 流程验证）
 
 3. **Storage**
    - bucket/object files
@@ -107,7 +114,7 @@ supabase db dump \
 
 单独保存：
 - backup timestamp（UTC + 本地日期）
-- Production project ref（不要写 Secret）
+- gated Production project ref（仅在 P0 Gate A/B 后；不要写 Secret）
 - app version / git commit
 - latest migration version
 - Supabase/Postgres version（可获取时）
@@ -202,7 +209,7 @@ API/JWT/Secret 值在新 Project 可能改变，恢复后客户端配置必须�
 **永远先恢复到新的非 Production 项目，不直接拿 Production 做实验。**
 
 ### 7.1 创建新测试 Project
-- 选择与目标 Production 兼容的 region；
+- 选择与未来 gated Production 兼容的 region；（实际 Production 选择仍须在 P0 Gate A/B 后冻结）
 - 获取新的 DB connection string；
 - 记录新的 API keys，但不要提交 Git。
 
@@ -304,7 +311,7 @@ Pilot 默认：
 ## 10. Project Pause / Region Migration
 
 ### Free Project Pause
-若 Free Production 因低活动暂停：
+若未来 gated Free Production 因低活动暂停：
 - 不慌张直接乱改 schema；
 - 先确认最新 off-site backup；
 - 按 Supabase 当前恢复流程恢复/唤醒；
@@ -318,7 +325,7 @@ Project 不能原地更换 region。迁移流程视同灾难恢复：
 - config rebuild；
 - client config 更新；
 - smoke / permission / network tests；
-- 最后才切换真实用户。
+- P0 Gate A/B、provider/identity/session strategy 与 Go/No-Go 全部通过后，最后才切换真实用户。
 
 ---
 
@@ -330,7 +337,7 @@ Project 不能原地更换 region。迁移流程视同灾难恢复：
 - 只保留一个 backup 文件；
 - backup 从未实际 restore；
 - 连接串/DB 密码写进脚本仓库；
-- 用真实 Production 做第一次 restore 试验；
+- 用真实 gated Production 做第一次 restore 试验；
 - 假定“Supabase Free 会替我们自动保留可下载日备份”。
 
 ---

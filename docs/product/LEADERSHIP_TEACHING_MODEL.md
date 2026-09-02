@@ -584,7 +584,7 @@ Phase 0A.6 可评估将“常规教学频次/节奏”作为 Student Subject Pro
 - 家校沟通 snapshot 的字段边界；
 - 阶段复盘 snapshot 的字段边界。
 
-这些问题必须在进入 production migrations 前解决，但不得反过来改写本文件已经冻结的教学原则。
+这些问题必须在 P0 Gate A/B 通过、provider/region/identity/session strategy 冻结并获 Go/No-Go 后进入 formal production migrations 前解决，但不得反过来改写本文件已经冻结的教学原则。
 
 ---
 

@@ -4,13 +4,21 @@
 
 **先证明关键风险可控 → 再搭业务底座 → 先完成一条垂直闭环 → 最后扩功能。**
 
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
+
 不按页面数量衡量进度。V1 内部 Pilot 默认不额外购买服务器、数据库套餐、SMTP、域名、短信、AI API、CI 或 Work / Codex credits。
 
 ---
 
 # Phase 0｜工程与风险验证
 
-目标：在任何真实学生数据进入前，证明 Windows + Android + Supabase + 零成本认证 + 本地安全 + 恢复方案可以成立。
+目标：在任何真实学生数据进入前，先以 Supabase reference candidate 验证 Windows + Android + 零成本认证 + 本地安全 + 恢复方案；Supabase 不是无条件 production provider，正式 production business migrations/Auth/RLS/CRUD 仍受 P0 Gate A/B 阻止。
 
 ## 0A. GitHub / ChatGPT 云端底座
 
@@ -80,7 +88,10 @@
 
 ---
 
-## Phase 0B（原 0C）. Local Supabase
+## Phase 0B.0（原 0C）. Local Supabase Compatibility / Security Spikes
+
+> 本节只允许用虚构数据执行 compatibility/security Spike，不等于 production migration/Auth/RLS/CRUD 授权。必须先完成 P0 Gate A（Auth Identity Portability）与 P0 Gate B（Revoked Session / Old Token Security），再冻结 provider/region/identity/session strategy。
+
 
 - [ ] 初始化 `supabase/`
 - [ ] migrations
@@ -172,9 +183,9 @@
 - [ ] Edge Functions
 - [ ] 网络切换 / 恢复
 - [ ] 若质量不合格，重建 Dev 到另一 APAC region 重测
-- [ ] 最终 Production region 决策有测试记录
+- [ ] 在 P0 Gate A/B 后完成 gated Production region 决策并有测试记录
 
-> Production Pilot 在 region / network 结论稳定前不创建。
+> Gated Production Pilot 在 region/network 结论稳定、P0 Gate A/B 通过且 provider/identity/session strategy 冻结前不创建。
 
 ---
 
@@ -419,7 +430,7 @@ new
 - [ ] DB + Storage 周期备份
 - [ ] Auth / DB / Storage 恢复演练
 - [ ] 最低支持客户端版本
-- [ ] Production migration + smoke test
+- [ ] Production migration + smoke test（仅 P0 Gate A/B、provider/region/identity/session strategy 与 Go/No-Go 全部通过后）
 - [ ] 故障应急
 
 ---

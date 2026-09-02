@@ -45,17 +45,35 @@ V1 所有教学写权限都依赖 legal active Student Teacher Assignment。Less
 
 ## 4. `start_lesson`
 
-这是受控 domain command。创建 Lesson 前，对**每一个 participant**分别验证：
-1. active membership；
-2. teacher capability；
-3. matching active teaching subject scope；
-4. target Subject Profile active；
-5. legal active Student Teacher Assignment；
-6. operation-specific permission。
+`start_lesson` 有两个必须同时通过、但语义分开的授权门：
 
-全部 participant 通过后，才在一个受控 command 中创建 `in_progress` Lesson + participants。任何 participant 缺 assignment、只有 scope、Profile 不 active 或仅被 teacher 自己加入 participants → 整个 start 拒绝；不能用 participant list 自我授权。
+### Actor Gate｜执行 command 的 member/teacher
 
-临时代课不另建 Lesson privilege。V1 使用 time-bounded collaborator assignment（例如 `active_from` / `active_to`），在其有效期间按完整 Teaching Fact Gate 工作；到期/结束后不再满足 Gate。未来如需更轻的临时模型，另行 ADR 评估。
+执行 `start_lesson` 的 actor 必须由 server 在 command 事务内确认：
+1. live active authenticated identity；
+2. valid active session；
+3. active membership；
+4. teacher capability；
+5. required matching teaching Subject Scope；
+6. operation-specific permission；
+7. 其余现有 Teaching Fact Gate 前置条件。
+
+live identity/session 是执行者的属性，不是 Student participant 的属性。
+
+### Per-Student Participant Gate｜每一个 Lesson participant
+
+对 Lesson 中每一个 Student，server 必须分别确认：
+1. Student 合法且为 current identity；
+2. target Subject Profile = active；
+3. actor 与该 Student+Subject 存在 legal active Student Teacher Assignment；
+4. organization、subject、Lesson context 一致；
+5. 其他既有 participant preconditions。
+
+只有 Actor Gate 与全部 participant gates 都通过，才可在一个受控 command 中创建 `in_progress` Lesson + `lesson_students`。任何 participant 缺 assignment、只有 scope、Profile 不 active、cross-org/cross-subject、或仅由 actor 把 Student 加入 participants → 整个 start 拒绝。
+
+`lesson_students` 只表达 participation/attendance business fact，不是 authorization source、grant、temporary permission、capability、scope 或 Student Teacher Assignment；已有 `lesson_students` participant 不能绕过当前 assignment。临时代课只能通过合法、time-bounded collaborator assignment（`active_from`/`active_to`），有效期内仍需完整 Actor/Participant Gate；不能直接继承旧 Lesson 权限。
+
+如果 assignment、scope、membership、Profile 或 Session 在 Lesson 中途失效，后续 teaching writes 与 ordinary `complete_lesson` fail closed；具有治理权限的 actor 仅可 controlled cancel/cleanup，不能继续制造 teaching facts。新 teacher 先 controlled cancel 旧 Lesson，再以自身合法 assignment 开新 Lesson。
 
 是否限制一名教师同时仅一个 `in_progress` Lesson 留 Pilot 验证，但不影响每次写入重新授权。
 

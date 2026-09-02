@@ -208,11 +208,19 @@ command retry 不得重复 lifecycle event。
 ### `case_evidence`
 - Case/source type/title/`observed_at`/summary/storage path/created_by/`created_at`
 - `observed_at` 是事实实际发生或被观察到的业务时间；
-- `created_at` 是 Evidence 录入系统的时间，不能替代 observed_at；
+- `created_at` 是 Evidence 录入系统的时间，不能替代 `observed_at`；
 - `guardian_report` 可引用 source Parent Communication；
-- recurrence candidate 必须属于目标 Case、具备 non-null observed_at，并满足 `observed_at > latest case_closed.occurred_at`；
+- recurrence candidate 必须属于目标 Case、具备 non-null observed_at，并满足 `observed_at > latest committed case_closed.occurred_at`；
 - source_type 不构成 recurrence 白名单或自动证明；合法 source type 均须通过 Evidence 合法性与 teacher judgment；
 - 旧 Evidence 可被新 post-close Evidence 引用，但旧 observed_at 不能单独 reopen。
+
+#### Committed Evidence：append-only historical fact
+
+- Evidence 在服务端 commit 前可以是 Draft；只有 committed/finalized Evidence 才能进入正式 timeline、Case history 或被 `reopen_case` 作为 recurrence 依据。
+- 一旦 committed/finalized，Evidence 的历史含义与 provenance 冻结：不得通过普通 UPDATE、reparent 或物理 DELETE 改变/抹掉 `case_id`、`observed_at`、`created_at`、author/source attribution、provenance 或其他 recurrence-relevant 字段。
+- 记录错误时必须沿用现有 Evidence/Event 领域模型表达 correction record、superseding Evidence 或 explicit correction/invalidation event；不得静默改写原 Evidence，也不得为了本规则创建第二套 Evidence 模型。
+- `reopen_case` 必须在同一 logical DB transaction 内 lock/re-read 每条 selected recurrence Evidence，重新确认其仍 committed、legally usable、属于目标 Case，且其 expected Evidence version 或 server-issued opaque freshness token 未漂移；任何 drift、invalidation、reparent 或 version conflict 都整体拒绝并 rollback。
+- physical implementation（immutable revision、version 或 freshness token）可在 Phase 0B.0 provider Spike 中冻结；Phase 0A.6 先冻结以上逻辑契约。任一 Case/close-event/Evidence/Profile/assignment/version 校验失败都必须 whole rollback，并返回明确 domain conflict；
 
 ### `interventions`
 Case/lesson/teacher/strategy/notes/occurred_at。

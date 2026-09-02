@@ -1,4 +1,13 @@
-# AGENTS.md
+# AGENTS.md# Provider / production boundary
+
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
+
 
 本文件是 ChatGPT Work、Codex 与后续开发者的**硬约束索引**。详细语义以 `docs/` 对应专题和已接受 ADR 为准。不得在代码中静默改方向。
 
@@ -91,8 +100,8 @@ V1：管理员受控开通 + Password + onboarding。
 - 优先参考 Flutter 官方 `compass_app`，不要为“Clean Architecture”制造空层。
 
 ### Session
-- Production 不使用默认 SharedPreferences Session 存储作为最终方案；
-- Supabase custom `LocalStorage` + OS secure storage；
+- 未来 gated Production 的 Session 方案必须在 P0 Gate A/B 通过后冻结；
+- 若兼容性 Spike 采用 Supabase，使用 custom `LocalStorage` + OS secure storage；
 - Password 不本地持久化；
 - App 启动通过 Session / live membership Gate 后才能挂业务 Shell；
 - expired / revoked / disabled 不得闪现学生页。
@@ -112,7 +121,10 @@ V1：管理员受控开通 + Password + onboarding。
 
 ## 6. Supabase / 数据库
 
-- PostgreSQL + Auth + Storage + RLS。
+> 这里的 Supabase 仅表示 V1 reference / preferred implementation candidate；本阶段不得据此创建 production provider、production Auth/RLS/CRUD 或正式 business migration。
+
+
+- V1 reference implementation candidate：PostgreSQL + Auth + Storage + RLS；provider-specific 细节只在 Phase 0B.0 compatibility/security Spike 中用虚构数据验证；
 - 普通授权读写 Data API；
 - Secret / Auth Admin 走可信服务端；
 - 数据库内多表不变量走受控 Function。
@@ -144,19 +156,19 @@ V1 不在学生敏感业务表默认开启 Realtime，也不让正确性依赖 R
 
 ## 7. 环境与 Migration
 
-- Local：Supabase CLI + fake seed + schema / RLS / tests；
-- Remote Development：一个 Free Project，仅虚构数据；
-- Production Pilot：第二个 Free Project，真实数据前通过 Go / No-Go。
+- Local compatibility：Supabase CLI + fake seed + schema / RLS / tests；
+- Remote Development compatibility/security Spike：一个 Free Project，仅虚构数据；
+- Gated Production Pilot：只有 P0 Gate A/B、provider/region/identity/session strategy 冻结并通过 Go/No-Go 后才可创建/承载真实数据；
 
-`supabase/migrations` 是 schema / RLS / View / Function / Trigger / Index 正式事实源。
+若 Phase 0B.0 Gate A/B 通过并选定 Supabase，`supabase/migrations` 才作为该 provider 路径的 schema / RLS / View / Function / Trigger / Index 正式事实源；Phase 0A.6 不创建 production migration。
 
 禁止：
 - 只改 Dashboard / SQL Editor 不回写 migration；
-- Production seed / reset；
-- Development / Production 共享 Secret / Storage / 账号。
+- Gated Production 禁止 seed / reset；
+- Development 与 gated Production 不共享 Secret / Storage / 账号。
 
 ### Region
-Production region 必须先用 Remote Dev 在实际机构 Wi-Fi + 普通移动网络 + **无代理 / VPN**测试 Auth / Data / Storage / Functions；不合格就重建 Dev 换 APAC region。不要先建 Production 再后悔 region。
+未来 gated Production region 必须先用 Remote Dev 在实际机构 Wi-Fi + 普通移动网络 + **无代理 / VPN**测试 Auth / Data / Storage / Functions；不合格就重建 Dev 换 APAC region。不要先建 Production 再后悔 region。
 
 ---
 
@@ -203,7 +215,7 @@ GitHub：
 - 因未设置 budget，CI 必须主动控制消耗：普通 PR 只跑轻量 Linux 检查，Windows / Android native build 仅 milestone / release / 手动触发；禁止 larger runner 和无价值重复构建。
 
 Supabase Free：
-- Remote Dev + Production Pilot 两个项目；
+- Remote Dev compatibility 项目；gated Production Pilot 只有 P0 Gate A/B 与 Go/No-Go 后才可建立；
 - 定期 roles / schema / data dump；
 - Auth restore 必须实际登录验证；
 - Storage 独立 backup；

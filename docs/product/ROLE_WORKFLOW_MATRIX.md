@@ -33,6 +33,9 @@ live session
 
 Subject Lead / Academic Admin / Org Admin / Advisor 的管理身份本身均不能满足该 Gate。
 
+`start_lesson` 的 Actor Gate 只适用于执行 command 的 member/teacher：live active authenticated identity、valid active session、active membership、teacher capability、required Subject Scope 与 operation permission。Per-Student Participant Gate 则逐个验证 Student current/legal、active Subject Profile、actor 对 Student+Subject 的 legal active Student Teacher Assignment 与 context 一致；live identity/session 不是 participant 属性。`lesson_students` 只表示参与事实，不是 authorization source；已有 participant、纯 scope、管理身份或旧 Lesson 权限都不能绕过 assignment。assignment 中途失效后 ordinary complete/teaching writes fail closed，治理 actor 仅可 controlled cancel。
+
+
 V1 不把 Lesson participant 当作授权依据。`lesson_students` 只记录实际参与 Student；`start_lesson` 前每个 participant 必须已经有 legal active Student Teacher Assignment。assignment 被撤销后，Lesson 已 `in_progress` 也不保留旧 teaching write 权限；普通 complete 失败，只有 governance controlled cancel 可做清理。
 
 

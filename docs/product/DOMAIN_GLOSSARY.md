@@ -81,11 +81,13 @@ Profile inactive/archived 时：
 closed → post-close recurrence fact → teacher-confirmed recurrence Evidence → reopen_case → confirmed
 ```
 
-Server 在 `reopen_case` transaction 内从 immutable committed Case Events 解析最新 `case_closed` lifecycle event；客户端不能指定 previous close。每条 recurrence Evidence 必须属于目标 Case，并满足：
+Server 在 `reopen_case` transaction 内从 immutable committed Case Events 解析该 Case 最新 committed `case_closed` lifecycle event；客户端不能指定 previous close。每条 recurrence Evidence 必须属于目标 Case，并满足：
 
-`evidence.observed_at > latest_case_closed.occurred_at`
+`evidence.observed_at > latest committed case_closed.occurred_at`
 
 `observed_at` 是事实实际发生/被观察到的业务时间；`created_at` 是录入时间。晚录合法。旧 Evidence 只能作为引用/复查线索，不能单独 reopen。source_type 不设 recurrence 白名单，合法 source type 仍需 Evidence 合法性与教师专业判断。
+
+Committed/finalized Evidence 是 append-only historical fact；不得普通修改/删除 `case_id`/case relationship、observed_at、created_at、author/source attribution 或 provenance。错误通过 correction/superseding/invalidation event 保留原记录；reopen_case 同一事务 lock/re-read selected Evidence 并验证 committed、归属、freshness/version 与 post-close boundary。
 
 唯一目标：
 
@@ -93,7 +95,7 @@ Server 在 `reopen_case` transaction 内从 immutable committed Case Events 解�
 closed --reopen_case--> confirmed
 ```
 
-原子结果：legal owner、exactly one pending primary Action、current `closed_at/stable_at → null`、`reopened_count +1`、Case.version +1、operation-bound event/audit；`case_reopened` metadata 引用 server-resolved close event 与 recurrence Evidence IDs。无 committed `case_closed` event 或任何合同失败 → reject/rollback。Profile inactive/archived 时拒绝；先恢复 service，再 reopen。
+原子结果：legal owner、exactly one pending primary Action、current `closed_at/stable_at → null`、`reopened_count +1`、Case.version +1、operation-bound event/audit；`case_reopened` metadata 引用 server-resolved latest committed close event 与 recurrence Evidence IDs。无 committed `case_closed` event 或任何合同失败 → reject/rollback。Profile inactive/archived 时拒绝；先恢复 service，再 reopen。
 
 ## 11. Three-stage correction｜三阶订正
 

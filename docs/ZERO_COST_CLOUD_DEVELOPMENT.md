@@ -1,6 +1,13 @@
 # 零额外付费的云端开发方案
 
 > 目标：使用现有 ChatGPT 方案能力 + GitHub Free + Supabase Free，把 Xueqing 做到可测试、可安装、可供少量内部教师 Pilot；不额外购买服务器、SMTP、域名、短信、AI API、CI、Supabase add-on 或 Work/Codex credits。
+> **Phase 0B.0 provider / production hard boundary**
+>
+> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
+> 1. **P0 Gate A — Auth Identity Portability Spike**；
+> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+>
+> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
 
 “0 元”是当前 Pilot 约束，不是承诺永远不为生产可靠性付费。
 
@@ -22,11 +29,13 @@ Supabase Local CLI
 Supabase Free Remote Development
     └─ 虚构数据、Auth/Storage/Functions/网络测试
               ↓
-Supabase Free Production Pilot
-    └─ 真实数据前通过安全、恢复、网络和合规门槛
+Supabase reference candidate compatibility/security Spike
+    └─ 仅虚构数据；不授权 production migration
+Gated Production Pilot（未来）
+    └─ 仅 P0 Gate A/B + provider/region/identity/session strategy + Go/No-Go 后承载真实数据
 ```
 
-GitHub 是代码事实源；migrations 是数据库结构事实源；Work 是云端执行上下文，不是唯一真相。
+GitHub 是代码事实源；approved migrations 才是选定 provider 路径的数据库结构事实源；Work 是云端执行上下文，不是唯一真相。
 
 ---
 
@@ -128,7 +137,7 @@ Work/Codex 使用现有 ChatGPT 方案内 agentic 用量；达到包含额度后
 
 ---
 
-## 6. Supabase Free 的分配
+## 6. Supabase Free 的候选分配（P0 Gate A/B 前仅 compatibility）
 
 当前小规模 Pilot 采用：
 
@@ -137,8 +146,8 @@ Work/Codex 使用现有 ChatGPT 方案内 agentic 用量；达到包含额度后
 - Auth/Storage/Edge Functions/双设备/region 测试；
 - 可删、可重建。
 
-### Project 2：Production Pilot
-- 真实数据；
+### Project 2：Gated Production Pilot（未来）
+- 只有 P0 Gate A/B 通过且 provider/region/identity/session strategy 冻结后才可承载真实数据；
 - 禁止 seed/reset；
 - 只接受验证过的 migration。
 
@@ -149,7 +158,7 @@ Free 当前适合早期 Pilot，但有数据库/Storage/Egress限制、低活动
 
 ---
 
-## 7. Production Region 不先拍脑袋
+## 7. Production Region 不先拍脑袋（且必须先过 P0 Gate A/B）
 
 Supabase 当前 APAC 有 Singapore/Tokyo/Seoul 等，没有中国大陆 region；project 不能原地换 region。
 
@@ -158,8 +167,8 @@ Supabase 当前 APAC 有 Singapore/Tokyo/Seoul 等，没有中国大陆 region�
 2. 在实际机构 Wi‑Fi、普通移动网络、**无代理/VPN**测试；
 3. 覆盖登录、CRUD、Storage、Edge Functions、网络恢复；
 4. 不达标就重建 Dev 到另一个 APAC region；
-5. 最后才创建 Production Pilot；
-6. 未成年人数据驻留/跨境问题由机构单独合规评估。
+5. 结论稳定后先完成 P0 Gate A/B 并冻结 provider/identity/session strategy；
+6. 最后才按 Go/No-Go 创建 gated Production Pilot；未成年人数据驻留/跨境问题由机构单独合规评估。
 
 Region 是生产决策，不是默认选 Singapore 就结束。
 
@@ -220,7 +229,7 @@ membership active
 零成本不代表用明文 Preferences。
 
 ### Session
-`supabase_flutter` 默认持久化 Session 到 SharedPreferences 系列存储。Production Phase 0 必须使用自定义 `LocalStorage` + Windows/Android OS 安全存储。Password 永不本地保存。
+若未来选择 Supabase，gated Production 不得把 `supabase_flutter` 默认持久化 Session 到 SharedPreferences 系列存储作为最终方案；必须使用自定义 `LocalStorage` + Windows/Android OS 安全存储。Password 永不本地保存。
 
 ### Startup Gate
 Supabase Flutter v2 可能先读出本地 Session，而不保证它已经远端刷新。业务 Shell 只在 session valid/live + membership active 解析成功后挂载，禁止闪现旧学生数据。
@@ -280,7 +289,7 @@ Phase 0A 已真实完成一次 Android + Windows 原生构建验证，之后把 
 
 ---
 
-## 12. Free 最大运行风险：恢复
+## 12. Free 最大运行风险：恢复（仅适用于未来 gated Production Pilot）
 
 Supabase Free 不含付费级自动日备份。
 
@@ -338,14 +347,17 @@ Foundation Freeze
 → Phase 0A.5 UX/UI Design Foundation
 → Local Supabase + migrations/RLS tests
 → secure Session/draft spike
-→ Remote Dev region/network spike
-→ auth provision/onboarding/reset/live-session spike
+→ Remote Dev region/network compatibility spike（仅虚构数据）
+→ P0 Gate A：Auth Identity Portability Spike
+→ P0 Gate B：Revoked Session / Old Token Security Spike
+→ freeze provider/region/identity/session strategy
+→ auth provision/onboarding/reset/live-session compatibility spike
 → Organization/Membership/RLS
 → Student vertical slice
 → Learning Case vertical slice
 → Lesson/Today
 → Security/Recovery audit
-→ Production Pilot Go/No-Go
+→ gated Production Pilot Go/No-Go（P0 Gate A/B 后）
 ```
 
 在 Phase 0 关键风险没被真实执行证明前，不批量开发漂亮页面。
