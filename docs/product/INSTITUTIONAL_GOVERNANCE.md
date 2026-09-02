@@ -9,6 +9,7 @@
 - 哪个 Case 很久没人看；
 - 哪个学科已经停读但 Today 仍在冒任务；
 - 哪个老师离职/退科前还有责任没交；
+- 哪个已归档学生/学科被错误地直接恢复教学；
 - 两个同名学生是不是同一个人；
 - 家长后来回复的重要信息有没有被处理；
 - 哪个 Draft 长期没有整理。
@@ -39,7 +40,8 @@ Learning Case 仍严格：
 - orphan = owner/assignment/scope 当前非法；
 - stale draft = new/draft 持续异常；
 - follow-up due = communication/action facts 的组合；
-- inactive Profile 残留 pending Action = 服务生命周期异常。
+- inactive/archived Profile 残留 pending Action = 服务生命周期异常；
+- archived→active 直跳尝试 = 生命周期异常。
 
 异常应通过 query/view/function 等派生，处理后自然消失。
 
@@ -53,10 +55,11 @@ Learning Case 仍严格：
 需要处理
 
 3 个 active Profile 的正式 Case 没有合法 primary Action
-2 个 inactive Profile 仍残留 pending Action
+2 个 inactive/archived Profile 仍残留 pending Action
 1 名教师将退出政治学科，但仍负责 6 个政治 Case
 5 个 Case 长期 pending verification
 2 个学生存在疑似重复主档案
+1 个 archived Profile 被尝试直接 active
 4 条家校 follow-up 已到期
 7 个 Quick Capture 长期未 formalize
 1 条 finalized outbound 收到家长 inbound 回复，但尚未完成教学判断
@@ -84,13 +87,14 @@ Learning Case 仍严格：
 
 正常 command 应尽量阻止 orphan 被制造；异常检测只是最后防线。
 
-### Inactive Profile 不是 orphan
-Profile inactive 后 unresolved Case 可以没有 current primary Action，这是**已知的服务暂停语义**，不是数据损坏。
+### Inactive / archived Profile 不是 orphan
+Profile inactive/archived 后 unresolved Case 可以没有 current primary Action，这是**已知的服务暂停/归档语义**，不是数据损坏。
 
 前提：
-- deactivation command 已受控结束/取消 pending Actions；
-- Case 写了 tracking suspended event/reason；
-- 不进入普通 Today。
+- lifecycle command 已受控结束/取消 pending Actions；
+- Case 写了 tracking suspended/archived event/reason；
+- 不进入普通 Today；
+- 不继续产生普通教学事实或 Lesson。
 
 ---
 
@@ -111,7 +115,7 @@ Profile inactive 后 unresolved Case 可以没有 current primary Action，这�
 `revoke_teacher_subject_scope_and_handoff`：
 - 只 inventory 目标 subject；
 - 转移该科 assignments/owner/Actions；
-- 验证接手人有 teaching scope；
+- 验证接手人有 teaching scope + active service relationship；
 - 无 orphan 后结束目标 scope；
 - 其他学科完全不受影响。
 
@@ -119,17 +123,31 @@ Profile inactive 后 unresolved Case 可以没有 current primary Action，这�
 
 ---
 
-## 6. Student 与 Subject Profile 生命周期
+## 6. Student 与 Subject Profile 服务生命周期
 
-这是 Phase 0A.6 的重要最终规则。
+这是 Phase 0A.6 的最终治理规则。
 
-### Case status 与 service status 正交
+### Case resolution 与 service lifecycle 正交
 - Case status：问题解决到哪一步；
-- Student/Subject Profile status：当前是否持续提供教学服务。
+- Student / Subject Profile status：当前是否持续提供教学服务 / 是否还在普通当前业务视图。
 
-**停读/停科不能伪造 closed/已清零。**
+**停读、停科、归档都不能伪造 closed/已清零。**
 
-### 单学科暂停
+### 6.1 Subject Profile 完整状态机
+
+```text
+active --deactivate_student_subject_profile--> inactive --archive_student_subject_profile--> archived
+active <--reactivate_student_subject_profile-- inactive <--unarchive_student_subject_profile-- archived
+```
+
+硬规则：
+- 禁止 `active → archived` 直跳；
+- 禁止 `archived → active` 直跳；
+- archived 可恢复，但只能先 unarchive 到 inactive；
+- unarchive 只是恢复可管理状态，不代表恢复教学。
+
+### 单学科暂停｜active → inactive
+
 例如：
 
 ```text
@@ -143,23 +161,71 @@ Student active
 - 收口数学 pending Actions；
 - 保留数学 unresolved Case 的真实 status；
 - 写 tracking suspended event；
-- 不让这些 Cases 继续进入普通 Today。
+- 不让这些 Cases 继续进入普通 Today；
+- 不允许停科后继续写新的普通教学事实。
 
-### 单学科恢复
+### 单学科归档｜inactive → archived
+
+`archive_student_subject_profile` 只允许在：
+- Profile 已 inactive；
+- active assignments 已结束；
+- pending Actions 已收口；
+- 无 in-progress Lesson/current obligation；
+
+之后执行。
+
+Archive：
+- 不改变 Case resolution status；
+- 不创建 Action；
+- 让学科主线退出普通当前业务视图；
+- 保留完整历史/audit。
+
+### 取消归档｜archived → inactive
+
+`unarchive_student_subject_profile`：
+- 只把历史学科主线恢复到可管理状态；
+- 不自动创建 teacher assignment；
+- 不恢复旧 Case owner；
+- 不创建 pending Action；
+- 不允许新 Lesson / 教学事实。
+
+### 恢复教学｜inactive → active
+
 `reactivate_student_subject_profile`：
-- 恢复合法 teacher assignment；
+- 建立/恢复合法 teacher assignment；
 - inventory unresolved Cases；
-- 每个仍需跟进的 Case 建 owner + new primary Action；
+- 每个仍需跟进的 Case 建合法 owner + new primary Action；
 - 真能解决的 Case 走真实 closure command；
-- 全部满足 active invariants 后 profile→active。
+- 全部满足 active invariants 后才 profile→active。
 
-### 整体 Student 停读/回归
-Student deactivate/reactivate 逐 Subject Profile 执行同等 reconciliation。
+如果来源是 archived，必须先 unarchive→inactive，再执行上述 reactivate。
 
-治理异常重点包括：
-- inactive Profile 仍有 pending Action；
-- active Profile open Case 无 primary Action；
-- reactivation 后 unresolved Case 没有 next step。
+### 6.2 Student 完整状态机
+
+```text
+active --deactivate_student--> inactive --archive_student--> archived
+active <--reactivate_student-- inactive <--unarchive_student-- archived
+```
+
+`merged` 是独立终态，不进入这条恢复链。
+
+规则：
+- `deactivate_student` 逐 active Subject Profile 做等价 reconciliation；
+- `archive_student` 只允许 inactive Student，并确保不存在 active Profile/current obligation；
+- archive 时剩余 inactive Profiles 按受控语义进入 archived；
+- `unarchive_student` 只 archived→inactive，不恢复 Enrollment/Profiles/teachers/Actions；
+- 真正回归通过 `reactivate_student`，只恢复实际重新开课的学科；
+- archived Profile 仍必须先 profile unarchive→inactive 再 reactivate；
+- merged Student 不允许 unarchive/reactivate。
+
+### 治理异常重点
+- inactive/archived Profile 仍有 pending Action；
+- inactive/archived Profile 仍可开始 Lesson/写教学事实；
+- active Profile formal open Case 无 primary Action；
+- archived→active 直跳；
+- unarchive 后自动复活旧 assignment/Action；
+- reactivation 后 unresolved Case 没有 next step；
+- archived Student 仍有 active Enrollment/Profile/assignment。
 
 ---
 
@@ -217,6 +283,8 @@ Overdue 本身是工作队列；长期才可能进入治理提示。
 
 不自动 confirmed。
 
+Profile inactive/archived 时不能通过 Quick Capture 绕过 service state 制造新的普通教学 Case。
+
 ---
 
 ## 10. Duplicate Student / Merge
@@ -234,6 +302,8 @@ Overdue 本身是工作队列；长期才可能进入治理提示。
 - 重试不重复迁移。
 
 Finalized Communication/Report 仍须能解释原 student history。
+
+`merged` 与 `archived` 不同：archived 可受控恢复，merged 在 V1 是身份终态。
 
 ---
 
@@ -281,7 +351,7 @@ Local draft：user/org/entity scoped、加密、TTL、同步成功清理，不�
 ## 13. Parent Communication follow-up 与 reply
 
 ### Follow-up
-最终模型已冻结：
+最终模型：
 - Case-related → `Case Action(action_type=communicate)`；
 - Non-case → communication 自身轻量 owner/due/status/completed；
 - **不建立通用第二套 staff Todo。**
@@ -314,7 +384,7 @@ Parent Communication 是不可变 event。
 - 谁负责；
 - 未生成 / draft 未 finalize。
 
-但第一轮短周期 Pilot 不强迫所有学生完成阶段报告，也不以数量评价教师。
+第一轮短周期 Pilot 不强迫所有学生完成阶段报告，也不以数量评价教师。
 
 ---
 
@@ -323,7 +393,7 @@ Parent Communication 是不可变 event。
 Audit 用于：
 - role/scope 变化；
 - handoff；
-- Student/Profile deactivate/reactivate；
+- Student/Profile deactivate/archive/unarchive/reactivate；
 - merge；
 - finalized communication/report correction；
 - 高风险 commands；
@@ -355,9 +425,12 @@ Phase 0A.6 不写死伪科学阈值；Pilot 后用真实工作节奏调整。
 
 - 治理异常优先派生，不新增核心状态/评分。
 - Active context 的 orphan 应尽量由 command/DB 先阻止。
-- Subject Profile inactive 是合法服务暂停，不等于 Case 解决。
-- 停科/停读绝不伪造 closed。
+- Subject Profile inactive/archived 是合法服务暂停/归档，不等于 Case 解决。
+- 停科/停读/归档绝不伪造 closed。
+- `archived` 可受控恢复，但只能 `unarchive → inactive`；真正服务恢复再 `reactivate → active`。
+- unarchive 不自动复活 Enrollment/assignment/owner/Action/Lesson 权限。
 - 恢复服务前 unresolved Cases 必须重新建立下一步。
+- Student merged 是终态，与 archived 分开。
 - 整人离职与退单科是两个 handoff workflow。
 - 家校 follow-up 不引入第二套 Todo；异步回复是新 communication event。
-- 历史 actor、finalized snapshot、merge 来源必须长期可解释。
+- 历史 actor、finalized snapshot、merge/archive 来源必须长期可解释。
