@@ -1,64 +1,37 @@
 # Lesson Workflow｜课前—课中—课后教学工作台
 
-> 状态：Phase 0A.6 产品/领域事实源。目标：让老师在真实授课过程中自然产生闭环事实，而不是课后再维护一份“学情档案”。
+> Phase 0A.6 产品/领域事实源。Lesson 是真实教学会话的事实容器，不是排课/收费/招生 ERP。
 
-## 1. Lesson 的产品定位
+## 1. Lesson 的作用
 
-Lesson 是一次真实教学会话的上下文容器，用来回答：
-- 属于哪个学科；
-- 与哪些学生有关；
-- 原本准备处理什么；
-- 实际发生了什么；
-- 哪些 Case/Action 被推进；
-- 下一步是什么。
-
-Lesson 不是完整排课、收费课消、招生 CRM 或教师绩效打卡。
-
----
-
-## 2. Lesson 是日常事实引擎
-
-错误流程：
-
-```text
-上课 → 记录课堂 → 再填 Case → 再抄周报 → 再重写家长反馈
-```
+回答：哪个学科、哪些学生、准备处理什么、实际发生什么、哪些 Case/Action 被推进、下一步是什么。
 
 正确方向：
 
 ```text
-Lesson 中记录真实事实一次
-→ Case timeline 连续
-→ Action 进入 Today
-→ 周度自动派生
-→ 家校/阶段复盘获得素材
+Lesson 中只记录一次真实事实
+→ Case timeline
+→ Action / Today
+→ 周度派生
+→ 家校/阶段复盘复用
 ```
 
----
+## 2. 基础关系
 
-## 3. 基础关系
+Lesson：organization / subject / teacher / started_at / ended_at / status / version。
 
-```text
-Lesson
-- organization
-- subject
-- teacher
-- started/ended time
-- status
-- version
+Lesson Students：student / attendance。
 
-Lesson Students
-- student
-- attendance
-```
+一对一只是一个 participant，小班可多个；V1 一个 Lesson 一个主学科。
 
-V1 一个 Lesson 对应一个主学科；一对一只是一个 participant，小班可多个。
+## 3. Teaching Fact Gate｜包含 Quick Capture
 
----
-
-## 4. Teaching Fact Gate｜Lesson 使用同一硬定义
-
-任何 Lesson teacher 行为，以及 Lesson 内实际 Intervention / Assessment / teaching Evidence，都必须同时满足：
+以下全部必须在**每次云端写入时**通过同一 Gate：
+- Lesson teacher behavior；
+- teaching Evidence；
+- Intervention；
+- Assessment；
+- **Quick Capture / new Learning Case**。
 
 ```text
 live session
@@ -66,192 +39,121 @@ live session
 + teacher capability
 + matching active teaching subject scope
 + target Student Subject Profile = active
-+ 对该 student+subject 的合法 active teacher assignment
-  或本次由受控 command 建立并验证的合法 Lesson relationship
++ legal active Student Assignment
+  OR controlled validated Lesson relationship
 + operation-specific permission
 ```
 
-### 硬规则
-- `live session`、`active Profile` 都是硬条件；
-- Subject Scope 不能代替 Student Assignment；
-- Student Assignment 不能代替 Profile active；
-- inactive/archived Profile 不能启动普通新 Lesson，也不能继续追加普通教学事实；
-- Subject Lead/Admin/Advisor 单凭管理身份不能成为 Lesson teacher；
-- “临时代课/诊断”必须先通过受控关系建立与权限验证，不是 admin bypass。
+硬规则：
+- start Lesson 时检查一次不代表整节课永久授权；
+- Profile/assignment/session 课中变化后，后续写入重新校验；
+- inactive/archived Profile 不可新 Lesson、teaching fact 或 Quick Capture；
+- Advisor/Subject Lead/Admin 单凭管理身份不能成为 Lesson teacher 或创建 teaching Case。
 
----
+## 4. `start_lesson`
 
-## 5. `start_lesson`
+受控 domain command：
+1. 完整 Gate；
+2. participants 与 org/subject/Profile 一致且 active；
+3. 创建 Lesson(in_progress) + participants；
+4. operation identity/idempotency；
+5. 返回课前 context。
 
-开始 Lesson 是受控 domain command，不由 Flutter 拼多次 insert。
+是否限制教师同时仅一个 in-progress Lesson 留 Pilot 验证。
 
-至少：
-1. 验证完整 Teaching Fact Gate；
-2. 验证所有 participants 与 organization/subject/Profile 一致；
-3. Profile 必须 active；
-4. 创建 `lesson(in_progress)`；
-5. 创建 participants；
-6. 防止明显重复启动；
-7. 写 audit / operation identity；
-8. 返回课前 context。
+## 5. Pre-lesson｜约 30 秒
 
-是否硬限制“一位老师同时只能一个 in-progress Lesson”暂不写死数据库唯一约束；Pilot 先验证真实操作习惯。
-
----
-
-## 6. Pre-lesson｜课前约 30 秒
-
-目标：
-
-> 这节课最值得先处理什么？
-
-每个 Student+Subject 只显示少量：
+每个 Student+Subject 少量展示：
 - overdue/today Action；
 - pending verification；
-- 上节课遗留 Next Action；
+- 上次 next Action；
 - 当前重点 Case；
 - 最近关键 Evidence/Assessment。
 
-不默认铺全历史、closed Cases、全部档案字段或 KPI。
+不默认铺全历史/KPI。
 
-小班先给每个学生 1–3 条重点，点击再展开。
+## 6. In-lesson｜只记新事实
 
----
-
-## 7. In-lesson｜只记录新事实
-
-高频动作：
+高频：
 - Action progress；
 - Evidence；
-- 实际 Intervention；
+- Intervention；
 - Assessment；
 - Quick Capture new Case。
 
-不强迫课中写完整 root cause、formalize 所有 new、写周报、家长反馈或阶段复盘。
+Quick Capture 目标仍 10–20 秒，但云端创建前必须 §3 Gate。没有权限或 Profile 已停用时，只能安全保留本地 Draft，不得插入 new Case。
 
-每一条实际教学事实仍需在写入时通过完整 Teaching Fact Gate；不能只在 `start_lesson` 时检查一次，之后永久信任旧权限。
+不强迫课中写 root cause、formalize 全部 new、周报、家校反馈。
 
----
+## 7. 保存策略
 
-## 8. 保存策略：课中逐步可靠，课后原子收口
+### 逐步正式保存
+合法的 Evidence/Intervention/Assessment/Quick Capture 可在课中分别保存，避免 90 分钟内容全部押在结束按钮。
 
-不能把整节 90 分钟内容第一次保存都押在“完成课程”按钮上。
+简单 append/new Case 使用预生成 UUID；response lost 复用同 ID/查询，不重复创建。
 
-### 可逐步正式保存
-在 RLS/幂等保护下：
-- new Quick Capture；
-- 简单 Evidence；
-- 合法、独立的 Intervention/Assessment；
-- attachment metadata。
+### Local Draft
+尚未云端确认的输入：user/org/lesson/entity scoped、encrypted、TTL；重新同步时重新验证当前 Gate。
 
-客户端预生成 UUID，timeout 重试复用。
+### Post-lesson sensitive combination
+由 `complete_lesson` 收口：Action completion/cancel、Case transition、new primary Action、Lesson completed 等敏感组合。
 
-### 本机恢复
-未被云端确认的输入可进入 user/org/lesson/entity scoped、encrypted、TTL local draft；云端成功后清理。
+## 8. Post-lesson｜目标 30–60 秒
 
-### 课后敏感组合
-由 `complete_lesson` 收口：
-- complete/cancel primary Action；
-- Case transition；
-- replace primary Action；
-- 本次尚未提交的组合事实；
-- Lesson completed。
+系统整理本节已保存事实、处理 Cases、Assessment、Quick Captures、Action progress；教师只确认真正需要专业判断的 formalize/transition/next Action/complete。
 
----
+不再复制周总结。
 
-## 9. Post-lesson｜目标 30–60 秒
-
-系统整理：已保存教学事实、处理 Cases、Action progress、Assessment results、new Quick Captures、可能下一步。
-
-教师只确认真正需要专业判断的：
-- new 是否 formalize；
-- Case 是否合法 transition；
-- 旧 primary Action 如何收口；
-- 新 primary Action；
-- Lesson complete。
-
-不再写一份周总结。
-
----
-
-## 10. `complete_lesson`
+## 9. `complete_lesson`
 
 必须：
-1. **重新验证完整 Teaching Fact Gate**，包括 live session、active Profile、operation permission；
-2. lesson expected_version/status；
-3. teacher/student/subject relationships 仍合法；
-4. 已成功保存事实通过 ID 引用，不重复 insert；
-5. Case transition 合法；
-6. active Profile primary Action 不变量成立；
-7. operation_id 防重复副作用；
-8. Lesson 只有在必需冲突已处理后才能 completed；
-9. 返回最新快照。
+- 重新验证 live session / membership / teacher / scope / Profile / relationship / permission；
+- lesson expected_version；
+- 已保存 facts 通过 ID 引用，不重复 insert；
+- Case transition 合法；
+- active Profile formal Cases 满足 primary Action invariant；
+- operation_id 幂等；
+- 必需冲突未解决时不能虚假 completed。
 
-如果课程进行中 Profile/assignment/session 被治理动作停用，complete 必须进入明确冲突/恢复流程，不能使用“Lesson 已经开始”绕过新权限。
+课中 Profile/assignment/session 被治理动作改变时，必须明确冲突/恢复，不能以“Lesson 已开始”为 bypass。
 
----
+## 10. 小班事务边界｜Phase 0B.0 Spike
 
-## 11. 小班事务边界｜PENDING Phase 0B.0 Spike
+比较 Whole-Lesson Atomic vs Per-Student/Case Reconcile Then Finalize。
 
-场景：4 个学生中 1 个 Case version conflict。
+无论哪种必须：
+- 不丢已确认事实；
+- 不重复；
+- unresolved conflict 不虚假 completed；
+- UI 指出具体学生；
+- timeout/retry 可恢复；
+- committed state 满足 Case/Action invariants。
 
-需要比较：
-- Whole Lesson Atomic；
-- Per-Student/Case Reconcile Then Finalize。
+## 11. Cancel / crash
 
-最终必须证明：不丢已确认事实、不重复、不虚假 completed、UI 能指出冲突学生、timeout/retry 可恢复。
+Cancelled Lesson 不级联删除已合法发生的 Evidence 等事实。
 
-Phase 0A.6 不假装已经选择。
+stale in-progress：提示继续/受控取消；继续写入前重新 Gate；不自动 completed。
 
----
+## 12. Acceptance Scenarios
 
-## 12. Lesson 与周度/家校/报告
+- teaching scope 但无 Student Assignment → start Lesson/Quick Capture 拒绝；
+- Profile inactive + old assignment → start/teaching fact/new Case 拒绝；
+- Profile archived → 全部教学写入拒绝；
+- pure Subject Lead/Admin/Advisor → 不能成为 Lesson teacher 或 Quick Capture teaching Case；
+- 小班 participants 必须同 org/subject 且 Profiles active；
+- 课中 Profile deactivate → 后续 Intervention/Assessment/Quick Capture 拒绝并保留本地输入；
+- Session revoked → 后续写入/complete 拒绝；
+- response lost → 不重复 Lesson/Action/Assessment/new Case；
+- complete 时 assignment/profile 已变化 → conflict；
+- completed 后 active formal Cases 仍有 next Action；
+- 周度/家校/阶段复盘复用 Lesson 事实。
 
-Lesson 产生的 Case/Evidence/Intervention/Assessment/Action 是后续事实源：
-- Weekly view：派生；
-- Parent Communication：引用/整理后形成独立 event；
-- Stage Review：按 source cutoff 汇总后形成人类确认 snapshot。
+## 13. 冻结结论
 
-不得复制第二套 Lesson summary 事实表。
-
----
-
-## 13. Cancelled / Stale in-progress
-
-Cancelled Lesson 不级联删除已经合法发生的 Evidence 等事实。
-
-App crash 造成 stale in-progress 时：
-- 提示继续；
-- 允许受控取消/恢复；
-- 不自动 completed；
-- 恢复/继续写入前重新验证当前 Teaching Fact Gate。
-
----
-
-## 14. Acceptance Scenarios
-
-1. Teacher 有语文 scope 但无 Student Assignment → start Lesson 拒绝。
-2. Teacher 有旧 assignment，但 Profile inactive → start Lesson 拒绝。
-3. Profile archived → start Lesson / teaching fact 拒绝。
-4. 纯 Subject Lead 无 Teaching relationship → 不能成为 Lesson teacher。
-5. Academic/Org Admin 单凭管理身份 → 不能成为 Lesson teacher。
-6. 小班所有 participants 必须同 subject/org 且 profiles active。
-7. 课中 Profile 被 deactivate 后继续写 Intervention → 拒绝并保留本地输入用于安全处理。
-8. 课中 Session revoked 后继续写 Assessment/complete → 拒绝。
-9. response lost 后重试不会创建两次 Lesson/Action/Assessment。
-10. complete 时 assignment/profile 已变化 → 明确冲突而不是绕过。
-11. Lesson complete 后 active formal Cases 仍满足 next Action invariant。
-12. cancelled Lesson 不删除已合法发生教学事实。
-13. 周度/家校/阶段复盘复用 Lesson 事实，不重抄。
-
----
-
-## 15. 当前冻结结论
-
-- Lesson 是日常事实引擎，不是排课 ERP。
-- `start_lesson / complete_lesson` 是受控 domain commands。
-- **Lesson 与 Lesson 内教学事实始终使用和 Auth/Data/Commands 完全一致的七项 Teaching Fact Gate。**
-- inactive/archived Profile 无普通新 Lesson/教学写入。
-- 课中事实逐步可靠保存，课后只收口敏感组合。
+- Lesson 是日常事实引擎；
+- start/complete 是受控 command；
+- **Quick Capture/new Case 与 Lesson 内其他 teaching facts 使用完全相同的 Gate**；
+- inactive/archived Profile 无普通 Lesson/教学写入；
+- 课中事实逐步可靠保存，课后收口敏感组合；
 - 小班 transaction boundary 留 Phase 0B.0 Spike。
-- 周度、家校、阶段复盘复用同一套教学事实。
