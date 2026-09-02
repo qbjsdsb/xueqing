@@ -1,273 +1,191 @@
 # 架构与产品决策记录（ADRs）
 
-> 已接受决定不得在代码里静默推翻。若实践证明需要改变，先写新的 ADR：原因、影响、迁移/回滚方案、验证证据。
+> 已接受决定不得在实现中静默推翻。需要改变时先新增/修订 ADR，写清原因、影响、迁移/回滚与验证证据。
 
 ## ADR-001｜Flutter，Windows + Android 优先
-**Accepted**
-办公深度管理优先 Windows，课中/课后快速记录优先 Android，共享主要业务模型。V1 不同时铺 Web/iOS。
+**Accepted** — Windows 深度管理、Android 快速记录；V1 不同时铺 Web/iOS。
 
 ## ADR-002｜Supabase 作为 V1 云端基础设施
-**Accepted**
-PostgreSQL + Auth + Storage + RLS + Edge Functions。业务强关系、多角色、多租户，适合关系数据库。
+**Superseded / Qualified by ADR-045**
+
+历史上 Supabase 被选为 V1 参考基础设施（PostgreSQL/Auth/Storage/RLS/Functions）。Phase 0A.6 发现中国大陆部署候选、Auth ID 类型与 revoked-session 语义仍需实测，因此 **Supabase 不再是已冻结 Production provider**；它保留为 reference candidate。任何实现者不得仅凭 ADR-002 跳过 ADR-045 的 Phase 0B.0 gates。
 
 ## ADR-003｜普通 Data API，高权限/事务受控执行
-**Accepted**
-普通授权读写走 RLS Data API；数据库内多表不变量走 DB Function；需要 Auth Admin/Secret/跨系统编排走 Edge Function/可信服务端。Flutter 永不持有 service_role。
+**Accepted** — 普通授权读写走 RLS/Data API；多表不变量走 DB Function/受控 command；Secret/Auth Admin 走可信服务端。Flutter 不持有高权限 Secret。
 
 ## ADR-004｜从第一天多租户，但 V1 不做 SaaS 计费
-**Accepted**
-保留 organization 边界与 RLS；不做套餐/订阅/自助开通。
+**Accepted** — organization 边界/RLS 保留，不做套餐订阅。
 
 ## ADR-005｜一个学生一份机构主档案
-**Accepted**
-不同教师/学科/年级不重复建 Student。姓名不是唯一键，重复通过提示 + 受控合并。
+**Accepted** — 学科/教师/年级不重复 Student；duplicate 走提示 + 受控 merge。
 
 ## ADR-006｜年级与责任关系保存历史
-**Accepted**
-`student_enrollments`、`student_teacher_assignments`、`student_staff_assignments` 保存历史，不覆盖单一当前值。
+**Accepted** — Enrollment/teacher/staff assignment 不覆盖历史。
 
-## ADR-007｜“顽固问题”不是第二台账
-**Accepted**
-由 case 的持续、失败、复发等事实派生。
+## ADR-007｜顽固问题不是第二台账
+**Accepted** — 从持续、失败、reopen 等事实派生。
 
 ## ADR-008｜周度/阶段指标优先派生
-**Accepted**
-教师不重新填周表。
+**Accepted** — 不让教师重复填周表。
 
-## ADR-009｜Case：当前快照 + append-only 事件
-**Accepted**
-`learning_cases` 保存当前状态，`case_events` 保存关键生命周期变化。
+## ADR-009｜Case 当前快照 + append-only events
+**Accepted** — learning_cases 当前状态，case_events 关键历史。
 
 ## ADR-010｜下一步行动是一等对象
-**Accepted / Refined by ADR-034**
-`case_actions` 是 Today 事实源。正式未关闭 case 不能成为没有下一步的孤儿。
+**Accepted / Refined by ADR-034 and Phase 0A.6 service lifecycle** — Active Profile 的 formal open Case 必须有 pending primary Action；inactive/archived 是合法 suspended exception。
 
-## ADR-011｜Lesson 支持一对多，但不是排课 CRM
-**Accepted**
-`lessons + lesson_students` 只表达实际教学会话，不扩收费、课消、招生、复杂排课。
+## ADR-011｜Lesson 支持一对多但不是排课 CRM
+**Accepted**。
 
-## ADR-012｜Online-first，但保护未提交输入
-**Accepted / Refined by ADR-036**
-云端 PostgreSQL 是正式事实源；本地仅临时草稿，不做 CRDT 多主同步。
+## ADR-012｜Online-first，保护未提交输入
+**Accepted / Refined by reliability foundation** — 云端为正式事实源；本地仅加密 Draft，不做 CRDT 多主。
 
-## ADR-013｜不做未经验证的“学情健康分”
-**Accepted**
-展示透明事实，不把人为加权包装成科学结论。
+## ADR-013｜不做未经验证的学情健康分
+**Accepted**。
 
 ## ADR-014｜AI 是副驾驶
-**Accepted**
-AI 可 draft/摘要/相似提示；正式教学事实和状态必须人工确认。
+**Accepted** — AI 可 draft/摘要，不自动正式诊断、status、finalize。
 
 ## ADR-015｜完整 6 入口，V1 4 入口
-**Accepted**
-完整：今日/学生/课程/学情/家校/报告；V1：今日/学生/课程/学情。
+**Accepted / Refined** — V1 主导航 Today/Students/Lessons/Learning；最小家校能力在 Student/Case context，独立家校/报告工作台后置。
 
 ## ADR-016｜Today 行动驱动，不依赖完整排课
-**Accepted**
-主要聚合 case_actions、待验证、重点 case、最近负责学生。
+**Accepted**。
 
 ## ADR-017｜受控分类 + 自由表达
-**Accepted**
-轻量 taxonomy 用于统计，title/description 保留真实教学表达。
+**Accepted**。
 
-## ADR-018｜业务层不散落 Supabase SDK
-**Accepted**
-View/ViewModel 经 Repository/Service 访问后端，可 fake/test。
+## ADR-018｜业务层不散落 provider SDK
+**Accepted / Provider-neutral wording** — View/ViewModel 经 Repository/Service；Supabase/CloudBase 等 SDK 只在 infrastructure adapter。
 
 ## ADR-019｜V1 正确性不依赖 Realtime
-**Accepted / Refined by ADR-042**
-提交后刷新、页面进入、App resume、手动刷新必须足以保证正确。
+**Accepted / Refined by ADR-042**。
 
 ## ADR-020｜Local / Remote Dev / Production 分离
-**Accepted / Refined by ADR-037**
-Local 做可重复 DB/RLS；Remote Dev 虚构公网集成；Production 承载真实数据。
+**Accepted / Refined by ADR-045** — Remote Dev 仅虚构数据；Production provider 在 Phase 0B.0 gate 后才创建/冻结。
 
 ## ADR-021｜首位 org_admin 一次性 bootstrap
-**Accepted**
-可信运维初始化，完成后关闭入口；Flutter 不内置超级管理员 Secret。
+**Accepted**。
 
 ## ADR-022｜Assessment 与 Case Status 是两类事实
-**Accepted**
-passed 不自动 stable/closed。
+**Accepted** — passed ≠ stable ≠ closed。
 
 ## ADR-023｜客户端 View 显式处理 RLS
-**Accepted**
-优先 `security_invoker = true`；security-definer helper 放非 exposed schema。
+**Accepted** — security-invoker 优先；definer helper 最小化并隔离。
 
 ## ADR-024｜Git migrations 是数据库结构事实源
-**Accepted**
-Schema/RLS/View/Function/Trigger/Index 正式变化全部 migration；Remote Dashboard 不是第二事实源。
+**Accepted**。
 
 ## ADR-025｜Supabase Invite Link 账号方案
-**Superseded**
-早期依赖 invite link/deep link，已被后续零成本 Password onboarding 替代。
+**Superseded**。
 
 ## ADR-026｜分类 schema 先稳，复杂治理 UI 后置
-**Accepted**
-少量默认 taxonomy + “其他/暂未分类”。
+**Accepted**。
 
 ## ADR-027｜Email OTP 作为 V1 首选
-**Superseded by ADR-030**
-真实机构 OTP 依赖可靠 SMTP；零额外付费阶段降为未来可替换登录 UX。
+**Superseded by ADR-030**。
 
 ## ADR-028｜Invitation 与 Membership 分离
-**Deferred for V1**
-概念仍正确；V1 内部封闭开通暂不建 invitation 表。
+**Deferred for V1**。
 
-## ADR-029｜课堂“快速捕捉 → 课后确认”
-**Accepted**
-`new` 目标 10–20 秒，confirmed 再补结构。
+## ADR-029｜课堂快速捕捉 → 课后确认
+**Accepted / Refined by Phase 0A.6** — Quick Capture 10–20 秒，但 new Case 云端创建必须完整 Teaching Fact Gate；Advisor-only 不可借此创建教学 Case。
 
-## ADR-030｜零成本认证：管理员开通 + 临时密码 + onboarding
-**Accepted / Refined by ADR-035 / ADR-041**
-少量已知教师，不开放公共注册。Auth User 与业务 membership 分离；onboarding 无学生业务权限；Email OTP 未来可替换登录层。
+## ADR-030｜低成本认证：管理员开通 + 临时密码 + onboarding
+**Accepted / Provider implementation pending ADR-045** — 不开放公共注册；onboarding 无学生业务权限。
 
 ## ADR-031｜零额外付费 Pilot 基础设施
-**Accepted**
-GitHub Free private + 精简 Actions；Supabase Local + 一个 Free Remote Dev + 一个 Free Production Pilot；不买 SMTP/域名/SMS/AI API/Work extra credits。Free 不等于 SLA，必须手工备份/恢复。
+**Accepted as cost goal / Provider choice refined by ADR-045** — GitHub/轻量 CI/不强依赖付费 SMTP/SMS/AI；历史 Supabase Free Project 方案不再等于 Production provider 已冻结。
 
-## ADR-032｜ChatGPT Project + Work 是云端主控，Git/CI 是事实与证据
-**Accepted**
-一个可验收目标通常一条 Work 会话 + PR；GitHub 是代码事实源；真实命令由 Work/Codex/CI 给证据。Luna Max 留给高风险推理。
+## ADR-032｜ChatGPT Work/项目协作，Git/CI 是事实与证据
+**Accepted**。
 
-## ADR-033｜开源项目借“模式”，不 fork 大型学校 ERP
-**Accepted**
-参考 Flutter official compass、supabase-flutter、AppFlowy、Frappe Education、Gibbon；借工程/领域经验，不复制产品范围。
+## ADR-033｜开源借模式，不 fork 大型学校 ERP
+**Accepted**。
 
----
+## ADR-034｜正式未关闭 Case 必须有下一步
+**Accepted / Refined by Phase 0A.6** — **仅当 Subject Profile active**；inactive/archived unresolved Case 可无 current primary Action。
 
-## ADR-034｜正式未关闭 Case 必须始终有下一步行动
-**Accepted**
-- new 可没有 action；
-- confirmed/intervening/pending_verification/stable 必须有一个 pending primary action；
-- 暂缓/观察使用 `action_type=review`；暂停 review 必须有 `due_at`；
-- `pause_reason` 只是解释，不替代行动；
-- closed 不存在 pending primary action。
+## ADR-035｜业务授权要求 Active Membership + Live Session
+**Accepted security goal / Provider implementation refined by ADR-045**
 
-理由：避免 case 因“暂停”永久从 Today 消失，同时坚持 case_actions 单一行动事实源，不新增 `next_review_at` 第二套日期。
+Supabase `JWT session_id → auth.sessions` 是 reference；任何 Production provider 必须证明 signOut/reset/disabled 后 old token 无学生业务访问。
 
----
+## ADR-036｜Session 和本地 Draft 按敏感数据保护
+**Accepted / Provider-neutral** — Session 放 OS secure storage 或等价安全机制；Password 不持久化；Draft 加密、user/org scoped、TTL。
 
-## ADR-035｜业务授权要求 Active Membership + Live Supabase Session
-**Accepted（Phase 0 必须实测）**
+## ADR-037｜Production Region 由真实网络测试决定
+**Accepted / Expanded by ADR-045** — Supabase APAC 只是候选；中国大陆 CloudBase/自托管等也需同样 Auth/Data/Storage/restore/无代理网络测试。Region 不是合规证明。
 
-Supabase JWT 包含 `session_id`，可关联 `auth.sessions`。global sign-out 会移除 Session/Refresh Token，但已有 Access Token 仍可能在 `exp` 前存在。
+## ADR-038｜GitHub Free Private 用流程治理
+**Accepted / Refined by ADR-044**。
 
-普通学生业务 RLS 要同时证明：
+## ADR-039｜Free Pilot 恢复能力是产品门槛
+**Accepted** — DB/Storage/config backup + restore drill；free ≠ SLA。
 
-```text
-auth.uid()
-+ jwt session_id 仍存在于 auth.sessions
-+ membership = active
-+ role / assignment
-```
+## ADR-040｜临时 Credential 不为可重复返回而持久化
+**Accepted**。
 
-`complete_member_onboarding`：验证 onboarding/expiry → 更新新密码 → global sign-out 全部 Sessions → 成功后 active → 强制重新登录。
-
-`reset_member_credential`：先 membership→onboarding，再更新 Auth 密码。
-
-Phase 0 用保存的旧 JWT 做攻击式测试，并评估 live-session helper 性能。
-
----
-
-## ADR-036｜Session 和本地草稿都按敏感数据保护
-**Accepted（Phase 0 选实现）**
-
-- Supabase 使用 custom `LocalStorage` + Windows/Android OS secure storage；
-- Password 永不本地持久化；
-- App Startup 验证 Session/live membership 后才挂业务 Shell；
-- 跨重启敏感 draft 加密；key 存 OS secure storage；
-- draft 按 user/org 隔离，有 TTL，同步后删除，切账号不串数据。
-
-具体开源依赖在 Phase 0 选型，不为安全引入付费服务。
-
----
-
-## ADR-037｜Production Region 由真实无代理网络测试决定
-**Accepted**
-
-Supabase APAC 有 Singapore/Tokyo/Seoul 等，但没有中国大陆 region；project region 不能原地修改。
-
-用虚构 Remote Development 在实际机构 Wi‑Fi、普通移动网络、无代理/VPN下测 Auth/Data/Storage/Functions；不合格就重建 Dev 换 region；测完才创建 Production。Region 不是合规证明，真实未成年人数据驻留/跨境另做机构评估。
-
----
-
-## ADR-038｜GitHub Free Private 采用流程治理，不假装有付费 Branch Protection
-**Accepted / Refined by ADR-044**
-
-隐私要求 repo Private，但 GitHub Free 私有仓库没有 Pro/Team 才有的 private ruleset/branch protection 强制能力。
-
-零成本阶段：Work/Codex 禁直推 main；feature/review branch + Draft PR；没真实执行证据不人工合并。原决定还要求 Actions budget 开启 `Stop usage when budget limit is reached`；这一账户级预算要求后来由 ADR-044 调整。
-
----
-
-## ADR-039｜Free Pilot 的恢复能力是产品门槛
-**Accepted**
-
-真实数据前必须：roles/schema/data dump、Storage 独立备份 + manifest、项目配置清单、加密离站、restore drill。
-
-Pilot 默认 RPO ≤ 一个教学日；机构不能接受则 0 元 Production 不满足要求。
-
----
-
-## ADR-040｜临时 Credential 不为“可重复返回”而持久化
-**Accepted**
-
-provision/reset 响应可能丢失，但临时密码只显示一次、不保存明文。交付状态未知时 member 保持 onboarding，管理员 reissue 新密码，旧临时密码失效。
-
----
-
-## ADR-041｜V1 数据库多租户，但同一 Auth User 不跨机构同时活跃
-**Accepted**
-
-V1 的 Password 是全局 Supabase Auth credential，而 `reset_member_credential` 由机构 org_admin 管理。如果同一个 Auth User 同时属于 A、B 两个机构，A 的管理员重置密码会影响 B，这违反租户身份治理边界。
-
-因此 V1：
-- 数据库/业务表继续支持多个 organization；
-- 同一 `auth user_id` 同一时点最多一个 `onboarding` 或 `active` membership；
-- 可以保留其他 organization 的 disabled 历史；
-- schema 用 partial unique index/受控命令防止跨机构双活；
-- `provision_member` 遇到另一机构非 disabled membership 时拒绝。
-
-未来要支持一个教师加入多个机构，先采用不会让单一机构管理员控制全局 credential 的身份治理：中央 identity admin、Email OTP、SSO 或等价方案，再新增 ADR 移除限制。
-
----
+## ADR-041｜V1 数据多租户，但同一 Auth identity 默认不跨机构同时活跃
+**Accepted / identity physical implementation pending ADR-045**。
 
 ## ADR-042｜V1 学生敏感表默认不启用 Realtime
-**Accepted**
-
-理由：
-- ADR-019 已要求正确性不依赖 Realtime；
-- Session revoke 对既有长连接的行为需要专门安全测试；
-- V1 的页面进入/保存后/App resume/手动刷新已足够内部 Pilot；
-- 不为“实时感”增加不必要攻击面、调试复杂度和流量。
-
-因此 V1 默认不把学生/学情敏感表加入 Realtime publication，也不写依赖 Realtime 才正确的业务逻辑。
-
-以后需要 Realtime 时，新增 ADR，至少测试 revoked session、token refresh/re-auth、reconnect、cross-org、subscription cleanup 后再开启。
-
----
+**Accepted**。
 
 ## ADR-043｜Phase 0A 使用 Flutter SDK 内置 Navigator
-**Accepted（Phase 0A）**
+**Accepted（Phase 0A）**。
 
-Phase 0A 只有 Bootstrap 页面与路由自检页，没有 deep link、Auth redirect、复杂路由参数或嵌套路由需求。使用 `MaterialApp.onGenerateRoute` 与集中 `XueqingRouter` 足以覆盖当前启动链路，同时不增加 `go_router` 依赖。
-
-后续出现 Auth/租户重定向、deep link、强类型路由参数或路由状态恢复需求时，再以真实需求评估路由包；本决定不预先锁定 Phase 0A.5 的导航视觉或业务信息架构。
+## ADR-044｜Actions zero-overage budget 暂不设置，以 CI 触发策略控制消耗
+**Accepted（用户明确选择，2026-09-02）** — 轻量 Linux checks；原生 build milestone/manual；避免重复触发/大型无价值 artifacts。
 
 ---
 
-## ADR-044｜Actions zero-overage budget 暂不设置，改以 CI 触发策略控制消耗
-**Accepted（用户明确选择，2026-09-02）**
+## ADR-045｜Production cloud provider 延迟到 Phase 0B.0 Compatibility Gate 后冻结
+**Accepted — Supersedes ADR-002 的“Supabase 已定 Production provider”含义**
 
-用户明确选择暂不设置 GitHub Actions zero-overage budget，并接受由此产生的账户级计费风险。因此该设置不再作为 Foundation、Phase 0A 或真实数据 Go / No-Go 的硬阻塞项。
+### 背景
+Phase 0A.6 确认：
+- 官方 Supabase 是生态成熟的 PostgreSQL/Auth/RLS/Storage reference candidate；
+- 腾讯 CloudBase PG 提供中国大陆候选，并在 PostgreSQL/RLS/PostgREST 心智上相近；
+- 国内自托管 Supabase 可作为长期迁移/控制路线；
+- 但 Auth user ID 类型、Session revoke/old-token 语义、Storage/SDK/国内网络并非 100% 等价。
 
-这一调整只改变**账户级预算保护方式**，不改变零额外付费 Pilot 的工程目标。为降低未设 budget 的风险，仓库必须执行：
-- 普通 PR 与 `main` 只跑轻量 Linux 检查；
-- 避免同一提交同时由 feature-branch push 与 pull_request 重复跑相同 CI；
-- Windows / Android 原生 build 仅 milestone / release / 手动触发；
-- 不使用 larger runner；
-- 不上传无价值大型 artifact；
-- 出现异常 Actions 消耗时立即停掉无价值 workflow 并重新评估。
+### 决定
+Phase 0A.6 **不冻结 Production provider**。
 
-Phase 0A 已据此完成一次 Android + Windows 原生构建验证，之后把 native build workflow 改为手动触发。
+候选：
+1. official Supabase APAC/Singapore；
+2. Tencent CloudBase PG Shanghai；
+3. mainland self-hosted Supabase fallback。
+
+所有业务领域文档必须 provider-neutral；Supabase-specific 术语只表示 reference implementation。
+
+### Phase 0B.0 两个 pre-migration P0 hard gates
+
+#### P0-A｜Auth Identity Portability
+必须用虚构数据比较并冻结：
+- provider-specific auth PK；
+- business Profile UUID + external auth subject；
+- text/weak-coupled identity link。
+
+在此之前禁止把 `profiles.id` 永久锁死为某 provider `auth.users.id` 物理类型。
+
+#### P0-B｜Revoked Session / Old Token Security
+必须保存旧 token 并实测：
+- signOut；
+- credential reset；
+- membership disabled；
+- App restart/persisted token；
+
+之后旧 token 请求学生业务 API 必须失败。
+
+### 其他 compatibility evidence
+Windows/Android Auth、RLS、RPC/transactions、private Storage、backup/restore、export/migration、中国大陆无代理网络。
+
+### Gate
+上述 P0 未通过：
+- 不创建正式 Production schema/migrations 依赖；
+- 不导入真实学生/家长数据；
+- 不把 provider-specific Session helper 当领域事实。
+
+Spike 通过后新增/更新 ADR 明确最终 provider、region、identity strategy、restore strategy。

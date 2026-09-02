@@ -1,312 +1,107 @@
 # Phase 0A.6 Foundation Change Proposal
 
-> 状态：Phase 0A.6 最终领域变更提案。本文集中记录对 `PRODUCT.md / DATA_MODEL.md / COMMANDS_AND_INVARIANTS.md / AUTH_AND_PERMISSIONS.md` 的必要修订。它不是 migration，也不授权进入真实 Auth/RLS/CRUD。
+> 最终领域变更提案。只记录已经 ACCEPT、明确 DEFER、或明确 REJECT/DERIVE 的结论；不授权进入 Production migration。
 
-## 1. 决策纪律
+## 1. ACCEPT｜Role / Subject Scope / Assignment / Profile
 
-每个缺口只允许归入：
-- **ACCEPT**：已有充分产品依据，已/应回写 Foundation；
-- **PENDING SPIKE**：需求真实，但实现必须由 Phase 0B.0 最小实验决定；
-- **REJECT / DERIVE**：不新增领域对象，继续从已有事实派生。
+- `membership_subject_scopes` 区分 teaching / leadership；
+- teaching scope 不授予全部学生；
+- active teacher assignment 必须 active membership + teacher + teaching scope + active Profile；
+- management-only 不产生 teaching facts。
 
-判断标准：
-
-> 这是新的真实业务事实，还是同一事实的另一种展示/总结？
-
-如果只是展示/统计，默认派生；如果只是为了“表结构完整”，默认不建。
-
----
-
-## 2. ACCEPT｜Role / Subject Scope / Assignment / Profile 四层业务授权关系
-
-新增独立 `membership_subject_scopes`：
-- membership；
-- organization subject；
-- `scope_kind = teaching / leadership`；
-- active history。
-
-冻结：
-- Role 回答“能做哪类事”；
-- Subject Scope 回答“在哪个学科有效”；
-- Student Assignment 回答“具体负责哪个 Student + Subject”；
-- **Subject Profile service state 回答“这门学科当前是否真的在持续教学”；**
-- teaching scope 不授予全学科学生访问；
-- leadership scope 不允许伪造 Intervention/Assessment/Lesson teacher。
-
-active teacher assignment 必须匹配：
+## 2. ACCEPT｜Subject Profile service lifecycle
 
 ```text
-active membership
-+ teacher capability
-+ active teaching scope
-+ active Student Subject Profile
+active → inactive → archived
+active ← inactive ← archived
 ```
 
-新增/强化学科级 handoff：`revoke_teacher_subject_scope_and_handoff`。
+service lifecycle 与 Case resolution 分开；inactive/archived tracking suspended，不伪造 closed。
 
-**Decision：ACCEPT，已回写 Foundation。**
+## 3. ACCEPT｜Student aggregate version / multi-Profile concurrency
 
----
+`students.version` 必须存在。
 
-## 3. ACCEPT｜Student Subject Profile 是教学主线 + 可恢复服务生命周期
+Student lifecycle command 同时验证：
+- Student expected_version；
+- affected Profile expected versions；
+- affected Case expected versions；
+- current assignment/owner/Action set；
+并锁定/重读 rows。任何 drift → stale_plan/version_conflict。
 
-Profile：
-- `status = active / inactive / archived`；
-- current positioning；
-- strengths；
-- version。
+## 4. ACCEPT｜`reactivate_student` 不隐式 unarchive
 
-冻结完整状态机：
+Selected Profiles 必须在调用前已经 inactive。Archived Profile 必须先由独立用户 command `unarchive_student_subject_profile` 恢复到 inactive。
+
+V1 不定义跨事务 unarchive Saga；未来若要“一键归档回归”另写 ADR。
+
+## 5. ACCEPT｜三类 Case workflow / 六态 lifecycle
+
+Knowledge/Habit/Exam Strategy 使用同一 Case/Evidence/Intervention/Assessment/Action/Event 模型。三阶不是 schema 三列。
+
+## 6. ACCEPT｜Quick Capture 也是 Teaching Fact Gate
+
+Quick Capture/new Case 云端创建必须：live session + active membership + teacher + teaching scope + active Profile + legal relationship + operation permission。
+
+Advisor-only/pure management 不可创建 teaching Case；非专业事实走 Parent Communication/Observation。
+
+## 7. ACCEPT｜`reopen_case` 唯一目标
 
 ```text
-active --deactivate--> inactive --archive--> archived
-active <--reactivate-- inactive <--unarchive-- archived
+closed → confirmed
 ```
 
-规则：
-- `archive` 只能 inactive→archived；
-- `unarchive` 只能 archived→inactive；
-- `reactivate` 只能 inactive→active；
-- 禁止 active→archived、archived→active 直跳；
-- unarchive 只恢复可管理状态，不恢复教学；
-- reactivate 前必须重建 teacher assignment、Case owner、unresolved formal Case primary Actions。
+要求 active Profile、recurrence Evidence、legal owner、新 primary Action；current closed_at/stable_at 清空，history 通过 events 保留，reopened_count+1。
 
-最重要边界：
+Inactive/archived Profile reopen 拒绝。
 
-> **Subject service lifecycle 与 Learning Case resolution lifecycle 分开。**
+## 8. ACCEPT｜High-risk command exactly-once
 
-Profile inactive/archived 下 unresolved Case：
-- 保留真实 status；
-- 当前 pending Actions 受控收口；
-- 暂停进入 Today；
-- 不要求 current primary Action；
-- 不自动 closed/清零；
-- 不允许普通教学事实/新 Lesson。
+- `(org, operation_id)` 唯一 command result；
+- lifecycle event：operation_id + stable event key；
+- high-risk audit：operation_id + stable audit key；
+- duplicate operation 返回原 result，不重复 side effects。
 
-Primary Action 不变量精确为：
+物理 receipt/index 留 Phase 0B migration，但逻辑不变量已冻结。
 
-> **active Subject Profile 下的 formal open Case 必须有 pending primary Action。**
+## 9. ACCEPT｜Student merge conservative matrix
 
-新增/冻结：
-- `deactivate_student_subject_profile`
-- `archive_student_subject_profile`
-- `unarchive_student_subject_profile`
-- `reactivate_student_subject_profile`
+完整事实源：`STUDENT_MERGE_POLICY.md`。
 
-**Decision：ACCEPT，已回写 Foundation。**
+V1 自动 merge 只做 safe reparent/dedupe；同科双 Profile、Enrollment 冲突、双 active Lead/current responsibility conflict 直接 BLOCK，先人工治理再重试。
 
----
+Finalized history provenance 保留；source merged 不删除。
 
-## 4. ACCEPT｜Student lifecycle 同样区分 archive 与 merged
+## 10. ACCEPT｜Lesson
 
-Student：
+`start_lesson/complete_lesson` 受控；Teaching Fact Gate；小班 transaction boundary Phase 0B.0 Spike。
 
-```text
-active --deactivate_student--> inactive --archive_student--> archived
-active <--reactivate_student-- inactive <--unarchive_student-- archived
-```
+## 11. ACCEPT｜Parent Communication / Stage Review
 
-- archived 可恢复，但只能先回 inactive；
-- unarchive 不自动恢复 enrollment/Subject Profile/assignment；
-- reactivate 逐实际恢复学科做 Profile reconciliation；
-- `merged` 是终态，不可 unarchive/reactivate 为独立 Student。
+家校是 immutable communication events；异步 reply 新 inbound。Report 复用 reports snapshot，不建 stage_reviews 平行表。
 
-**Decision：ACCEPT。**
+## 12. DEFER｜Initial Diagnosis baseline snapshot
 
----
+V1 不建 `initial_diagnoses` 大表；Pilot 验证是否需要轻量 immutable baseline snapshot。
 
-## 5. DEFER WITH VALIDATION｜Initial Diagnosis Snapshot
+## 13. DERIVE｜Weekly / stubborn / governance anomalies
 
-Initial Diagnosis workflow 必须有，但不先建 `initial_diagnoses` 平行大表。
+不建 weekly_tracking、stubborn_cases、generic anomaly table；从事实派生。未来真实需要工单生命周期再单独设计。
 
-已有自然事实源：Student、Subject Profile、Evidence、Case、Action。
+## 14. ACCEPT｜Production provider 尚未冻结
 
-唯一可能新增的真实事实是第一次正式建档时的整体基线判断。Pilot 验证真实需求后，再决定是否做轻量 immutable snapshot/event。
+ADR-002 由 ADR-045 supersede/qualify。Supabase 是 reference candidate；CloudBase 上海/国内自托管仍候选。
 
-**Decision：P2 DEFER。**
+Phase 0B.0 pre-migration hard gates：
+- Auth Identity Portability；
+- Revoked Session / Old Token Security。
 
----
+## 15. REJECT｜Realtime correctness dependency / second Todo / unsafe merge automation
 
-## 6. ACCEPT｜Initial Diagnosis 不能绕过 Teaching Fact Gate
+V1 correctness 不依赖 Realtime；不建第二套 staff Todo；不自动猜测复杂 Student merge。
 
-管理员可以创建/恢复 Profile、建立合法 teacher assignment，但不能通过“授权初诊”跳过实际教学事实权限。
+## 16. Foundation 回写范围
 
-凡初诊会产生 Intervention、Assessment、教学型 Evidence、Lesson teacher 行为，必须通过完整 Teaching Fact Gate。
+已/应同步：PRODUCT、DATA_MODEL、COMMANDS、AUTH、ARCHITECTURE、DECISIONS、USER_FLOWS、Role/Workflow、Reliability/Governance/Audit。
 
-**Decision：ACCEPT，已回写 Initial Diagnosis / Auth / Role Matrix。**
-
----
-
-## 7. ACCEPT｜三类 Case Workflow，不改六态生命周期
-
-统一底层：Case / Evidence / Intervention / Assessment / Action / Event。
-
-默认 workflow：
-- knowledge：当堂订正 → 相似题 → 延迟独立验证；
-- habit：可观察行为 → 干预 → 多场景连续观察；
-- exam_strategy：方法 → 应用 → 限时/模拟迁移 → 独立验证。
-
-冻结：
-
-```text
-Assessment passed ≠ stable ≠ closed
-```
-
-知识“三阶”是教学模板，不是 schema 三列；`closed` 只有真实解决时产品才显示“已清零”。
-
-模板层必须尊重 suspended exception：inactive/archived Profile 下 formal open Case 可以没有 current primary Action。
-
-**Decision：ACCEPT。**
-
----
-
-## 8. ACCEPT｜Teaching Fact Gate｜跨事实源唯一硬定义
-
-任何成员要作为实际教学 actor 写/确认 Intervention、Assessment、教学型 Evidence、Lesson teacher 行为，必须同时满足：
-
-```text
-live session
-+ active membership
-+ teacher capability
-+ matching active teaching scope
-+ target Student Subject Profile = active
-+ legal active Student Assignment / controlled Lesson relationship
-+ operation-specific permission
-```
-
-硬规则：
-- `live session` 不能在 Data Model 文档里被省略；
-- `active Profile` 不能写成“通常要求”；
-- Admin/Subject Lead/Advisor 管理权限不能 bypass；
-- inactive/archived Profile 即使存在遗留 assignment 也拒绝教学事实。
-
-**Decision：ACCEPT，已回写 Auth/Data/Commands/Product/Role/Initial Diagnosis/Assignments。**
-
----
-
-## 9. ACCEPT｜Lesson Workspace + 受控 start/complete
-
-Lesson：课前看旧问题/到期/待验证；课中逐步可靠保存；课后 30–60 秒收口。
-
-`start_lesson` / `complete_lesson` 均要求完整 Teaching Fact Gate，尤其 target Profile=active。
-
-小班 transaction granularity 继续 **PENDING Phase 0B.0 fault/transaction Spike**。
-
----
-
-## 10. ACCEPT｜Parent Communication 是不可变沟通事件
-
-- Draft 可编辑；
-- Finalized = 一次真实 event；
-- outbound 后异步回复新增 inbound event；
-- 可 `reply_to` 原 event；
-- 电话/面谈同一 interaction 可 conversation event；
-- Thread 是 events 聚合，不是 mutable finalized row；
-- 多 recipients；
-- guardian_report Evidence source；
-- Case-related communicate Action；
-- non-case 轻量 follow-up；
-- correction 保留历史。
-
-V1 Internal Pilot 在 Student/Case context 提供最小闭环；独立家校工作台 V1.1。
-
----
-
-## 11. ACCEPT｜Reports 继续承载 Stage Review
-
-不新增 `stage_reviews` 平行表。
-
-Reports 强化：report_type、source_cutoff、content snapshot、version、finalized_by/time、correction/supersede。
-
-Finalized Report ≠ 已告知家长。
-
----
-
-## 12. DERIVE｜周度、顽固、治理异常
-
-不建 weekly_tracking / stubborn_cases / 常驻第二套 anomaly 业务表。
-
-从真实事实派生周度、long-running、failed/reopened、orphan、overdue、stale Quick Capture、handoff remaining、inactive/archived Profile 残留 Action、active Profile formal Case 无 primary Action、communication follow-up due、duplicate candidate 等。
-
-这些是可处理事实，不是教师效能分/学生风险分。
-
----
-
-## 13. P0 PENDING SPIKE｜Cloud/Auth Portability
-
-### P0-A｜Auth identity type
-Supabase 与 CloudBase Auth ID 类型不同；正式 migrations 前比较 provider-specific PK、business UUID + external subject、text auth subject 等方案。
-
-### P0-B｜Revoked Session Security
-必须证明 signOut/reset/disabled 后旧 Access Token 不能继续读学生数据。
-
-Supabase `session_id → auth.sessions` 只是 reference；其他 provider 必须达到等价结果。
-
-其他 Spike：Windows/Android Auth、RLS、RPC/transaction/version conflict、private Storage、export/restore、大陆网络、migration automation。
-
-**Decision：PENDING Phase 0B.0；任何正式 business migration 前硬 Gate。**
-
----
-
-## 14. REJECT｜Realtime 作为 correctness 前置
-
-V1 correctness 继续依赖 page enter/save refresh/App resume/manual refresh。Realtime 以后 enhancement，需新 ADR/安全测试。
-
----
-
-## 15. Foundation 回写状态
-
-已/应保持同步：
-- `PRODUCT.md`
-- `DATA_MODEL.md`
-- `COMMANDS_AND_INVARIANTS.md`
-- `AUTH_AND_PERMISSIONS.md`
-- `DOMAIN_GLOSSARY.md`
-- `TEACHER_SUBJECT_ASSIGNMENTS.md`
-- `ROLE_WORKFLOW_MATRIX.md`
-- `INITIAL_DIAGNOSIS_WORKFLOW.md`
-- `CASE_WORKFLOW_TEMPLATES.md`
-- `LESSON_WORKFLOW.md`
-
-以及家校、阶段复盘、治理、可靠性、Cloud 决策等配套事实源。
-
----
-
-## 16. Independent Audit Remediation｜2026-09-02
-
-独立审计对原 Head `2207290...` 给出 `CHANGES REQUIRED`，三个 P1：
-
-1. Teaching Fact Gate 跨事实源不一致；
-2. inactive/archived Profile 下 Case Action 规则冲突；
-3. archived Student/Profile 的归档—回归状态机未定义。
-
-当前修复方向已冻结为：
-- Teaching Fact Gate 七项硬条件全局统一；
-- primary Action 不变量只对 active Profile 的 formal open Case 强制；
-- Student/Profile 都采用 `active → inactive → archived`，恢复 `archived → inactive → active`；
-- merged Student 终态；
-- 管理员不能绕过 Gate。
-
-修复后必须重新执行独立审计，不能沿用旧 PASS/CI 证据。
-
----
-
-## 17. 进入 Phase 0B 的 Gate
-
-Phase 0A.6 结束前必须：
-1. Independent Product Completeness Audit 无 P0/P1 blocker；
-2. 所有核心事实源对 Teaching Gate / Case Action / archive lifecycle 给出一致语义；
-3. P0 Cloud/Auth 未验证项明确转交 Phase 0B.0，且禁止正式 migrations 先行；
-4. Initial Diagnosis Snapshot 继续显式 deferred；
-5. 小班 Lesson transaction boundary 明确 PENDING SPIKE；
-6. **修复后的最终 PR Head CI success；**
-7. 独立终审明确 `PASS — READY FOR MERGE`。
-
-随后：
-
-```text
-Phase 0A.6 merge
-→ Phase 0B.0 Cloud/Auth Compatibility Spike（虚构数据）
-→ 解 P0 Auth ID / revoked-session / provider gate
-→ Phase 0B.1 正式 Auth/Membership/RLS + Vertical Slice
-```
+任何后续实现若与这里冲突，先新增 ADR/审计，不得静默改领域语义。
