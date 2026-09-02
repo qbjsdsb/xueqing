@@ -87,7 +87,6 @@ void main() {
     (tester) async {
       addTearDown(() => _resetView(tester));
       final semanticsHandle = tester.ensureSemantics();
-      addTearDown(semanticsHandle.dispose);
       await _pumpPreview(tester, const Size(390, 844));
       const caseTitle = '异分母比较时把分子分母直接相加';
 
@@ -130,6 +129,7 @@ void main() {
       await tester.tap(backButton);
       await tester.pumpAndSettle();
       expect(find.text('当前 Learning Cases'), findsOneWidget);
+      semanticsHandle.dispose();
     },
   );
 
