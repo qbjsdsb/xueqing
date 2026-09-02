@@ -51,6 +51,14 @@ class BootstrapPage extends StatelessWidget {
                     const SizedBox(height: AppSpacing.lg),
                     OutlinedButton.icon(
                       onPressed: () {
+                        Navigator.of(context).pushNamed(AppRoutes.cloudSpike);
+                      },
+                      icon: const Icon(Icons.cloud_outlined),
+                      label: const Text('打开 Cloud Spike'),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    OutlinedButton.icon(
+                      onPressed: () {
                         Navigator.of(context).pushNamed(AppRoutes.routeCheck);
                       },
                       icon: const Icon(Icons.route_outlined),
