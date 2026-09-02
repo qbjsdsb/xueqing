@@ -18,16 +18,13 @@ active ← inactive ← archived
 
 service lifecycle 与 Case resolution 分开；inactive/archived tracking suspended，不伪造 closed。
 
-## 3. ACCEPT｜Student aggregate version / multi-Profile concurrency
+## 3. ACCEPT｜Student root version / child concurrency / server-derived merge plan
 
-`students.version` 必须存在。
+`students.version` 必须存在，但只承担 Student root/current canonical/lifecycle snapshot 并发令牌，不是 child global counter。
 
-Student lifecycle command 同时验证：
-- Student expected_version；
-- affected Profile expected versions；
-- affected Case expected versions；
-- current assignment/owner/Action set；
-并锁定/重读 rows。任何 drift → stale_plan/version_conflict。
+成功 deactivate/archive/unarchive/reactivate 各使 Student.version +1 exactly once；`merge_students` 使 source.version +1 exactly once、target.version +1 exactly once；普通 Evidence/Assessment/Case/Assignment child mutation 不机械递增 Student.version。Source-only Profile safe reparent 时 Profile.version +1 exactly once。
+
+Student lifecycle/merge command 同时验证 Student/Profile/Case expected versions、current assignment/owner/Action set 与目标 authority，并按 deterministic order lock/re-read。Merge preview 必须由 server 从完整 merge-relevant snapshot 生成并绑定；execute 时 server regenerate compare，相关 drift → stale_plan/version_conflict + whole rollback + 重新 preview。Append-only non-conflicting history 不单独 stale。
 
 ## 4. ACCEPT｜`reactivate_student` 不隐式 unarchive
 
@@ -41,7 +38,7 @@ Knowledge/Habit/Exam Strategy 使用同一 Case/Evidence/Intervention/Assessment
 
 ## 6. ACCEPT｜Quick Capture 也是 Teaching Fact Gate
 
-Quick Capture/new Case 云端创建必须：live session + active membership + teacher + teaching scope + active Profile + legal relationship + operation permission。
+Quick Capture/new Case 云端创建必须：live session + active membership + teacher + teaching scope + active Profile + legal active Student Teacher Assignment + operation permission。
 
 Advisor-only/pure management 不可创建 teaching Case；非专业事实走 Parent Communication/Observation。
 
@@ -51,7 +48,7 @@ Advisor-only/pure management 不可创建 teaching Case；非专业事实走 Par
 closed → confirmed
 ```
 
-要求 active Profile、recurrence Evidence、legal owner、新 primary Action；current closed_at/stable_at 清空，history 通过 events 保留，reopened_count+1。
+要求 active Profile、server-resolved latest committed `case_closed` boundary 后的 recurrence Evidence（`observed_at > close.occurred_at`）、legal owner、新 primary Action；`created_at` 晚录仍合法，旧 Evidence 不能单独 reopen。current closed_at/stable_at 清空，history 通过 immutable events 保留，reopened_count+1。
 
 Inactive/archived Profile reopen 拒绝。
 
@@ -68,13 +65,13 @@ Inactive/archived Profile reopen 拒绝。
 
 完整事实源：`STUDENT_MERGE_POLICY.md`。
 
-V1 自动 merge 只做 safe reparent/dedupe；同科双 Profile、Enrollment 冲突、双 active Lead/current responsibility conflict 直接 BLOCK，先人工治理再重试。
+V1 自动 merge 只做 safe reparent/dedupe；preview/plan binding 必须由 server 从完整 merge-relevant snapshot 生成；execute 时 server re-read/regenerate，相关 drift → stale_plan/version_conflict + whole rollback + 重新 preview。同科双 Profile、Enrollment 冲突、双 active Lead/current responsibility conflict、unresolved mutable Draft、in_progress Lesson 直接 BLOCK，先人工治理再重试。
 
 Finalized history provenance 保留；source merged 不删除。
 
 ## 10. ACCEPT｜Lesson
 
-`start_lesson/complete_lesson` 受控；Teaching Fact Gate；小班 transaction boundary Phase 0B.0 Spike。
+`start_lesson/complete_lesson` 受控；V1 所有 teaching writes 依赖 legal active Student Teacher Assignment；`lesson_students` 只是参与事实，不是授权。assignment 撤销后普通 teaching writes/complete 拒绝，治理 actor 仅可 controlled cancel；V1 不支持自动 handoff 或 in-progress reparent。小班 transaction boundary Phase 0B.0 Spike。
 
 ## 11. ACCEPT｜Parent Communication / Stage Review
 

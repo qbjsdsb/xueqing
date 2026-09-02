@@ -36,7 +36,7 @@ Final evidence 必须记录两件事：
 ## 2. Independent Audit #1｜CHANGES REQUIRED
 
 ### IA1-P1-01 Teaching Fact Gate 跨事实源不一致
-修复：统一 live session + active membership + teacher + teaching scope + active Profile + legal relationship + operation permission。
+修复（当时）：统一 live session + active membership + teacher capability + matching teaching scope + active Profile + legal active Student Teacher Assignment + operation permission。
 
 ### IA1-P1-02 inactive/archived Case Action exception
 修复：active Profile formal open Case 必须 primary；service suspended 时 unresolved Case 可无 current primary，不伪造 closed。
@@ -176,7 +176,22 @@ Phase 0A.6 允许 docs/Foundation 修订；不允许：
 
 ---
 
-## 8. 下一次独立复审必须重点攻击
+## 8. Independent Audit #4｜CHANGES REQUIRED
+
+Audit #4 在 candidate Head `b6df1099b15d09de899939e8e55b3256db8bf894` 确认三个 merge-blocking P1：
+
+### IA4-P1-01｜`reopen_case` recurrence boundary 不可执行
+现有 Evidence 未唯一绑定最近一次 committed close，也未规定 `observed_at` 与 close event `occurred_at` 的严格新鲜度合同。
+
+### IA4-P1-02｜未定义 Lesson 授权旁路与 Assignment 规则冲突
+Teaching Fact Gate 的 Lesson exception 被移除；V1 所有教学写权限依赖 legal active Student Teacher Assignment。`lesson_students` 仅是参与事实；assignment revoke 后 fail-closed，controlled cancel 仅治理清理。
+
+### IA4-P1-03｜Student root version 与 merge preview stale-plan 未闭合
+冻结 Student root version matrix、Profile reparent invalidation、server-derived complete preview binding、merge-relevant drift/stale_plan、append-only 例外、mutable Draft/in-progress Lesson BLOCK 与 exactly-once。
+
+修复状态：**Audit #4 P1 remediation completed — READY FOR INDEPENDENT RE-AUDIT**。
+
+## 9. 下一次独立复审必须重点攻击
 
 - reopen closed→confirmed 是否所有事实源一致；
 - inactive Profile reopen/Quick Capture 是否都拒绝；
@@ -185,12 +200,15 @@ Phase 0A.6 允许 docs/Foundation 修订；不允许：
 - operation event/audit duplicate 是否逻辑上 exactly once；
 - conservative merge matrix 是否真的定义 BLOCK/rollback/provenance；
 - ADR-002/Architecture 是否不再把 Supabase 当已锁定 Production；
-- GitHub CI evidence 是否正确描述 merge-ref checkout。
+- GitHub CI evidence 是否正确描述 merge-ref checkout；
+- recurrence old/new/late Evidence、multiple close boundary、duplicate operation；
+- Lesson participant self-authorization、assignment revoke mid-Lesson、controlled cancel、new teacher takeover；
+- merge preview binding、relevant vs append-only drift、mutable Draft/in_progress Lesson blockers、root/Profile version increments。
 
 ---
 
-## 9. 当前 Verdict
+## 10. 当前 Verdict
 
-**INDEPENDENT AUDIT #3 REMEDIATION PREPARED — NOT READY FOR MERGE**
+**Audit #4 remediation completed — READY FOR INDEPENDENT RE-AUDIT**
 
 必须等：新 Head → 对应 CI → PR/Issue 准确证据 → Independent Audit #4 或等价最终 re-audit。

@@ -14,7 +14,7 @@
 确认 / 建立 Student
 → 建立或恢复 Subject Profile
 → Profile = active
-→ 建立合法诊断 teacher relationship
+→ 建立合法 active Student Teacher Assignment
 → 当前定位 / 优势
 → candidate problems
 → 去重与 Evidence 判断
@@ -56,15 +56,14 @@ live session
 + teacher capability
 + matching active teaching subject scope
 + target Student Subject Profile = active
-+ legal active Student Assignment
-  OR controlled validated Lesson relationship
++ legal active Student Teacher Assignment
 + operation-specific permission
 ```
 
 任何一项缺失都不能写云端 teaching fact/new Case。
 
 ### 管理员授权不是 bypass
-管理员可以建立/恢复 Profile、assignment、治理关系；但不能以“允许初诊”替代 teacher capability、active Profile 或合法 relationship，也不能直接替老师创建教学 Case。
+管理员可以建立/恢复 Profile、assignment、治理关系；但不能以“允许初诊”替代 teacher capability、active Profile 或 legal active Student Teacher Assignment，也不能直接替老师创建教学 Case。
 
 Advisor-only / pure Subject Lead / Admin-only 的非专业记录应走 Parent Communication 或 Observation（该能力上线后），不能用 Quick Capture。
 
@@ -140,7 +139,7 @@ Lead 可做主体诊断；Collaborator 可在完整 Gate 下补本人真实 Evid
 - 第一次试听只发现一个值得跟进的问题 → 只建一个 Case；
 - 根因不确定 → 不编造；
 - 同名 Student 已存在 → 复用/查重；
-- 新开数学 → Profile active + legal teacher relationship 后才可 Quick Capture/teaching fact；
+- 新开数学 → Profile active + legal active Student Teacher Assignment 后才可 Quick Capture/teaching fact；
 - Profile inactive/archived + 管理员“允许初诊” → new Case/Intervention/Assessment/Lesson 全拒绝；
 - Advisor-only → Quick Capture/new Case 拒绝，可记 Parent Communication/允许的 Observation；
 - pure Subject Lead → 可 review，不可伪造 teaching fact；

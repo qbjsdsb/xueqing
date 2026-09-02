@@ -76,17 +76,22 @@ live session
 + teacher capability
 + matching active teaching subject scope
 + target Student Subject Profile active
-+ legal active Student Assignment
-  OR controlled validated Lesson relationship
++ legal active Student Teacher Assignment
 + operation-specific permission
 ```
+
+### V1 Lesson authorization rule
+
+V1 所有教学写权限必须依赖 legal active Student Teacher Assignment。Lesson 或 `lesson_students` participant 记录只表达实际参与事实，不能替代 assignment、grant temporary permission 或创建 capability/scope。
+
+`start_lesson` 创建前必须为每个 participant 验证完整 Gate；仅有 teaching scope、把 Student 自己加入 participants、或 Lesson 已经 `in_progress` 都不能形成授权。临时代课统一用 time-bounded collaborator assignment（`active_from`/`active_to`），在有效期间按同一 Gate 工作。
 
 ### 绝对禁止 bypass
 - Advisor-only → 不可 Quick Capture/new teaching Case；
 - pure Subject Lead → 不可 teaching facts/new Case；
 - Academic/Org Admin-only → 不可 teaching facts/new Case；
 - inactive/archived Profile → 即使残留旧 assignment 也拒绝；
-- Initial Diagnosis 的“管理员授权”不能替代合法 teacher relationship。
+- Initial Diagnosis 的“管理员授权”不能替代 legal active Student Teacher Assignment。
 
 如果 Advisor 需要非专业记录：Parent Communication / Observation（该能力上线后），不是 Learning Case。
 
@@ -94,7 +99,7 @@ live session
 
 confirm/stable/close/reopen 等关键 command 除 Gate 外还需要 owner/command-specific permission。
 
-`reopen_case`：closed + active Profile；默认由合法 Lead/owner-capable teacher 执行。Management-only actor 先治理 relationship，再由 teacher 判断复发。
+`reopen_case`：closed + active Profile；默认由通过完整 Teaching Fact Gate 的合法 Lead/owner-capable teacher 执行。Server 在事务内解析最新已提交 `case_closed` event；recurrence Evidence 必须满足 `observed_at > latest case_closed.occurred_at`。Management-only actor 不能直接 reopen。
 
 ## 10. Subject service suspension
 

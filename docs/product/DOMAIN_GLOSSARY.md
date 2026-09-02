@@ -75,9 +75,17 @@ Profile inactive/archived 时：
 
 ## 10. Reopen｜真实复发
 
-`reopen_case` 是 domain command + Case Event，只用于：
+`reopen_case` 是 domain command + Case Event，只用于已经 closed 的同一问题，在最近一次关闭后出现新的真实复发事实，并在 active Subject Profile 下重新达到正式跟进条件。
 
-> 已 closed 的同一问题，在 **active Subject Profile** 下有新的 recurrence Evidence，重新达到正式跟进条件。
+```text
+closed → post-close recurrence fact → teacher-confirmed recurrence Evidence → reopen_case → confirmed
+```
+
+Server 在 `reopen_case` transaction 内从 immutable committed Case Events 解析最新 `case_closed` lifecycle event；客户端不能指定 previous close。每条 recurrence Evidence 必须属于目标 Case，并满足：
+
+`evidence.observed_at > latest_case_closed.occurred_at`
+
+`observed_at` 是事实实际发生/被观察到的业务时间；`created_at` 是录入时间。晚录合法。旧 Evidence 只能作为引用/复查线索，不能单独 reopen。source_type 不设 recurrence 白名单，合法 source type 仍需 Evidence 合法性与教师专业判断。
 
 唯一目标：
 
@@ -85,17 +93,7 @@ Profile inactive/archived 时：
 closed --reopen_case--> confirmed
 ```
 
-不是 `reopened` status，也不是直接变 intervening。
-
-Command 原子恢复：
-- legal owner；
-- exactly one pending primary Action；
-- recurrence Evidence reference；
-- `reopened_count +1`；
-- current `closed_at/stable_at → null`；
-- history 通过 events 保留。
-
-Profile inactive/archived 时 reopen 拒绝；先恢复 service，再由合法 teacher reopen。
+原子结果：legal owner、exactly one pending primary Action、current `closed_at/stable_at → null`、`reopened_count +1`、Case.version +1、operation-bound event/audit；`case_reopened` metadata 引用 server-resolved close event 与 recurrence Evidence IDs。无 committed `case_closed` event 或任何合同失败 → reject/rollback。Profile inactive/archived 时拒绝；先恢复 service，再 reopen。
 
 ## 11. Three-stage correction｜三阶订正
 
@@ -111,11 +109,11 @@ live session
 + teacher capability
 + active teaching scope
 + target Profile active
-+ legal Student Assignment / controlled Lesson relationship
++ legal active Student Teacher Assignment
 + operation permission
 ```
 
-管理身份不能 bypass。
+V1 所有 teaching writes 必须有 legal active Student Teacher Assignment。Lesson/`lesson_students` participant 只表示实际参与 business fact，不是 authorization grant、temporary permission、capability、scope 或 Student Teacher Assignment；不能自我授权。
 
 ## 13. Evidence / Intervention / Assessment / Action
 
@@ -145,7 +143,11 @@ Reactivate：inactive→active，恢复真实服务前完成 assignment/owner/Ac
 
 ## 16. Student aggregate version
 
-`students.version` 表达 Student 当前聚合快照版本。多 Profile lifecycle command 还必须同时验证受影响 Profile/Case versions 与 current relation set，不能只看 Student version。
+`students.version` 只表达 Student root/current canonical/lifecycle snapshot。deactivate/archive/unarchive/reactivate 成功各 +1 exactly once；merge 时 source/target 各 +1 exactly once；普通 child append/transition/Assignment change 不机械递增。多 Profile command 仍须验证 affected Profile/Case versions 与 current relation set。
+
+Source-only Profile safe reparent 时 `Profile.version +1 exactly once`；Case 仅在 current mutable snapshot 真正改变时更新，不做全量 child cascade。
+
+Merge preview/execute 必须使用 server-derived complete merge-relevant plan binding；相关 drift → `stale_plan/version_conflict`，append-only non-conflicting history 不自动 stale。
 
 ## 17. Student Merge
 

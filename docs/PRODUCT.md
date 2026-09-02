@@ -75,7 +75,7 @@ live session
 + teacher capability
 + active teaching scope
 + target Profile active
-+ legal Student Assignment / controlled Lesson relationship
++ legal active Student Teacher Assignment
 + operation permission
 ```
 
@@ -119,7 +119,7 @@ unresolved Case 保留真实 status；tracking suspended；可以无 current own
 closed --reopen_case--> confirmed
 ```
 
-必须有 recurrence Evidence + legal owner + new primary Action；清 current `closed_at/stable_at`、`reopened_count +1`，历史 close/stable 通过 events 保留。
+必须有 post-close recurrence Evidence：server 解析最新已提交 `case_closed` event，且每条 Evidence 的 `observed_at` 严格晚于该 event 的 `occurred_at`；`created_at` 晚录不影响合法性。旧 Evidence 不能单独 reopen。另需 legal owner + new primary Action；清 current `closed_at/stable_at`、`reopened_count +1`，历史 close/stable 通过 immutable events 保留。
 
 Profile inactive/archived 时不 reopen；先恢复 service，再由合法 teacher reopen。
 
@@ -141,11 +141,11 @@ Student → active Subject Profile → legal teacher assignment → 定位/优�
 
 ## 10. Lesson
 
-Lesson 是实际教学会话，不是完整排课 CRM。
+Lesson 是实际教学会话，不是完整排课 CRM。V1 所有 teaching writes 依赖 legal active Student Teacher Assignment；`lesson_students` 只表示实际参与事实，不是 authorization grant。`start_lesson` 创建前逐个 participant 验证 assignment；scope-only 或 self-added participant 一律拒绝。
 
-课前看重点/Action/待验证；课中记录事实；课后约 60 秒收口。
+课中 assignment 被撤销后，新的 Evidence/Intervention/Assessment/Quick Capture 与普通 `complete_lesson` 全部拒绝；有治理权限的 actor 只能 controlled cancel stale Lesson，不能借 cleanup 写教学事实。新教师不能直接接管旧 Lesson，需取消旧 Lesson 后按自己的合法 assignment 开新 Lesson。
 
-`start_lesson/complete_lesson` 走受控 command。小班最终事务粒度留 Phase 0B.0 Spike，但不能出现非法半状态。
+课前看重点/Action/待验证；课中记录事实；课后约 60 秒收口。小班最终事务粒度留 Phase 0B.0 Spike，但不能出现非法半状态。
 
 ## 11. Student lifecycle transaction
 
@@ -153,6 +153,8 @@ Deactivate/Reactivate 等 multi-Profile command 必须：operation_id + Student 
 
 ### Reactivate Student
 只处理调用前**已经 inactive**的 selected Profiles。
+
+`students.version` 只代表 Student root/current canonical/lifecycle snapshot；deactivate/archive/unarchive/reactivate 成功各 +1 exactly once，merge 时 source/target 各 +1 exactly once。普通 child append/transition 不机械递增 Student.version。
 
 如果 selected Profile archived：命令拒绝；用户先显式独立 unarchive Profile。Reactivate command 不暗中跨事务 unarchive，也不使用未定义 Saga。
 

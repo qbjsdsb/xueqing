@@ -70,11 +70,14 @@ live session
 + teacher capability
 + active teaching scope
 + target Profile active
-+ legal Student Assignment / controlled Lesson relationship
++ legal active Student Teacher Assignment
 + operation permission
 ```
 
 Management-only 不能 bypass。
+
+V1 不存在以 Lesson participant 替代 Student Teacher Assignment 的授权旁路。`lesson_students` 只是实际参与的 business fact；`start_lesson` 创建前每个 participant 都必须已有 legal active Student Teacher Assignment。
+
 
 ## 4. Session revoke security
 
@@ -179,11 +182,18 @@ High-risk command contract：operation_id + expected versions + locks + final in
 
 ## 12. Student aggregate concurrency
 
-`students.version` + affected Profile/Case expected versions + current relation set snapshot。
+`students.version` 只承担 Student root/current canonical/lifecycle snapshot 的 optimistic concurrency；不做所有 child rows 的全局版本号。
 
-事务按 deterministic ID 顺序 lock/re-read；drift → stale_plan/version_conflict。
+成功 root/lifecycle mutation：
+- deactivate/archive/unarchive/reactivate：Student.version +1 exactly once；
+- merge_students：source.version +1 exactly once、target.version +1 exactly once；
+- 同 operation retry 不重复递增。
 
-`reactivate_student` 只处理调用前已经 inactive 的 Profiles；不跨事务暗中 unarchive。若未来需要一键复杂 Saga，新增 ADR。
+普通 Evidence/Assessment/Intervention append、普通 Case transition、普通 Assignment current-state change 不机械递增 Student.version；Profile/Case/Assignment 自身 current snapshot/version 或 locked predicate 负责并发检测。Source-only Profile safe reparent 使 Profile.version +1 exactly once；Case 仅在 current mutable snapshot 真正改变时更新。
+
+Student multi-Profile command 必须携带 Student/Profile/Case expected versions 与 current assignment/owner/Action relation snapshot。事务按 deterministic ID 顺序 lock/re-read；任何 merge-relevant drift → stale_plan/version_conflict whole rollback。
+
+Student merge preview 由 server/domain logic 根据完整 merge-relevant snapshot生成，至少绑定 root/Profile/Case versions、Enrollment、Teacher/Staff Assignment、owner、current Action、target authority 与 BLOCK matrix。允许 server-generated opaque merge_plan_token、完整 expected snapshot/values 或 server-generated fingerprint；不新增 merge_plans 表。Execute 时 server 重新生成并与 confirmed plan 比较；相关 drift 必须 stale_plan，要求重新 preview，不能静默接受新 inventory。Existing Case 的非冲突 append-only Evidence/Intervention history 若不改变 current merge decision/matrix/relationship，不单独造成 stale。
 
 ## 13. Operation exactly-once
 
@@ -197,9 +207,13 @@ Timeout unknown result：查询 operation result；不创建新 operation_id，�
 
 V1 保守 safe merge；完整矩阵见 `docs/product/STUDENT_MERGE_POLICY.md`。
 
-Same-subject dual Profile、conflicting Enrollment、dual active Lead 等直接 BLOCK，管理员先治理再 merge。
-
-Finalized history provenance 保留，target 历史通过 merge lineage 聚合。
+- preview 与 plan binding 必须 server-derived；
+- source/target root versions + affected Profile/Case/current relation snapshots 必须在 execute 时重读比较；
+- merge-relevant drift → stale_plan/version_conflict + whole rollback + new preview；
+- unresolved mutable Draft 与 in-progress Lesson → BLOCK；
+- source-only Profile reparent 使 Profile.version +1 exactly once；
+- finalized history provenance 保留，target 历史通过 merge lineage 聚合；
+- source merged 是 terminal current-business identity。
 
 ## 15. Realtime
 

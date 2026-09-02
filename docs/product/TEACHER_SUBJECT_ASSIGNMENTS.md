@@ -57,7 +57,7 @@ live session
 + teacher capability
 + active teaching scope
 + active Subject Profile
-+ legal active Student Assignment / controlled Lesson relationship
++ legal active Student Teacher Assignment
 + operation permission
 ```
 
@@ -68,6 +68,9 @@ Advisor-only/management-only 不可借 Quick Capture 创建 teaching Case。
 Lead：主要负责教师、默认 Case owner 候选、关键专业确认。
 
 Collaborator：在 Gate 成立时可协作教学、记录本人事实、承担 Action；非 owner 不自动获得 stable/close/reopen 权限。
+
+临时代课不另建 Lesson authorization。V1 通过 time-bounded collaborator assignment（`active_from`/`active_to`）提供完整 Gate；有效期结束后 assignment expired/ended，后续教学写入拒绝。
+
 
 同 student+subject 同时默认最多一个 active Lead。
 
@@ -85,7 +88,7 @@ Profile：active→inactive→archived；恢复 archived→inactive→active。
 
 ## 7. Student multi-Profile lifecycle concurrency
 
-Student command 不能只写一个模糊 `expected_version`。
+`students.version` 只负责 Student root/current canonical/lifecycle snapshot，不是 child global counter。deactivate/archive/unarchive/reactivate 成功各 +1 exactly once；merge 时 source/target 各 +1 exactly once。普通 child append/transition 不机械递增 Student.version；source-only Profile safe reparent 时 Profile.version +1 exactly once。Student command 不能只写一个模糊 `expected_version`。
 
 必须绑定/验证：
 - `student_expected_version`；

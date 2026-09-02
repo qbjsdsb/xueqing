@@ -10,6 +10,9 @@ new → confirmed → intervening → pending_verification → stable → closed
 
 `reopen` 是 command/event，不是第七状态。
 
+V1 不按 source_type 设 recurrence 白名单；任何合法 Evidence source type 都可参与，但必须属于目标 Case、具备 observed_at、满足 post-close 时间合同，并由合法教师确认事实足以重新进入正式跟进。
+
+
 `Assessment passed ≠ stable ≠ closed`。
 
 ## 2. 共通不变量
@@ -94,7 +97,7 @@ live session
 + teacher capability
 + active teaching scope
 + target Profile active
-+ legal active Student Assignment / controlled Lesson relationship
++ legal active Student Teacher Assignment
 + operation permission
 ```
 
@@ -130,7 +133,7 @@ Profile 必须 active。
 closed --reopen_case--> confirmed
 ```
 
-必须有 recurrence Evidence、合法 owner、新 pending primary Action；`closed_at/stable_at` 清当前快照，历史通过 Case Events 保留，`reopened_count +1`。
+必须有 server-resolved latest committed `case_closed` boundary 后的 recurrence Evidence：每条 `observed_at` 严格晚于 boundary `occurred_at`；晚录只看 observed_at，不看 created_at。旧 Evidence 不能单独 reopen。另需合法 owner、新 pending primary Action；`closed_at/stable_at` 清当前快照，历史通过 immutable Case Events 保留，`reopened_count +1`。
 
 Profile inactive/archived 时不 reopen；那是 service resume 问题，不是 Case reopen。
 

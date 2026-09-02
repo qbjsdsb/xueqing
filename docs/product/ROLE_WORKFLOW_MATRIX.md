@@ -27,11 +27,14 @@ live session
 + teacher capability
 + active teaching subject scope
 + target Subject Profile active
-+ legal active Student Assignment OR controlled Lesson relationship
++ legal active Student Teacher Assignment
 + operation permission
 ```
 
 Subject Lead / Academic Admin / Org Admin / Advisor 的管理身份本身均不能满足该 Gate。
+
+V1 不把 Lesson participant 当作授权依据。`lesson_students` 只记录实际参与 Student；`start_lesson` 前每个 participant 必须已经有 legal active Student Teacher Assignment。assignment 被撤销后，Lesson 已 `in_progress` 也不保留旧 teaching write 权限；普通 complete 失败，只有 governance controlled cancel 可做清理。
+
 
 ## 3. Lead Teacher
 
@@ -100,7 +103,7 @@ Admin 权限不能伪造 Quick Capture/Intervention/Assessment/Lesson actor。�
 
 Owner 是当前教学责任关系，不是组织 Role。
 
-Active Profile 下 owner 必须：active membership + teacher capability + teaching scope + legal Student Assignment。
+Active Profile 下 owner 必须：active membership + teacher capability + teaching scope + legal active Student Teacher Assignment。
 
 Advisor/Admin/纯 Subject Lead 不能仅靠治理身份成为 Case owner。
 
@@ -114,7 +117,7 @@ Profile inactive/archived tracking suspended 时 unresolved Case 可以暂无 cu
 - 当前合法 Lead teacher；或
 - 被 command policy 明确授权并同时具备 Teaching Fact Gate 的合法 teacher/owner candidate。
 
-管理角色如果没有 Teaching Fact Gate，不能直接 reopen；可以通过治理流程先建立合法 teacher relationship，再由教师确认复发。
+管理角色如果没有 Teaching Fact Gate，不能直接 reopen；可以通过治理流程先建立合法 active Student Teacher Assignment，再由教师确认复发。
 
 ## 11. Quick Capture 唯一权限语义
 

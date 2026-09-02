@@ -79,9 +79,13 @@ active <--reactivate_student-- inactive <--unarchive_student-- archived
 ```
 
 - archived 可恢复但必须先 inactive；
-- merged 是终态；
-- `version` 在任何 Student 当前快照/Student lifecycle mutation 成功时递增；
-- Student multi-Profile command 必须同时验证 Student expected_version 和受影响子聚合版本/关系快照。
+- merged 是 current-business terminal identity；
+- `students.version` 只表示 Student root/current canonical/lifecycle snapshot；
+- 成功的 deactivate/archive/unarchive/reactivate 各使 Student.version +1 exactly once；
+- `merge_students` 成功时 source.version +1 exactly once、target.version +1 exactly once；
+- 普通 Evidence/Assessment append、普通 Case transition、普通 Assignment current-state change 不机械递增 Student.version；
+- Student multi-Profile command 必须同时验证 Student expected version、受影响子聚合 versions 与 current relation snapshot；
+- 同 operation retry 不重复 version increment。
 
 ### `student_enrollments`
 - `id`
@@ -186,10 +190,12 @@ Commit 后：
 - `learning_case_id`
 - `event_type`
 - actor
-- occurred_at
+- `occurred_at`
 - metadata
-- **`operation_id` optional for ordinary manual events, REQUIRED for high-risk command-generated lifecycle events**
-- **`operation_event_key` required when operation_id is present**
+- `operation_id` optional for ordinary manual events, REQUIRED for high-risk command-generated lifecycle events
+- `operation_event_key` required when operation_id is present
+
+`case_closed` 是 close lifecycle command 在成功事务中写入的 immutable lifecycle fact；只有 committed close 才能成为后续 `reopen_case` 的 boundary。它不能因为 current Case snapshot 后续 reopen 而消失或被改写。`case_reopened` metadata 必须引用 server-resolved latest previous `case_closed` event 与 recurrence Evidence IDs。
 
 逻辑唯一：
 
@@ -199,13 +205,14 @@ Commit 后：
 
 command retry 不得重复 lifecycle event。
 
----
-
-## 6. Evidence / Intervention / Assessment
-
 ### `case_evidence`
-- Case/source type/title/observed_at/summary/storage path/created_by
-- `guardian_report` 可引用 source Parent Communication
+- Case/source type/title/`observed_at`/summary/storage path/created_by/`created_at`
+- `observed_at` 是事实实际发生或被观察到的业务时间；
+- `created_at` 是 Evidence 录入系统的时间，不能替代 observed_at；
+- `guardian_report` 可引用 source Parent Communication；
+- recurrence candidate 必须属于目标 Case、具备 non-null observed_at，并满足 `observed_at > latest case_closed.occurred_at`；
+- source_type 不构成 recurrence 白名单或自动证明；合法 source type 均须通过 Evidence 合法性与 teacher judgment；
+- 旧 Evidence 可被新 post-close Evidence 引用，但旧 observed_at 不能单独 reopen。
 
 ### `interventions`
 Case/lesson/teacher/strategy/notes/occurred_at。
@@ -214,6 +221,7 @@ Case/lesson/teacher/strategy/notes/occurred_at。
 Case/lesson/assessor/result/evidence/notes/assessed_at。
 
 ### Teaching Fact Gate
+
 以下全部必须同时满足：
 
 ```text
@@ -222,15 +230,11 @@ live session
 + teacher capability
 + active teaching scope
 + target Profile active
-+ legal active Student Assignment OR controlled validated Lesson relationship
++ legal active Student Teacher Assignment
 + operation-specific permission
 ```
 
-同一 Gate **也适用于 Quick Capture/new Learning Case**。
-
-Advisor-only/management-only 不得直接创建 teaching Case。
-
----
+V1 所有 teaching writes 依赖 legal active Student Teacher Assignment。Lesson participant/`lesson_students` 只记录实际参与事实，不是 authorization grant、temporary permission、capability、scope 或 Student Teacher Assignment；把 Student 加入 Lesson 不能自我授权。
 
 ## 7. Case Action
 
@@ -263,11 +267,12 @@ Rules：
 - timestamps
 
 ### `lesson_students`
-lesson/student/attendance。
-
-Lesson teacher 必须 Teaching Fact Gate。小班 final transaction boundary 留 Phase 0B.0 Spike。
-
----
+- lesson/student/attendance；
+- 仅表示某 Student 实际参与某次 Lesson 的 business fact；
+- 不是 authorization grant、temporary permission、Student Teacher Assignment、capability 或 scope；
+- `start_lesson` 创建前每一个 participant 都必须已有 legal active Student Teacher Assignment；
+- assignment 在 Lesson 中被撤销后，后续 teaching writes 与 ordinary complete 均拒绝；controlled governance cancel 只做 cleanup；
+- 历史 lesson teacher/participant provenance 不静默改写。
 
 ## 9. Guardian / Communication
 
@@ -358,29 +363,37 @@ Student lifecycle command 必须输入/验证：
 - `student_expected_version`；
 - affected Profile expected versions；
 - affected Case expected versions；
-- preview 时 current assignment/owner/Action IDs。
+- preview/command binding 中的 current assignment IDs/roles/intervals、owner IDs、primary Action IDs/assignees/status；
+- target membership/scope current validity。
 
-事务中按稳定 ID 顺序 lock/re-read Student → Profiles → Cases → relations → target memberships/scopes。
+`students.version` 不是 child global counter。普通 Evidence/Intervention/Assessment append、普通 Case transition、普通 Assignment current-state change 不机械递增它；相关 aggregate 或 current relation predicate 负责并发检测。
 
-任一 drift → stale_plan/version_conflict，整体 rollback。
+事务中按稳定 ID 顺序 lock/re-read Student → Profiles → Cases → assignments/Actions/current relations → target authority。任一 merge-relevant drift → `stale_plan/version_conflict`，整体 rollback。
 
-`reactivate_student` 不允许选中 archived Profile；必须在调用前显式独立 unarchive 到 inactive。
-
----
+对于 `merge_students`：
+- preview 必须由 server/domain logic 从完整 merge-relevant snapshot 生成；
+- preview 至少绑定 source/target root versions、affected Profile/Case versions、Enrollment、Teacher/Staff Assignments、owner、current Actions、target authority、BLOCK matrix；
+- binding 可为 server-generated opaque `merge_plan_token`、完整 expected snapshot/values 或 server-generated fingerprint，不冻结 Phase 0A.6 物理 API，也不新增 `merge_plans` 表；
+- execute 时 server lock/re-read 并 regenerate current snapshot，与 confirmed plan 比较；
+- 会改变 safe/BLOCK decision、canonical relationship、Profile structure、owner、active assignment、primary Action、Enrollment、staff responsibility、authority 或 Student lifecycle 的 drift → stale_plan/version_conflict，要求重新 preview，不能静默接受新 plan；
+- ordinary append-only Evidence/Intervention history 若不改变 current merge decision/matrix/relationship，不单独造成 stale；
+- source-only Profile safe reparent 使 Profile.version +1 exactly once；Case 只有 current snapshot 真正变化时才更新 Case.version。
 
 ## 13. Student merge committed semantics
 
-V1 safe merge matrix见 `STUDENT_MERGE_POLICY.md`。
+V1 safe merge matrix 见 `STUDENT_MERGE_POLICY.md`。
 
 硬 BLOCK：
 - source/target 同时有同 subject Profile；
 - conflicting Enrollment；
 - 双 active Lead/无法机械解决 current responsibility；
-- owner/Action 无法在 target context 保持合法。
+- owner/Action 无法在 target context 保持合法；
+- unresolved mutable Parent Communication/Report Draft；
+- source 或 target 存在 `in_progress` Lesson。
+
+source.version 与 target.version 各 +1 exactly once；source-only Profile safe reparent 时 Profile.version +1 exactly once；不对所有 child Case 机械级联 +1。
 
 Finalized Communication/Report/Lesson historical provenance 不静默重写；target 历史通过 merge lineage 聚合。
-
----
 
 ## 14. Derived governance anomalies
 

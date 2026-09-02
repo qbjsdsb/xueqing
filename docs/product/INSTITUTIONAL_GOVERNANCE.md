@@ -77,6 +77,9 @@ Profile inactive/archived 时发现复发线索：
 
 Tracking resume 与 Case reopen 是两个不同动作。
 
+Reopen recurrence integrity：server 在 `reopen_case` transaction 内解析该 Case 最新已提交 `case_closed` event；recurrence Evidence 的 `observed_at` 必须严格晚于其 `occurred_at`。旧 Evidence 不能单独 reopen，late entry 只按 observed_at 判断。
+
+
 ## 8. Long-running / repeated failure
 
 由 duration、failed/partial Assessment、reopened_count、多轮 Intervention 等派生。治理推动重新分析/调整，不给学生贴伪科学风险分。
@@ -111,6 +114,13 @@ Tracking resume 与 Case reopen 是两个不同动作。
 
 ### Atomicity
 source/target expected_version + operation_id + locks；所有 safe mutation + merge record + source merged 同事务。任一失败 rollback。
+
+### Merge concurrency / conservative blockers
+
+Preview 由 server 生成并绑定完整 merge-relevant snapshot。Assignment、owner、primary Action、Enrollment、Profile structure、staff responsibility、authority、Student lifecycle 等 drift → stale_plan/version_conflict，要求重新 preview；不能静默接受 Plan B。
+
+V1 unresolved mutable Parent Communication/Report Draft 与 in-progress Lesson 都 BLOCK。Assignment 被撤的 Lesson 走 controlled governance cancel，不由新 teacher 冒充完成。Source-only Profile safe reparent 使 Profile.version +1 exactly once；Student merge source/target root version 各 +1 exactly once。
+
 
 ## 11. Concurrency / integrity anomaly
 

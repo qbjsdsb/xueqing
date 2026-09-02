@@ -47,7 +47,7 @@ live session
 + teacher capability
 + active teaching scope
 + active Subject Profile
-+ legal active Student Assignment / controlled Lesson relationship
++ legal active Student Teacher Assignment
 + operation permission
 ```
 
@@ -69,11 +69,11 @@ new → 最小 Evidence → taxonomy/case type → 合法 owner → pending prim
 
 课前：到期/逾期 Action、pending verification、重点 Case。
 
-课中：完成/调整 Action、Intervention、Assessment、Quick Capture。
+课中：完成/调整 Action、Intervention、Assessment、Quick Capture；每次云端写入重新验证 full Teaching Fact Gate。每个 participant 在 `start_lesson` 前必须已有 legal active Student Teacher Assignment；`lesson_students` 只表示参与事实，不能自我授权。
 
 课后：汇总事实 → 教师确认状态 → old primary 收口 → new primary → `complete_lesson`。
 
-所有教学事实通过 Teaching Fact Gate；网络/重试不重复。
+如果 assignment 在课中被撤销，后续 teaching writes 与 ordinary complete 拒绝；治理 actor 只能 controlled cancel stale Lesson，不能借 cancel 写教学事实。新老师不能直接接管旧 Lesson。
 
 ## Flow I｜验证失败
 
@@ -89,27 +89,19 @@ passed 只是本次通过 → 教师判断 stable → stable 仍有 review/verif
 
 ```text
 发现复发线索
+→ server lock/re-read Case
+→ server resolves latest committed case_closed event
 → 创建/确认 recurrence Evidence
+→ validate Evidence.observed_at > close.occurred_at
 → reopen_case
 → closed → confirmed
 → owner + new primary Action
 → 后续实际 Intervention 再进入 intervening
 ```
 
-`reopen_case` 原子：
-- Profile 必须 active；
-- Case 必须 closed；
-- expected_version + operation_id；
-- `closed_at/stable_at` 清当前快照；
-- `reopened_count +1`；
-- event/audit exactly once。
+recurrence Evidence 必须属于目标 Case，且 source_type 不设白名单；只看事实 observed_at，不看 created_at。旧 Evidence 不能单独 reopen；close A→reopen→close B 时自动使用 close B。客户端不能指定 previous close。
 
-### Profile inactive/archived
-不能 reopen。
-
-如果此时收到家长回复/观察到线索：先保存 Parent Communication/允许的 Observation；先恢复 Subject service，再由合法教师建立 recurrence Evidence 并 reopen。
-
-**Resume tracking ≠ reopen。**
+`reopen_case` one transaction：active Profile/full Gate、Case closed、expected_version、latest committed close、Evidence freshness、legal owner、新 Action、current timestamps/reopened_count、case_reopened metadata、event/audit、Case.version +1、final invariants、commit；任一步失败 whole rollback。
 
 ## Flow L｜单学科暂停 / 归档 / 恢复
 
@@ -168,15 +160,18 @@ High-risk command：复用 operation_id。
 ## Flow Q｜重复 Student / Merge
 
 1. 管理员确认 source/target 是同一真实学生；
-2. 系统生成 merge preview；
-3. 按 `STUDENT_MERGE_POLICY.md` 展示 safe items 与 BLOCK conflicts；
-4. 有 same-subject dual Profile / conflicting Enrollment / dual active Lead /非法 current owner 等 → **不能 merge**；
-5. 管理员先用 handoff/reassign/Enrollment correction 等正常治理命令整理；
-6. 重新预览；
-7. `merge_students` 锁 source/target + expected versions；
-8. 单事务 safe reparent/dedupe + merge record + source→merged；
-9. finalized history provenance 保留；target history 通过 merge lineage 聚合；
-10. response lost 用同 operation_id 查询，不重复迁移。
+2. `generate_merge_preview` 由 server/domain logic 生成完整 merge-relevant snapshot；
+3. 预览绑定 source/target Student versions、affected Profile/Case versions、Enrollment、Teacher/Staff Assignments、owner、current Actions、target authority 与 BLOCK matrix；
+4. 管理员确认这一个 server plan（opaque `merge_plan_token`、完整 expected snapshot/values 或 server fingerprint）；
+5. 有 same-subject dual Profile / conflicting Enrollment / dual active Lead /非法 current owner、unresolved mutable Draft、in-progress Lesson 等 → **不能 merge**；
+6. 管理员先用 handoff/reassign/Enrollment correction、finalize/cancel Draft、complete/controlled cancel Lesson 等正常治理命令整理；
+7. 重新预览并重新确认；
+8. `merge_students` 锁 source/target 与所有受影响 rows，server regenerate 当前完整 snapshot；
+9. 任何 merge-relevant drift → `stale_plan/version_conflict`、whole rollback、要求重新 preview，不能静默接受 Plan B；
+10. 无 drift 且无 BLOCK 时执行 safe reparent/dedupe + record + source→merged；source/target Student.version 各 +1 exactly once，safe reparent Profile.version +1 exactly once；
+11. ordinary append-only Evidence/Intervention history 若不改变 merge decision 不单独 stale；
+12. finalized history provenance 保留；target history 通过 merge lineage 聚合；
+13. response lost 用同 operation_id 查询，不重复迁移/版本递增。
 
 ## Flow R｜Parent Communication
 
