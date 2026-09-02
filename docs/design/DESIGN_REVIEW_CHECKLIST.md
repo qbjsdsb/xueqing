@@ -4,7 +4,7 @@
 
 最后更新：2026-09-02
 
-CI 证据：最终 PR Head 对应 GitHub Actions `Flutter checks` run #62（Flutter 3.47.1，Ubuntu），应通过 `flutter pub get`、独立 lockfile consistency gate、只读 Dart format check、`flutter analyze` 与全部 widget tests；run 记录见 [Flutter checks workflow](https://github.com/qbjsdsb/xueqing/actions/workflows/flutter.yml)。本地环境没有 Flutter/Dart，工程通过证据以正式 workflow 为准。
+CI 证据：最终 PR Head 对应 GitHub Actions `Flutter checks` run #63（Flutter 3.47.1，Ubuntu），已通过 `flutter pub get`、独立 lockfile consistency gate、只读 Dart format check、`flutter analyze` 与全部 widget tests；run 记录见 [Flutter checks workflow](https://github.com/qbjsdsb/xueqing/actions/workflows/flutter.yml)。本地环境没有 Flutter/Dart，工程通过证据以正式 workflow 为准。
 
 这份 checklist 同时是完成门槛和本阶段自审记录。发现问题必须修正事实源或 prototype；只写一份 review report 不算完成。
 
