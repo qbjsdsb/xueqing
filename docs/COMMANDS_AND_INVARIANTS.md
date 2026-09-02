@@ -1,20 +1,20 @@
 # 业务命令、事务与不变量
 
-> RLS 解决“谁能访问哪一行”，但不能单独保证“这次业务变更是否合法且完整”。本文件定义哪些写入可简单追加，哪些必须通过受控命令完成。
+> RLS 解决“谁能访问”，约束/事务命令解决“这次修改是否完整、合法、可重试”。V1 不允许 ViewModel 靠多次普通 CRUD 拼出高风险业务状态。
 
 ## 1. 两类写入
 
 ### 简单事实追加
-在 RLS 保护下通过 Repository → Data API，例如：
-- 新增 case_evidence；
+在 RLS 保护下可由 Repository → Data API：
+- 新增 evidence；
 - 允许类型的普通 note/event；
-- 不涉及状态变化的附件 metadata；
-- 保存一个 `new` 快速捕捉草稿。
+- 单条附件 metadata；
+- 保存 `new` 快速捕捉草稿。
 
-尽量：客户端预生成 UUID；重试复用同一 UUID；系统时间以服务端为准。
+原则：客户端预生成 UUID，重试复用；服务端时间为系统时间事实源。
 
 ### 不变量敏感命令
-通过受控 Database Function / 服务端命令：
+必须走受控 Database Function / Edge Function / 可信服务端：
 - `provision_member`
 - `complete_member_onboarding`
 - `reset_member_credential`
@@ -28,236 +28,284 @@
 - `merge_students`
 - `disable_membership_and_handoff`
 
-这些操作需要同时校验权限、当前状态、并发版本、多系统/多表一致性和失败恢复。
+---
 
-## 2. 账号开通不等于直接获得业务权限
+## 2. Credential 命令不是普通 CRUD
+
+Auth Admin 与业务 PostgreSQL 不在同一个事务域，所以 credential 命令的目标不是“假装原子”，而是：
+
+> **无论在哪一步失败，都优先收敛到没有学生业务权限的状态。**
 
 ### `provision_member`
 
-管理员开通教师时：
-1. 从当前 Session 确认 org_admin 身份；
-2. 验证目标 organization；
-3. 规范化邮箱并检查目标机构已有成员；
-4. 校验要授予的 roles；
-5. 生成高强度随机临时密码；
-6. 使用可信 Auth Admin 创建/受控处理 Auth User；
-7. 对已知内部教师可设置 email confirmed，不发送确认邮件；
-8. 创建 profile / `membership(onboarding)` / roles；
-9. 写不含密码的 audit；
-10. 临时密码只在成功响应中返回一次。
+顺序：
+1. 验证 live Session、org_admin 与目标 organization；
+2. 规范化邮箱、验证 roles；
+3. 检查已有 member / 可恢复的既有 Auth User；
+4. 生成随机临时密码；
+5. Auth Admin 创建/更新受控 Auth User；
+6. 创建 profile、`membership(onboarding)`、roles、`onboarding_expires_at`；
+7. audit 不包含密码；
+8. 临时密码只在成功响应显示一次。
 
-硬约束：
-- 临时密码不落 PostgreSQL 业务表；
-- 不写 audit/log/error tracking；
-- onboarding membership 不得读取普通机构业务数据；
-- 普通 teacher 无权调用该命令。
+如果 Auth User 已创建但 DB 写入失败，允许留下**无 membership Auth User**，因为它没有业务权限；后续必须有明确恢复路径。
+
+### provision 的特殊“幂等”规则
+
+credential 明文故意不持久化，因此不能要求“同 operation_id 再次返回同一临时密码”。
+
+如果后端已成功但响应丢失：
+- member 仍 onboarding；
+- 返回/展示 `credential_delivery_unknown` 或等价状态；
+- 管理员执行 reissue/reset，生成一个**新的**临时密码；
+- 旧临时密码因 Auth 密码更新失效；
+- 绝不为方便重试而保存可找回的明文密码。
 
 ### `complete_member_onboarding`
 
-教师用临时密码登录后：
-1. 从 Session 获取可信 user_id；
-2. 验证自己的 membership = onboarding；
-3. 校验新密码强度；
-4. 更新**当前登录用户自己的** Auth 密码；
-5. 只有密码更新成功后才允许 membership → active；
-6. 写不含密码的 audit；
-7. 返回当前机构上下文。
+1. 验证当前 JWT、`auth.uid()`、`session_id` 与 membership=onboarding；
+2. 检查 `onboarding_expires_at`；
+3. 校验新密码；
+4. Auth Admin 更新当前用户密码；
+5. 使用当前登录 JWT 执行 **global sign-out**；
+6. global sign-out 成功后，服务端才将 membership→active；
+7. 写 audit；
+8. 客户端丢弃旧业务上下文并**强制重新登录**。
 
-Auth 与业务数据库不是同一个 PostgreSQL 事务域，因此实现必须优先保证：
+业务 RLS 还必须验证当前 JWT `session_id` 对应的 `auth.sessions` 记录仍存在。这样 global sign-out 后，即使 Access Token 尚未到 `exp`，也不能因为 membership 已 active 而重新获得学生数据权限。
 
-> **任何半失败都不能让尚未完成凭据接管的账号提前获得 active 业务权限。**
-
-可以通过明确顺序、幂等 operation 和恢复流程实现，不假装跨系统原子事务天然存在。
+半失败：
+- 密码更新失败 → onboarding；
+- 密码成功、global sign-out 失败 → onboarding；
+- sign-out 成功、membership 激活失败 → onboarding；用户用新密码重新登录后重试；
+- 不存在“半失败但 active”。
 
 ### `reset_member_credential`
 
-管理员确认教师本人后：
-1. 验证 org_admin 权限；
-2. 生成新的随机临时密码；
-3. 更新目标 Auth User 密码；
-4. membership → onboarding；
-5. 普通业务 RLS 立即因非 active 状态拒绝旧 Session；
-6. 写不含密码的 audit；
-7. 临时密码只返回一次；
-8. 教师重新完成 onboarding。
+顺序必须保守：
+1. 验证 org_admin；
+2. **先 membership→onboarding**，立即切断普通业务 RLS；
+3. 生成新随机临时密码；
+4. Auth Admin 更新密码；
+5. 刷新 `onboarding_expires_at`；
+6. 写 audit；
+7. 临时密码只返回一次。
 
-如果中间失败，优先收敛到**没有业务权限**的状态，而不是“凭据不确定但仍 active”。
+如果 Auth 更新失败，账号仍 onboarding，无学生业务权限；管理员重试即可。
 
-## 3. 为什么不能让客户端随便 UPDATE Case Status
+reset 响应丢失时也走重新签发，不保存明文凭据来满足重复返回。
 
-拥有某 learning_case UPDATE 权限，不代表这些转移合法：
+---
+
+## 3. Live Session 是业务授权不变量
+
+普通学生业务至少要求：
+- `auth.uid()` 存在；
+- JWT 有合法 `session_id`；
+- `auth.sessions` 中对应 Session 仍存在；
+- organization membership = active；
+- 后续 role / assignment 检查成立。
+
+Phase 0 要用非 exposed helper + RLS tests 验证 revoked Session 立即失败；不要只测试 UI 已退出。
+
+---
+
+## 4. 学情 Case 状态机
+
+状态：
 
 ```text
-new → closed
-closed → intervening（没有 reopen event）
-stable → closed（仍有 pending 主行动）
+new → confirmed → intervening → pending_verification → stable → closed
 ```
 
-因此 Repository 暴露业务命令，不暴露“任意 status string”；数据库层再校验合法状态和约束。
-
-## 4. 案例状态不变量
+`reopen` 是命令/事件，不是状态。
 
 ### `new`
-- 10–20 秒快速捕捉草稿；
-- 可暂缺 taxonomy、owner、原因和行动；
-- 不能无说明直接 closed。
+- 10–20 秒快速草稿；
+- 可缺 taxonomy、owner、原因、行动；
+- 不能直接当成正式闭环结论。
 
 ### `confirmed`
-必须有：
+必须同时有：
 - 有效 active owner；
-- 正式 case type / taxonomy（允许受控“其他/暂未分类”）；
-- 至少一条能解释问题来源的 evidence；
-- pending 主行动，或明确 pause_reason。
+- case type / taxonomy（允许“其他/暂未分类”）；
+- 至少一条可解释来源的 evidence；
+- **一个 pending primary case_action**。
 
-Evidence 不等于必须上传文件；课堂短备注 + lesson context 可形成最小 classwork/observation evidence。
+不再允许“只填 pause_reason、没有下一次检查”这种会永远从 Today 消失的正式案例。
+
+### 暂停不是没有下一步
+
+如果业务上需要“先观察/暂缓”：
+- 可填写 `pause_reason` 解释为什么暂缓；
+- 同时建立 `action_type = review` 的 pending primary action；
+- 该 review action **必须有 `due_at`**；
+- 到期/逾期仍会进入 Today。
+
+因此 `pause_reason` 是解释，不是替代下一步行动的第二套事实源。
 
 ### `intervening`
-存在实际干预或明确下一步干预，并保持有效责任关系。
+正在实施干预，并保持 active owner + primary action。
 
 ### `pending_verification`
-有 verify 主行动，或明确等待验证的受控理由。
+主要下一步应为 `verify` action；若等待特定时间/条件，仍用有到期时间的行动表达。
 
 ### `stable`
-至少有支持改善判断的 assessment/evidence，但不等于永久解决。
+已有证据支持改善，但仍观察。若尚未关闭，必须有下一次 `review/verify` 主行动；不能“稳定后无人再看”。
 
 ### `closed`
-退出主动跟进，不存在 pending primary action。复发必须 reopen。
+退出主动跟进：
+- 不存在 pending primary action；
+- 不存在“暂停等待复查”的隐含状态；
+- 复发走 reopen。
 
-`reopen` 是命令/事件，不是第七个 status。
+---
 
-## 5. `confirm_case` 不只是改状态字符串
+## 5. `confirm_case`
 
-至少原子检查/完成：
-1. case 仍为 new 且 expected_version 匹配；
-2. actor 有该学生/学科编辑权限；
-3. owner 同机构、membership = active、关系有效；
-4. case type / taxonomy 与 subject profile 一致；
+原子检查/完成：
+1. case 仍为 new，expected_version 匹配；
+2. actor 对学生/学科有编辑权限；
+3. owner 同机构、active、关系有效；
+4. taxonomy 与 student subject profile 一致；
 5. 至少一条 evidence；
-6. 有 primary action 或 pause_reason；
-7. 写 confirmed event；
-8. 更新 status/version；
-9. 返回最新快照。
+6. 存在合法 pending primary action；
+7. 如果 action 表示暂停 review，则必须有 due_at；
+8. 写 confirmed event；
+9. 更新 status/version；
+10. 返回最新快照。
 
-如果确认界面只有课堂短备注，可在同一事务生成最小 evidence 后确认，避免多请求半成功。
+课堂短备注可在同一事务中生成最小 observation/classwork evidence，避免先插 evidence 再确认造成半成功。
+
+---
 
 ## 6. Assessment 与 Case Status 分离
 
-- passed ≠ 自动 stable；
-- passed ≠ 自动 closed；
-- failed/partial 不删除历史结果；
-- stable/closed 由业务命令结合证据确认。
+- `passed` ≠ 自动 stable；
+- `passed` ≠ 自动 closed；
+- failed/partial 不删除历史；
+- stable/closed 由授权教师结合证据确认；
+- 状态变化必须写 case event。
+
+---
 
 ## 7. 主行动不变量
 
-一个案例可有辅助行动，但通常最多一个 pending primary action。
+一个案例可有辅助行动，但最多一个 `pending + is_primary`。
 
-数据库优先通过 partial unique index 或等价约束保证。
+数据库优先用 partial unique index/受控命令保证。
 
-- new 豁免；
-- confirmed 起无主行动时必须有 pause_reason；
-- assignee 同机构、membership = active、并有合理业务关系；
-- closed 不应有 pending primary action；
+规则：
+- new 可没有行动；
+- confirmed/intervening/pending_verification/stable 必须有 pending primary action；
+- 暂停 review action 必须有 due_at；
+- assignee 同机构、membership=active 且关系合理；
+- closed 不得有 pending primary action；
 - 完成/取消行动保留历史。
 
-## 8. `complete_lesson` 必须事务化
+`replace_primary_case_action` 应在同一事务内结束旧主行动、创建新主行动并写 case event，不能出现两个当前主行动。
+
+---
+
+## 8. `complete_lesson`
 
 一次课结束可能同时：
 - 完成旧 action；
 - 新增 intervention；
 - 新增 assessment；
-- 写 case_event；
+- 写 case event；
 - 合法转移 case；
-- 创建下一行动；
+- 创建下一主行动；
 - lesson → completed。
 
-一个数据库事务内：
-1. 验证 active membership / lesson 权限；
-2. 验证 lesson version/status；
-3. 验证 lesson students / subject / organization；
-4. 写本次事实；
-5. 合法状态转移；
-6. 完成/创建行动；
+必须一个数据库事务内完成：
+1. active/live member 权限；
+2. lesson version/status；
+3. teacher/student/subject/organization 一致；
+4. 写教学事实；
+5. 合法 case transition；
+6. 替换/完成行动；
 7. 写 event/audit；
 8. lesson completed；
 9. 返回最新快照。
 
-完成课程不强迫所有 new 草稿立即 confirmed；少量草稿可以待整理，后续提醒。
+完成课程不强迫所有 `new` 当场 confirmed；但系统要提醒长期未整理草稿。
 
-## 9. 教师交接与停用顺序
+---
+
+## 9. 教师交接与停用
 
 `disable_membership_and_handoff`：
 1. inventory active teacher/staff assignments；
 2. active case ownership；
-3. pending actions；
-4. 验证接手人机构/学科关系；
+3. pending case_actions；
+4. 验证接手人 active/live 且机构/学科关系有效；
 5. 结束旧 assignment；
 6. 建立新 assignment；
 7. 转移 owner/action；
 8. 写 events/audit；
 9. 验证无 orphan；
-10. **最后** membership → disabled。
+10. **最后** membership→disabled。
 
-中间失败不能留下“账号已停用但当前事项无人负责”。
+中间失败不得留下“账号已停用、当前事项无人负责”。
 
-密码重置与离职停用不是同一业务：重置凭据通常只把 membership 临时切回 onboarding，不删除/交接教学责任；离职才需要完整 handoff。
+---
 
-## 10. 学生合并不变量
+## 10. 学生合并
 
 `merge_students(source, target)`：
 - source != target；
 - 同机构；
-- actor 有权限；
+- actor 有治理权限；
 - 不形成 merge 环；
-- current enrollment / profile / assignment / case 冲突有规则；
-- 迁移事务化/可恢复；
-- source → merged + merged_into_student_id；
+- enrollment/profile/assignment/case 冲突有明确策略；
+- 整体事务化或明确可恢复；
+- source→merged + `merged_into_student_id`；
 - 写 merge record + audit；
 - operation 重试不重复迁移。
 
-合并不是删除 source，旧 ID 继续可解释。
+source 不物理删除，旧 ID 仍可解释。
 
-## 11. 幂等与网络重试
+---
+
+## 11. 普通幂等与网络重试
 
 ### 简单 insert
 客户端预生成 UUID，重试复用。
 
-### 多表/高权限 command
-携带 `operation_id`，可用 `operation_receipts` 或命令自身唯一约束。
+### 数据库多表命令
+使用 `operation_id` / 唯一约束 / operation receipt 等方式，重复调用返回已有业务结果，不重复副作用。
 
-同一 actor + operation_id 重试时返回已有结果，不重复副作用。
+### Credential 命令
+凭据响应是例外：**不能为了可重复返回而保存明文秘密。** 响应未知就 reissue 新凭据。
 
-硬要求：**请求成功但响应丢失后，用户重试不能制造第二套事实或第二次成员开通。**
+硬要求：请求成功但响应丢失，重试不得制造两套教学事实；credential 则不得制造“找回旧密码”的秘密存储。
 
-credential command 的明文密码不能放进 operation receipt；receipt 只记录非秘密结果引用/状态。
+---
 
-## 12. 系统时间与业务时间
+## 12. 时间与并发
 
-### 系统时间（服务端权威）
-created_at、updated_at、audit occurred_at、membership joined/activated/disabled 等默认服务端时间。
+系统时间：`created_at / updated_at / audit_at` 服务端权威。
 
-### 业务发生时间
-observed_at、assessed_at、intervention occurred_at、lesson started/ended 可由用户合理修正，但不能伪造系统创建时间。
+业务发生时间：`observed_at / assessed_at / intervention occurred_at / lesson time` 可由授权用户合理修正。
 
-## 13. 乐观并发
+关键快照使用 `version / expected_version`。版本冲突必须刷新并重新确认，禁止静默 last-write-wins。
 
-对 learning_cases、lessons、必要 assignment 快照使用 `version/expected_version`。
+---
 
-不一致时返回 conflict，客户端刷新并让用户重新确认；绝不静默 last-write-wins。
-
-成员管理命令也要避免两个管理员并发重复 provision/reset 造成状态互相覆盖。
-
-## 14. Function 权限
-
-受控命令仍必须做权限校验。
+## 13. Function 安全
 
 - 优先 `security invoker`；
-- 需 `security definer` 时遵守非 exposed schema、空 search_path、schema-qualified、最小 grant；
-- 函数内部校验 membership/organization/assignment；
-- 正常和越权测试同等重要。
+- 必须 `security definer` 时放非 exposed schema；
+- `set search_path = ''`；
+- schema-qualified；
+- revoke 默认 execute；
+- 最小 grant；
+- live-session / no-membership / onboarding / disabled / cross-org / cross-subject 均有负面测试。
 
-需要 Auth Admin Secret 的命令放 Edge Function/可信服务端，不能为了“事务方便”把 service_role 暴露给客户端。
+---
 
-## 15. Repository API 应像业务
+## 14. Repository API 要像业务
 
 推荐：
 
@@ -273,18 +321,20 @@ studentRepository.mergeStudents(...)
 membershipRepository.disableAndHandoff(...)
 ```
 
-不推荐 ViewModel 直接拼多张表 CRUD，也不把 Auth Admin API 暴露成通用客户端能力。
+不要把数据库表名/任意 status string 直接暴露给 ViewModel 组合。
 
-## 16. 完成定义
+---
 
-不变量敏感命令上线前必须有：
-- 正常流程；
+## 15. 完成定义
+
+高风险命令上线前至少有：
+- 正常路径；
 - 非法状态拒绝；
-- 权限/身份拒绝；
-- onboarding/active/disabled 状态测试；
-- Secret/密码不进入日志的检查；
+- 权限拒绝；
+- revoked Session 拒绝；
 - expected_version 冲突；
 - 重复 operation；
-- 事务/多系统中间失败有安全恢复；
+- 响应丢失模拟；
+- 跨系统/事务中间失败无越权半状态；
 - 跨机构/跨学科关联拒绝；
 - handoff/merge 历史可追溯。
