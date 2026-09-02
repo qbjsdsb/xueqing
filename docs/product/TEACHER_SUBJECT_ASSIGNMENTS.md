@@ -1,17 +1,15 @@
 # Teacher / Subject / Student Assignments｜教师学科范围与学生分配
 
-> 状态：Phase 0A.6 产品/领域事实源。目标：冻结“一个老师可以教多科、一个学生由多位老师协作”的真实机构关系，并明确**身份、学科范围、服务状态、学生分配不是同一件事**。
+> 状态：Phase 0A.6 产品/领域事实源。目标：冻结一个老师可教多科、一个学生可由多位老师协作，以及 Membership / Subject Scope / Subject Profile / Assignment 的真实边界。
 
-## 1. 已冻结的基础关系
-
-Xueqing 区分：
+## 1. 基础关系
 
 ```text
 Auth Identity
 ≠ Organization Membership
-≠ Role
+≠ Role / Capability
 ≠ Subject Scope
-≠ Student/Staff Assignment
+≠ Student / Staff Assignment
 ≠ Student Subject Profile service state
 ```
 
@@ -25,7 +23,7 @@ student
 + active period/status
 ```
 
-同一学生/学科同一时点默认最多一个 active Lead。
+同一 student+subject 同一时点默认最多一个 active Lead。
 
 ### `student_staff_assignments`
 
@@ -39,33 +37,17 @@ student
 
 ---
 
-## 2. 为什么必须有 Teacher Subject Scope
+## 2. 为什么需要 Teacher Subject Scope
 
-现有 Student Assignment 能回答：
+Student Assignment 只能回答：
 
 > 乔老师是不是张三语文的 Lead？
 
-但不能独立回答：
+不能回答：
 
-> 乔老师在这个机构被授权可以教哪些科？
+> 乔老师在机构里被授权教哪些学科？
 
-不能只从 assignment 反推，因为新入职尚未分学生、暂时没有某科学生、Subject Lead 管理范围、老师退出某一科等场景都需要独立 scope。
-
-因此冻结：
-
-> **必须独立建模 membership ↔ organization subject scope。**
-
----
-
-## 3. 三层关系必须分开
-
-### Layer 1｜Organization Membership
-回答这个人在机构里是谁、账号当前是否 active。
-
-### Layer 2｜Membership Subject Scope
-回答在哪些学科承担哪类 subject-scoped 能力。
-
-候选：
+因此独立建模：
 
 ```text
 membership_subject_scopes
@@ -77,7 +59,7 @@ membership_subject_scopes
   status
 ```
 
-例：
+示例：
 
 ```text
 乔老师
@@ -86,37 +68,21 @@ membership_subject_scopes
 └─ 语文 / leadership
 ```
 
-表示他教语文和政治，但只负责语文学科管理。
-
-### Layer 3｜Student Subject Assignment
-回答这个老师当前实际负责哪个学生的哪个学科。
-
-例：
-
-```text
-乔老师
-├─ 张三 · 语文 · Lead
-├─ 李四 · 语文 · Lead
-└─ 王五 · 政治 · Collaborator
-```
+表示教语文和政治，但只负责语文学科管理。
 
 ---
 
-## 4. Scope 不是数据通行证
+## 3. Scope 不是数据通行证
 
-Teaching scope 只表示：
+Teaching scope 只表示“可以在该学科承担教师类业务关系”，不授予全学科学生访问。
 
-> 可以在该学科承担教师类业务关系。
-
-它绝不意味着自动读取该学科所有学生。
-
-普通教师访问具体 Student+Subject，至少需要：
+普通教师访问某 Student+Subject 至少需要：
 
 ```text
 live session
 + active membership
 + teacher capability
-+ matching active teaching subject scope
++ matching active teaching scope
 + target Student Subject Profile = active
 + matching active student_teacher_assignment
 + operation-specific permission
@@ -124,30 +90,103 @@ live session
 
 因此：
 
-> **Subject Scope 限制 Assignment 能否成立；active Profile 决定该学科服务是否正在进行；Assignment 决定普通教师具体学生范围。**
+> Scope 限制“可否被分配”；Profile 决定“这门学科当前是否在持续服务”；Assignment 决定“普通教师具体负责谁”。
 
 ---
 
-## 5. Assignment 建立不变量
+## 4. Committed-state invariant｜必须和 lifecycle transaction 分开理解
 
-管理员创建 active `student_teacher_assignment` 时必须检查：
+### 正常提交态硬规则
 
+一个 **committed active `student_teacher_assignment`** 必须同时匹配：
 1. organization 一致；
 2. membership=active；
-3. membership 具备 teacher capability；
+3. teacher capability；
 4. matching active `teaching` scope；
-5. Student 属于同机构；
-6. **对应 Student Subject Profile 必须存在且 status=active；**
-7. 同 student+subject 不违反 active Lead 唯一规则；
-8. 时间区间不产生非法重叠；
-9. 写 audit/history。
+5. Student Subject Profile=active；
+6. Lead 唯一/时间区间合法。
 
-如果 Profile 不存在/inactive/archived：
-- 不能直接创建 active teacher assignment；
-- 必须先通过受控 Student Subject service lifecycle workflow 建立/恢复 Profile；
-- archived 必须先 unarchive→inactive，再经过 reactivate reconciliation→active。
+一个 **committed inactive/archived Profile** 不得存在 active teacher assignment。
 
-不得让 Flutter ViewModel 任意 insert 绕过。
+### 生命周期 command 的事务内部 staging
+
+`reactivate_student_subject_profile` 是单一原子事务。
+
+事务开始时合法旧状态：
+
+```text
+Profile = inactive
+active assignment = none
+formal unresolved Cases 可以暂时无 current owner/primary Action
+```
+
+事务内部可以 stage：
+- target active assignment；
+- owner；
+- primary Actions；
+- tracking-resumed events；
+- Profile=active。
+
+**这些 staging 不得独立 commit，也不得被其他 Session 看到。**
+
+事务 commit 时才一次性变成：
+
+```text
+Profile = active
++ legal active assignment
++ each formal open Case has legal owner
++ each formal open Case has pending primary Action
+```
+
+因此“active assignment 必须匹配 active Profile”约束的是**提交后的数据库状态**，不是要求同一数据库事务里的每一个 SQL 语句执行瞬间都独立成为可提交业务状态。
+
+同理，`deactivate_student_subject_profile` 在同一事务内 stage：
+- 结束 assignments；
+- 结束 current responsibility；
+- 完成/取消 pending Actions；
+- tracking-suspended events；
+- Profile=inactive；
+
+然后一次 commit。
+
+禁止把“先结束 assignment，再另一个 API 把 Profile 设 inactive”暴露为两次 committed writes。
+
+---
+
+## 5. Lifecycle transaction hard rules
+
+所有下列操作必须走受控 command，而不是 Flutter 普通 CRUD：
+- `deactivate_student_subject_profile`
+- `archive_student_subject_profile`
+- `unarchive_student_subject_profile`
+- `reactivate_student_subject_profile`
+- `reassign_teacher`
+- `revoke_teacher_subject_scope_and_handoff`
+- membership disable handoff
+- Student deactivate/reactivate 涉及的多 Profile reconciliation。
+
+共同要求：
+- `operation_id`；
+- `expected_version`；
+- 单一业务 DB transaction；
+- commit 前验证最终不变量；
+- 任一步失败整单 rollback；
+- timeout 后按 operation_id 查询，不用客户端 CRUD 补齐。
+
+### 失败后的合法结果只有两种
+
+#### command 未 commit
+保持完整旧状态。
+
+#### command 已 commit
+得到完整新状态。
+
+不允许正常命令产生：
+- inactive Profile + active assignment；
+- active Profile + formal open Case 无 owner/primary Action；
+- 一半老师已交接、一半 owner/Action 仍 orphan。
+
+检测到这些状态应视为数据完整性/运维异常，而不是普通 UI 恢复流程。
 
 ---
 
@@ -156,37 +195,42 @@ live session
 ### Lead
 某 student+subject 的主要负责教师。
 
-默认职责：理解当前学情、默认 Case owner 候选、关键专业确认、保持 primary Action 连续、参与阶段学科复盘。
+默认职责：
+- 理解当前学情；
+- 默认 Case owner 候选；
+- 关键专业确认；
+- 保持 primary Action 连续；
+- 参与阶段学科复盘。
 
-Lead 不是组织角色，不自动成为 Subject Lead/管理员，也不绕过 Session/Profile/RLS。
+Lead 不是组织角色，不自动成为 Subject Lead/Admin。
 
 ### Collaborator
-某 student+subject 的协作教师，可在完整 Teaching Fact Gate 成立时：
-- 查看协作所需详情；
+在完整 Teaching Fact Gate 成立时可：
+- 看协作所需详情；
 - 记录本人真实 Evidence / Intervention / Assessment；
 - 承担明确 Action；
 - 参与本人真实 Lesson。
 
-但不无条件覆盖 Lead 的专业判断；关键 Case command 仍按 owner/capability policy。
+如果不是当前 owner，不自动获得 stable/close/reopen 等所有关键命令。
 
 ---
 
 ## 7. Advisor / Homeroom / Coordinator
 
-使用 `student_staff_assignments`，不使用 teacher assignment。
+使用 `student_staff_assignments`。
 
-### Advisor
-可以查看被分配学生的跨学科必要摘要、协调教师、组织家校、跟进综合事项。
-
-不能假装学科教师、随意修改 root cause/Assessment、通过 Advisor 自动获得全机构学生。
-
-Homeroom/Coordinator 同理，具体 UI 随机构真实组织结构。
+Advisor 可看授权跨学科摘要、协调教师、组织家校、跟进综合事项，但不能：
+- 伪装学科教师；
+- 修改 Assessment；
+- 随意改 root cause；
+- close/reopen 学科 Case；
+- 通过 staff role 自动获得全机构学生。
 
 ---
 
 ## 8. Subject Lead
 
-`subject_lead` role 还必须匹配 `leadership` subject scope。
+Subject Lead 必须匹配 `leadership` scope。
 
 例如：
 
@@ -196,30 +240,28 @@ teaching scopes = 语文 / 历史
 leadership scopes = 语文
 ```
 
-表示教语文和历史，但只负责语文管理。
-
-Subject Lead 可以有本科专业审阅/治理视角，但：
+Subject Lead：
+- 可有本科治理/审阅视角；
 - 不自动成为 Student teacher；
 - 不自动成为 Case owner；
 - 不因 leadership scope 产生教学事实；
-- 真实授课时仍必须通过完整 Teaching Fact Gate。
+- 真正授课仍需完整 Teaching Fact Gate。
 
 ---
 
 ## 9. Academic / Org Admin
 
-Admin 可以处理 assignment、orphan、handoff、duplicate 等治理问题，但必须遵守最小必要数据与 audit。
+Admin 可以处理 assignment、orphan、handoff、duplicate、archive/reactivate 等治理命令，但管理权限不能伪造授课事实。
 
-管理权限不意味着可以伪装成实际授课教师。
-
-如果 admin 亲自授课，仍需：
+如果 Admin 本人授课，仍需：
 
 ```text
-teacher capability
+live session
++ active membership
++ teacher capability
 + teaching scope
 + active Subject Profile
-+ active student assignment / controlled Lesson relationship
-+ live session
++ active Student Assignment / validated Lesson relationship
 + operation permission
 ```
 
@@ -227,7 +269,7 @@ teacher capability
 
 ## 10. Today 在多学科教师下如何工作
 
-一名老师同时教语文、政治、历史时，Today 默认聚合其所有**当前合法 active teaching relationship** 下的事项。
+一位老师同时教多科时，Today 默认聚合所有**当前合法 committed teaching relationships** 下的 pending Actions：
 
 ```text
 我的工作
@@ -238,31 +280,27 @@ teacher capability
 └─ undated
 ```
 
-事项必须来自：
+进入 Today 的 Action 必须同时满足：
 - assigned_membership_id=当前老师；
-- matching active Profile；
-- 合法 active assignment；
-- Action 本身仍 pending。
+- Profile=active；
+- legal active assignment；
+- Action=pending。
 
-Inactive/archived Profile 下 suspended Case/Action 不进入普通 Today。
-
-可按 subject filter 查看，但 filter 不是权限事实源。
+inactive/archived Profile 下 suspended Case 不进入普通 Today。
 
 ---
 
 ## 11. Student Detail 多学科上下文
 
-同一个 Student 可有多个 Subject Profile。
+同一个 Student 可以多个 Subject Profiles。
 
-从 Today 某条语文 Action 进入时默认保持语文上下文；有权限才可显式切其他科；未授权学科不泄露细节。
+从语文 Action 进入时保持语文上下文；只有有权限才切其他科。Advisor 从综合入口看授权摘要，但专业 Case 始终显示明确学科与来源 actor。
 
-Advisor 从综合入口看授权摘要，但专业 Case 仍显示明确学科与来源 actor。
+No permission ≠ empty data。
 
 ---
 
-## 12. 新老师入职流程中的 Subject Scope
-
-推荐：
+## 12. 新老师入职
 
 ```text
 Provision membership
@@ -271,81 +309,74 @@ Provision membership
 → teaching/leadership scopes
 → complete onboarding
 → membership active
-→ Student Subject Profile active
-→ student assignments
+→ active Subject Profile
+→ student assignment
 ```
 
-onboarding 可以预配置 scope，但 membership active + Profile active 前不能形成 active student teacher assignment。
+onboarding 可预配置 scope，但 membership active + Profile active 前不能形成 committed active teacher assignment。
 
 ---
 
-## 13. 分配学生的管理 UX
+## 13. 分配学生管理 UX
 
 ```text
 选择学生
 → 选择学科
-→ 验证 Subject Profile=active
-→ 只列出 active membership + teacher capability + active teaching scope
+→ 验证 Profile=active
+→ 只列 active membership + teacher capability + active teaching scope
 → 选择 Lead / Collaborator
 → 检查冲突
-→ 确认
+→ 受控 command 提交
 ```
 
-没有 teaching scope 时提示先调整范围；Profile inactive/archived 时提示先恢复学科服务；不得静默帮管理员扩权限或恢复服务。
+Profile inactive/archived 时提示先恢复学科服务；不得静默扩权限或绕过 service lifecycle。
 
 ---
 
 ## 14. 普通 Reassign
 
-`reassign_teacher` 需要考虑：
-- Subject Profile=active；
-- active assignment；
-- Case ownership；
+`reassign_teacher` 必须在**一个事务**中处理：
+- 旧/新 assignment；
+- Case owner；
 - pending Action assignee；
-- 当前 Lesson；
-- timeline/audit；
-- 新老师 active teaching scope。
+- history/events/audit；
+- Lead uniqueness；
+- final no-orphan validation。
 
-换老师后 Subject Profile 和 Case history 不新建、不清空。
+失败整单 rollback，不直接覆盖历史 membership_id。
 
 ---
 
-## 15. 老师仍在职但退出某一科
+## 15. 老师仍在职但退出某科
 
-例如乔老师继续教语文，但不再教政治。
+`revoke_teacher_subject_scope_and_handoff`：
+1. inventory 该科 active assignments/owners/pending Actions；
+2. 验证接手人；
+3. 同一事务 staged 新 assignment + owner/Action handoff + 旧 assignment end + teaching scope end；
+4. commit 前验证无 orphan，其他学科不受影响；
+5. audit；
+6. commit。
 
-不能直接删除政治 teaching scope，因为可能仍有 active assignments、owned Cases、pending Actions、future Lesson context。
-
-受控流程：
-1. inventory 该 subject active assignments；
-2. inventory Case ownership；
-3. inventory pending Actions；
-4. 指定合法接手人；
-5. 新接手人必须 active + teacher capability + same teaching scope + active Profile relation；
-6. 完成交接；
-7. 验证无 orphan；
-8. 最后结束旧 scope；
-9. audit。
-
-使用 `revoke_teacher_subject_scope_and_handoff` 或等价 command，不普通 DELETE/UPDATE。
+任一步失败全部 rollback。
 
 ---
 
 ## 16. Membership disabled / 离职
 
-`disable_membership_and_handoff` inventory：
+业务 DB handoff：
 
 ```text
-student assignments
-+ staff assignments
+student/staff assignments
 + subject scopes
-+ Case ownership
++ Case owners
 + pending Actions
-→ handoff
-→ verify no orphan
+→ staged handoff
 → membership disabled
-→ revoke Sessions
+→ validate no orphan
+→ commit
 ```
+
+Session revoke 属于可能不同的 Auth 事务域：DB membership disabled 必须先保证 RLS fail-closed；随后 revoke old Sessions，可安全重试。
 
 历史 creator/teacher/scope/assignment 不重写。
 
@@ -353,29 +384,33 @@ student assignments
 
 ## 17. Scope / Assignment 历史
 
-不物理删除正常历史。至少可解释何时开始/结束某科 scope、何时 assignment 生效/结束、谁调整、为什么过去存在某 Intervention。
-
-精确实现可用 active_from/active_to/status/audit。
-
----
-
-## 18. 数据不变量
-
-1. active student teacher assignment 必须匹配 active teaching scope；
-2. **active student teacher assignment 必须匹配 active Student Subject Profile；**
-3. Subject Lead subject-scoped 权限必须匹配 leadership scope；
-4. scope/membership/subject/assignment/Profile organization 必须一致；
-5. 同 student+subject 默认最多一个 active Lead；
-6. teacher role/teaching scope 不授予未 assigned Student 的普通教师访问；
-7. 撤销 teaching scope 前必须交接对应 active responsibilities；
-8. Profile deactivation/archive 前必须结束 active teacher assignments；
-9. inactive/archived Profile 不允许新的 active teacher assignment；
-10. disabled membership 不得保留 active subject scope/assignment；
-11. historical scope/assignment 不因停用物理删除。
+正常历史不物理删除。至少解释：
+- 何时 scope 生效/结束；
+- 何时 assignment 生效/结束；
+- 谁调整；
+- 为什么过去存在某教学事实。
 
 ---
 
-## 19. RLS / Permission 推导原则
+## 18. 数据不变量｜Committed State
+
+1. active assignment 必须 active membership；
+2. active assignment 必须 matching active teaching scope；
+3. **active assignment 必须 Profile=active；**
+4. Subject Lead 权限必须 leadership scope；
+5. scope/membership/subject/assignment/Profile organization 一致；
+6. 默认最多一个 active Lead；
+7. teacher role/scope 不授予未 assigned Student；
+8. revoke teaching scope 前 handoff；
+9. committed inactive/archived Profile 不得 active assignment；
+10. disabled membership 不得 active assignment/scope；
+11. historical relations 不因停用物理删除。
+
+这些是 commit 后不变量。生命周期 command 的事务内部 staging 由 §4/§5 解释。
+
+---
+
+## 19. RLS / Permission 推导
 
 ### Teacher
 
@@ -384,8 +419,8 @@ live session
 + active membership
 + teacher capability
 + active teaching scope
-+ target Subject Profile = active
-+ matching active student_teacher_assignment
++ Profile=active
++ active student_teacher_assignment
 + operation permission
 ```
 
@@ -395,10 +430,10 @@ live session
 live session
 + active membership
 + subject_lead capability
-+ matching leadership scope
++ leadership scope
 ```
 
-再按具体表/操作决定治理 read/write；如要写实际教学事实仍需完整 Teaching Fact Gate。
+写实际教学事实仍需完整 Teaching Fact Gate。
 
 ### Advisor
 
@@ -406,10 +441,8 @@ live session
 live session
 + active membership
 + student_advisor capability
-+ matching active student_staff_assignment
++ active student_staff_assignment
 ```
-
-不通过 teaching scope 冒充教师。
 
 ### Admin
 org-level governance；高风险写走 command/audit，不能 bypass Teaching Fact Gate。
@@ -419,47 +452,57 @@ org-level governance；高风险写走 command/audit，不能 bypass Teaching Fa
 ## 20. 典型场景验收
 
 ### A. 一位老师教三科
-合法，Today 只显示三科中真正分配且 Profile active 的 Action。
+合法。Today 只显示真实 assigned + active Profile 的事项。
 
-### B. 有语文 scope，但没有张三 assignment
+### B. 有语文 scope，无张三 assignment
 不能读取张三语文完整学情。
 
-### C. 张三语文 Lead + Collaborator
-两者都必须有语文 teaching scope，且张三语文 Profile=active。
+### C. Lead + Collaborator
+两者都需 teaching scope + active Profile；默认最多一个 active Lead。
 
-### D. Teacher A 是语文 Subject Lead、还教历史
-Leadership scope 只在语文生效，不自动拥有历史管理视角。
+### D. Subject Lead 还教其他科
+Leadership scope 只在对应科生效。
 
-### E. Advisor 负责张三
-可见授权跨学科摘要，不拥有语文 Case 专业编辑权。
+### E. Advisor
+看授权摘要，不拥有专业 Case 修改权。
 
-### F. 乔老师不再教政治但继续语文
-先政治 handoff，再结束政治 scope；membership 继续 active。
+### F. 老师退出政治但继续语文
+政治 handoff + scope end 同一事务；语文不受影响。
 
-### G. 张三数学 Profile inactive，但旧 assignment 因故障仍存在
-任何 Intervention/Assessment/Lesson 写入必须被 RLS/command 拒绝；治理异常提示清理旧 assignment。
+### G. Profile inactive 但故障残留 active assignment
+这是**非法 committed state**：
+- Teaching Fact Gate 仍拒绝写入；
+- governance anomaly 报警；
+- 不由客户端继续教学；
+- 需要受控治理修复。
 
-### H. 张三数学 Profile archived
-不能直接创建 active assignment；必须：
+### H. Profile archived
+必须 unarchive→inactive；不能直接 active assignment。
 
-```text
-unarchive Profile → inactive
-→ reactivate reconciliation
-→ active
-→ 才能建立/恢复 active assignment / 教学事实
-```
+### I. Reactivate 事务在“已 stage assignment”后失败
+期望：整单 rollback；commit 后仍是 inactive Profile + 无 active assignment/owner/new Action。
+
+### J. Reactivate 事务 commit 成功但客户端 timeout
+用同一 operation_id 查询；必须得到完整：active Profile + legal assignment + owner + primary Actions。不得重复创建。
+
+### K. Deactivate 事务在取消 Action 后失败
+期望：整单 rollback；旧 active Profile、assignment、owner、Action 仍完整存在。
+
+### L. Deactivate commit 成功但 response lost
+查询 operation result；必须得到完整 inactive 状态，无 active assignment/ordinary pending Action。
 
 ---
 
 ## 21. Foundation 对齐
 
-本文件与以下事实源必须使用同一硬定义：
+本文件与以下事实源必须使用相同概念：
 - `DATA_MODEL.md`
 - `COMMANDS_AND_INVARIANTS.md`
 - `AUTH_AND_PERMISSIONS.md`
 - `ROLE_WORKFLOW_MATRIX.md`
+- `RELIABILITY_AND_CONCURRENCY.md`
 
-统一 Teaching Fact Gate：
+Teaching Fact Gate：
 
 ```text
 live session
@@ -471,19 +514,25 @@ live session
 + operation permission
 ```
 
+Lifecycle atomicity：
+
+> Profile/Student status + assignment + owner + primary Action 的服务生命周期变化是一个受控原子 command；事务内部 staging 不对外可见，commit 后必须一次满足全部 committed-state invariants。
+
 ---
 
 ## 22. 决策结论
 
-1. 一名教师可拥有多个学科范围。
-2. Teacher Subject Scope 与 Student Assignment 独立建模。
+1. 一名教师可有多个学科范围。
+2. Subject Scope 与 Student Assignment 独立。
 3. Scope 不授予全学科学生访问。
-4. **active Profile 是 active teacher assignment 和实际教学事实的硬前置。**
-5. Lead/Collaborator 是 student+subject 关系，不是全局 role。
-6. Advisor 使用 staff assignment，不伪装教师。
+4. active Profile 是 committed active assignment 和教学事实的硬前置。
+5. Lead/Collaborator 是 student+subject 关系。
+6. Advisor 使用 staff assignment。
 7. Subject Lead 需要 leadership scope。
 8. 普通教师继续 assignment-level access。
-9. 结束某 teaching scope 先 handoff。
-10. inactive/archived Profile 不允许 active assignment；archive 恢复必须先 unarchive→inactive，再 reactivate。
-11. 历史 scope/assignment/actor 必须可解释。
-12. 精确 DDL/RLS 留 Phase 0B.0/0B.1，在通过独立审计后执行。
+9. 结束 teaching scope 前必须原子 handoff。
+10. inactive/archived Profile 提交态不允许 active assignment。
+11. Reactivate/deactivate 必须同时事务化 Profile、assignment、owner、Actions，失败全回滚，timeout 使用 operation_id 恢复。
+12. archive 恢复只能 unarchive→inactive→reactivate。
+13. 历史 scope/assignment/actor 可解释。
+14. 精确 DDL/RLS/deferrable validation 由 Phase 0B.0/0B.1 Spike 后实现。
