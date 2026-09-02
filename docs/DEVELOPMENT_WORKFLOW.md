@@ -1,390 +1,337 @@
 # 开发、数据库与发布工作流
 
-> 定义如何从新环境开始开发、修改数据库、验证和发布，避免出现“某个人在 Dashboard 手工改过，所以别人无法复现”的隐性状态。零额外付费原则详见 `ZERO_COST_CLOUD_DEVELOPMENT.md`。
+> 目标：任何新 Work/Codex 会话或新电脑都能从 GitHub 重建真实开发状态；不依赖某次聊天记忆、某台电脑或 Remote Dashboard 的隐性修改。
 
-## 1. 四个事实源不要混
+## 1. 四个事实源
 
-- **GitHub**：源码、文档、migrations、测试、CI 事实源；
-- **`supabase/migrations`**：数据库 schema / RLS / View / Function / Trigger / Index 的正式事实源；
-- **Supabase Production**：真实业务数据事实源；
-- **ChatGPT Project / Work**：开发协作上下文，不是代码/数据库事实源。
+- **GitHub**：源码、文档、migrations、测试、CI；
+- **`supabase/migrations`**：数据库 schema / RLS / View / Function / Trigger / Index 的正式结构事实源；
+- **Supabase Production Pilot**：真实业务数据事实源；
+- **ChatGPT Project / Work**：协作/执行上下文，不是代码或数据库事实源。
 
-聊天里记得的旧代码、Remote Dashboard 临时状态都不能覆盖 Git。
+Remote Dashboard 与聊天历史都不能覆盖 Git。
 
 ---
 
-## 2. 三种运行环境
+## 2. 三种环境
 
 ### Local Development
-用于数据库结构、RLS、函数与自动化测试。
-
-- Supabase CLI 本地 stack；
-- 虚构数据；
-- 可 reset / reseed；
-- Auth 流程可用本地测试账号；
+- Supabase CLI local stack；
+- 虚构 seed/Auth；
+- migrations、constraints、RLS、DB functions 测试；
+- 可 reset/reseed；
 - 不承载真实机构数据。
 
 ### Remote Development
-一个 Supabase Free Project，只放虚构数据，用于真正需要公网/双设备的集成：
-- Windows + Android 连接同一后端；
+一个 Supabase Free Project，仅虚构数据，用于 Local 无法证明的：
+- Windows + Android 同后端；
 - Password Auth / Session；
 - provision/onboarding/reset Edge Functions；
+- live-session 行为；
 - Storage；
-- Realtime（如后续使用）；
 - 网络切换；
-- 双教师共享数据。
+- 两教师共享数据；
+- region/网络 Spike。
 
-Remote Development 不是第二套 schema 源。
+它不是 schema 第二事实源，可以重建/删除。
 
 ### Production Pilot
-第二个 Supabase Free Project。
-
+第二个 Supabase Free Project：
 - 真实数据；
-- 不允许 development seed/reset；
-- 只执行已经在 Local + Remote Development 验证的 migration；
-- 独立 Secret；
-- 定期数据库和 Storage 离站备份；
-- 进入真实数据前通过 Go/No-Go。
-
-这样 Local + Remote Development + Production 仍只需要两个免费云项目。
+- 不执行 development seed/reset；
+- 只部署已在 Local + Remote Development 验证的 migrations；
+- 独立 Auth/Storage/Secrets；
+- 定期 DB + Storage 离站备份；
+- 进入真实数据前通过全部 Go/No-Go。
 
 ---
 
-## 3. 新环境从零开始
+## 3. Region 先测试，后建 Production
 
-目标：任何 ChatGPT Work/Codex 会话、开发者或新机器都不依赖“老电脑隐藏状态”。
+Supabase project 绑定 region，换 region 需要建新项目迁移。因此：
 
-建议顺序：
+1. Remote Development 先选一个合理 APAC region；
+2. 使用虚构数据，在实际机构 Wi‑Fi、普通移动网络、无代理/VPN下测试；
+3. 覆盖 Auth、Data API、Storage、Edge Functions、网络切换；
+4. 不合格则重建 Remote Development 到另一 APAC region；
+5. 只有测试结论稳定后，才创建 Production Pilot；
+6. 真实未成年人数据的数据驻留/跨境处理另做机构合规评估。
+
+不要为了省一次重建，把错误 region 固化进 Production。
+
+---
+
+## 4. 新环境从零开始
+
+正式工程初始化后，目标流程：
 
 ```text
 git clone
-  ↓
-checkout 当前 feature/review branch
-  ↓
-安装仓库规定 Flutter / Dart / Supabase CLI
-  ↓
-flutter pub get
-  ↓
-supabase start
-  ↓
-supabase db reset
-  ↓
-DB/RLS tests
-  ↓
-flutter analyze / test
-  ↓
-使用虚构配置运行 Development app
+→ checkout 当前 branch
+→ 安装仓库锁定 Flutter/Dart/Supabase CLI
+→ flutter pub get
+→ supabase start
+→ supabase db reset
+→ DB/RLS tests
+→ flutter analyze
+→ flutter test
+→ 用虚构 config 启动 Development app
 ```
 
-正式 Flutter 初始化后把可重复步骤写进 README/脚本，不让 Agent 每次猜命令。
+把稳定命令写成 README / script / CI，不让 Agent 每次猜。
 
 ---
 
-## 4. Git 分支与 Work 会话
+## 5. Git / Work / PR
 
-较大任务：
-1. 明确 Issue/目标；
-2. 新 feature/review branch；
-3. 一条 ChatGPT Work 会话主要负责一个可验收目标；
-4. 会话开头读取 `AGENTS.md` + 相关 docs + 当前 GitHub 文件；
-5. 小步 commit；
-6. 开 PR；
-7. CI + review；
-8. 通过后合并。
+一个较大任务：
+1. 一个可验收目标；
+2. 一个 feature/review branch；
+3. 一条主要 Work 会话；
+4. 开始先读 `AGENTS.md` + 相关 docs + 当前仓库；
+5. 小步提交；
+6. Draft PR；
+7. CI/真实执行；
+8. review；
+9. 合并。
 
-不要让一条长 Work 会话连续跨十几个 Milestone 后继续凭记忆修改仓库。
+### GitHub Free private 的现实限制
 
-如果当前 Work 环境不能真实执行 Flutter/Supabase 命令，必须由 Codex 或 GitHub Actions补充执行证据；不能把“模型判断应该通过”写成“测试通过”。
+为了隐私，仓库必须 Private；但 GitHub Free 的 private repo 没有 Pro/Team 才有的私有 branch protection/ruleset 强制能力。
+
+零成本阶段因此采用**流程治理**：
+- Work/Codex 不直接 push main；
+- main 只接受人工审阅后的 PR；
+- PR 没有真实执行证据不合并；
+- 不把“mergeable=true”理解为“质量已通过”；
+- 以后 GitHub 计划升级再开启 required PR/status checks。
 
 ---
 
-## 5. 修改数据库的唯一正式路径
+## 6. 数据库修改唯一正式路径
 
-### 正确
-1. 在 `supabase/migrations` 新增 migration；
+1. `supabase/migrations` 新 migration；
 2. Local `db reset`；
-3. seed；
+3. fake seed；
 4. DB/RLS tests；
-5. App/Repository 测试；
+5. Flutter Repository/Service 测试；
 6. PR review；
-7. 推到 Remote Development；
+7. Remote Development deploy；
 8. 集成验证；
-9. 最后才进入 Production。
+9. Production migration + smoke test。
 
-### 不正确
-- 只在 Dashboard Table Editor 改列；
+禁止：
+- 只改 Dashboard Table Editor；
 - 只在 SQL Editor 建 policy/function；
-- Remote Dev 跑通后不写 migration；
-- Production 直接试 SQL 再“回头补文件”。
+- Remote 先跑通却不回写 migration；
+- Production 直接试 SQL 再补文件。
 
-如果为了快速实验临时改 Remote Development，最终仍必须转成 migration，并从干净 Local DB 重建验证。
-
----
-
-## 6. Migration 设计
-
-### 普通 additive 变化
-优先：
-- 新表；
-- nullable 新列；
-- 新 index；
-- 新 View/Function；
-- 新 policy。
-
-### 破坏性变化
-必须说明：
-- 数据迁移；
-- 旧客户端兼容期；
-- 失败恢复；
-- 是否需要 expand → migrate → contract。
-
-不要为了省一个 migration 把生产数据一次性赌在不可逆 SQL 上。
+Production migrations 一律向前滚动；已部署 migration 不靠本地重写历史“回滚”。破坏性修改采用 expand → migrate → contract 或明确恢复方案。
 
 ---
 
-## 7. RLS / Function 开发
+## 7. RLS / View / Function
 
-每个业务表最少测试：
+每个业务表至少测试：
 - unauthenticated；
 - Auth User 无 membership；
-- membership = onboarding；
-- membership = active；
-- membership = disabled；
+- revoked session；
+- onboarding；
+- active；
+- disabled；
 - same org/no assignment；
 - cross-org；
 - cross-subject；
-- admin/teacher 不同权限。
+- admin/teacher 不同能力。
 
-对 `security definer`：
-- 非 exposed schema；
-- `search_path = ''`；
+### live-session helper
+Phase 0 验证 JWT `session_id` 与 `auth.sessions`：
+- helper 放非 exposed schema；
+- `security definer` 固定 `search_path = ''`；
 - schema-qualified；
-- revoke 默认 execute；
 - 最小 grant；
-- 越权测试。
+- revoked JWT 直接调用 Data API 必须失败；
+- 用 EXPLAIN 验证 RLS 性能。
 
 View 优先 `security_invoker = true`。
-
-RLS 高频过滤字段要建合理 index，并在真实查询出现后用 EXPLAIN 验证。
 
 ---
 
 ## 8. Auth / Credential 开发
 
-V1 不以邮件 OTP 为发布前置。
-
 ### Local
-使用明显虚构测试账号和固定测试凭据；这些只存在 Local seed/test，不得复制到 Production。
+明显虚构测试账号/固定测试密码可以存在 local seed/test，但不得复制到 Remote Production。
+
+### Remote Development 必测
+- org_admin provision；
+- onboarding expiry；
+- 临时密码只显示一次；
+- onboarding 业务拒绝；
+- complete onboarding：改密码 → global sign-out → active → 强制新登录；
+- 保存旧 JWT，完成接管后直接请求业务 API，必须失败；
+- reset：先 onboarding 再更新密码；
+- provision/reset 成功但响应超时 → reissue；
+- disabled 旧 Session；
+- 无 membership / cross-org；
+- 两个客户端同时测试。
+
+### Startup Gate
+Supabase Flutter v2 可能先读出本地 Session；业务 Shell 必须等待 session validity/live-session/membership 解析，不允许隐私闪现。
+
+### Session LocalStorage
+Production 不使用默认 SharedPreferences Session 存储作为最终方案。Phase 0：
+- 实现 Supabase custom `LocalStorage`；
+- 使用 Windows/Android OS 安全存储；
+- 验证重启、刷新、logout、reset、disabled；
+- Password 不持久化。
+
+---
+
+## 9. 本地草稿
+
+高频输入需要 crash/network 恢复，但真实正文必须安全：
+- 用户+机构 scope；
+- 加密 at rest；
+- key 在 OS secure storage；
+- TTL；
+- sync success 删除；
+- account switch 不串数据；
+- logout 给出同步/丢弃选择；
+- disabled/revoked 后不再解锁相关业务草稿；
+- 不存 Token/Password。
+
+先做最小 encrypted draft spike，再扩大使用范围。
+
+---
+
+## 10. Flutter 测试层级
+
+### 每 PR 快速测试
+- ViewModel/domain rules；
+- Repository fake；
+- Service mock / `supabase_testing`（适用时）；
+- draft encryption/cleanup 单测；
+- startup authorization gate。
+
+### Local Supabase
+- migrations；
+- RLS；
+- DB functions；
+- constraints；
+- negative authorization。
 
 ### Remote Development
-真实验证：
-- org_admin provision 测试教师；
-- 临时密码只返回一次；
-- onboarding 无业务权限；
-- complete onboarding；
-- active Session 恢复；
-- admin reset；
-- reset 后旧 Session 业务访问失败；
-- disable 后旧 Session 失败。
+只验证公网/真实 Auth Admin/Storage/Edge Functions/跨设备/网络/region。
 
-### Secret
-Auth Admin / service_role 只存在 Edge Function/可信环境。
-
-错误日志不得打印：
-- password；
-- Authorization header；
-- Access/Refresh Token；
-- Secret。
-
----
-
-## 9. Flutter 测试层级
-
-### 快速单元测试
-每个 PR 高频运行：
-- ViewModel；
-- domain/business rules；
-- Repository with fake；
-- Service with mocks/`supabase_testing`（适合时）。
-
-### Local Supabase 集成测试
-验证：
-- schema；
-- RLS；
-- RPC/DB function；
-- 事务与约束。
-
-### Remote Development 集成
-只用于 Local 无法证明的：
--真实 Auth Admin/Session；
-- Edge Function secrets；
-- Storage；
-- 两设备/两账号；
-- 公网失败/恢复。
-
-### Release 验证
+### Release
 - Android build；
 - Windows build；
-- 关键 smoke / integration；
-- Production migration dry-run/兼容审查。
+- 关键 integration/smoke；
+- Production migration compatibility review。
 
 ---
 
-## 10. GitHub Actions 免费额度策略
+## 11. GitHub Actions 零超额策略
 
-Private GitHub Free 有有限 Actions 分钟，不能把重构建放在每个 commit。
+GitHub Free private 当前包含有限 Actions 分钟。真正“0 元”必须同时设置预算：
 
-### PR 默认
-- format；
-- analyze；
-- unit tests；
-- Local DB/migration/RLS tests；
-- secret/static checks。
-
-### Milestone / Release 才跑
-- Android release/test artifact；
-- Windows build；
-- 重 integration matrix。
-
-要求：
-- 不使用 larger runner；
+- GitHub billing budget：启用 **Stop usage when budget limit is reached**；
+- PR 默认 Linux：format/analyze/unit/Local DB/RLS/secret scan；
+- Windows/Android release build 仅 Milestone/Release/手动；
+- 不用 larger runner；
 - artifact retention 短；
-- 无价值中间构建不上传；
-- billing/budget 设置为超额停止，而不是自动付费。
+- 无价值中间产物不上传。
+
+CI 额度耗尽时宁可等下周期/改成本地执行，不自动产生费用。
 
 ---
 
-## 11. `supabase_testing` 的定位
+## 12. Supabase Free 运行边界
 
-Supabase 官方 Flutter 仓库提供测试 helper，可 mock HTTP、JWT、Auth Session、Realtime 等。
+- 一个 Remote Development；
+- 一个 Production Pilot；
+- Local CLI 不占云 project；
+- 定期看 DB/Storage/Egress；
+- 低活动可能 pause；
+- Free 没有付费级自动日备份保障。
 
-Xueqing 可以在正式 Flutter 工程初始化后评估加入为 dev dependency，用来：
-- 测 Service/Repository；
-- 减少 Remote Development 依赖；
-- 模拟 Auth/RPC/错误；
-- 提高 CI 可重复性。
-
-不要因为有 mock 就省略真正 RLS/Local DB 测试；两者解决不同问题。
-
----
-
-## 12. Remote Development 更新
-
-正常流程：
-
-```text
-Local migrations/tests green
-  ↓
-PR review
-  ↓
-应用 migrations 到 Remote Development
-  ↓
-部署需要的 Edge Functions
-  ↓
-双平台/双账号集成验证
-  ↓
-记录异常
-```
-
-禁止把 Remote Development 的手工修补留在 Dashboard 不回写 Git。
+容量或可靠性不再适合真实业务时，必须重新做成本/风险 ADR。
 
 ---
 
-## 13. Production Pilot 发布
+## 13. Backup / Restore
 
-前提：`RISKS_AND_OPERATIONS.md` Go/No-Go 通过。
+Production Pilot 至少保存：
+- `roles.sql`
+- `schema.sql`
+- `data.sql`
+- 必要 `supabase_migrations` history
+- Storage objects + manifest
+- Project configuration checklist（Auth/Realtime/Extensions/Secrets 等）
 
-发布顺序建议：
-1. 确认最新离站备份；
-2. 记录当前 DB/App version；
-3. 执行已评审 migration；
-4. 部署 Edge Functions；
-5. smoke test 登录/权限/核心读写；
-6. 发布 Windows/Android 对应版本；
-7. 观察错误；
-8. 发现高风险异常时停止扩大使用。
+备份不进入 GitHub。目标 Pilot RPO 默认 ≤ 一个教学日；若机构无法接受，免费方案不能进入真实数据。
 
-不要在 Production 现场即兴开发。
+发布/变更后按风险追加备份。定期恢复到非 Production 新项目并做 smoke test。
 
----
-
-## 14. Free Production 备份
-
-Supabase Free 不能代替自建备份制度。
-
-### Database
-定期：
-- `supabase db dump` / `pg_dump`；
-- 加密；
-- 存到 Supabase 以外；
-- 多版本；
-- 定期恢复演练。
-
-### Storage
-单独：
-- object inventory；
-- 对象备份；
-- DB path ↔ object 一致性；
-- 抽样恢复。
-
-备份成功的定义是“恢复过”，不是“目录里有文件”。
+详见 `DISASTER_RECOVERY.md`。
 
 ---
 
-## 15. Free Project Pause / Quota
+## 14. Storage 开发
 
-运维要知道：
-- Free project 可能因低活动暂停；
-- Remote Dev 停了不等于数据丢失；
-- Production 长假前确认备份；
-- DB/Storage/Egress 接近免费额度时先评审；
-- 不设置自动付费升级。
-
-如果系统已经关键到不能接受 Free Tier 的暂停/备份能力，这本身是重新做成本 ADR 的信号。
-
----
-
-## 16. 发布兼容性
-
-数据库先变、客户端后变时要考虑旧客户端。
-
-高风险变更优先：
-1. expand；
-2. 新旧客户端兼容；
-3. migrate data；
-4. 发布新客户端；
-5. contract。
-
-后续可增加最低支持客户端版本，但 V1 不先建复杂更新服务。
+- private bucket；
+- storage.objects RLS；
+- signed URL 短时/授权后生成；
+- 不记录 signed URL；
+- 文件类型/大小限制；
+- DB metadata 与对象生命周期一致；
+- Storage backup 独立于 DB。
 
 ---
 
-## 17. 外部开源项目使用
+## 15. 配置与 Secret
 
-参考 `OPEN_SOURCE_REFERENCES.md`。
-
-规则：
-- 借模式，不盲 fork；
-- 许可证不清楚不复制代码；
-- 官方 Flutter/Supabase 优先；
-- 开源项目若与本仓库 ADR 冲突，以 ADR 为准；
-- 新依赖先证明真实价值。
+- Flutter 使用 build-time config（如 `--dart-define-from-file` 等正式方式）；
+- Publishable Key 可进入客户端配置；
+- Secret/service_role/DB password/backup credential 只在可信环境；
+- `.env.example` 只列变量名/虚构值；
+- Development/Production Secret 不复用。
 
 ---
 
-## 18. 一次 PR 的完成证据
+## 16. 发布策略
 
-PR 描述至少回答：
-- 用户为什么需要；
-- 影响哪个核心 Flow；
-- schema/RLS 是否变化；
-- migration 是否可从空库重建；
-- 权限负面测试；
-- 网络失败/幂等；
-- 隐私/Secret；
-- 是否增加任何付费/外部运行依赖；
-- 实际跑过哪些命令；
-- 哪些尚未验证；
-- 回滚/恢复方式。
+### Android
+签名包、keystore 离线备份、版本号明确。
 
-“ChatGPT 说已经做好”不是完成证据。
+### Windows
+Pilot 可受控内部发行，不把付费公信代码签名证书列为硬依赖；仍需固定下载来源、版本、校验与升级路径。
+
+数据库 migration 与旧客户端需要兼容窗口；不能先破坏 schema 再要求所有老师立刻升级。
+
+---
+
+## 17. Work/Codex 执行证据
+
+Work 适合研究、跨文件实现、PR/review；Codex/CI 适合真实终端/build/test。
+
+每个 PR 必须区分：
+- **已执行**：给出命令/CI 结果；
+- **未执行**：明确列出原因和需要在哪里验证。
+
+“模型判断应该通过”不等于 CI green。
+
+---
+
+## 18. Definition of Done
+
+一个 feature/里程碑只有在同时满足以下条件才完成：
+- 用户流程正常；
+- 空/错/网络失败可恢复；
+- 权限负面路径；
+- migrations/RLS 同步；
+- 本地/云端敏感数据边界；
+- 测试有真实执行证据；
+- 文档/ADR 同步；
+- 不产生未批准付费依赖；
+- 不破坏既有端到端闭环。
