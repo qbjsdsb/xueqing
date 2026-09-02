@@ -102,9 +102,85 @@ as $function$
   limit 1
 $function$;
 
+create or replace function private.can_read_organization(
+  target_organization_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select exists (
+    select 1
+    from public.memberships as membership
+    where membership.organization_id = target_organization_id
+      and membership.user_id = (select private.current_app_user_id())
+      and membership.status = 'active'
+  )
+$function$;
+
+create or replace function private.can_read_student(
+  target_student_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select exists (
+    select 1
+    from public.students as student
+    join public.teacher_assignments as assignment
+      on assignment.student_id = student.id
+     and assignment.status = 'active'
+    join public.memberships as membership
+      on membership.organization_id = student.organization_id
+     and membership.user_id = assignment.teacher_id
+     and membership.role = 'teacher'
+     and membership.status = 'active'
+    where student.id = target_student_id
+      and student.status = 'active'
+      and assignment.teacher_id = (select private.current_app_user_id())
+  )
+$function$;
+
+create or replace function private.can_read_assignment(
+  target_assignment_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  select exists (
+    select 1
+    from public.teacher_assignments as assignment
+    join public.students as student
+      on student.id = assignment.student_id
+    join public.memberships as membership
+      on membership.organization_id = student.organization_id
+     and membership.user_id = assignment.teacher_id
+     and membership.role = 'teacher'
+     and membership.status = 'active'
+    where assignment.id = target_assignment_id
+      and assignment.teacher_id = (select private.current_app_user_id())
+      and assignment.status = 'active'
+      and student.status = 'active'
+  )
+$function$;
+
 revoke all on function private.current_app_user_id() from public;
+revoke all on function private.can_read_organization(uuid) from public;
+revoke all on function private.can_read_student(uuid) from public;
+revoke all on function private.can_read_assignment(uuid) from public;
 grant usage on schema private to authenticated;
 grant execute on function private.current_app_user_id() to authenticated;
+grant execute on function private.can_read_organization(uuid) to authenticated;
+grant execute on function private.can_read_student(uuid) to authenticated;
+grant execute on function private.can_read_assignment(uuid) to authenticated;
 
 alter table public.organizations enable row level security;
 alter table public.app_users enable row level security;
@@ -128,15 +204,7 @@ create policy "active members can read their organizations"
 on public.organizations
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.memberships as membership
-    where membership.organization_id = organizations.id
-      and membership.user_id = (select private.current_app_user_id())
-      and membership.status = 'active'
-  )
-);
+using ((select private.can_read_organization(organizations.id)));
 
 create policy "users can read their own application identity"
 on public.app_users
@@ -159,37 +227,11 @@ for select
 to authenticated
 using (
   status = 'active'
-  and exists (
-    select 1
-    from public.teacher_assignments as assignment
-    join public.memberships as membership
-      on membership.organization_id = students.organization_id
-     and membership.user_id = assignment.teacher_id
-     and membership.role = 'teacher'
-     and membership.status = 'active'
-    where assignment.teacher_id = (select private.current_app_user_id())
-      and assignment.student_id = students.id
-      and assignment.status = 'active'
-  )
+  and (select private.can_read_student(students.id))
 );
 
 create policy "teachers can read their active assignments"
 on public.teacher_assignments
 for select
 to authenticated
-using (
-  teacher_id = (select private.current_app_user_id())
-  and status = 'active'
-  and exists (
-    select 1
-    from public.memberships as membership
-    where membership.organization_id = (
-      select student.organization_id
-      from public.students as student
-      where student.id = teacher_assignments.student_id
-    )
-      and membership.user_id = teacher_assignments.teacher_id
-      and membership.role = 'teacher'
-      and membership.status = 'active'
-  )
-);
+using ((select private.can_read_assignment(teacher_assignments.id)));
