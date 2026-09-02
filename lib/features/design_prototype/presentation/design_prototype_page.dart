@@ -106,16 +106,14 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       QuickCaptureResult.saved => '已记录为待整理问题',
       QuickCaptureResult.draft => '已保留本机草稿（设计预览）',
     };
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _completeAction(PrototypeAction action) {
     setState(() => _completedActionIds.add(action.id));
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('已完成：${action.title}')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('已完成：${action.title}')));
   }
 
   Widget _buildCurrentPage(BuildContext context, WindowSizeClass sizeClass) {
@@ -1013,9 +1011,8 @@ class _ActionSubheading extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: color),
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(color: color),
           ),
         ],
       ),
