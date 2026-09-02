@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
@@ -13,7 +11,7 @@ void configureGlobalErrorHandling() {
     FlutterError.presentError(details);
   };
 
-  PlatformDispatcher.instance.onError = (_error, _stack) {
+  PlatformDispatcher.instance.onError = (_, _) {
     logger.error('Uncaught asynchronous error.');
     return true;
   };

@@ -4,12 +4,11 @@ import '../app/app.dart';
 import '../config/app_config.dart';
 import '../core/error/app_failure.dart';
 import '../features/bootstrap/presentation/bootstrap_status_page.dart';
-import 'bootstrap.dart';
 
 typedef AppConfigLoader = Future<AppConfig> Function();
 
 class AppBootstrap extends StatefulWidget {
-  AppBootstrap({required this.loader, super.key});
+  const AppBootstrap({required this.loader, super.key});
 
   final AppConfigLoader loader;
 
