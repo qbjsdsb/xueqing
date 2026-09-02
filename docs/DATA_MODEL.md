@@ -11,8 +11,8 @@
 - 机构业务对象明确 `organization_id`；
 - 人员业务关系引用 membership，不直接把裸 Auth User 当教学责任人；
 - 身份事实、教学事实、当前快照、历史事件和派生数据分层；
-- **学生/学科服务生命周期与 Learning Case 解决生命周期分层，不能为了停读而伪造 Case 已清零；**
-- 历史优先 append/event，不用覆盖当前字段抹掉过去；
+- **学生/学科服务生命周期与 Learning Case 解决生命周期分层，不能为了停读/归档而伪造 Case 已清零；**
+- 历史优先 append/event，不覆盖当前字段抹掉过去；
 - 姓名和自由文本不承担唯一性；
 - 核心历史默认 RESTRICT / archived / disabled / merged / 受控更正，不随意 cascade；
 - 关键可变快照使用 `version` 做乐观并发；
@@ -40,10 +40,7 @@ Xueqing 当前同时评估官方 Supabase 与中国大陆 CloudBase PG。两者 
 
 逻辑语义：一个业务 Profile 对应一个已知 Auth identity。
 
-稳定业务字段：
-- display name；
-- avatar path；
-- created/updated time。
+稳定业务字段：display name、avatar path、created/updated time。
 
 **Auth PK/FK 的物理类型 P0 pending**。无论最终 provider 如何：
 - Profile 不写死 organization；
@@ -59,15 +56,9 @@ Xueqing 当前同时评估官方 Supabase 与中国大陆 CloudBase PG。两者 
 - `created_at`
 - `updated_at`
 
-### 时区规则
+`time_zone` 是机构业务日期的唯一事实源。Today、Action 到期/逾期、课程所属业务日期、周度/阶段统计边界和报告周期均按 organization timezone 解释，不能直接相信设备时区。
 
-`time_zone` 是机构业务日期的唯一事实源。
-
-Today、action 到期/逾期、课程所属业务日期、周度/阶段统计边界和报告周期均按 organization timezone 解释，不能直接相信设备时区。
-
-系统事件仍保存 UTC；展示和业务日期计算时再转换为 organization timezone。
-
-V1 不做 campus 独立时区。
+系统事件仍保存 UTC；展示和业务日期计算时再转换为 organization timezone。V1 不做 campus 独立时区。
 
 ## `campuses`
 
@@ -162,18 +153,26 @@ Supabase reference 可用 JWT `session_id → auth.sessions` helper；CloudBase 
 
 姓名不能做硬唯一键。
 
-### Student status 语义
+### Student service lifecycle｜完整状态机
 
-`Student.status` 回答：
+```text
+active --deactivate_student--> inactive --archive_student--> archived
+active <--reactivate_student-- inactive <--unarchive_student-- archived
+```
 
-> 机构当前是否把这个真实学生作为活跃服务对象？
+- `active`：机构当前提供实际服务；
+- `inactive`：整体服务暂停，但仍处于可管理/准备恢复状态；
+- `archived`：退出普通当前业务视图，历史保留，**不是终态**；
+- `merged`：重复档案被受控合并后的**终态**，不可 unarchive/reactivate 为独立 Student。
 
-它**不回答任何 Learning Case 是否解决**。
+硬规则：
+- `archive_student` 只能 `inactive → archived`；
+- `unarchive_student` 只能 `archived → inactive`；
+- `reactivate_student` 只能 `inactive → active`；
+- 禁止 `active → archived` 和 `archived → active` 直跳；
+- `unarchive` 只恢复可管理状态，不代表重新开课。
 
-- 升年级/换校区：Enrollment 历史，不新建 Student；
-- 整体停读：先 reconcile 所有 active Subject Profiles / assignments / Actions，再 Student→inactive；
-- restart：继续同一 Student ID；
-- merged：旧 ID 仍可解释。
+升年级/换校区使用 Enrollment 历史，不新建 Student。
 
 ## `student_enrollments`
 
@@ -259,62 +258,43 @@ parent/child 必须同 organization_subject；历史已引用节点停用而不�
 - `version`
 - `created_at`
 - `updated_at`
+- `archived_at`（可选）
 
 唯一 `(organization_id, student_id, organization_subject_id)`。
 
-### Subject Profile 生命周期
-
-`active`：该学生当前在机构持续该学科教学；正式 open Case 应持续有下一步。
-
-`inactive`：该学科当前停止/暂停持续教学，但历史仍保留。**未解决 Learning Case 不因 profile inactive 自动 closed。**
-
-`archived`：该学科主线退出普通当前业务视图，但历史可审计；不是物理删除。
-
-### 停止一个学科
-
-现实中可能：
+### Subject Profile service lifecycle｜完整状态机
 
 ```text
-Student 张三仍 active
-语文 profile active
-数学 profile inactive
+active --deactivate_student_subject_profile--> inactive --archive_student_subject_profile--> archived
+active <--reactivate_student_subject_profile-- inactive <--unarchive_student_subject_profile-- archived
 ```
 
-因此不能只靠 Student.status 表达所有停读。
+- `active`：该学生当前在机构持续该学科教学；
+- `inactive`：该学科当前停止/暂停持续教学，但历史仍保留；
+- `archived`：该学科主线退出普通当前业务视图，历史保留，**可受控恢复，但不能直接 active**。
 
-Profile inactive 前必须 reconcile：
-- active teacher assignments；
-- Case owner；
-- pending Actions；
-- Lessons/future workflow。
+硬规则：
+- `active → inactive` 前必须 reconcile teacher assignments、Case owner、pending Actions、Lesson/future workflow；
+- `inactive → archived` 前必须已经不存在当前教学义务；
+- `archived → inactive` 只恢复主线到可管理状态，不创建 assignment/Action；
+- `inactive → active` 前必须重建合法 teacher assignment、owner 和 unresolved formal Case 的 pending primary Action；
+- 禁止 `active → archived`、`archived → active` 直跳。
 
-对 unresolved Case：
-- 保留真实 `confirmed/intervening/pending_verification/stable` status；
-- 结束/cancel 当前 pending Action，记录 reason=`subject_inactive` 或等价受控原因；
-- 退出教师 Today；
+### Tracking suspended exception
+
+Profile inactive/archived 时 unresolved Case：
+- 保留真实 `confirmed/intervening/pending_verification/stable` resolution status；
+- 不要求 current pending primary Action；
+- 不进入普通教师 Today；
+- 不允许普通教学事实写入或新 Lesson；
+- 写可解释 tracking suspended/archived event；
 - 不伪造 `closed=已清零`。
 
-### 恢复一个学科
+### Primary Action 不变量适用范围
 
-Profile 从 inactive→active 前必须 inventory unresolved formal Cases，并对每个 Case：
-- 创建新的合法 pending primary Action；或
-- 根据新证据执行真实合法 closure；
-- 恢复合法 teacher assignment/owner。
+> **只有 Student Subject Profile = active 的 formal open Case，才必须存在 pending primary Action。**
 
-只有 reconciliation 完成后 profile 才 active。
-
-### Primary Action 不变量的适用范围
-
-原“confirmed/intervening/pending_verification/stable 必须有 pending primary Action”调整为：
-
-> **当其 Student Subject Profile = active 时必须成立。**
-
-Profile inactive/archived 时，Case resolution status 保留，但不要求 current pending Action；这些 Case 不进入普通教师 Today。
-
-这样保持：
-- Case status 只表达问题解决进度；
-- Profile status 只表达是否当前持续教学；
-- 二者不互相伪造。
+Profile inactive/archived 是明确 suspended exception。
 
 ### 定位/优势
 
@@ -337,9 +317,9 @@ Profile inactive/archived 时，Case resolution status 保留，但不要求 cur
 
 规则：
 - 同一学生/学科同一时点默认最多一个 active lead；
-- teacher 必须 active；
+- teacher membership 必须 active；
 - 必须有 matching active teaching scope；
-- active assignment 通常要求对应 Subject Profile=active；
+- **active teacher assignment 必须对应 Subject Profile=active；不是“通常要求”；**
 - Subject Scope 只决定可否分配，Assignment 才决定普通教师具体学生范围。
 
 ## `student_staff_assignments`
@@ -395,12 +375,13 @@ Profile inactive/archived 时，Case resolution status 保留，但不要求 cur
 
 - `new`：快速草稿；
 - **当 Subject Profile=active 时**，confirmed/intervening/pending_verification/stable 必须有一个 pending primary Action；
+- **当 Subject Profile=inactive/archived 时，上述 Action 要求暂停，Case 保留真实 resolution status；**
 - 暂缓/稳定观察的 review Action 必须有 due_at；
 - `closed` 不得有 pending primary Action；
 - `reopen` 是 command/event，不是第七 status；
 - `Assessment passed ≠ stable ≠ closed`；
 - 产品语境只有真实解决 closure 才可以显示“已清零”；
-- **Subject Profile inactive 不等于 Case closed。**
+- Subject Profile inactive/archive 不等于 Case closed。
 
 ## `case_events`
 
@@ -415,7 +396,7 @@ append-only 时间轴：
 
 普通业务不开放 UPDATE/DELETE 历史事件。
 
-Profile deactivation/reactivation 应对相关 open Cases 写可解释 event，例如 tracking suspended/resumed；**这仍不是新增 Case status。**
+Profile deactivation/archive/unarchive/reactivation 应对相关 open Cases 写可解释 event，例如 tracking suspended/archived/unarchived/resumed；**这些不是新增 Case status。**
 
 ---
 
@@ -462,15 +443,25 @@ Guardian 提供的信息只有经授权教师判断与教学相关时才形成 E
 - `assessed_at`
 - `created_at`
 
-### Teaching Fact Gate
+### Teaching Fact Gate｜跨事实源唯一硬条件
 
-要成为实际教学 actor，至少需要：
-- active membership；
-- teacher capability；
-- matching teaching scope；
-- 合法 Student Assignment / Lesson relationship。
+任何 Intervention、Assessment、教学型 Evidence、Lesson teacher 行为的实际教学 actor，**运行时必须同时满足：**
 
-Leadership/Admin 身份本身不能伪造 Intervention/Assessment。
+```text
+live session
++ active membership
++ teacher capability
++ matching active teaching scope
++ target Student Subject Profile = active
++ 合法 active Student Assignment 或受控建立/验证的合法 Lesson relationship
++ operation-specific permission
+```
+
+说明：
+- `live session` 是运行时 RLS/command 条件，不是表字段，但不能从 Data Model 语义中省略；
+- inactive/archived Profile 即使遗留旧 scope/assignment，也必须拒绝新的实际教学事实；
+- Leadership/Admin/Advisor 身份本身不能绕过 Gate；
+- 初诊也必须先建立合法 teacher relationship，不能靠管理员“临时授权”绕过。
 
 Assessment result 与 Case status 分离。
 
@@ -494,9 +485,9 @@ Assessment result 与 Case status 分离。
 
 规则：
 - 同一 Case 最多一个 pending primary；
-- **active Subject Profile 的 formal open Case** 必须有 pending primary；
+- **active Subject Profile 的 formal open Case 必须有 pending primary；**
 - inactive/archived Subject Profile 的 unresolved Case 可以没有 pending primary，并退出 Today；
-- profile deactivation 时 pending Action 必须受控完成/取消并记录原因；
+- profile deactivation/archive 时 pending Action 必须受控完成/取消并记录原因；
 - profile reactivation 时 unresolved Case 在 profile active 前必须重新建立 next primary Action；
 - closed 不得有 pending primary；
 - Guardian 不是 membership，家庭配合不能成为 Case Action；
@@ -520,7 +511,7 @@ Assessment result 与 Case status 分离。
 - `created_at`
 - `updated_at`
 
-Lesson teacher 必须满足 Teaching Fact Gate。
+Lesson teacher 必须满足完整 Teaching Fact Gate，尤其 target Subject Profile=active。
 
 ## `lesson_students`
 
@@ -577,32 +568,23 @@ Parent Communication 是**一次实际沟通事件**，不是不断变化的聊�
 - `direction`：`outbound / inbound / conversation`
 - `status`：`draft / finalized`
 - `channel`：`phone / wechat / in_person / other`
-- `occurred_at`（真实沟通发生时间）
+- `occurred_at`
 - `content_snapshot`
-- `home_support_snapshot`（outbound/conversation 可有；也可最终并入 structured content schema）
-- `guardian_response_snapshot`（仅 conversation 同一 interaction 可有；**后续异步回复不得回写这里**）
+- `home_support_snapshot`
+- `guardian_response_snapshot`（仅 conversation 同一 interaction 可有；后续异步回复不得回写）
 - `reply_to_communication_id`（可选）
 - `recorded_by_membership_id`
-- `finalized_by_membership_id`（finalized）
-- `finalized_at`（finalized）
+- `finalized_by_membership_id`
+- `finalized_at`
 - `follow_up_assigned_membership_id`（非 Case 的纯沟通后续可选）
-- `follow_up_at`（可选）
-- `follow_up_status`：`pending / done / cancelled`（存在 non-case follow-up 时）
-- `follow_up_completed_at`（可选）
+- `follow_up_at`
+- `follow_up_status`：`pending / done / cancelled`
+- `follow_up_completed_at`
 - `version`
 - `created_at`
 - `updated_at`
 
-### 规则
-
-- Draft 不计“已联系”；
-- finalized 普通业务不可 UPDATE；
-- outbound finalized 后家长后来回复 → **新增 inbound communication**；
-- reply_to 必须同 organization + student；
-- 如果未来需要 thread root，优先由 reply chain 派生或新增轻量 root ref，不把 thread 变成第二套内容；
-- finalized correction 保留原 snapshot；
-- 家庭配合不是 staff Action；
-- Guardian response 不自动成为专业诊断。
+规则：Draft 不计“已联系”；finalized 普通业务不可 UPDATE；outbound finalized 后家长后来回复新增 inbound communication；reply_to 必须同 organization+student；finalized correction 保留原 snapshot；家庭配合不是 staff Action；Guardian response 不自动成为专业诊断。
 
 ## `parent_communication_recipients`
 
@@ -611,9 +593,7 @@ Parent Communication 是**一次实际沟通事件**，不是不断变化的聊�
 
 支持一个 actual event 对应一个或多个 recipients。
 
-## Source references
-
-Communication 可以关联 Case/Evidence/Assessment/Lesson/Report 作为来源。具体采用 join table、typed refs 或少量明确 FK 留 migration design；不得复制第二套教学事实。
+Communication 可以关联 Case/Evidence/Assessment/Lesson/Report 作为来源；不得复制第二套教学事实。
 
 ---
 
@@ -642,11 +622,7 @@ Communication 可以关联 Case/Evidence/Assessment/Lesson/Report 作为来源�
 - `finalized_at`
 - correction/supersede reference/event（具体实现待 design）
 
-规则：
-- 系统自动整理正式事实，教师只填写真正需要专业判断的内容；
-- finalized 不随底层事实静默改写；
-- Report finalized ≠ 已告知家长；
-- AI 可辅助 Draft，不能代替 finalized_by。
+规则：系统自动整理正式事实，教师只填写真正需要专业判断的内容；finalized 不随底层事实静默改写；Report finalized ≠ 已告知家长；AI 可辅助 Draft，不能代替 finalized_by。
 
 ---
 
@@ -681,7 +657,7 @@ Communication 可以关联 Case/Evidence/Assessment/Lesson/Report 作为来源�
 - `operation_id`
 - `merged_at`
 
-source→merged，target 保留；旧 ID 仍能解释迁移去向。
+source→merged，target 保留；旧 ID 仍能解释迁移去向。merged 是 Student service lifecycle 终态。
 
 ---
 
@@ -704,8 +680,11 @@ source→merged，target 保留；旧 ID 仍能解释迁移去向。
 - stage review due；
 - attachment reference inconsistency；
 - duplicate Student candidates；
-- inactive Subject Profile 下仍残留 pending Action；
-- active Subject Profile 下 formal open Case 无 primary Action。
+- inactive/archived Subject Profile 下仍残留 pending Action；
+- active Subject Profile 下 formal open Case 无 primary Action；
+- inactive/archived Profile 仍产生教学事实；
+- archived Student/Profile 被直接尝试 active；
+- merged Student 被尝试恢复为独立 active Student。
 
 这些是可处理事实，不新增 Case status，不做教师效能分/学生风险分。
 
@@ -717,14 +696,18 @@ source→merged，target 保留；旧 ID 仍能解释迁移去向。
 - organization 错配；
 - Auth identity 在 V1 跨机构 onboarding/active 双活；
 - membership / subject scope / assignment 跨机构；
-- teacher assignment 没有 matching teaching scope；
+- active teacher assignment 没有 matching teaching scope 或 active Subject Profile；
 - subject lead 越过 leadership scope；
 - Case owner 没有合法 Teaching relationship；
 - leadership/admin 权限伪造教学事实；
+- **任何 Teaching Fact Gate 缺少 live session / active membership / teacher capability / teaching scope / active Profile / legal relationship / operation permission；**
 - 同 student+subject 冲突 active lead；
-- **active Subject Profile + formal open Case 无 pending primary Action；**
-- **inactive/archived Subject Profile 仍有普通 pending Action 持续进入 Today；**
+- active Subject Profile + formal open Case 无 pending primary Action；
+- inactive/archived Subject Profile 仍有普通 pending Action 持续进入 Today；
 - profile reactivation 时 unresolved Case 没有新 primary Action；
+- archived Profile 直接 active；
+- archived Student 直接 active；
+- merged Student 被 unarchive/reactivate；
 - 暂停/稳定观察 review 无 due_at；
 - closed 仍有 pending primary；
 - lesson teacher/student/subject 关系非法；
@@ -732,41 +715,31 @@ source→merged，target 保留；旧 ID 仍能解释迁移去向。
 - Evidence/Intervention/Assessment/Action 跨 Case/organization；
 - guardian_report 指向跨机构/跨学生 communication；
 - communication reply_to 跨 organization/student；
-- finalized Communication/Report 被普通业务静默覆盖；
-- merged Student 继续作为新业务主档案。
+- finalized Communication/Report 被普通业务静默覆盖。
 
-实现手段按适用性选择：composite FK、CHECK、partial unique index、exclusion constraint、trigger / 受控 Function。跨表复杂不变量不要假装一个 CHECK 就能解决。
+实现手段按适用性选择：composite FK、CHECK、partial unique index、exclusion constraint、trigger / 受控 Function / RLS helper。跨表和 live-session 不变量不要假装一个 CHECK 就能解决。
 
 ---
 
 # 16. 索引与性能
 
-重点：
-- organization_id；
-- membership_id；
-- student_id；
-- organization_subject_id；
-- student_subject_profile_id + status；
-- learning_case_id/status；
-- due_at；
-- active assignments；
-- subject scope composite lookup；
-- communication status/occurred_at/reply_to/follow-up；
-- Report period/status；
-- active identity membership lookup。
+重点：organization_id、membership_id、student_id、organization_subject_id、student_subject_profile_id+status、learning_case_id/status、due_at、active assignments、subject scope composite lookup、communication status/occurred_at/reply_to/follow-up、Report period/status、active identity membership lookup。
 
 Phase 0B 对 Today / Student / Case / RLS 多层过滤使用 EXPLAIN 或等价证据，不能为了性能静默删除安全条件。
 
 ---
 
-# 17. 删除、停用、暂停与纠错策略
+# 17. 删除、停用、暂停、归档、恢复与纠错策略
 
 默认：
 - member → disabled，先 handoff；
 - teaching subject scope → inactive/end，先学科级 handoff；
-- Student Subject Profile → inactive/archived，先 Case/Action reconciliation；
-- Student → inactive/archived/merged，先所有 profile/assignment reconciliation；
-- **Profile inactive 只暂停当前服务，不改写未解决 Case status；**
+- Subject Profile：`active → inactive → archived`；恢复只能 `archived → inactive → active`；
+- Student：`active → inactive → archived`；恢复只能 `archived → inactive → active`；
+- Student `merged` 是终态；
+- archive 不是删除；unarchive 不是 reactivate；
+- Profile inactive/archived 只暂停当前服务，不改写未解决 Case status；
+- archived/inactive 下不允许新教学事实或新 Lesson；
 - Case/Lesson/Evidence → archived/受控更正，不随意物理删除；
 - finalized Communication/Report → correction/supersede，不静默覆盖；
 - 核心历史不 cascade 丢失；
@@ -787,7 +760,7 @@ Phase 0B 对 Today / Student / Case / RLS 多层过滤使用 EXPLAIN 或等价�
 - 某学科是否仍在持续教学 → Subject Profile lifecycle；
 - 授课老师 → Subject Scope + Student Teacher Assignment；
 - 学管 → Student Staff Assignment；
-- 初诊 → Initial Diagnosis workflow → Learning Case；
+- 初诊 → active Subject Profile + legal teacher assignment + Initial Diagnosis workflow → Learning Case；
 - 知识三阶 → knowledge workflow + Evidence/Intervention/Assessment/Action/Event；
 - 习惯/考试技巧 → 各自 workflow；
 - 下周重点 → Case Action；
