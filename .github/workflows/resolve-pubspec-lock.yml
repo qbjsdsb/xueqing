@@ -1,0 +1,38 @@
+name: Temporary pubspec lock resolver
+
+on:
+  push:
+    branches:
+      - phase0/cloud-foundation-bootstrap
+    paths:
+      - "pubspec.yaml"
+      - ".github/workflows/resolve-pubspec-lock.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Generate pubspec.lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Print generated lockfile
+        run: |
+          echo "PUBSPEC_LOCK_BEGIN"
+          base64 --wrap=0 pubspec.lock
+          echo
+          echo "PUBSPEC_LOCK_END"
