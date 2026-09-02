@@ -193,11 +193,11 @@ Supabase APAC 有 Singapore/Tokyo/Seoul 等，但没有中国大陆 region；pro
 ---
 
 ## ADR-038｜GitHub Free Private 采用流程治理，不假装有付费 Branch Protection
-**Accepted**
+**Accepted / Refined by ADR-044**
 
 隐私要求 repo Private，但 GitHub Free 私有仓库没有 Pro/Team 才有的 private ruleset/branch protection 强制能力。
 
-零成本阶段：Work/Codex 禁直推 main；feature/review branch + Draft PR；没真实执行证据不人工合并；Actions budget 开启 `Stop usage when budget limit is reached`。
+零成本阶段：Work/Codex 禁直推 main；feature/review branch + Draft PR；没真实执行证据不人工合并。原决定还要求 Actions budget 开启 `Stop usage when budget limit is reached`；这一账户级预算要求后来由 ADR-044 调整。
 
 ---
 
@@ -245,6 +245,7 @@ V1 的 Password 是全局 Supabase Auth credential，而 `reset_member_credentia
 因此 V1 默认不把学生/学情敏感表加入 Realtime publication，也不写依赖 Realtime 才正确的业务逻辑。
 
 以后需要 Realtime 时，新增 ADR，至少测试 revoked session、token refresh/re-auth、reconnect、cross-org、subscription cleanup 后再开启。
+
 ---
 
 ## ADR-043｜Phase 0A 使用 Flutter SDK 内置 Navigator
@@ -253,3 +254,20 @@ V1 的 Password 是全局 Supabase Auth credential，而 `reset_member_credentia
 Phase 0A 只有 Bootstrap 页面与路由自检页，没有 deep link、Auth redirect、复杂路由参数或嵌套路由需求。使用 `MaterialApp.onGenerateRoute` 与集中 `XueqingRouter` 足以覆盖当前启动链路，同时不增加 `go_router` 依赖。
 
 后续出现 Auth/租户重定向、deep link、强类型路由参数或路由状态恢复需求时，再以真实需求评估路由包；本决定不预先锁定 Phase 0A.5 的导航视觉或业务信息架构。
+
+---
+
+## ADR-044｜Actions zero-overage budget 暂不设置，改以 CI 触发策略控制消耗
+**Accepted（用户明确选择，2026-09-02）**
+
+用户明确选择暂不设置 GitHub Actions zero-overage budget，并接受由此产生的账户级计费风险。因此该设置不再作为 Foundation、Phase 0A 或真实数据 Go / No-Go 的硬阻塞项。
+
+这一调整只改变**账户级预算保护方式**，不改变零额外付费 Pilot 的工程目标。为降低未设 budget 的风险，仓库必须执行：
+- 普通 PR 与 `main` 只跑轻量 Linux 检查；
+- 避免同一提交同时由 feature-branch push 与 pull_request 重复跑相同 CI；
+- Windows / Android 原生 build 仅 milestone / release / 手动触发；
+- 不使用 larger runner；
+- 不上传无价值大型 artifact；
+- 出现异常 Actions 消耗时立即停掉无价值 workflow 并重新评估。
+
+Phase 0A 已据此完成一次 Android + Windows 原生构建验证，之后把 native build workflow 改为手动触发。
