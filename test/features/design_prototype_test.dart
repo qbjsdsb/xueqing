@@ -125,7 +125,9 @@ void main() {
       expect(find.text('设计预览：确认稳定只展示命令入口，不改变领域状态。'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, '确认稳定'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('返回学生详情'));
+      final backButton = find.byTooltip('返回学生详情');
+      await tester.ensureVisible(backButton);
+      await tester.tap(backButton);
       await tester.pumpAndSettle();
       expect(find.text('当前 Learning Cases'), findsOneWidget);
     },
