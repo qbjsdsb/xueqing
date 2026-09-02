@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/error/app_failure.dart';
 
-enum BootstrapStatus {
-  loading,
-  failure,
-}
+enum BootstrapStatus { loading, failure }
 
 class BootstrapStatusApp extends StatelessWidget {
   const BootstrapStatusApp({
@@ -80,10 +77,7 @@ class BootstrapStatusPage extends StatelessWidget {
                   ),
                   if (!isLoading && onRetry != null) ...[
                     const SizedBox(height: 24),
-                    OutlinedButton(
-                      onPressed: onRetry,
-                      child: const Text('重试'),
-                    ),
+                    OutlinedButton(onPressed: onRetry, child: const Text('重试')),
                   ],
                 ],
               ),

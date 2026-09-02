@@ -5,11 +5,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
 class AppShell extends StatelessWidget {
-  const AppShell({
-    required this.title,
-    required this.child,
-    super.key,
-  });
+  const AppShell({required this.title, required this.child, super.key});
 
   final String title;
   final Widget child;
@@ -25,10 +21,7 @@ class AppShell extends StatelessWidget {
                 const _DesktopRail(),
                 const VerticalDivider(width: 1),
                 Expanded(
-                  child: _ShellContent(
-                    title: title,
-                    child: child,
-                  ),
+                  child: _ShellContent(title: title, child: child),
                 ),
               ],
             ),
@@ -45,10 +38,7 @@ class AppShell extends StatelessWidget {
 }
 
 class _ShellContent extends StatelessWidget {
-  const _ShellContent({
-    required this.title,
-    required this.child,
-  });
+  const _ShellContent({required this.title, required this.child});
 
   final String title;
   final Widget child;
@@ -66,10 +56,7 @@ class _ShellContent extends StatelessWidget {
               AppSpacing.xl,
               AppSpacing.md,
             ),
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            child: Text(title, style: Theme.of(context).textTheme.titleLarge),
           ),
           Expanded(child: child),
         ],
@@ -91,34 +78,21 @@ class _DesktopRail extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '学情闭环',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('学情闭环', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: AppSpacing.xxs),
-              Text(
-                '教师工作台',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text('教师工作台', style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: AppSpacing.lg),
               const Divider(),
               const SizedBox(height: AppSpacing.sm),
               const Row(
                 children: [
-                  Icon(
-                    Icons.build_outlined,
-                    size: 18,
-                    color: AppColors.accent,
-                  ),
+                  Icon(Icons.build_outlined, size: 18, color: AppColors.accent),
                   SizedBox(width: AppSpacing.sm),
                   Text('工程状态'),
                 ],
               ),
               const Spacer(),
-              Text(
-                'Phase 0A',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text('Phase 0A', style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
         ),

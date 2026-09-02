@@ -16,9 +16,7 @@ void main() {
   ) async {
     final completer = Completer<AppConfig>();
 
-    await tester.pumpWidget(
-      AppBootstrap(loader: () => completer.future),
-    );
+    await tester.pumpWidget(AppBootstrap(loader: () => completer.future));
 
     expect(find.text('正在加载工程配置'), findsOneWidget);
 
@@ -29,9 +27,7 @@ void main() {
   testWidgets('renders the bootstrap page after configuration loads', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      AppBootstrap(loader: () async => config),
-    );
+    await tester.pumpWidget(AppBootstrap(loader: () async => config));
     await tester.pumpAndSettle();
 
     expect(find.text('工程初始化完成'), findsOneWidget);
@@ -53,9 +49,7 @@ void main() {
   });
 
   testWidgets('can navigate through the router smoke path', (tester) async {
-    await tester.pumpWidget(
-      AppBootstrap(loader: () async => config),
-    );
+    await tester.pumpWidget(AppBootstrap(loader: () async => config));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('路由自检'));

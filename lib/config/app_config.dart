@@ -26,10 +26,7 @@ enum AppEnvironment {
 }
 
 class AppConfig {
-  const AppConfig({
-    required this.environment,
-    required this.appVersion,
-  });
+  const AppConfig({required this.environment, required this.appVersion});
 
   factory AppConfig.fromDartDefines() {
     return AppConfig.fromValues(

@@ -9,10 +9,7 @@ import 'bootstrap.dart';
 typedef AppConfigLoader = Future<AppConfig> Function();
 
 class AppBootstrap extends StatefulWidget {
-  AppBootstrap({
-    required this.loader,
-    super.key,
-  });
+  AppBootstrap({required this.loader, super.key});
 
   final AppConfigLoader loader;
 
@@ -41,9 +38,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
       future: _configFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const BootstrapStatusApp(
-            state: BootstrapStatus.loading,
-          );
+          return const BootstrapStatusApp(state: BootstrapStatus.loading);
         }
 
         if (snapshot.hasError || !snapshot.hasData) {

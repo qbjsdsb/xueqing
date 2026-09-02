@@ -1,10 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-enum WindowSizeClass {
-  compact,
-  medium,
-  expanded,
-}
+enum WindowSizeClass { compact, medium, expanded }
 
 abstract final class ResponsiveBreakpoints {
   static const mediumMinWidth = 600.0;
@@ -22,13 +18,10 @@ abstract final class ResponsiveBreakpoints {
 }
 
 class ResponsiveLayout extends StatelessWidget {
-  const ResponsiveLayout({
-    required this.builder,
-    super.key,
-  });
+  const ResponsiveLayout({required this.builder, super.key});
 
   final Widget Function(BuildContext context, WindowSizeClass sizeClass)
-      builder;
+  builder;
 
   @override
   Widget build(BuildContext context) {

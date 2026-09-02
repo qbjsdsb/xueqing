@@ -45,10 +45,7 @@ class _RouteCheckPage extends StatelessWidget {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(
-            '路由可用',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          child: Text('路由可用', style: Theme.of(context).textTheme.titleLarge),
         ),
       ),
     );
@@ -63,10 +60,7 @@ class _NotFoundPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('页面不存在')),
       body: Center(
-        child: Text(
-          '未找到对应路由。',
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
+        child: Text('未找到对应路由。', style: Theme.of(context).textTheme.bodyLarge),
       ),
     );
   }

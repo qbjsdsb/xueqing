@@ -4,26 +4,24 @@ import 'app_colors.dart';
 import 'app_spacing.dart';
 
 abstract final class AppTheme {
-  static const fontFallback = <String>[
-    'Microsoft YaHei',
-    'Noto Sans CJK SC',
-  ];
+  static const fontFallback = <String>['Microsoft YaHei', 'Noto Sans CJK SC'];
 
   static ThemeData light() {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.accent,
-      brightness: Brightness.light,
-    ).copyWith(
-      surface: AppColors.surface,
-      surfaceContainerHighest: AppColors.surfaceMuted,
-      onSurface: AppColors.textPrimary,
-      onSurfaceVariant: AppColors.textSecondary,
-      outline: AppColors.border,
-      primary: AppColors.accent,
-      onPrimary: Colors.white,
-      error: AppColors.danger,
-      onError: Colors.white,
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.accent,
+          brightness: Brightness.light,
+        ).copyWith(
+          surface: AppColors.surface,
+          surfaceContainerHighest: AppColors.surfaceMuted,
+          onSurface: AppColors.textPrimary,
+          onSurfaceVariant: AppColors.textSecondary,
+          outline: AppColors.border,
+          primary: AppColors.accent,
+          onPrimary: Colors.white,
+          error: AppColors.danger,
+          onError: Colors.white,
+        );
 
     const bodyLarge = TextStyle(
       fontSize: 16,

@@ -5,10 +5,7 @@ import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
 class XueqingApp extends StatelessWidget {
-  const XueqingApp({
-    required this.config,
-    super.key,
-  });
+  const XueqingApp({required this.config, super.key});
 
   final AppConfig config;
 

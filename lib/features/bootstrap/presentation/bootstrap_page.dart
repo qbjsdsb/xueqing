@@ -8,10 +8,7 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../config/app_config.dart';
 
 class BootstrapPage extends StatelessWidget {
-  const BootstrapPage({
-    required this.config,
-    super.key,
-  });
+  const BootstrapPage({required this.config, super.key});
 
   final AppConfig config;
 
@@ -46,9 +43,8 @@ class BootstrapPage extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       '启动链路、平台目标与基础 UI 能力已经就绪。',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                      style: Theme.of(context).textTheme.bodyLarge
+                          ?.copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     _StatusPanel(config: config),
@@ -91,25 +87,13 @@ class _StatusPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const _StatusRow(
-            label: '工程状态',
-            value: 'Bootstrap ready',
-          ),
+          const _StatusRow(label: '工程状态', value: 'Bootstrap ready'),
           const Divider(height: 1),
-          _StatusRow(
-            label: 'Environment',
-            value: config.environmentLabel,
-          ),
+          _StatusRow(label: 'Environment', value: config.environmentLabel),
           const Divider(height: 1),
-          const _StatusRow(
-            label: '目标平台',
-            value: 'Android / Windows',
-          ),
+          const _StatusRow(label: '目标平台', value: 'Android / Windows'),
           const Divider(height: 1),
-          const _StatusRow(
-            label: '阶段',
-            value: 'Phase 0A',
-          ),
+          const _StatusRow(label: '阶段', value: 'Phase 0A'),
         ],
       ),
     );
@@ -117,10 +101,7 @@ class _StatusPanel extends StatelessWidget {
 }
 
 class _StatusRow extends StatelessWidget {
-  const _StatusRow({
-    required this.label,
-    required this.value,
-  });
+  const _StatusRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -137,16 +118,14 @@ class _StatusRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppColors.textSecondary),
             ),
           ),
           Text(
             value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),

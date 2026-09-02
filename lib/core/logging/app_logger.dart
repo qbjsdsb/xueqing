@@ -3,10 +3,7 @@ import 'dart:developer' as developer;
 import '../../config/app_config.dart';
 
 class AppLogger {
-  const AppLogger({
-    required this.environment,
-    this.name = 'xueqing',
-  });
+  const AppLogger({required this.environment, this.name = 'xueqing'});
 
   final AppEnvironment environment;
   final String name;
