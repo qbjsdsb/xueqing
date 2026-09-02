@@ -1,388 +1,413 @@
 # 风险清单与运行要求
 
-> 只记录“不提前验证就很可能造成返工、隐私事故或上线事故”的风险。风险不是停止开发的理由，而是要求在正确阶段实测。
+> 只记录“不提前验证就很可能返工、越权、丢数据或无法运营”的风险。每项都应有退出条件，不把风险清单写成泛泛提醒。
 
-## R1｜仓库仍为 Public
+## R1｜GitHub 仍为 Public
+**等级：最高｜立即**
 
-**等级：最高｜立即处理**
-
-当前 `qbjsdsb/xueqing` 仍是 Public。
-
-现在仓库主要是设计文档和虚构占位，尚不是隐私事故；但进入真实开发后，Issue、日志、截图、配置和误提交很容易带入内部信息。
+当前 `qbjsdsb/xueqing` 仍是 Public。正式开发/真实机构数据前必须 Private。
 
 处理：
-- 正式 Flutter/Production 开发前改为 Private；
-- Secret 永远不因“Private”而允许提交；
-- 真实学生/家长数据仍禁止进入 GitHub；
-- PR/Issue 只使用虚构示例。
+- Private；
+- Secret 仍永不提交；
+- Issue/PR/截图/seed 只用虚构数据。
 
-退出条件：仓库 Private + secrets 基线检查。
+退出：Private + 基础 secret scan。
 
 ---
 
-## R2｜临时账号凭据泄露
+## R2｜GitHub Free 私有仓库无法强制 branch protection
+**等级：中高｜开发治理**
 
+GitHub Free 的 private repo 不具备 Pro/Team 才有的私有仓库 ruleset/branch protection 强制能力。
+
+零成本处理：
+- Work/Codex 不直推 main；
+- feature/review branch + Draft PR；
+- PR 必须写真实执行证据；
+- 只人工合并；
+- 以后升级 GitHub 计划再开启平台强制保护。
+
+退出：流程已写入 AGENTS/开发工作流且实际遵守。
+
+---
+
+## R3｜临时凭据泄露/长期有效
 **等级：最高｜Phase 0**
 
-V1 为零额外付费采用管理员开通 + 临时密码。如果把临时密码长期保存、写日志或在群里随意转发，认证方案会失去意义。
+临时密码不是一次性 Token，谁先拿到就可能尝试接管。
 
 处理：
-- 服务端随机生成强临时密码；
-- 只在 provision/reset 成功响应返回一次；
-- 不写 DB/log/audit/error tracking；
-- membership 初始为 onboarding；
-- onboarding 普通业务 RLS 全拒绝；
-- 教师首次登录必须完成自己的新密码接管；
-- 管理员通过已建立身份关系的可信渠道一次性交付。
+- 强随机；
+- onboarding 无学生业务权限；
+- `onboarding_expires_at`；
+- 可信渠道一次性交付；
+- 不写 DB/log/audit/GitHub；
+- 过期/交付未知一律 reissue 新密码。
 
-退出条件：代码/测试证明 Secret 不落盘，onboarding 无业务权限。
+退出：泄露/过期/重签发测试通过。
 
 ---
 
-## R3｜密码重置后旧 Session 仍访问数据
-
+## R4｜接管后旧 Session 重新获得 active 权限
 **等级：最高｜Phase 0**
 
-只更新 Auth 密码不能把安全性寄托在“旧 Token 会不会立刻失效”。
+只“改密码 → active”存在窗口：此前偷到临时密码的人可能已经建立 Session；被撤销 Access Token 在 `exp` 前仍可能存在。
 
 处理：
-- reset 时 membership → onboarding；
-- 普通业务 RLS 每次要求 membership = active；
-- disabled 同理；
-- 客户端遇到 authorization denied 清理机构上下文，不无限重试。
+- complete onboarding：改密码 → global sign-out → active → 强制重新登录；
+- RLS 检查 JWT `session_id` 对应 `auth.sessions` 仍存在；
+- membership 同时必须 active。
 
-退出条件：两个客户端测试：A 端登录后，管理员在 B 端 reset/disable，A 端旧 Session 立即读不到业务数据。
+退出：保存一个旧 JWT，完成接管后用它直接请求 Data API，必须立即被拒绝。
 
 ---
 
-## R4｜老师不愿意填
+## R5｜管理员 reset 顺序错误
+**等级：最高｜Phase 0**
 
-**等级：最高｜持续验证**
+如果先改 Auth 密码、最后才把 member 降为 onboarding，跨系统失败可能让凭据状态不确定但业务仍 active。
 
-功能再完整，只要课后要填 5 分钟，最后都会变成应付式台账。
+处理：**先 membership→onboarding，再更新 Auth 密码**；任何失败优先无业务权限。
+
+退出：故障注入覆盖每一步。
+
+---
+
+## R6｜Credential 响应丢失导致系统想保存明文密码
+**等级：高｜Phase 0**
+
+provision/reset 可能成功但响应丢失。不能为了幂等把临时密码长期保存。
 
 处理：
-- `new` 捕捉目标 10–20 秒；
-- 常规课后目标 ≤ 60 秒；
-- 只记录新事实；
+- member 保持 onboarding；
+- 标记 credential delivery unknown；
+- 管理员 reissue 新凭据；
+- 旧密码失效；
+- operation receipt 不保存秘密。
+
+退出：模拟“服务端成功、客户端超时”，能够恢复且无明文秘密存储。
+
+---
+
+## R7｜唯一管理员锁死全机构
+**等级：高｜真实 Pilot 前**
+
+无 SMTP 自助找回时，唯一 org_admin 忘记密码会成为单点故障。
+
+处理：
+- 两个独立可信 active org_admin；或
+- 已演练的 Supabase Project Owner break-glass。
+
+退出：第二管理员/恢复演练完成。
+
+---
+
+## R8｜本地 Session 存储不安全
+**等级：最高｜Phase 0**
+
+`supabase_flutter` 默认持久化 Session 到 SharedPreferences 系列存储，不应直接作为学生敏感数据 Production 基线。
+
+处理：
+- 自定义 Supabase `LocalStorage`；
+- OS 安全存储；
+- Windows/Android 真测；
+- 密码永不本地保存。
+
+退出：Token 安全存储实现和测试通过。
+
+---
+
+## R9｜App 启动闪现旧权限数据
+**等级：高｜Phase 0**
+
+Supabase Flutter v2 初始化可能先提供本地 Session，但不保证它仍有效。
+
+处理：
+- 启动授权 Gate；
+- Auth refresh/live Session/membership 解析完成前不挂业务 Shell。
+
+退出：expired/revoked/disabled 本地 Session 均不会闪现学生页。
+
+---
+
+## R10｜本地草稿成为明文学生数据库
+**等级：最高｜Phase 0**
+
+为了断网恢复而长期明文保存作文/学情同样是隐私风险。
+
+处理：
+- 加密持久化；
+- key 在 OS 安全存储；
+- user/org scope；
+- TTL；
+- sync 后删除；
+- logout/account switch/disabled 清理策略；
+- 不存 Token/Password。
+
+退出：设备文件检查 + 账号切换 + TTL 测试通过。
+
+---
+
+## R11｜老师不愿意填
+**等级：最高｜持续**
+
+处理：
+- `new` 10–20 秒；
+- 常规课后 ≤60 秒；
+- 只填新事实；
 - 周度/阶段派生；
-- 真实教师可用性测试；
-- 统计完成路径耗时/操作数，不统计“老师填了多少条”。
+- 实际教师可用性测试。
+
+退出不是“页面完成”，而是连续一周流程耗时达标。
 
 ---
 
-## R5｜数据越用越脏
+## R12｜暂停 Case 永久失踪
+**等级：高｜业务正确性**
 
+仅 `pause_reason`、没有下一动作，会让问题从 Today 消失。
+
+处理：
+- confirmed/intervening/pending_verification/stable 必须有 pending primary action；
+- 暂缓用 `review` action + `due_at`；
+- pause_reason 只解释原因。
+
+退出：所有正式未关闭 case 都可在行动系统中被再次找到。
+
+---
+
+## R13｜数据越用越脏
 **等级：高**
 
-不同老师自由输入“阅读理解/现代文阅读/阅读”，后期无法统计。
-
-处理：
-- 轻量 taxonomy + 自由标题；
-- 默认分类 + 其他/暂未分类；
-- 重复案例提示；
-- 历史分类节点停用而非硬删；
-- 复杂 taxonomy 管理 UI 后置。
+处理：轻量 taxonomy + 自由标题；默认分类；重复 case 提示；历史分类停用不硬删。
 
 ---
 
-## R6｜权限 UI 看起来对，数据库实际越权
-
+## R14｜UI 权限正确、数据库实际越权
 **等级：最高**
-
-隐藏按钮不能阻止手工 API；View/Function 也可能成为 RLS 后门。
 
 处理：
 - RLS + 最小 GRANT；
-- assignment-based authorization；
-- active membership 硬检查；
+- live session + active membership；
+- assignment authorization；
 - `security_invoker` View；
-- `security definer` 最小授权；
-- 自动化负面权限测试。
+- security-definer 最小授权；
+- 攻击式负面测试。
 
-退出条件：unauthenticated、no membership、onboarding、disabled、cross-org、cross-student、cross-subject 攻击式测试全部按设计失败。
+退出：unauth/no-member/revoked/onboarding/disabled/cross-org/cross-student/cross-subject 全失败。
 
 ---
 
-## R7｜网络失败导致记录丢失/重复
-
-**等级：高**
-
-移动网络切换、超时、连点重试可能丢数据或生成重复事实。
+## R15｜Storage 成为绕过 RLS 的旁路
+**等级：最高｜真实文件前**
 
 处理：
-- 本地临时草稿；
-- 清楚保存状态；
-- client UUID / operation id；
-- 超时后可查询最终状态；
-- 不用乐观 UI 伪造正式保存成功。
+- private bucket；
+- `storage.objects` policy 与组织/关系一致；
+- signed URL 短时且只在授权后生成；
+- 不记录 signed URL；
+- 文件类型/大小限制；
+- DB 与对象一致性治理。
+
+退出：越权下载/签名 URL/跨机构测试通过。
 
 ---
 
-## R8｜多人更新造成静默覆盖
+## R16｜网络失败丢记录或重复写
+**等级：高**
 
+处理：加密草稿、保存状态、client UUID、operation id、最终状态查询、无假成功 UI。
+
+---
+
+## R17｜多人更新静默覆盖
 **等级：中高**
 
-处理：
-- 关键快照 `version`；
-- expected_version；
-- 冲突提示；
-- 教学事实尽量 append-only。
+处理：version/expected_version；append-only facts；冲突提示；不 last-write-wins。
 
 ---
 
-## R9｜项目悄悄长成 ERP/CRM
-
+## R18｜项目长成 ERP/CRM
 **等级：高**
 
-风险链：今日课程 → 排课 → 课消 → 收费 → 招生 → 财务，最终核心学情闭环被淹没。
-
-处理：
-- lesson = 教学会话，不是完整 schedule；
-- 今日以 case_actions 为主；
-- 收费/招生/复杂排课需求先产品评审；
-- 优先集成成熟系统，不复制 Frappe/Gibbon 的全部 ERP 范围。
+处理：lesson 只是教学会话；Today 由 case_actions 驱动；收费/课消/招生/完整排课先产品评审，优先外部集成。
 
 ---
 
-## R10｜Flutter/Supabase 依赖升级不可复现
+## R19｜中国大陆实际网络与 Region 不匹配
+**等级：最高｜Production Project 创建前**
 
-**等级：中**
+Supabase 当前 APAC 有 Singapore/Tokyo/Seoul 等，没有中国大陆 region；项目不能原地换 region。
 
 处理：
-- 初始化时锁 stable Flutter/Dart；
-- 提交 `pubspec.lock`；
-- CI 使用明确 SDK；
-- 依赖升级单独 PR；
-- Production 升级先在 Local/Remote Development 验证。
+- Remote Development 只用虚构数据；
+- 在实际机构 Wi‑Fi + 普通移动网络 + **无代理/VPN**测试 Auth/Data API/Storage/Functions；
+- 不行就重建 Dev 到另一 APAC region 重测；
+- 测完再创建 Production；
+- 未成年人数据驻留/跨境处理单独做机构合规评估。
+
+退出：选定 region 有真实网络测试记录 + 合规决策记录。
 
 ---
 
-## R11｜Local / Remote Development / Production 混用
-
+## R20｜Local / Remote Dev / Production 混用
 **等级：最高**
 
-风险：测试脚本误删真实数据、真实学生进入截图、Secret 混用。
-
-处理：
-- 独立 Supabase Project；
-- 显著环境标识；
-- Production 禁止 seed/reset；
-- Git migrations 是 schema 事实源；
-- 生产破坏性动作额外确认。
+处理：独立项目/Secret/Storage/账号；Production 禁 seed/reset；Git migrations 是结构事实源；环境视觉标识明显。
 
 ---
 
-## R12｜Supabase Free 没有付费级自动备份保障
-
+## R21｜Free Production 没有自动日备份保障
 **等级：最高｜真实数据前**
 
-0 元不能等于没有恢复能力。
-
 处理：
-- 定期 `supabase db dump` / `pg_dump`；
-- 加密离站保存；
-- 多时间点保留；
-- 定期恢复演练；
-- 记录 schema/app version。
+- roles/schema/data 逻辑 dump；
+- 多时间点、加密离站；
+- migration history/配置清单；
+- 实际恢复演练；
+- 目标 Pilot RPO 默认不超过一个教学日，若机构无法接受则免费方案不合格。
 
-退出条件：从实际备份成功恢复一个测试环境，而不是只看到一个 `.sql` 文件。
+退出：从实际备份恢复到新测试项目并完成 smoke test。
 
 ---
 
-## R13｜数据库备份了，Storage 附件没备份
-
-**等级：高**
-
-数据库备份不包含 Storage 文件本体。
+## R22｜只备份 DB，Storage/配置没恢复
+**等级：最高**
 
 处理：
-- Storage 对象清单；
-- 单独文件备份；
-- 抽样恢复；
-- DB path ↔ object 一致性检查。
+- Storage 对象 + manifest 单独备份；
+- Edge Functions 代码在 Git；
+- Auth/Realtime/Extensions/Secrets/Project config 有重建清单；
+- 恢复后做 DB path↔object 一致性检查。
 
 ---
 
-## R14｜Free Project 低活动暂停 / 免费额度超限
-
+## R23｜Free Project inactivity / quota
 **等级：中高**
 
-Supabase Free Project 可能因低活动暂停；DB/Storage/Egress 也有免费上限。
-
-处理：
-- Pilot 前记录当前额度；
-- 管理员知道恢复 paused project 流程；
-- 长假前确认备份；
-- 使用量接近阈值时先评审数据清理/附件策略；
-- 不启用自动付费升级。
-
-“系统被大量真实教师长期依赖”本身就是重新评估基础设施的触发条件。
+处理：记录当前额度；长假前备份；知道恢复 paused project；接近 DB/Storage/Egress 上限先评审，不自动付费。
 
 ---
 
-## R15｜GitHub Actions 免费额度被重构建吃完
+## R24｜GitHub Actions 超额扣费
+**等级：中高**
 
-**等级：中**
+Private Free 有免费分钟，但超额可计费。
 
 处理：
+- budget 设置 `Stop usage when budget limit is reached`；
 - PR 默认 Linux format/analyze/unit/DB tests；
-- Android/Windows release build 仅 Milestone/Release/手动；
+- Windows/Android release build 仅 Milestone/Release/手动；
 - 不用 larger runner；
-- artifact retention 短；
-- GitHub billing budget 设为到上限停止使用，不自动付费。
+- artifact retention 短。
 
 ---
 
-## R16｜应用分发和版本失控
-
-**等级：中高**
-
-几十名老师装不同版本，DB 已迁移但旧客户端还在运行，会造成隐性故障。
-
-处理：
-- Windows/Android 明确 version；
-- schema migration 保留必要兼容窗口；
-- 后续加最低支持版本提示；
-- 签名密钥独立备份；
-- 发布前 smoke test。
-
----
-
-## R17｜自由文本收集过度敏感信息
-
-**等级：高**
-
-处理：
-- UI 提示记录可观察教学事实；
-- 不把无关家庭/健康/身份推断作为教学标签；
-- 日志/AI 输入最小化；
-- 管理员按制度更正/导出/删除。
-
----
-
-## R18｜AI 让数据更漂亮但事实变差
-
-**等级：中高（V2）**
-
-处理：
-- AI 输出先是 draft；
-- 保留来源与人工确认；
-- AI 不写正式 status；
-- AI 总结不等于 evidence；
-- AI 不越权读取其他学科。
-
----
-
-## R19｜ChatGPT Work 长会话上下文漂移
-
-**等级：高｜开发过程**
-
-风险：一条超长会话经历几十个 PR 后，会把旧方案、旧 SHA、已废弃 ADR 混在一起。
-
-处理：
-- GitHub 是代码事实源；
-- 每个任务先读 `AGENTS.md` + 当前 docs；
-- 一个可验收目标通常一条 Work 会话 + 一个 PR；
-- 不把聊天里“记得的代码”当当前仓库；
-- 方向变化写 ADR；
-- milestone 完成后开新的执行线程。
-
----
-
-## R20｜云端 Agent 声称“测试通过”，实际没有执行环境
-
-**等级：最高｜开发过程**
-
-Work 适合多步骤研究/交付，但软件发布必须区分“推理上看起来正确”和“命令真实执行”。
-
-处理：
-- 能运行就记录真实命令/结果；
-- 不能运行时明确标记未验证；
-- GitHub Actions 或 Codex 负责可执行证据；
-- PR 不因为 Agent 说“应该可以”就视为 CI green。
-
----
-
-## R21｜Luna Max 用在所有机械任务，提前耗尽包含额度
-
+## R25｜Flutter/Supabase 依赖升级不可复现
 **等级：中**
 
-用户希望使用 Luna Max，但零额外付费要求避免无意义消耗。
-
-处理：
-- Max 优先 RLS、migration、事务、并发、安全、复杂 refactor、Milestone 终审；
-- 重命名、格式、简单 UI、重复 CRUD 用普通 Luna 档即可；
-- 无论模型，一个 PR 目标要小；
-- 达到方案内额度后等待重置，不购买 credits。
+处理：锁 stable SDK、提交 `pubspec.lock`、CI 固定 SDK、依赖升级独立 PR、Production 前先 Dev 验证。
 
 ---
 
-## R22｜为了“方便”接入隐藏付费 SaaS
+## R26｜客户端版本与 DB schema 失配
+**等级：中高**
 
+处理：版本号、兼容窗口、expand→migrate→contract、最低支持版本策略、release smoke test。
+
+---
+
+## R27｜自由文本过度收集敏感信息
 **等级：高**
 
-常见来源：SMTP、短信、监控、错误追踪、AI API、商业 UI、数据库 add-on、larger CI runner。
+处理：记录可观察事实；备注最小化；日志/AI 最小化；数据更正/导出/删除治理。
 
-处理：
-新增外部依赖前回答：
-1. V1 不用它是否真的做不成？
-2. 免费层是否足够？
-3. 超额会不会自动扣费？
+---
+
+## R28｜AI 让文本漂亮但事实变差
+**等级：V2 中高**
+
+处理：AI 只 draft；保留来源；人工确认；不写正式 status；不把总结当 evidence；不越权跨学科。
+
+---
+
+## R29｜Work 长会话上下文漂移
+**等级：高｜开发**
+
+处理：GitHub 是事实源；任务先读 AGENTS + 当前 docs；一个可验收目标一条 Work 会话/PR；方向变化写 ADR。
+
+---
+
+## R30｜Agent 声称“测试过”但没有执行
+**等级：最高｜开发**
+
+处理：真实命令/CI 输出才叫执行证据；无法执行必须标“未验证”；PR 不因模型口头判断视为 green。
+
+---
+
+## R31｜Max 推理预算被机械任务耗尽
+**等级：中**
+
+处理：Luna Max 优先 RLS/migration/事务/并发/安全/终审；格式/改名/重复 CRUD 用较轻档；包含额度用完就等待重置。
+
+---
+
+## R32｜隐藏付费 SaaS 破坏 0 元目标
+**等级：高**
+
+任何新 SaaS 前回答：
+1. V1 不用是否做不成？
+2. Free 是否够？
+3. 超额会不会扣费？
 4. 能否迁出？
-5. 是否接触学生敏感数据？
+5. 是否接触学生数据？
 
 未经 ADR 不新增付费硬依赖。
 
 ---
 
-## R23｜照搬开源项目导致产品失焦或许可证风险
-
+## R33｜照搬开源项目/许可证风险
 **等级：中高**
 
-处理：
-- 借设计模式和经验，不大段复制未知许可证代码；
-- 优先 Flutter/Supabase 官方；
-- Frappe/Gibbon 只借教育领域长期经验，不 fork 成 ERP；
-- AppFlowy 只借跨平台/隐私/发行经验，不带入 Rust/CRDT；
-- 参考来源记录在 `docs/OPEN_SOURCE_REFERENCES.md`。
+借模式和经验，不复制大段未知许可证代码；优先官方；不 fork 大型教育 ERP；参考来源记录在 `OPEN_SOURCE_REFERENCES.md`。
 
 ---
 
-# 真实数据上线前 Go / No-Go
+# 真实数据 Go / No-Go
 
-以下关键项必须全部满足：
+- [ ] GitHub Private
+- [ ] 无自动超额 Actions 费用
+- [ ] Local/Remote/Production 隔离
+- [ ] Region 经真实无代理机构网络验证
+- [ ] provision/onboarding/reset 双平台通过
+- [ ] onboarding expiry/reissue/响应丢失通过
+- [ ] global sign-out + revoked JWT live-session test 通过
+- [ ] Session 安全本地存储
+- [ ] 启动 Gate 无隐私闪现
+- [ ] 本地草稿加密/隔离/TTL/清理
+- [ ] RLS/GRANT/View/Function/Storage 越权测试
+- [ ] 网络失败/幂等通过
+- [ ] 教师交接/学生合并通过
+- [ ] 两个 org_admin 或 break-glass 演练
+- [ ] roles/schema/data DB backup + 真恢复
+- [ ] Storage 独立恢复抽测
+- [ ] 配置/Secrets 重建清单
+- [ ] 日志无 Password/Token/学生敏感正文
+- [ ] 安装/升级路径明确
+- [ ] Supabase Free 容量/RPO 能接受
+- [ ] 未成年人信息/数据驻留/跨境合规评估完成
 
-- [ ] GitHub 仓库已 Private
-- [ ] Local / Remote Development / Production 已隔离
-- [ ] Production 无 development seed/reset
-- [ ] 管理员开通账号流程双平台验证
-- [ ] 临时密码不落 DB/log/audit/GitHub
-- [ ] onboarding / disabled 旧 Session 均无业务权限
-- [ ] RLS/GRANT/View/Function 越权测试通过
-- [ ] 网络失败草稿恢复通过
-- [ ] 实际机构网络测试通过
-- [ ] 教师交接通过
-- [ ] DB dump + 实际恢复演练通过
-- [ ] Storage 独立备份/恢复抽测
-- [ ] Production Secret 不在客户端/GitHub
-- [ ] 日志无学生敏感正文、Token、密码
-- [ ] 安装包签名与更新路径明确
-- [ ] GitHub Actions 不会自动产生超额费用
-- [ ] Supabase Free 使用量适合当前 Pilot
-- [ ] 根据实际部署地区完成隐私/未成年人数据合规评估
-
-只要关键项未满足，就继续使用虚构/脱敏数据。
+任一关键项未满足，只用虚构/脱敏数据。
 
 ## 何时必须重新评估“0 元”
 
-出现任一情况时，不应机械坚持免费：
-- 系统已经成为机构日常关键基础设施；
-- 真实数据无法接受较长恢复点；
-- Free 数据库/Storage/流量接近上限；
-- 长假暂停对业务不可接受；
-- 教师数量扩大导致管理员重置密码不可运营；
-- 家长/学生端需要自助账号；
+- 系统成为机构关键基础设施；
+- 无法接受一个教学日左右的恢复点；
+- Free DB/Storage/Egress 接近上限；
+- inactivity pause 不可接受；
+- 教师规模让人工账号恢复不可运营；
+- 家长/学生需要自助账号；
 - 机构需要 SLA/专业支持。
 
-到那时做一次新的成本/风险 ADR，而不是偷偷开付费服务。
+到那时做新的成本/风险 ADR，不偷偷开启付费服务。
