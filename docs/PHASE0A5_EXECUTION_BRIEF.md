@@ -452,9 +452,9 @@ Flutter Windows + Android 能否合理实现，是否为了设计稿引入大量
 
 本任务书的完成条件 checklist 已与最终设计事实源对齐；逐项审查证据和最终 CI 结果以 `docs/design/DESIGN_REVIEW_CHECKLIST.md` 与 Draft PR #9 为准，不以本文件单独替代审查记录。
 
-当前状态：Phase 0A.5 的审计修复与自审已完成，等待下一轮独立复审。PR #9 保持 Draft/Open，Issue #6 保持 Open；本状态不授权进入 Phase 0B。
+当前状态：Phase 0A.5 的审计整改已完成；最终独立复审、精确 PR Head SHA 与最终 CI run 以 PR #9 的 final audit record 为准。在该记录明确 PASS 前，PR #9 保持 Draft/Open，Issue #6 保持 Open，不授权进入 Phase 0B。
 
-正式 CI 证据：最终 PR Head 对应 GitHub Actions [`Flutter checks` run #63](https://github.com/qbjsdsb/xueqing/actions/workflows/flutter.yml)，`flutter pub get`、lockfile consistency、只读 formatter check、`flutter analyze` 和 `flutter test` 已全部通过，以该 workflow 记录为准。
+正式 CI 证据规则：最终 PR Head 必须对应最新成功的 GitHub Actions `Flutter checks`，并真实通过 `flutter pub get`、lockfile consistency、只读 formatter check、`flutter analyze` 和 `flutter test`；不在本任务书固定容易因证据提交本身而立即过期的 run 编号。
 
 本次修复特别锁定以下事实：
 
