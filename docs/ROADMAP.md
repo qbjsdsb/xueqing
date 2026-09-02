@@ -4,7 +4,7 @@
 
 **先证明关键风险可控 → 再搭业务底座 → 先完成一条垂直闭环 → 最后扩功能。**
 
-不按页面数量衡量进度。V1 内部 Pilot 默认不额外购买服务器、数据库套餐、SMTP、域名、短信、AI API、CI 或 Work/Codex credits。
+不按页面数量衡量进度。V1 内部 Pilot 默认不额外购买服务器、数据库套餐、SMTP、域名、短信、AI API、CI 或 Work / Codex credits。
 
 ---
 
@@ -21,17 +21,20 @@
 - [x] 一目标 / 一 Work 会话 / 一 branch / 一 PR 的开发规则已定义
 - [x] Work / Codex 禁止直推 main 的规则已定义
 - [x] GitHub Free private 缺少付费级强制保护的流程替代已记录
-- [ ] Actions billing budget 启用超额停止
+- [x] Wiki 已关闭
+- [x] Template repository 已关闭
+- [x] Actions zero-overage budget 已做明确决策：用户选择暂不设置，作为已知账户级计费风险接受，不作为 Foundation / Phase 0A 阻塞项
 - [x] 零额外付费阶段不购买 extra Work / Codex credits 的规则已定义
 
-### 仍需人工确认
-- Template repository 是否关闭；
-- Wiki 是否关闭；
-- Actions zero-overage budget 是否生效。
+### CI 成本控制
+
+因 zero-overage budget 未配置，仓库通过执行策略降低误耗风险：
+- 普通 PR / main：Linux 轻量 format / lockfile / analyze / test；
+- Windows / Android native build：Milestone / Release / 手动；
+- 不用 larger runner；
+- 不在 PR + branch push 上重复执行同一轻量 workflow。
 
 ### 验收
-
-> 当前源码与配置基线已建立；由于执行环境没有 Flutter/Android/Windows toolchain，下面的真实构建验收仍保持未勾选。
 - 新任务只靠 GitHub + AGENTS + docs 能理解当前规则；
 - PR 没执行证据不合并；
 - 不依赖付费 branch protection 才能遵守流程。
@@ -40,30 +43,40 @@
 
 ## 0B. Flutter 正式工程
 
-> 文档映射：本仓库当前执行任务书中的 **Phase 0A** 对应本节 Flutter 工程基线；后续 Local Supabase 属于 Phase 0B。保留原有 0A/0B/0C 编号以避免 Foundation 文档历史引用断裂。
+> 文档映射：本仓库当前执行任务书中的 **Phase 0A** 对应本节 Flutter 工程基线；后续 Local Supabase 属于 Phase 0B。保留原有 0A / 0B / 0C 编号以避免 Foundation 文档历史引用断裂。
 
 ### Phase 0A 当前实现状态
 
 - [x] Flutter project metadata、Android 与 Windows platform source 已加入既有分支
 - [x] `xueqing` package 与 `com.xueqing.app` application id 已固定
-- [x] typed environment、bootstrap、router、theme、responsive、error/loading foundation 已加入
-- [x] 最小 unit/widget tests 与轻量 GitHub Actions workflow 已加入
-- [ ] Flutter/Android/Windows 的本地真实执行验证（当前环境不可用；Flutter format/analyze/test 已由 CI 真实执行）
-
-- [x] 按当前 stable Flutter 官方模板形态准备 Windows + Android 工程文件（本地 SDK 不可用，未宣称 build 通过）
+- [x] typed environment、bootstrap、router、theme、responsive、error / loading foundation 已加入
+- [x] 最小 unit / widget tests 与轻量 GitHub Actions workflow 已加入
 - [x] 提交 `pubspec.lock`
+- [x] CI 在 `flutter pub get` 后验证 lockfile 没有未提交变化
 - [x] typed AppConfig / Development / Production 配置
-- [x] 以 Bootstrap/Widget 边界保持轻量；业务 data/service/repository 在需要时再出现
+- [x] 以 Bootstrap / Widget 边界保持轻量；业务 data / service / repository 在需要时再出现
 - [x] 基础 theme / router / error boundary / logging
-- [x] format / analyze / test 的 CI 基线文件，并由 GitHub Actions run `33603964885` 真实通过
-- [x] REVIEWED ONLY：参考 Flutter 官方 stable template 的平台结构
 - [x] Widget 中没有 Supabase 表查询、权限或事务逻辑
+- [x] Phase 0A 没有提前开发 Student / Case / Lesson / Today 正式页面
+- [x] 最终 UX/UI 明确后置到 Phase 0A.5
 
-### 验收
-- [ ] Windows debug/build 能真实执行
-- [ ] Android debug/build 能真实执行
-- [x] `flutter analyze` 通过（GitHub Actions run `33603964885`）
-- [x] `flutter test` 通过（GitHub Actions run `33603964885`）
+### 真实执行证据
+
+- [x] Flutter `3.47.1` / Dart `3.13.1` GitHub Actions 工具链
+- [x] `flutter pub get`：PASS / EXECUTED
+- [x] lockfile consistency：PASS / EXECUTED
+- [x] format：PASS / EXECUTED
+- [x] `flutter analyze`：PASS / EXECUTED
+- [x] `flutter test`：PASS / EXECUTED
+- [x] Android `flutter build apk --debug`：PASS / EXECUTED，run `33606216237`
+- [x] Windows `flutter build windows --debug`：PASS / EXECUTED，run `33606216237`
+- [x] 最终轻量 CI：run `33606400363` PASS
+
+详见 `docs/PHASE0A_EXECUTION_RECORD.md`。
+
+### Phase 0A 完成后
+
+先做本 PR 最终审计；通过后进入 **Phase 0A.5 UX/UI Design Foundation**，不是立即批量开发业务页面。
 
 ---
 
@@ -216,23 +229,23 @@
 ## 0H. CI 基线
 
 ### 每个普通 PR
-- [ ] format
-- [ ] analyze
-- [ ] Flutter unit tests
-- [ ] Local DB / migration / RLS tests
+- [x] Flutter format
+- [x] `pubspec.lock` consistency
+- [x] Flutter analyze
+- [x] Flutter unit / widget tests
+- [ ] Local DB / migration / RLS tests（Phase 0B 后加入）
 - [ ] basic secret / static checks
 
-### Milestone / Release 才跑
-- [ ] Windows build
-- [ ] Android build
-- [ ] 重 integration matrix
+### Milestone / Release / 手动
+- [x] Windows debug build 基线已验证
+- [x] Android debug build 基线已验证
+- [ ] release / integration matrix（后续 Milestone / Release）
 
 ### 成本边界
-- [ ] 不用 larger runner
-- [ ] artifact retention 短
-- [ ] Actions zero-overage budget 生效
-
-Phase 0A 的 GitHub Actions run `33603964885` 已真实通过 format/analyze/test；Windows 与 Android native build 不在该轻量 PR workflow 内，仍按执行环境分别记录。
+- [x] 不用 larger runner
+- [x] native build workflow 改为手动触发
+- [x] 普通 Phase 0A PR 不再同时用 branch push + pull_request 重复跑同一轻量检查
+- [x] Actions zero-overage budget：用户明确选择不设置，风险已记录并接受
 
 ---
 
@@ -270,7 +283,7 @@ Phase 0A 的 GitHub Actions run `33603964885` 已真实通过 format/analyze/tes
 ## Phase 0 总验收
 
 - [ ] 新环境可从 GitHub 启动
-- [ ] Flutter Windows / Android 可真实 build
+- [x] Flutter Windows / Android 可真实 build
 - [ ] Local DB 可从空库重建
 - [ ] organization timezone 行为正确
 - [ ] revoked Session 业务访问立即拒绝
@@ -282,7 +295,6 @@ Phase 0A 的 GitHub Actions run `33603964885` 已真实通过 format/analyze/tes
 - [ ] encrypted draft 通过
 - [ ] Region 经真实无代理网络验证
 - [ ] DB + Auth + Storage 实际恢复通过
-- [ ] 全程没有新增现金支出
 - [ ] 仓库无真实数据与 Secret
 
 **Phase 0 未通过，不进入真实学生数据，也不批量开发业务页面。**
@@ -300,7 +312,7 @@ Phase 0A 的 GitHub Actions run `33603964885` 已真实通过 format/analyze/tes
 - [ ] provision / onboarding / reset / disable
 - [ ] current organization context
 - [ ] live-session + active membership RLS
-- [ ] 单 Auth User V1 跨机构 active/onboarding 禁止
+- [ ] 单 Auth User V1 跨机构 active / onboarding 禁止
 - [ ] 两名 org_admin / break-glass
 
 ### 验收
@@ -429,7 +441,7 @@ new
 - 网络 / 设备异常不丢、不泄露；
 - 教师交接不丢历史；
 - DB / Auth / Storage 可恢复；
-- Free Pilot 不自动产生额外费用。
+- Free Pilot 的成本风险处于用户明确接受且可监控的范围。
 
 ---
 
