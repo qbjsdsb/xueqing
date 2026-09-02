@@ -67,7 +67,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
       _authRepository = widget.authRepository;
       _studentRepository = widget.studentRepository;
     } else {
-      widget.config.validate();
+      widget.config.cloudConfig.validate();
       if (!widget.config.cloudConfig.isConfigured) {
         return;
       }
