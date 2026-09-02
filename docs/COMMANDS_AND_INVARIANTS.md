@@ -24,9 +24,11 @@
 - `reset_member_credential`
 - `disable_membership_and_handoff`
 
-#### Subject / assignment governance
+#### Subject / assignment / service lifecycle
 - `reassign_teacher`
 - `revoke_teacher_subject_scope_and_handoff`
+- `deactivate_student_subject_profile`
+- `reactivate_student_subject_profile`
 
 #### Learning Case
 - `confirm_case`
@@ -42,6 +44,7 @@
 #### Student lifecycle / governance
 - `merge_students`
 - `deactivate_student`
+- `reactivate_student`
 - `archive_student`
 
 #### Finalized snapshots
@@ -96,9 +99,9 @@ credential 明文故意不持久化，因此不能要求“同 operation_id 再�
 如果后端已成功但响应丢失：
 - member 仍 onboarding；
 - 返回/展示 `credential_delivery_unknown` 或等价状态；
-- 管理员执行 reissue/reset，生成一个**新的**临时密码；
+- 管理员执行 reissue/reset，生成一个新的临时密码；
 - 旧临时密码因 Auth 密码更新失效；
-- 绝不为方便重试而保存可找回的明文密码。
+- 不保存可找回的明文密码。
 
 ### `complete_member_onboarding`
 
@@ -110,29 +113,29 @@ Reference 流程：
 5. 撤销该身份已有 Sessions/Refresh Tokens；
 6. 撤销成功后，服务端才将 membership→active；
 7. 写 audit；
-8. 客户端丢弃旧业务上下文并**强制重新登录**。
+8. 客户端丢弃旧业务上下文并强制重新登录。
 
-业务 RLS/API 还必须验证当前 Session 仍然有效。这样旧 token 尚未自然过期时也不能因为 membership 已 active 而重新获得学生数据权限。
+业务 RLS/API 还必须验证当前 Session 仍然有效。
 
 半失败：
 - 密码更新失败 → onboarding；
 - 密码成功、Session 撤销失败 → onboarding；
-- Session 撤销成功、membership 激活失败 → onboarding；用户用新密码重新登录后重试；
+- Session 撤销成功、membership 激活失败 → onboarding；
 - 不存在“半失败但 active”。
 
 ### `reset_member_credential`
 
 顺序必须保守：
 1. 验证 org_admin；
-2. **先 membership→onboarding**，立即切断普通业务 RLS/API；
+2. **先 membership→onboarding**，立即切断普通业务；
 3. 生成新随机临时密码；
 4. Auth Admin 更新密码；
-5. 撤销既有 Sessions（按 provider 等价能力）；
+5. 撤销既有 Sessions；
 6. 刷新 `onboarding_expires_at`；
 7. 写 audit；
 8. 临时密码只返回一次。
 
-如果 Auth 更新失败，账号仍 onboarding，无学生业务权限；管理员重试即可。
+Auth 更新失败时 member 仍 onboarding。
 
 ---
 
@@ -140,14 +143,15 @@ Reference 流程：
 
 普通学生业务至少要求：
 - 当前 Auth identity 有效；
-- 当前 Session 仍被 provider 视为有效；
+- 当前 Session 仍有效；
 - organization membership = active；
-- role/capability 检查成立；
-- subject scope / student assignment / owner 等后续关系检查成立。
+- role/capability；
+- subject scope / student assignment / owner 等关系；
+- operation-specific rule。
 
 Reference Supabase：`auth.uid() + JWT session_id + auth.sessions + membership`。
 
-Phase 0B.0 必须用 old-token negative test 证明 revoked Session 立即失败；不要只测试 UI 已退出。
+Phase 0B.0 必须用 old-token negative test 证明 revoked Session 立即失败。
 
 ---
 
@@ -166,23 +170,18 @@ live session
 + active membership
 + teacher capability
 + matching active teaching subject scope
++ active Student Subject Profile
 + 对该 student+subject 的合法 active teacher assignment 或本次合法 Lesson relationship
 + operation-specific permission
 ```
 
-以下身份**单独存在时**都不能伪造教学事实：
-- Subject Lead + leadership scope；
-- Academic Admin；
-- Org Admin；
-- Student Advisor。
-
-如果这些人员本人真实参与授课，必须另外满足 Teaching Fact Gate。
+Subject Lead leadership scope、Academic Admin、Org Admin、Student Advisor 单独存在时都不能伪造教学事实。
 
 ---
 
-## 6. 学情 Case 状态机
+## 6. Case 解决生命周期与 Subject Service 生命周期分离
 
-状态严格：
+Case status 严格：
 
 ```text
 new → confirmed → intervening → pending_verification → stable → closed
@@ -190,381 +189,360 @@ new → confirmed → intervening → pending_verification → stable → closed
 
 `reopen` 是命令/事件，不是状态。
 
-产品语言可把 `closed` 表达为“已清零”，但：
+Student Subject Profile status：
+
+```text
+active / inactive / archived
+```
+
+两者回答不同问题：
+- Case status：问题解决到哪一步；
+- Profile status：该学科当前是否持续教学。
+
+**不得因为学生/学科停读就把未解决 Case 改成 closed/已清零。**
+
+产品语言仍保持：
 
 ```text
 Assessment passed ≠ stable ≠ closed
 ```
 
+---
+
+## 7. Active Profile 下的 Case 不变量
+
 ### `new`
-- 10–20 秒快速草稿；
-- 可缺 taxonomy、owner、原因、行动；
-- 不能直接当成正式闭环结论。
+10–20 秒快速草稿，可缺 taxonomy/owner/action。
 
-### `confirmed`
-必须同时有：
-- 有效 active owner；
-- owner 满足 teacher capability + matching teaching scope + 合法 Student Assignment；
-- case type / taxonomy（允许“其他/暂未分类”）；
-- 至少一条可解释来源的 Evidence；
-- **一个 pending primary case_action**。
+### formal open Case
+当 `Student Subject Profile = active` 时，`confirmed / intervening / pending_verification / stable` 必须：
+- 有合法 active owner；
+- owner 满足 teacher capability + teaching scope + active Student Assignment；
+- 有一个 pending primary Action。
 
-### 暂停不是没有下一步
+### Profile inactive/archived
+未解决 formal Case 可以保留其真实 Case status，但：
+- 不要求 current pending primary Action；
+- 不进入普通教师 Today；
+- 停用时要写 tracking suspended event/reason；
+- 恢复 profile active 前必须重新 reconcile 并建立合法 primary Action。
 
-如果业务上需要“先观察/暂缓”：
-- `pause_reason` 解释原因；
-- 同时建立 `action_type=review` pending primary action；
-- review action **必须有 due_at**；
-- 到期/逾期仍会进入 Today。
-
-### `intervening`
-正在实施干预，并保持 active owner + primary action。
-
-### `pending_verification`
-主要下一步应为 verify；若等待特定时间/条件，仍用有 due time 的行动表达。
-
-### `stable`
-已有证据支持改善，但仍观察。未 closed 时必须有下一次 review/verify 主行动。
-
-### `closed`
-退出主动跟进：
-- 不存在 pending primary action；
-- 不存在隐藏等待复查；
-- 复发走 reopen。
+### 暂停/稳定观察
+在 active Profile 内，如果只是教学上的“暂缓/观察”，仍然必须使用 `review + due_at`；不能拿 profile inactive 逃避正常下一步责任。
 
 ---
 
-## 7. 三类 Case Workflow 不改变生命周期
+## 8. 三类 Case Workflow 不改变生命周期
 
-### Knowledge
-当堂订正 → 相似题巩固 → 延迟独立验证 → stable/review/closed。
+- knowledge：当堂订正 → 相似题 → 延迟独立验证 → stable/review/closed；
+- habit：可观察行为 → 干预 → 多场景连续观察 → 稳定/调整；
+- exam_strategy：方法 → 应用 → 限时/模拟迁移 → 独立验证。
 
-### Habit
-定义可观察行为 → 干预 → 多个自然场景持续观察 → 调整/稳定。
-
-### Exam Strategy
-方法讲解 → 引导应用 → 限时/模拟迁移 → 无提示独立验证。
-
-三阶是 knowledge 默认产品 template，不是数据库三列/三状态。不能为了“3/3 进度”篡改真实事实。
+三阶是 knowledge 默认产品 template，不是数据库三列/三状态。
 
 ---
 
-## 8. `confirm_case`
+## 9. `confirm_case`
 
-原子检查/完成：
-1. case 仍为 new，expected_version 匹配；
-2. actor 对学生/学科有编辑/确认权限；
-3. owner 同机构、active、满足 Teaching relationship；
-4. taxonomy 与 student subject profile 一致；
-5. 至少一条 Evidence；
-6. 存在合法 pending primary action；
-7. 如果 action 表示暂停 review，则必须有 due_at；
-8. 写 confirmed event；
-9. 更新 status/version；
-10. 返回最新快照。
-
-课堂短备注可在同一 command 中生成最小 observation/classwork Evidence，避免先插 Evidence 再确认造成半成功。
+原子检查：
+1. case=new，expected_version 匹配；
+2. Subject Profile=active；
+3. actor 有编辑/确认权限；
+4. owner active 且满足 Teaching relationship；
+5. taxonomy 与 profile 一致；
+6. 至少一条 Evidence；
+7. 存在 pending primary Action；
+8. 暂停 review 必须 due_at；
+9. 写 event；
+10. 更新 status/version 并返回快照。
 
 ---
 
-## 9. Assessment 与 Case Status 分离
+## 10. Assessment 与 Case Status 分离
 
-- `passed` ≠ 自动 stable；
-- `passed` ≠ 自动 closed；
+- passed 不自动 stable/closed；
 - failed/partial 不删除历史；
 - stable/closed 由授权 owner/teacher 结合证据确认；
-- Collaborator 如果不是合法 owner/command actor，不因自己做了 Assessment 就自动有 close 权；
-- 状态变化必须写 Case Event。
+- Collaborator 若不是合法 owner/command actor，不因自己做了 Assessment 自动获得 close 权；
+- 状态变化写 Case Event。
 
 ---
 
-## 10. 主行动不变量
+## 11. 主行动不变量
 
-一个案例可有辅助行动，但最多一个 `pending + is_primary`。
+- 同一 Case 最多一个 `pending + is_primary`；
+- **active Profile 的 formal open Case** 必须有 pending primary；
+- inactive/archived Profile 的 unresolved Case 可以无 pending primary；
+- profile deactivation 时旧 pending Action 必须受控完成/取消，记录 suspension reason；
+- profile reactivation 前必须为 unresolved Case 创建新的 primary Action；
+- closed 不得有 pending primary；
+- Guardian 不是 membership，家庭配合不能成为 assigned Case Action。
 
-规则：
-- new 可没有行动；
-- confirmed/intervening/pending_verification/stable 必须有 pending primary action；
-- 暂停 review action 必须有 due_at；
-- assignee 同机构、membership=active 且关系合理；
-- closed 不得有 pending primary action；
-- 完成/取消行动保留历史；
-- Guardian 不是 membership，家庭配合要求不能成为 assigned Case Action。
-
-`replace_primary_case_action` 应在同一事务内结束旧主行动、创建新主行动并写 Case Event。
-
-与某 Learning Case 直接相关的家校员工跟进，优先复用 `action_type=communicate`。
+`replace_primary_case_action` 在同一事务内结束旧主行动、创建新主行动并写 event。
 
 ---
 
-## 11. `start_lesson`
+## 12. `deactivate_student_subject_profile`
 
-开始 Lesson 不应由 Flutter 自己拼 `lesson + lesson_students` 多次 insert。
-
-命令至少：
-1. 验证 live/active membership；
-2. actor 满足 teacher capability + matching teaching scope；
-3. 对目标学生有合法 Student Assignment / 被允许的代课关系；
-4. organization / subject 一致；
-5. 创建 `lesson(in_progress)`；
-6. 创建 lesson_students；
-7. 写 audit/必要 event；
-8. 返回完整 Lesson context。
-
-一对一是 1 个 lesson_student，小班可以多个。
-
----
-
-## 12. `complete_lesson`
-
-课中 Evidence / Intervention / Assessment 可逐项可靠保存，不要求等到课程完成才第一次写入云端。
-
-`complete_lesson` 最终负责收口：
-- 完成/取消旧 Action；
-- 已有事实 IDs 与本次必要新增事实；
-- 合法 Case transition；
-- 创建下一主行动；
-- 写 Case Event / audit；
-- lesson→completed。
-
-必须保证：
-1. live/active teacher 权限；
-2. lesson expected_version/status；
-3. teacher/student/subject/organization 一致；
-4. payload 不重复创建已经成功保存的事实；
-5. Case transition 合法；
-6. Action 不变量成立；
-7. lesson completed 后无未处理的必需冲突；
-8. 重复 operation 不重复副作用；
-9. 返回最新快照。
-
-完成课程不强迫所有 new 当场 confirmed；但系统要提醒长期未整理草稿。
-
-### 小班事务边界
-
-“整节课一个超大事务”与“逐 Student/Case reconcile 后 finalize Lesson”的最终选择留 Phase 0B.0 fault/transaction Spike。
-
-必须满足：
-- 一个学生冲突不导致已成功事实丢失；
-- 不制造重复事实；
-- Lesson 不在仍有必需冲突时虚假 completed；
-- UI 明确指出具体哪个学生/Case 需要处理。
-
----
-
-## 13. `reassign_teacher`
-
-教师 assignment 调整必须：
-- 新接手 membership active；
-- 有 matching teaching scope；
-- 同 organization/subject；
-- 不违反 active Lead 唯一；
-- 若涉及当前 Case owner/pending Action，显式处理责任转移；
-- 写 assignment history + event/audit。
-
-不能只改 `student_teacher_assignments.membership_id` 覆盖历史。
-
----
-
-## 14. `revoke_teacher_subject_scope_and_handoff`
-
-用于：老师仍在机构 active，但以后不再教某一学科。
+用于：学生仍在机构，但暂停/停止某一学科持续教学。
 
 顺序：
-1. 验证治理权限；
-2. inventory 该 membership + subject 下 active teacher assignments；
-3. inventory active Case ownership；
-4. inventory pending Actions；
-5. 验证每个接手人 active + teacher capability + matching teaching scope；
-6. 结束旧 assignments，建立/确认新 assignments；
-7. 转移 owner/actions；
-8. 验证该 teaching scope 下无 orphan active responsibility；
-9. 结束/inactivate teaching scope；
-10. 写 events/audit。
+1. 验证治理权限与 profile expected_version；
+2. profile 当前 active；
+3. inventory active teacher assignments；
+4. inventory all formal open Cases；
+5. 对每个 pending Action 受控完成/取消，reason=`subject_inactive` 或等价；
+6. Case status **保持真实 unresolved status**，不自动 closed；
+7. 写 Case tracking-suspended events；
+8. 结束该学科 active assignments/owner current responsibility；
+9. 验证不存在继续进入普通 Today 的 pending item；
+10. profile→inactive；
+11. 写 audit。
 
-如果同一 membership 还有其他学科 scope，它们保持不变；不能误 disable 整个人。
-
-Leadership scope 撤销也要检查该学科尚有无管理责任，但不能与 teaching handoff 混为一谈。
-
----
-
-## 15. `disable_membership_and_handoff`
-
-完整离职/停用：
-1. inventory all active teacher/staff assignments；
-2. inventory all active Case ownership；
-3. inventory pending Actions；
-4. inventory subject scopes；
-5. 验证接手人 active 且 scope/relationship 有效；
-6. 结束旧 assignments/scopes；
-7. 建立/确认新关系；
-8. 转移 owner/actions；
-9. 写 events/audit；
-10. 验证无 orphan；
-11. **最后** membership→disabled；
-12. revoked-session guard 使旧业务访问立即失败。
-
-中间失败不得留下“账号已停用、当前事项无人负责”。
+该命令不影响 Student 其他 active Subject Profiles。
 
 ---
 
-## 16. Student inactive / archive reconciliation
+## 13. `reactivate_student_subject_profile`
 
-### `deactivate_student`
-用于暂停/停止当前学习但保留未来恢复可能。
+用于学生恢复某一学科。
+
+顺序：
+1. 验证治理权限与 profile expected_version；
+2. profile 当前 inactive；
+3. 建立/恢复合法 teacher assignment；
+4. inventory unresolved formal Cases；
+5. 对每个仍需继续跟进的 Case 指定合法 owner + 新 pending primary Action；
+6. 如果某 Case 根据新证据确实可 closed，必须走真实合法 Case command，不得批量假关闭；
+7. 写 tracking-resumed events；
+8. 验证 active-profile Case 不变量全部成立；
+9. 最后 profile→active；
+10. 写 audit。
+
+---
+
+## 14. `start_lesson`
+
+不由 Flutter 拼 `lesson + lesson_students`。
 
 至少：
-1. 验证治理权限与 expected_version（如 Student 使用）；
-2. 结束/调整 current enrollment；
-3. inventory teacher/staff assignments；
-4. inventory active Cases；
-5. 对每个 pending Action 明确：完成 / 取消 / 替换为未来 review /其他合法处理；
-6. **inactive 不自动 close Case**；
-7. 结束不再合理的 assignments；
-8. 写 reason + audit/events；
-9. 最后 Student→inactive。
-
-### `archive_student`
-只有在机构明确不再把该 Student 作为当前业务对象时执行。
-
-必须先满足 deactivate/reconciliation 语义，且：
-- 没有非法 active assignment；
-- 没有会继续进入 Today 的孤立 pending Action；
-- 历史仍可查询/审计；
-- 不物理删除核心教学事实。
-
-### Restart
-Student 重新回来：
-- 继续同一 Student ID；
-- 新增/恢复 enrollment；
-- 重建合法 assignments；
-- 继续同一 Subject Profile 历史；
-- 不因为“重新报名”创建重复 Student。
+1. live/active member；
+2. teacher capability + matching teaching scope；
+3. target Subject Profile=active；
+4. 对目标 Student 有合法 assignment/代课关系；
+5. organization/subject 一致；
+6. 创建 lesson(in_progress) + participants；
+7. audit；
+8. 返回 Lesson context。
 
 ---
 
-## 17. `merge_students(source, target)`
+## 15. `complete_lesson`
+
+课中 Evidence/Intervention/Assessment 可逐项可靠保存。
+
+最终 command 收口：
+- Action completion/cancel；
+- 合法 Case transition；
+- 下一 primary Action；
+- Case Event/audit；
+- Lesson completed。
+
+必须：
+1. live/active teacher；
+2. lesson expected_version/status；
+3. teacher/student/subject/profile 仍合法；
+4. 不重复创建已成功事实；
+5. Case/Action 不变量成立；
+6. 重复 operation 不重复副作用；
+7. 返回最新快照。
+
+小班“整 Lesson 一个大事务 vs per-student reconcile 后 finalize”留 Phase 0B.0 fault/transaction Spike。
+
+---
+
+## 16. `reassign_teacher`
+
+- 新接手人 active；
+- matching teaching scope；
+- Subject Profile active；
+- 不违反 Lead 唯一；
+- owner/pending Action 显式转移；
+- assignment history + audit；
+- 不直接覆盖旧 membership_id 抹历史。
+
+---
+
+## 17. `revoke_teacher_subject_scope_and_handoff`
+
+用于老师仍在职但退出某学科：
+1. inventory 该科 active assignments；
+2. Case ownership；
+3. pending Actions；
+4. 验证接手人 active + teacher + teaching scope；
+5. 结束旧 assignments，建立新关系；
+6. 转移 owner/actions；
+7. 验证无 orphan；
+8. 最后结束 teaching scope；
+9. audit。
+
+不能误撤其他学科。
+
+---
+
+## 18. `disable_membership_and_handoff`
+
+完整离职：
+1. inventory all teacher/staff assignments；
+2. Case owner/pending Actions；
+3. subject scopes；
+4. 完成交接；
+5. 验证无 orphan；
+6. 最后 membership→disabled；
+7. revoke old Sessions；
+8. 历史 actor 保留。
+
+---
+
+## 19. Student 整体 lifecycle
+
+### `deactivate_student`
+用于学生整体停止机构当前服务。
+
+至少：
+1. 验证治理权限；
+2. 结束/调整 enrollment；
+3. 对每个 active Subject Profile 执行与 `deactivate_student_subject_profile` 等价的 reconciliation；
+4. 处理 staff assignments；
+5. 验证所有 active profiles/Today obligations 已收口；
+6. **不自动 close unresolved Cases；**
+7. 最后 Student→inactive；
+8. audit。
+
+### `reactivate_student`
+1. Student inactive；
+2. 恢复/新增 Enrollment；
+3. 只激活实际重新开课的 Subject Profiles；
+4. 每个 profile 按 `reactivate_student_subject_profile` 恢复 assignment + unresolved Case next Actions；
+5. 最后 Student→active。
+
+### `archive_student`
+先满足 deactivate/reconciliation 语义；历史不物理删除。
+
+---
+
+## 20. `merge_students(source, target)`
 
 - source != target；
 - 同机构；
-- actor 有治理权限；
+- 有治理权限；
 - 不形成 merge 环；
 - enrollment/profile/assignment/Case 冲突有明确策略；
-- 整体事务化或明确可恢复；
-- source→merged + `merged_into_student_id`；
-- 写 merge record + audit；
+- 事务化或明确可恢复；
+- source→merged；
+- merge record + audit；
 - operation 重试不重复迁移；
-- source 不物理删除，旧 ID 仍可解释。
+- source 不物理删除。
 
 ---
 
-## 18. Parent Communication 命令语义
+## 21. Parent Communication 是事件，不是 mutable thread
 
 ### Draft
-Draft 可由有权限的 Subject Teacher / Advisor 等编辑，使用 version/expected_version；Draft 不是“已联系”。
+Draft 可编辑，使用 version/expected_version；Draft 不是已联系。
 
 ### `finalize_parent_communication`
 至少检查：
 1. status=draft；
 2. expected_version；
-3. actor 对该 Student/subject/comprehensive context 有沟通确认权限；
+3. actor 有该 Student/context 沟通权限；
 4. recipient(s) 合法；
-5. actual channel/occurred_at 满足当前 communication type 规则；
-6. 冻结 `content_snapshot + home_support + guardian_response`；
-7. 记录 finalized_by/finalized_at；
-8. 创建/校验非 Case follow-up 或 Case communicate Action；
-9. 写 audit；
-10. 返回 finalized snapshot。
+5. direction/channel/occurred_at 合法；
+6. reply_to（如有）同 organization + Student；
+7. 冻结当次 event 的 content/home-support/现场 response snapshot；
+8. 记录 finalized_by/finalized_at；
+9. 创建/校验 non-case follow-up 或 Case communicate Action；
+10. audit。
 
-Draft 生成/复制到微信不等于 finalize；只有实际沟通发生后才作为正式历史。
+### 异步家长回复
+老师 outbound 已 finalized 后，家长后来回复：
+- **新增 inbound communication event**；
+- 可 `reply_to` 原 outbound；
+- 不允许修改旧 outbound finalized row 的 guardian_response。
+
+### conversation
+同一电话/面谈 interaction 中双方当场交流，可以一条 `conversation` event 同时冻结机构表达、家庭配合与 guardian response。
 
 ### `correct_parent_communication`
-Finalized 不普通 UPDATE。
-
-严重错误需要：
-- 保留旧 snapshot；
-- correction reason；
-- actor/time；
-- 新版本/替代关系；
-- audit。
-
-不得删除“当时实际发过/说过什么”的历史解释能力。
+Finalized 不普通 UPDATE。严重错误保留旧 snapshot + correction reason/actor/time；如果已向家长发送错误内容，后续真实更正也应形成新的 communication event。
 
 ---
 
-## 19. Report / Stage Review 命令语义
-
-### Draft
-系统按 `period + source_cutoff_at` 整理正式事实，教师/Advisor 只补充真正需要专业判断的部分。
+## 22. Report / Stage Review 命令
 
 ### `finalize_report`
-至少：
 1. status=draft；
 2. expected_version；
-3. actor 有对应 subject/comprehensive confirm 权限；
+3. actor 有 subject/comprehensive confirm 权限；
 4. source_cutoff_at 已确定；
 5. 冻结 content_snapshot；
-6. 写 finalized_by/finalized_at；
-7. 写 audit；
-8. 返回 finalized snapshot。
+6. finalized_by/time；
+7. audit。
+
+### `correct_report` / `supersede_report`
+保留原 finalized snapshot + reason/actor/time。后续 Case reopen/补录 Evidence 不静默重写旧报告。
 
 Finalized Report 不等于已告知家长。
 
-### `correct_report` / `supersede_report`
-保留原 finalized snapshot + correction/supersede reason/actor/time。后续 Case reopen 或补录 Evidence 不静默重写旧报告。
-
 ---
 
-## 20. 普通幂等与网络重试
+## 23. 幂等、网络重试与 timeout unknown result
 
 ### 简单 insert
 客户端预生成 UUID，重试复用。
 
-### 数据库多表命令
-使用 `operation_id` / 唯一约束 / operation receipt 等方式，重复调用返回已有业务结果，不重复副作用。
+### 多表 command
+使用 `operation_id` / 唯一约束 / operation receipt 等，重复调用不重复副作用。
 
 ### timeout unknown result
-请求成功但响应丢失时：
-- 先按 entity/operation_id 查询是否成功；
+- 先按 entity/operation_id 查询是否已成功；
 - 不盲目重新生成 UUID；
-- 不重复 complete/action/reopen/finalize。
+- 不重复 complete/reopen/finalize。
 
-### Credential 命令
-凭据响应是例外：不能为了可重复返回而保存明文秘密；响应未知就 reissue 新凭据。
-
----
-
-## 21. 时间、并发与 finalized
-
-系统时间：`created_at / updated_at / audit_at / finalized_at` 服务端权威。
-
-业务发生时间：`observed_at / assessed_at / intervention occurred_at / lesson time / communication occurred_at` 可由授权用户合理修正并审计。
-
-关键快照使用 `version / expected_version`。版本冲突必须刷新并重新确认，禁止静默 last-write-wins。
-
-Append-only 两条合法 Evidence 可同时成功；同一 Case 状态/primary Action 的竞争修改必须只有一个 command 成功。
-
-Finalized Parent Communication / Report 一旦成功，旧 Draft 不能继续覆盖。
+### Credential
+不保存明文秘密满足幂等；响应未知则 reissue。
 
 ---
 
-## 22. Function 安全
+## 24. 时间、并发与 finalized
 
-- 优先 `security invoker`；
-- 必须 `security definer` 时放非 exposed schema；
-- `set search_path = ''`；
+系统时间：created/updated/audit/finalized 服务端权威。
+
+业务发生时间：observed/assessed/intervention/lesson/communication occurred_at 可由授权用户合理修正并审计。
+
+关键快照使用 version/expected_version。版本冲突禁止 silent last-write-wins，并保留用户输入。
+
+Append-only 两条合法 Evidence 可同时成功；同一 Case 状态/primary Action 竞争只能一个 command 成功。
+
+Finalized Communication/Report 成功后旧 Draft 不得覆盖。
+
+---
+
+## 25. Function 安全
+
+- 优先 security invoker；
+- security definer 放非 exposed schema；
+- `set search_path=''`；
 - schema-qualified；
 - revoke 默认 execute；
 - 最小 grant；
-- live-session / no-membership / onboarding / disabled / cross-org / cross-subject / no-assignment / wrong-scope 均有负面测试；
-- management role 不得借 function 绕过 Teaching Fact Gate；
-- provider adapter 不把 service secret 暴露给 Flutter。
+- live-session / no-membership / onboarding / disabled / cross-org / wrong-scope / no-assignment 均有负面测试；
+- management role 不得绕过 Teaching Fact Gate；
+- provider secret 不进 Flutter。
 
 ---
 
-## 23. Repository API 要像业务
-
-推荐：
+## 26. Repository API 像业务
 
 ```text
 membershipRepository.provisionMember(...)
@@ -575,6 +553,9 @@ membershipRepository.disableAndHandoff(...)
 assignmentRepository.reassignTeacher(...)
 assignmentRepository.revokeSubjectScopeAndHandoff(...)
 
+studentSubjectRepository.deactivate(...)
+studentSubjectRepository.reactivate(...)
+
 learningCaseRepository.confirmCase(...)
 learningCaseRepository.reopenCase(...)
 learningCaseRepository.replacePrimaryAction(...)
@@ -583,6 +564,7 @@ lessonRepository.startLesson(...)
 lessonRepository.completeLesson(...)
 
 studentRepository.deactivateStudent(...)
+studentRepository.reactivateStudent(...)
 studentRepository.archiveStudent(...)
 studentRepository.mergeStudents(...)
 
@@ -592,28 +574,28 @@ reportRepository.finalize(...)
 reportRepository.correct(...)
 ```
 
-不要把数据库表名/任意 status string/provider API 直接暴露给 ViewModel 组合。
+不要把数据库表名/任意 status string/provider API 暴露给 ViewModel 拼业务。
 
 ---
 
-## 24. 完成定义
+## 27. 完成定义
 
 高风险命令上线前至少有：
 - 正常路径；
 - 非法状态拒绝；
-- 权限拒绝；
-- wrong subject scope 拒绝；
-- no student assignment 拒绝；
+- revoked Session；
+- wrong scope；
+- no assignment；
 - management-only actor 伪造 teaching fact 拒绝；
-- revoked Session 拒绝；
 - expected_version 冲突；
-- 重复 operation；
-- 响应丢失模拟；
-- 跨系统/事务中间失败无越权半状态；
-- 跨机构/跨学科关联拒绝；
-- handoff/merge/deactivate 历史可追溯；
-- finalized snapshot 不能普通 UPDATE；
-- finalized correction 保留原历史；
-- Student inactive/archive 后不残留 orphan Today item；
-- subject scope handoff 不影响同一老师其他学科；
+- duplicate operation；
+- response lost；
+- cross-org/cross-subject；
+- subject scope handoff 不影响其他学科；
+- **Subject Profile inactive 不伪造 Case closed；**
+- inactive Profile 不再产生普通 Today pending item；
+- reactivation 前 unresolved formal Cases 全部重新有合法 next Action；
+- Student deactivate/reactivate 逐 profile reconciliation；
+- communication outbound finalized 后异步 reply 形成新 inbound event；
+- finalized correction 保留旧历史；
 - 小班 Lesson 故障边界由 Phase 0B.0 Spike 证明。
