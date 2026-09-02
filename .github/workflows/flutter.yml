@@ -28,6 +28,9 @@ jobs:
       - name: Get packages
         run: flutter pub get
 
+      - name: Verify lockfile is current
+        run: git diff --exit-code -- pubspec.lock
+
       - name: Check Dart formatting
         run: dart format --output=none --set-exit-if-changed .
 
