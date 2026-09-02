@@ -18,10 +18,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: const DesignPrototypePage(),
-      ),
+      MaterialApp(theme: AppTheme.light(), home: const DesignPrototypePage()),
     );
     await tester.pumpAndSettle();
 
@@ -37,10 +34,7 @@ void main() {
     await tester.tap(find.byType(DropdownButtonFormField<PrototypeStudent>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('示例学生甲 · 数学').last);
-    await tester.enterText(
-      find.byType(TextField).first,
-      '记录一个新的课堂问题',
-    );
+    await tester.enterText(find.byType(TextField).first, '记录一个新的课堂问题');
     await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
     await tester.pump(const Duration(milliseconds: 260));
     await tester.pumpAndSettle();
