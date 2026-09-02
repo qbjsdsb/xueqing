@@ -1,320 +1,349 @@
 # 核心用户流程
 
-> 开发新页面前先确认它服务哪个流程；不能改善核心流程的功能默认后置。
+> 开发页面前先确认它服务哪个真实流程。不能改善核心流程的功能默认后置。
 
 ## Flow A｜机构首次初始化
 
-1. 受信任运维在 Production 建立 organization；
-2. 一次性 bootstrap 创建首位 org_admin Auth User 与 onboarding membership；
-3. 首位管理员用一次性临时凭据登录；
-4. 管理员设置自己的新密码；
-5. membership → active；
-6. bootstrap 关闭；
-7. 管理员进入成员管理。
+1. 受信任运维创建 Production organization；
+2. 一次性 bootstrap 建首位 org_admin Auth User + onboarding membership；
+3. 设置 `onboarding_expires_at`；
+4. 管理员用一次性凭据登录；
+5. 只进入账号接管页；
+6. 设置自己的新密码；
+7. global sign-out 所有 Sessions；
+8. membership→active；
+9. 管理员用新密码重新登录；
+10. bootstrap 关闭。
 
 ### 验收
-- 客户端没有超级管理员 Secret；
-- Production 不依赖 development seed；
-- onboarding 时不能读取学生业务数据；
-- bootstrap 不能长期公开调用。
+- Flutter 没超级管理员 Secret；
+- onboarding 无学生数据；
+- 旧 Session 被 live-session guard 拒绝；
+- bootstrap 不长期公开；
+- Production 不用 development seed。
 
 ---
 
-## Flow B｜管理员开通教师账号
+## Flow B｜管理员开通教师
 
-1. org_admin 进入成员管理；
-2. 输入已知教师邮箱、显示名与初始角色；
-3. 服务端验证管理员机构权限；
-4. `provision_member` 生成高强度随机临时密码；
+1. org_admin 打开成员管理；
+2. 输入已知教师邮箱、显示名、初始角色；
+3. `provision_member` 验证管理员 live Session/机构权限；
+4. 服务端生成强随机临时密码；
 5. Auth Admin 创建/受控处理 Auth User；
-6. 创建 `membership(onboarding)` + roles；
-7. 写不含密码的 audit；
-8. 临时密码只向管理员显示一次；
-9. 管理员通过机构已有可信渠道交给教师。
+6. 建 `membership(onboarding)` + roles + expiry；
+7. audit 不含密码；
+8. 临时密码只显示一次；
+9. 管理员通过已建立身份关系的可信渠道交付。
+
+### 响应丢失
+如果服务端其实成功但管理员没收到响应：
+- member 保持 onboarding；
+- 不尝试“找回”原密码；
+- UI 提示凭据交付未知；
+- 管理员 reissue/reset，获得新的临时密码。
 
 ### 验收
-- 临时密码不进 DB/log/audit/GitHub；
-- 普通教师不能调用 provision；
-- onboarding 没有学生数据权限；
-- 同一机构不会重复创建同一成员身份；
-- 失败可理解、可安全重试，不留下“半个 active member”。
+- 密码不进 DB/log/audit/GitHub；
+- 普通 teacher 不能 provision；
+- 失败不留下 active 半状态；
+- 同一机构不重复 member。
 
 ---
 
 ## Flow C｜教师首次接管账号
 
-1. 教师打开 App；
-2. 输入邮箱 + 临时密码；
-3. Supabase Auth 建立 Session；
-4. App 发现 membership = onboarding；
-5. 只显示“设置自己的新密码”；
-6. 教师输入新密码；
-7. `complete_member_onboarding` 更新 Auth 凭据；
-8. membership → active；
-9. 进入机构。
+1. 教师邮箱 + 临时密码登录；
+2. App 启动 Gate 识别 membership=onboarding；
+3. 不挂学生业务 Shell，只显示“设置新密码”；
+4. 检查 onboarding 未过期；
+5. 教师输入自己的新密码；
+6. `complete_member_onboarding` 更新该用户密码；
+7. 服务端用当前登录 JWT global sign-out 所有 Sessions；
+8. sign-out 成功后 membership→active；
+9. App 清理旧 Session/机构上下文；
+10. 明确提示“账号已接管，请重新登录”；
+11. 教师用新密码重新登录；
+12. 新 live Session + active membership 后进入机构。
 
 ### 验收
-- onboarding 期间手工 API 请求也不能读学生数据；
-- 新密码不进入应用日志；
-- 半失败不会让 membership 提前 active；
-- Windows / Android 流程一致。
+- onboarding 手工 API 也无学生权限；
+- 过期凭据不能接管；
+- 保存旧 JWT，在接管完成后直接调用业务 API 必须被拒；
+- 半失败不提前 active；
+- Windows/Android 一致。
 
 ---
 
-## Flow D｜教师忘记密码 / 管理员重置
+## Flow D｜忘记密码 / 管理员重置
 
 1. 教师通过机构既有渠道联系管理员；
 2. 管理员确认本人；
-3. 管理员执行 `reset_member_credential`；
-4. 服务端生成新随机临时密码；
-5. Auth 密码更新；
-6. membership → onboarding；
-7. 旧 Session 因非 active membership 失去业务数据权限；
-8. 管理员一次性交付新临时密码；
-9. 教师重新走 Flow C。
+3. `reset_member_credential` 验证 org_admin；
+4. **先 membership→onboarding**，立即切断业务权限；
+5. 生成新的随机临时密码；
+6. Auth Admin 更新目标 Auth User 密码；
+7. 刷新 onboarding expiry；
+8. audit 不含密码；
+9. 临时密码只显示一次；
+10. 教师重新走 Flow C。
 
 ### 验收
 - 不依赖 SMTP；
-- 不需要通过“忘记密码邮件”才能恢复；
-- 密码不出现在 audit；
-- reset 后旧客户端不能继续读学生数据。
+- reset 中间失败优先停在无业务权限；
+- 旧客户端立即读不到学生数据；
+- 响应丢失走 reissue，不保存原密码。
 
 ---
 
-## Flow E｜建立学生主档案
+## Flow E｜App 启动 / Session 恢复
 
-1. 管理员/授权人员点击新建学生；
+1. App 读取 OS 安全存储中的 Session；
+2. 检查本地 Session 过期/刷新状态；
+3. 必要时等待远端 Auth refresh/验证；
+4. 检查 JWT `session_id` 仍是 live Session；
+5. 查询 active memberships；
+6. 解析 current organization；
+7. 最后挂业务 Shell。
+
+### 分支
+- revoked/expired → 登录页；
+- onboarding → 接管页；
+- disabled/no membership → 无权限状态页；
+- active → 业务页。
+
+### 验收
+任何旧/失效 Session 都不能先闪现学生页。
+
+---
+
+## Flow F｜建立学生主档案
+
+1. 管理员/授权人员点新建学生；
 2. 输入最少必要身份信息；
-3. 系统执行可能重复提示；
-4. 若已有学生，进入已有主档案；
-5. 若确认为新学生，创建 student；
-6. 创建当前 enrollment；
+3. 系统提示可能重复；
+4. 已存在则进入原主档案；
+5. 确认为新学生才创建 student；
+6. 创建 enrollment；
 7. 启用所需 subject profile；
 8. 分配任课教师/学生负责人。
 
-### 验收
-- 姓名不做硬唯一键；
-- 不因不同学科重复建 student；
-- 年级和负责人变化保留历史；
-- 普通教师不能用“删掉重建”绕过查重治理。
+验收：姓名不硬唯一；不因学科重复 student；年级/负责人变化保留历史。
 
 ---
 
-## Flow F｜老师第一次接手学生
+## Flow G｜老师第一次接手学生
 
-1. 教师打开学生；
-2. 首屏看到当前重点案例、待验证、下一步行动、最近时间线；
-3. 可按学科进入详细案例；
-4. 必要时查看允许共享的综合摘要；
-5. 不需要翻完整历史才能知道下一步。
+1. 打开学生；
+2. 首屏看到当前重点 case、待验证、下一 action、最近时间线；
+3. 按学科进入详细 case；
+4. 必要时看获准综合摘要；
+5. 不翻完整历史也能回答“现在最重要的三件事”。
 
-### 验收
-- 新教师短时间内能回答“现在最重要的 3 件事是什么”；
-- 历史负责人和处理记录仍可追溯；
-- 无权学科详细内容不会意外暴露。
+无权学科详细内容不能暴露。
 
 ---
 
-## Flow G｜课堂中快速发现一个新问题
+## Flow H｜课堂快速发现新问题
 
-目标不是当场填完整档案，而是**不中断教学地捕捉事实**。
+1. 从 lesson/学生页点“发现问题”；
+2. 已知学生/学科自动带入；
+3. 输入一句最小标题；
+4. 可选说明/分类/evidence；
+5. 系统提示明显重复 case；
+6. 保存 `new`；
+7. 网络异常时进入 encrypted local draft。
 
-1. 教师在课程/学生页点击“发现问题”；
-2. 当前学生和学科已知时不重复询问；
-3. 输入一句最小标题，例如“人物形象题只写性格，没有文本依据”；
-4. 可选补一句说明；
-5. 可选立即选择分类或附证据；
-6. 系统提示明显重复案例；
-7. 保存为 `new` 草稿；
-8. 网络异常时先保留本地草稿。
-
-### 目标体验
-- 常见捕捉目标 10–20 秒；
-- 不强迫课中选择完整 taxonomy；
+### 目标
+- 10–20 秒；
+- 不强迫完整 taxonomy；
 - 不强迫上传图片；
-- 不强迫当场写根因和整改方案；
-- 不强迫当场建下一步行动。
+- 不强迫课中写根因/整改/下一行动。
 
 ---
 
-## Flow H｜把 `new` 草稿确认成正式案例
+## Flow I｜确认 new 为正式 Case
 
-1. 打开 `new` 草稿；
-2. 系统利用 lesson context 预填学生、学科、发现时间；
-3. 教师确认轻量 taxonomy 和 case type；
-4. 可把课堂短备注 + context 转成最小 evidence 草稿；
-5. 教师确认/补充 evidence；
-6. 确认 owner；
-7. 创建首个主行动，或明确 pause reason；
-8. 执行 `confirm_case`；
-9. 写 confirmed event。
+1. 打开 new；
+2. lesson context 预填学生/学科/时间；
+3. 确认 taxonomy + case type；
+4. 确认/补最小 evidence；
+5. 确认 active owner；
+6. 创建一个 pending primary action；
+7. 执行 `confirm_case`；
+8. 写 confirmed event。
 
-### 验收
-- 数据质量在课后补齐，而不是把负担塞进课中；
-- 同类历史案例可在确认前提示复用/reopen；
-- `new → confirmed` 是受控命令，不靠页面任意改 status。
+### 暂缓
+如果暂时观察：
+- 填 pause_reason；
+- 建 `review` primary action；
+- review 必须有 due_at。
+
+不能只填“先观察”然后没有下一次检查。
 
 ---
 
-## Flow I｜一次真实课程
+## Flow J｜一次真实课程
 
 ### 课前
-1. 从“今日”或学生页快速开始课程；
-2. 看到到期行动、待验证和重点案例。
+1. 从 Today/学生页开始 lesson；
+2. 看到到期/逾期 action、待验证、重点 case。
 
 ### 课中
-3. 完成/调整已有行动；
-4. 记录真正发生的干预；
-5. 有验证时记录 assessment；
-6. 新问题走 Flow G 快速捕捉。
+3. 完成/调整 action；
+4. 记录 intervention；
+5. 有验证则 assessment；
+6. 新问题走 Flow H。
 
 ### 课后
-7. 系统整理本节新增事实；
+7. 系统汇总本节新增事实；
 8. 教师确认必要状态变化；
-9. 必要的 `new` 草稿进入 Flow H，或保留为待整理；
-10. 完成旧主行动；
-11. 确认/创建下一步主行动；
-12. 通过事务化 `complete_lesson` 完成课程。
+9. new 可进入 Flow I 或留待整理；
+10. 完成/取消旧 primary action；
+11. 创建新的 primary action；
+12. `complete_lesson` 原子完成课程。
 
 ### 验收
-- 常规课后记录中位时间 ≤ 60 秒；
-- 不要求填写另一份周总结；
-- 课程结果不重复保存；
-- 网络失败不清空输入；
-- 多表写入不留下半套状态。
+- 常规课后中位 ≤60 秒；
+- 不再填一份周总结；
+- 网络失败不丢/不重复；
+- 正式未关闭 case 没有 action 空窗。
 
 ---
 
-## Flow J｜验证失败
+## Flow K｜验证失败
 
-1. 教师记录 assessment = failed / partial；
-2. 系统不自动关闭案例；
-3. 提示继续干预或原因复盘；
-4. 教师选择下一步主行动；
-5. 案例回到/保持 intervening；
-6. 历史 assessment 保留。
-
----
-
-## Flow K｜验证通过并进入稳定观察
-
-1. 教师记录 assessment = passed；
-2. 系统显示“本次验证通过”，但不自动等同 stable/closed；
-3. 教师结合证据确认是否进入 stable；
-4. stable 可以设置后续观察/复查行动；
-5. 观察完成后才 closed。
-
-### 验收
-- assessment result 与 case status 不混淆；
-- stable 有改善依据；
-- closed 时不存在冲突 pending 主行动；
-- 以后复发 reopen 原案例。
+1. assessment=failed/partial；
+2. 系统不自动 close；
+3. 提示继续干预/原因复盘；
+4. 教师创建下一 primary action；
+5. case 回到/保持 intervening；
+6. 原 assessment 保留。
 
 ---
 
-## Flow L｜问题复发
+## Flow L｜验证通过 → Stable → Closed
 
-1. 教师发现与历史案例高度相同的问题；
-2. 系统提示已有 stable/closed 案例；
-3. 教师选择 reopen，而不是新建重复案例；
-4. 增加新证据；
-5. `reopened_count` 增加；
-6. 创建新的主行动；
-7. 原历史完整保留。
-
----
-
-## Flow M｜教师离职与交接
-
-1. 管理员选择待停用成员；
-2. 系统列出 active teacher/staff assignments；
-3. 列出未结束案例 owner；
-4. 列出 pending actions；
-5. 管理员选择接手人员或明确处理方式；
-6. 受控事务结束旧关系、建立新关系、转交当前责任；
-7. 验证没有意外 orphan；
-8. membership → disabled；
-9. 历史事实仍显示原教师。
-
-### 验收
-- 不先停用再发现一堆未交接任务；
-- 历史作者不变 null；
-- pending action 不失去负责人；
-- 旧 Token 也不能继续访问机构数据。
+1. assessment=passed；
+2. 显示“本次验证通过”，不自动改 stable/closed；
+3. 教师确认 stable；
+4. stable 同时创建后续 `review/verify` primary action；
+5. 到期再检查；
+6. 满足退出条件后 closed；
+7. close 时 pending primary action 必须清零。
 
 ---
 
-## Flow N｜网络失败与重试
+## Flow M｜问题复发
 
-1. 教师正在填写课后记录；
-2. 网络断开/请求超时；
-3. 页面显示保存失败或本地草稿；
-4. 输入仍在；
-5. 网络恢复后用户重试；
-6. 简单 insert 复用 UUID，多表命令复用 operation id；
-7. 服务端若第一次已经成功，第二次不重复副作用；
-8. 云端确认后显示已保存并清理草稿。
-
----
-
-## Flow O｜跨学科查看
-
-1. 任课教师进入自己负责学生；
-2. 可看到本科详细学情；
-3. V1 只提供必要基础/综合摘要；
-4. 不能修改其他学科专业案例；
-5. 学生负责人有更广综合视角，但不能替任课老师重写专业结论。
-
-### 验收
-前端和数据库行为一致；手工请求也无法越权。
+1. 发现和历史 stable/closed case 高度相同；
+2. 系统提示历史；
+3. 选择 reopen；
+4. 新 evidence；
+5. reopened_count +1；
+6. 建新的 primary action；
+7. 原历史保留。
 
 ---
 
-## Flow P｜合并重复学生
+## Flow N｜教师离职 / 交接
 
-1. 管理员确认两份档案属于同一真实学生；
-2. 展示 source / target 和受影响数据；
-3. 管理员选择保留 target；
-4. `merge_students` 验证同机构、权限、无 merge 环；
-5. 当前关系与引用按规则迁移/重指向；
-6. source → merged；
-7. 写 merge record + audit；
-8. 旧 source ID 仍能解释“已合并到哪位学生”。
+1. 管理员选择成员；
+2. 盘点 active teacher/staff assignments；
+3. 盘点 active case owner；
+4. 盘点 pending actions；
+5. 选择接手人/处理方式；
+6. 受控事务结束旧关系、建立新关系、转交责任；
+7. 验证无 orphan；
+8. membership→disabled；
+9. 历史作者保持原教师。
 
----
-
-## Flow Q｜零成本 Production 备份
-
-这是管理员/运维流程，不需要成为教师页面。
-
-1. 按制度执行数据库逻辑 dump；
-2. 加密保存到 Supabase 以外的位置；
-3. 导出 Storage 对象/清单；
-4. 记录备份时间与版本；
-5. 定期在非 Production 环境恢复；
-6. 验证 DB object path ↔ Storage object 一致性；
-7. 恢复失败必须修复流程，不能只证明“文件存在”。
-
-### 验收
-免费套餐没有自动日备份，也不能成为“没有备份”的理由。
+旧 JWT 也必须被业务授权拒绝。
 
 ---
 
-## V1 不应出现的流程
+## Flow O｜网络失败 / 草稿
 
-如果开发过程中出现以下流程，先回产品/架构评审：
-- 为了进入课程必须先排完整课表；
-- 老师每周重新抄一份周报；
-- 同一问题在初诊/顽固/周跟进多处维护；
-- 课堂中为了记录问题必须填十几个字段；
-- onboarding member 已经可以读取学生数据；
-- 管理员使用固定弱密码批量开账号；
-- 临时密码写入数据库或日志；
-- V1 登录必须依赖付费 SMTP/域名/SMS；
-- 普通教师可以删除历史事实；
-- 页面任意 UPDATE learning_cases.status；
-- 完成课程依赖多次非事务请求并允许半成功；
-- 网络失败后要求老师重新填；
-- 一次 passed 自动等于“已解决”；
-- AI 自动把学生状态改成“已解决”；
-- 为了参考开源项目把系统扩成收费/排课/招生 ERP。
+1. 教师填写；
+2. 网络断开/超时；
+3. 显示失败/待同步；
+4. 输入以 user/org scope 加密草稿保存；
+5. 网络恢复后重试；
+6. insert 复用 UUID，DB command 复用 operation id；
+7. 云端已成功则不重复副作用；
+8. 云端确认后删除本地 draft。
+
+### Logout / Account Switch
+若仍有未同步草稿，明确让用户同步或丢弃；绝不把上一账号草稿展示给下一账号。
+
+---
+
+## Flow P｜跨学科查看
+
+- 本科教师：本科详细数据；
+- 其他教师：必要摘要；
+- advisor：综合视角；
+- 不越权修改其他学科专业 case。
+
+手工 API 与前端行为一致。
+
+---
+
+## Flow Q｜合并重复学生
+
+1. 管理员确认同一真实学生；
+2. 展示 source/target 与受影响数据；
+3. 选择 target；
+4. `merge_students` 检查同机构/权限/无 merge 环；
+5. 迁移/重指向必要关系；
+6. source→merged；
+7. merge record + audit；
+8. 旧 source ID 可追溯到 target。
+
+---
+
+## Flow R｜Production 备份 / 恢复演练
+
+1. 导出 roles/schema/data；
+2. 必要时 migration history；
+3. 加密保存到 Supabase/GitHub 之外；
+4. 导出 Storage objects + manifest；
+5. 保存 Project config checklist；
+6. 新建非 Production 测试项目；
+7. 恢复 DB；
+8. 恢复 Storage/config；
+9. 跑 smoke test；
+10. 记录恢复结果/RPO。
+
+“文件存在”不等于可恢复。
+
+---
+
+## Flow S｜Production Region 决策
+
+1. Remote Development 使用虚构数据；
+2. 在实际机构 Wi‑Fi 无代理测试；
+3. 普通移动网络无代理测试；
+4. Auth/Data API/Storage/Functions/恢复全部覆盖；
+5. 不合格则重建 Dev 换 APAC region；
+6. 测试合格后才创建 Production；
+7. 机构完成数据驻留/跨境合规评估。
+
+---
+
+## V1 不应出现
+
+- onboarding/disabled/revoked Session 可以读学生数据；
+- 改密码后旧 Session 未撤销就直接 active；
+- 临时密码无有效期；
+- 为响应重试长期保存明文临时密码；
+- App 启动先闪学生页再验证 Session；
+- 敏感草稿明文长期落盘；
+- 暂停 case 没 review action/due_at；
+- 为开始 lesson 必须先排完整课表；
+- 老师每周再抄一份周报；
+- 一个问题多套台账；
+- 一次 passed 自动“已解决”；
+- 网络失败后要求重填；
+- AI 自动改正式 status；
+- 为参考开源项目把系统扩成收费/招生 ERP。
