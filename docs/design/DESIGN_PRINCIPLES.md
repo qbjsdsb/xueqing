@@ -1,238 +1,126 @@
-# Xueqing Design Principles
+# Xueqing UX/UI Design Principles
 
-> Status: Phase 0A.5 working baseline. These principles may be refined by evidence during the design phase, but should not be silently contradicted by implementation.
+状态：Phase 0A.5 foundation baseline
 
-## 1. 先看懂，再操作
+最后更新：2026-09-02
 
-界面第一职责是帮助教师快速理解当前状态和下一步，而不是展示系统“有多少数据”。
+这份文档只定义设计原则与语义边界。信息架构、视觉 token、响应式规则、组件和 screen spec 分别见同目录的对应事实源，避免同一规则在多份文档中漂移。
 
-- 当前最重要的信息必须比历史信息更先出现；
-- Primary action 必须比次要 metadata 更容易找到；
-- 状态与行动必须用文字和结构表达，不能只靠颜色；
-- 历史用于解释现在，不应淹没现在。
+## 1. 北极星
 
-## 2. 闭环优先于模块
+教师打开软件后，应能快速回答两件事：
 
-Xueqing 不是“学生表 + 课程表 + 问题表”的后台集合。
+1. 这个学生下一步做什么？
+2. 上一次教学是否有效，有什么证据？
 
-设计应持续强化：
+因此每个核心页面的默认顺序是：当前重点 → 可执行的下一行动 → 支撑判断的最近事实 → 必要历史。历史用于解释现在，不是默认要读完的档案库。
 
-`问题 → 证据 → 干预 → 验证 → 下一步`
+## 2. 设计决策的证据等级
 
-同一事实尽量只记录一次，其他视图派生展示。
+文档中的决策使用以下标签。标签表示依据强度，不表示视觉质量高低。
 
-## 3. 记录新事实，不要求老师重抄
+| 标签 | 含义 | 设计约束 |
+| --- | --- | --- |
+| Foundation requirement | `PRODUCT.md`、`USER_FLOWS.md`、`COMMANDS_AND_INVARIANTS.md` 等已冻结的产品事实 | 不得被视觉偏好覆盖 |
+| Official platform guidance | Flutter、Android、Windows、WCAG 官方指导 | 用来决定适配、输入、焦点、触控和无障碍 |
+| Observed mature-product pattern | 对成熟知识工作软件的公开帮助文档/产品模式观察 | 只借鉴解决的问题，不照搬品牌外观 |
+| Xueqing product judgment | 为教师闭环做出的产品判断 | 必须能解释对教师任务的帮助 |
+| Visual preference | 颜色、字重、表面气质等可调整偏好 | 不能改变信息优先级或业务语义 |
 
-课中和课后只要求记录真正新增的信息。
+发生冲突时，优先级为：Foundation requirement → 平台可用性/无障碍 → Xueqing product judgment → visual preference。
 
-- new case 目标 10–20 秒；
-- 常规课后目标中位 ≤60 秒；
-- 不要求教师重复填写能从上下文推导的数据；
-- 不为报告、周报重新抄一次事实。
+## 3. 一条闭环，一套语义
 
-## 4. 当前行动必须清楚
+Xueqing 的核心关系必须在 UI 中保持可追溯：
 
-正式未关闭 Case 的 pending primary action 是关键业务事实。
+`学生档案 → 发现问题 → Evidence → Intervention → Assessment / Verification → Stable / 继续跟进 → Next Action`
 
-UI 必须让教师一眼看出：
+- Evidence 是可观察事实、作品、回答、错误、课堂表现或附件引用；不等于教师解释。
+- 教师判断说明如何理解 Evidence；不能把判断伪装成客观事实。
+- Intervention 是已经采取或计划采取的教学动作。
+- Assessment / Verification 记录某次检查的结果；“通过”只描述这次检查，不自动把 Case 变成 stable。
+- stable 仍须有 review / verify action；stable 不等于 closed。
+- closed 表示没有待完成的主要行动；reopen 是保留历史连续性的事件，不覆盖旧记录。
+- Case status 与 action status 是两个不同对象；页面文案和颜色都不能把它们混成一个状态。
 
-- 下一步是什么；
-- 谁负责；
-- 何时处理（如有 due）；
-- 是否逾期；
-- 是干预、验证还是 review。
+## 4. 信息优先于容器
 
-不得在视觉上把 action 降级成藏在详情页底部的辅助字段。
+默认用标题、行高、留白、对齐和分隔线组织信息，最后才使用 Card。只有当一组内容需要独立操作、形成明确边界或与页面背景有真实层级差时才使用容器。
 
-## 5. 证据与判断分开
+禁止把每一行包成圆角 Card，也禁止出现 Card inside Card 的递归层级。一个页面的 surface 层级通常不超过：canvas、surface、modal/sheet。
 
-Evidence、教师判断、Intervention、Assessment 是不同事实。
+## 5. 真实工作软件气质
 
-设计不得用一段混合文本把它们糊在一起，也不得让“验证通过”自动看起来等同于“Case 已稳定/关闭”。
+视觉方向是克制、安静、专业、可信、耐看、中文友好、适度信息密度。可以有少量教学场景的温度，但不做幼态和卡通化。整体借鉴编辑部、工具书、专业工作台的秩序感，不复制任何品牌。
 
-## 6. 中文优先
+如果元素只是为了显得高级、科技或现代，却没有提高教师理解、操作或判断效率，就删除它。
 
-设计从中文真实长度和信息密度出发。
+## 6. Today 不是 Dashboard
 
-- 不依赖英文短词才能成立；
-- 重要信息不用极小灰字；
-- 标题、辅助文字和 metadata 有明确层级；
-- 长中文、数字、日期、学科名需要真实测试；
-- Windows 和 Android 都要验证中文排版。
+Today 是教师当天的工作队列，不是统计页。首屏先呈现：今天到期、已逾期、待验证、待安排、重点 Case、最近学生和进入课堂的动作。
 
-## 7. 专业工具感，不做展示型 AI 产品
+- 逾期表达“需要补救”，待验证表达“等待判断”；两者不使用同一套文案。
+- 无日期行动进入明确的“待安排”，不能因为没有日期而从列表消失。
+- 同一学生的多个事项以学生为视觉锚点合并，避免重复轰炸；具体动作仍可逐条完成。
+- 直接可完成的动作留在 Today；需要理解上下文的判断进入 Student Detail 或 Learning Case。
 
-Xueqing 的视觉应安静、克制、可信、耐看。
+## 7. Student Detail 先解释现在
 
-默认避免：
+学生详情首屏必须让第一次接手的教师在不翻完整历史的情况下回答“现在最重要的三件事”。首屏至少包含当前重点、当前 Learning Cases、待验证、Next Action、最近关键事实、学科上下文和必要身份信息。
 
-- 大面积渐变；
-- 玻璃拟态；
-- Glow / Neon；
-- 大量阴影；
-- 满屏 Card；
-- 夸张圆角；
-- 彩色胶囊泛滥；
-- 驾驶舱式大数字；
-- 无依据成长指数；
-- AI 星星 / 魔法棒；
-- “智能洞察 / 赋能 / 潜力”等营销式文案。
+历史按时间线或折叠区呈现，用来解释当前判断。禁止把学生做成几十个字段的档案表，也禁止用成长指数、风险概率、标签云或四个统计 Card 代替理解。
 
-如果一个元素只是为了显得“现代”，但不提高理解、操作或判断效率，就删掉。
+## 8. Learning Case 是可追溯叙事
 
-## 8. 结构优先于容器
+Learning Case 不是巨大表单，而是一条可逐步补全的解释链：
 
-信息分组优先使用：
+`问题 → Evidence → 教师判断 → Intervention → Assessment / Verification → Next Action`
 
-1. typography；
-2. spacing；
-3. alignment；
-4. subtle divider / background tone；
-5. 最后才是 Card / shadow。
+课堂中只需要完成当下的最小记录；课后再 formalize 缺失的 taxonomy、根因、owner、evidence、action 和日期。当前状态与下一行动必须始终可见，历史 timeline 解释状态如何来到这里。
 
-不要把每一行信息都放进独立圆角卡片。
+## 9. Quick Capture 以低负担为性能指标
 
-## 9. 少量、稳定的颜色角色
+已知学生和学科时，最短路径是：输入一句问题标题 → 可选补充 → 保存，目标 10–20 秒。课堂阶段不强迫完整 taxonomy、根因、正式 owner、完整 Evidence、下一行动、due date 或附件。
 
-颜色服务层级和语义，不服务装饰。
+重复提示只能是非阻塞提醒；网络失败要保留输入；保存成功、保存中、失败、离线草稿都必须有清楚状态。Quick Capture 是“先抓住事实，稍后整理”，不是把完整 Case 表单压缩到手机上。
 
-- surface hierarchy 保持中性；
-- accent 只强调真正可操作或选中状态；
-- success/warning/danger 使用克制；
-- 关键状态必须同时有文字/图形线索；
-- 不建立“每种 Case 状态一个高饱和颜色”的彩虹系统。
+## 10. Windows 与 Android 是同一语言、不同重心
 
-## 10. Windows 和 Android 不做简单缩放
+适配依据是 available window size、内容需求、输入方式和交互复杂度，不是静态 `Platform.isAndroid` 分支。
 
-共享产品语言，允许不同布局。
+- Windows：看全貌、扫视、比较、编辑、复盘；支持 hover、visible focus、Tab、键盘激活、鼠标、滚轮、resize，宽窗口不让内容无限拉宽。
+- Android：搜索学生、快速记录、查看/完成下一行动、课堂操作、课后补充；支持 SafeArea、触控、软键盘、返回、误触保护、系统字体放大、saving/save failed/local draft/offline/reconnect。
+- 同一信息的语义和状态名称一致，布局密度、入口和交互成本可以不同。
 
-Windows：
-- 扫视；
-- 比较；
-- 多信息并列；
-- 编辑；
-- 复盘；
-- 键鼠效率。
+## 11. 状态是内容，不是装饰
 
-Android：
-- 搜索；
-- 快速记录；
-- 处理下一步；
-- 单手触控；
-- 键盘弹起；
-- 弱网络与保存状态。
+核心流程的每个可变状态都要能在不看颜色的情况下理解：loading、empty、error、no permission、saving、save failed、offline、draft、long content、many items、closed、reopened。
 
-同一功能可以拥有平台差异化的布局和入口，只要业务语义一致。
+状态至少用文字或结构表达，颜色只做辅助。核心信息不得依赖极小浅灰文字。错误说明下一步，草稿说明是否计入正式学情，权限说明可查看和可操作的边界。
 
-## 11. 默认信息密度适中
+## 12. 中文排版优先于英文 SaaS 习惯
 
-Xueqing 是每天工作的工具，不是宣传页。
+标题、姓名、学科名、日期、状态和长 Case title 按真实中文阅读来设计。优先保证 15–16px 的正文可读性、明确行高、可自然换行和稳定的多行操作布局；不因追求一行塞满而压缩中文。
 
-- Windows 不应浪费大面积空白；
-- Android 不应把每个信息块做成巨大卡片；
-- 关键任务保持视觉呼吸空间；
-- 长列表需要可扫读；
-- metadata 可以紧凑，但不可牺牲可读性。
+Windows 使用系统中文字体并保留 Microsoft YaHei fallback；Android 使用系统 CJK 字体并保留 Noto Sans CJK SC fallback。字体缩放后，操作不能被截断或遮挡。
 
-## 12. 快速路径不被完整结构阻塞
+## 13. 可访问、可输入、可恢复
 
-课堂 quick capture 与课后 confirmed case 是两个不同阶段。
+- 文字对比度满足 WCAG AA 基线；状态不只靠色相。
+- 只有真正可操作的元素进入 focus；Tab 顺序按视觉阅读顺序；Windows focus 可见。
+- Android 关键触控目标至少 48dp；操作之间有足够间隔。
+- 鼠标、键盘、触控都能完成核心任务；滚轮能滚动长列表。
+- 有未保存内容时，关闭、返回和切换上下文要有保护；失败时保留用户输入。
+- 隐私/权限状态显式但克制，不泄露不应看到的学生细节。
 
-quick capture 只收最小必要信息；完整 taxonomy、证据确认、owner、primary action 等在正式确认时补齐。
+## 14. Flutter 落地边界
 
-UI 不得因为数据库最终结构复杂，就让课堂输入也复杂。
+Phase 0A.5 的 prototype 只验证设计事实：layout、tokens、components、states、quick capture 和平台输入差异。fixture 必须集中、明显虚构、数量最小；不接 repository、Supabase、Auth、真实 CRUD、Realtime、AI API 或真实学生数据。
 
-## 13. 状态反馈必须可信
+推荐使用 Flutter SDK / Material 现有能力：`LayoutBuilder`、`MediaQuery.sizeOf`、`SafeArea`、`Scaffold`、`NavigationBar`、`FocusTraversalGroup`、`Shortcuts`、`TextField`、`Semantics`。自定义组件只有在有真实 screen 使用场景时才增加。
 
-保存状态至少区分：
+## 15. 完成判定
 
-- 未保存；
-- 保存中；
-- 已确认保存；
-- 保存失败；
-- 本地草稿 / 待同步（未来实现）。
+四个核心流程都必须能回答：教师看到什么、为什么先看到、下一步是什么、如何操作、失败怎么办、Windows 怎么工作、Android 怎么工作、权限如何体现、长文本怎么办、无数据怎么办、网络失败怎么办。
 
-不能用乐观动画把尚未被服务器确认的数据显示成正式“已保存”。
-
-## 14. 弱状态也必须设计
-
-每个核心页面都要考虑：
-
-- empty；
-- loading；
-- error；
-- disabled/no permission；
-- saving；
-- offline/draft；
-- long content；
-- multiple simultaneous cases/actions。
-
-只画“数据刚刚好”的理想截图不算完成。
-
-## 15. 不用 Dashboard 替代工作流
-
-首页不是统计驾驶舱。
-
-Today 应优先回答：
-
-- 今天该做什么；
-- 什么已经逾期；
-- 什么等着验证；
-- 什么还没安排日期；
-- 哪些学生近期需要关注。
-
-统计如果不能帮助今天的教学决策，应后置。
-
-## 16. 不做伪精确
-
-未经验证的方法不得展示为科学指标。
-
-禁止用人为权重制造：
-
-- 综合成长指数；
-- 学情健康分；
-- 学习潜力分；
-- AI 风险概率。
-
-优先展示可解释事实：次数、日期、case 状态、evidence、assessment、行动、趋势事件。
-
-## 17. 可访问性不是收尾项
-
-- 文本与背景对比足够；
-- 状态不只依赖颜色；
-- Windows focus 可见；
-- Android touch target 足够；
-- 系统字体放大后不崩；
-- 重要按钮和错误提示可被清楚识别。
-
-## 18. 设计必须能落到 Flutter
-
-规范需要能映射到真实 token、layout 和 component。
-
-不为效果图引入大量复杂第三方 UI 框架；优先 Flutter SDK / Material 基础能力上的克制定制。
-
-设计稿如果无法解释响应式、长文本、hover/focus/pressed、error/loading/offline，只能算视觉草图，不算可实现规格。
-
-## 19. 用真实任务评价设计
-
-评审不问“好不好看”一个问题，而问：
-
-- 新老师 30 秒能否看懂学生当前重点；
-- 10–20 秒能否记录一个 new case；
-- 是否能立刻找到当前 primary action；
-- 是否能区分 Evidence 与判断；
-- 是否能看出 assessment passed 但尚未 stable；
-- Windows 能否高效扫视；
-- Android 是否单手可用；
-- 网络/保存异常是否不会让老师误判数据状态。
-
-## 20. 审美服从长期使用
-
-最终目标不是让截图在第一眼“惊艳”，而是让教师连续使用数周后仍觉得：
-
-- 清楚；
-- 快；
-- 不累；
-- 不烦；
-- 找得到；
-- 信得过。
+如果设计只能展示理想状态或漂亮截图，Phase 0A.5 不算完成。
