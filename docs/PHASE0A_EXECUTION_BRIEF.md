@@ -173,5 +173,6 @@ Phase 0A 的工程源文件已经在既有 `phase0/flutter-bootstrap` 分支上�
 - `flutter pub get`、format、analyze、test：**FAIL / EXECUTED**，命令返回 `flutter/dart: command not found`；
 - Android debug build：**FAIL / EXECUTED**，Flutter executable 与 Android SDK 缺失；
 - Windows build：**NOT RUN / ENVIRONMENT UNAVAILABLE**；Windows runner 仅做 **REVIEWED ONLY** 静态审查。
+- GitHub Actions PR run `33603964885`：**PASS / EXECUTED**，Flutter setup、`flutter pub get`、format、analyze 与 test 全部成功。
 
 详细结果见 `docs/PHASE0A_EXECUTION_RECORD.md`。这些环境限制不能被写成工程构建通过。

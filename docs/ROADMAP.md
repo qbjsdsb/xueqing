@@ -48,22 +48,22 @@
 - [x] `xueqing` package 与 `com.xueqing.app` application id 已固定
 - [x] typed environment、bootstrap、router、theme、responsive、error/loading foundation 已加入
 - [x] 最小 unit/widget tests 与轻量 GitHub Actions workflow 已加入
-- [ ] Flutter/Android/Windows 的本地真实执行验证（当前环境不可用，见 `docs/PHASE0A_EXECUTION_RECORD.md`）
+- [ ] Flutter/Android/Windows 的本地真实执行验证（当前环境不可用；Flutter format/analyze/test 已由 CI 真实执行）
 
 - [x] 按当前 stable Flutter 官方模板形态准备 Windows + Android 工程文件（本地 SDK 不可用，未宣称 build 通过）
 - [x] 提交 `pubspec.lock`
 - [x] typed AppConfig / Development / Production 配置
 - [x] 以 Bootstrap/Widget 边界保持轻量；业务 data/service/repository 在需要时再出现
 - [x] 基础 theme / router / error boundary / logging
-- [x] format / analyze / test 的 CI 基线文件
+- [x] format / analyze / test 的 CI 基线文件，并由 GitHub Actions run `33603964885` 真实通过
 - [x] REVIEWED ONLY：参考 Flutter 官方 stable template 的平台结构
 - [x] Widget 中没有 Supabase 表查询、权限或事务逻辑
 
 ### 验收
 - [ ] Windows debug/build 能真实执行
 - [ ] Android debug/build 能真实执行
-- [ ] `flutter analyze` 通过
-- [ ] `flutter test` 通过
+- [x] `flutter analyze` 通过（GitHub Actions run `33603964885`）
+- [x] `flutter test` 通过（GitHub Actions run `33603964885`）
 
 ---
 
@@ -232,7 +232,7 @@
 - [ ] artifact retention 短
 - [ ] Actions zero-overage budget 生效
 
-当前 Foundation 尚没有正式 workflow run，因此没有 CI green 可声称。
+Phase 0A 的 GitHub Actions run `33603964885` 已真实通过 format/analyze/test；Windows 与 Android native build 不在该轻量 PR workflow 内，仍按执行环境分别记录。
 
 ---
 

@@ -12,7 +12,7 @@
 
 当前仓库已经包含正式 Flutter 工程入口、Android / Windows platform project、typed environment config、App bootstrap、内置 Navigator 路由、轻量 Theme / responsive foundation、错误/加载兜底、测试基线与轻量 CI。
 
-本次云端执行环境没有 Flutter、Dart、Android SDK 或 Windows toolchain，因此版本探针、Dart/Flutter 检查、Android build 和 Windows build 的真实结果按执行证据记录，不能从本地推断为通过。CI workflow 使用 Flutter stable `3.47.1` 作为可重复执行的基线。
+本次云端执行环境没有 Flutter、Dart、Android SDK 或 Windows toolchain，因此本地版本探针、Dart/Flutter 检查、Android build 和 Windows build 的结果不能从本地推断为通过。GitHub Actions PR run `33603964885` 已在 Ubuntu 上使用 Flutter stable `3.47.1` 真实通过 `flutter pub get`、format、analyze 与 test；CI workflow 保留该版本作为可重复执行的基线。
 
 ### Phase 0A 尚未实现
 
