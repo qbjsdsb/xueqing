@@ -18,7 +18,11 @@ begin
     created_at,
     updated_at,
     raw_app_meta_data,
-    raw_user_meta_data
+    raw_user_meta_data,
+    confirmation_token,
+    email_change,
+    email_change_token_new,
+    recovery_token
   )
   values
     (
@@ -32,7 +36,11 @@ begin
       now(),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
-      '{}'::jsonb
+      '{}'::jsonb,
+      '',
+      '',
+      '',
+      ''
     ),
     (
       auth_b,
@@ -45,7 +53,11 @@ begin
       now(),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
-      '{}'::jsonb
+      '{}'::jsonb,
+      '',
+      '',
+      '',
+      ''
     ),
     (
       auth_no_membership,
@@ -58,8 +70,34 @@ begin
       now(),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
-      '{}'::jsonb
+      '{}'::jsonb,
+      '',
+      '',
+      '',
+      ''
     );
+
+  insert into auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    provider_id,
+    created_at,
+    updated_at
+  )
+  select
+    gen_random_uuid(),
+    users.id,
+    jsonb_build_object(
+      'sub', users.id::text,
+      'email', users.email
+    ),
+    'email',
+    users.id::text,
+    now(),
+    now()
+  from auth.users as users;
 
   insert into public.organizations (id, name)
   values
