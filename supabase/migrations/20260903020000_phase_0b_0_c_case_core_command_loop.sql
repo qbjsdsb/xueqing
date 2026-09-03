@@ -764,6 +764,8 @@ revoke all on function private.create_primary_case_action_v2(uuid, uuid, uuid, t
 revoke all on function private.assert_case_core_invariant_v2(uuid) from public;
 revoke all on function private.reject_case_history_mutation_v2() from public;
 
+grant execute on function private.can_read_case_core_v2(uuid) to authenticated;
+
 create or replace function public.quick_capture_case(
   p_operation_id uuid,
   p_profile_id uuid,
