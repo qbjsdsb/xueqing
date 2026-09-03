@@ -368,7 +368,9 @@ void main() {
     final textFields = find.byType(TextField);
     await tester.enterText(textFields.at(0), '新题审题策略不稳定');
     await tester.enterText(textFields.at(1), '面对综合题时没有先识别已知条件。');
-    await tester.tap(find.widgetWithText(FilledButton, '保存问题'));
+    final saveButton = find.widgetWithText(FilledButton, '保存问题');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
     expect(repository.commands.single.organizationCaseTypeId, 'case-type-1');

@@ -132,7 +132,7 @@ set search_path = ''
 as $function$
 declare
   app_user_id uuid;
-  organization_id uuid;
+  v_organization_id uuid;
   membership_id uuid;
   case_id uuid := gen_random_uuid();
   evidence_id uuid;
@@ -168,12 +168,12 @@ begin
   end if;
 
   select profile.organization_id
-  into organization_id
+  into v_organization_id
   from public.student_subject_profiles as profile
   where profile.id = p_profile_id
   for update;
 
-  if organization_id is null then
+  if v_organization_id is null then
     raise exception using errcode = 'P0001', message = 'teaching_fact_gate';
   end if;
 
@@ -197,7 +197,7 @@ begin
     into custom_case_type_base, custom_case_type_label
     from public.organization_case_types as case_type
     where case_type.id = p_organization_case_type_id
-      and case_type.organization_id = organization_id
+      and case_type.organization_id = v_organization_id
       and case_type.status = 'active';
 
     if custom_case_type_label is null
@@ -209,7 +209,7 @@ begin
   select claimed, result
   into is_claimed, existing_result
   from private.claim_case_operation_v2(
-    organization_id,
+    v_organization_id,
     p_operation_id,
     'quick_capture_case',
     'student_subject_profile',
@@ -238,7 +238,7 @@ begin
   )
   values (
     case_id,
-    organization_id,
+    v_organization_id,
     p_profile_id,
     membership_id,
     p_case_type,
@@ -265,7 +265,7 @@ begin
     created_by_membership_id
   )
   values (
-    organization_id,
+    v_organization_id,
     case_id,
     'observation',
     btrim(p_title),
@@ -279,7 +279,7 @@ begin
 
   action_id := (
     select private.create_primary_case_action_v2(
-      organization_id,
+      v_organization_id,
       case_id,
       membership_id,
       'review',
@@ -299,7 +299,7 @@ begin
     operation_event_key
   )
   values (
-    organization_id,
+    v_organization_id,
     case_id,
     'case_created',
     app_user_id,
@@ -328,7 +328,7 @@ begin
   );
 
   perform private.finish_case_operation_v2(
-    organization_id,
+    v_organization_id,
     p_operation_id,
     command_result
   );
