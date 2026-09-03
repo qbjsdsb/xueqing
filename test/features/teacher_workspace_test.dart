@@ -113,7 +113,6 @@ void main() {
     expect(find.text('今日'), findsWidgets);
     expect(find.text('今天到期'), findsOneWidget);
     expect(find.text('补充一次课堂证据'), findsOneWidget);
-    expect(find.text('待整理'), findsOneWidget);
     expect(repository.loadCount, 1);
 
     final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
@@ -129,6 +128,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('分数步骤需要继续观察'), findsOneWidget);
     expect(find.text('待整理 Case'), findsOneWidget);
+    expect(find.text('待整理'), findsOneWidget);
     expect(find.text('尚未记录教学动作。'), findsOneWidget);
   });
 
@@ -146,14 +146,17 @@ void main() {
       final textFields = find.byType(TextField);
       await tester.enterText(textFields.at(0), '新的课堂问题');
       await tester.enterText(textFields.at(1), '课堂练习中连续两次跳过通分。');
-      await tester.tap(find.widgetWithText(FilledButton, '保存问题'));
+    final saveButton = find.widgetWithText(FilledButton, '保存问题');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
       expect(find.textContaining('网络暂时不可用'), findsOneWidget);
       expect(find.text('新的课堂问题'), findsOneWidget);
       expect(find.text('课堂练习中连续两次跳过通分。'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, '保存问题'));
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
       expect(find.text('已保存为待整理 Case，并保留下一步行动。'), findsOneWidget);

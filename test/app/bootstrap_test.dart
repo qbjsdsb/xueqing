@@ -53,7 +53,9 @@ void main() {
     await tester.pumpWidget(AppBootstrap(loader: () async => config));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('路由自检'));
+    final routeCheckButton = find.text('路由自检');
+    await tester.ensureVisible(routeCheckButton);
+    await tester.tap(routeCheckButton);
     await tester.pumpAndSettle();
 
     expect(find.text('路由可用'), findsOneWidget);
