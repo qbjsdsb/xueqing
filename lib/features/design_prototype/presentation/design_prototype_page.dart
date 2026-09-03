@@ -800,15 +800,15 @@ class _DesignShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: true,
-      child: CallbackShortcuts(
-        bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-              onFocusStudentSearch,
-          const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-              onFocusStudentSearch,
-        },
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            onFocusStudentSearch,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            onFocusStudentSearch,
+      },
+      child: Focus(
+        autofocus: true,
         child: ResponsiveLayout(
           builder: (context, sizeClass) {
             if (sizeClass == WindowSizeClass.compact) {
