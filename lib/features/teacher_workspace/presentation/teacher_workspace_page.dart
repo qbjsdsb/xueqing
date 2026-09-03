@@ -1954,10 +1954,7 @@ class _WorkspaceCaseTypeEditorDialogState
                   },
                 )
               else
-                _WorkspaceContextLine(
-                  label: '基础分类',
-                  value: _baseType.label,
-                ),
+                _WorkspaceContextLine(label: '基础分类', value: _baseType.label),
             ],
           ),
         ),
@@ -2055,9 +2052,7 @@ class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('归档这个问题类型？'),
-        content: Text(
-          '归档后不能用于新记录，但已有“${caseType.label}”的问题历史仍会保留。',
-        ),
+        content: Text('归档后不能用于新记录，但已有“${caseType.label}”的问题历史仍会保留。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
