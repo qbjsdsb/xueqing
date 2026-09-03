@@ -204,5 +204,4 @@ void main() {
     final searchField = tester.widget<TextField>(find.byType(TextField));
     expect(searchField.focusNode?.hasFocus, isTrue);
   });
-
 }
