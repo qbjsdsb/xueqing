@@ -46,9 +46,7 @@ class _FakeLearningRepository implements LearningRepository {
   }
 
   @override
-  Future<CaseCommandReceipt> confirmCase(
-    ConfirmCaseCommand command,
-  ) async {
+  Future<CaseCommandReceipt> confirmCase(ConfirmCaseCommand command) async {
     confirmCount++;
     confirmCommands.add(command);
     return _caseReceipt(
@@ -250,7 +248,6 @@ void main() {
     },
   );
 
-
   testWidgets('runs the confirmation command from a new Case', (tester) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace());
     await _pumpWorkspace(tester, repository);
@@ -298,10 +295,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.interventionCount, 1);
-    expect(
-      repository.interventionCommands.single.strategy,
-      '用图示带学生重新完成通分步骤。',
-    );
+    expect(repository.interventionCommands.single.strategy, '用图示带学生重新完成通分步骤。');
     expect(repository.interventionCommands.single.expectedCaseVersion, 1);
     expect(find.textContaining('Case 进入干预中'), findsOneWidget);
   });

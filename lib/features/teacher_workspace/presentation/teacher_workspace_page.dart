@@ -231,17 +231,11 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
     if (mode == null) {
       return;
     }
-    final result = await _showCaseForm(
-      mode: mode,
-      learningCase: learningCase,
-    );
+    final result = await _showCaseForm(mode: mode, learningCase: learningCase);
     if (!mounted || result == null) {
       return;
     }
-    await _reload(
-      preserveStudent: student,
-      preserveCaseId: learningCase.id,
-    );
+    await _reload(preserveStudent: student, preserveCaseId: learningCase.id);
     if (!mounted) {
       return;
     }
@@ -1020,8 +1014,7 @@ class _WorkspaceCaseCommandForm extends StatefulWidget {
       _WorkspaceCaseCommandFormState();
 }
 
-class _WorkspaceCaseCommandFormState
-    extends State<_WorkspaceCaseCommandForm> {
+class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
   late final TextEditingController _strategyController;
   late final TextEditingController _evidenceController;
   late final TextEditingController _notesController;
@@ -1100,7 +1093,8 @@ class _WorkspaceCaseCommandFormState
         _strategyError != null && _strategyController.text.trim().isNotEmpty;
     final clearEvidence =
         _evidenceError != null && _evidenceController.text.trim().isNotEmpty;
-    final clearNextAction = _nextActionError != null &&
+    final clearNextAction =
+        _nextActionError != null &&
         _nextActionController.text.trim().isNotEmpty;
     if (clearStrategy || clearEvidence || clearNextAction) {
       setState(() {
@@ -1302,16 +1296,11 @@ class _WorkspaceCaseCommandFormState
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     _subtitle,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
+                    style: Theme.of(context).textTheme.bodyMedium
                         ?.copyWith(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  _WorkspaceContextLine(
-                    label: '当前 Case',
-                    value: caseContext,
-                  ),
+                  _WorkspaceContextLine(label: '当前 Case', value: caseContext),
                   if (widget.mode == _CaseCommandMode.intervention) ...[
                     const SizedBox(height: AppSpacing.md),
                     TextField(
@@ -1333,9 +1322,7 @@ class _WorkspaceCaseCommandFormState
                     const SizedBox(height: AppSpacing.md),
                     DropdownButtonFormField<CaseAssessmentResult>(
                       initialValue: _assessmentResult,
-                      decoration: const InputDecoration(
-                        labelText: '验证结果 *',
-                      ),
+                      decoration: const InputDecoration(labelText: '验证结果 *'),
                       items: [
                         for (final result in CaseAssessmentResult.values)
                           DropdownMenuItem<CaseAssessmentResult>(
@@ -2908,7 +2895,8 @@ String _caseCommandHint(LearningCaseStatus status) {
   return switch (status) {
     LearningCaseStatus.newCase => '确认问题范围、补充判断，然后生成一条可执行的练习行动。',
     LearningCaseStatus.confirmed => '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
-    LearningCaseStatus.intervening => '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
+    LearningCaseStatus.intervening =>
+      '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
     LearningCaseStatus.pendingVerification => '记录一次可观察的验证结果；通过后仍会停在待确认，不会自动关闭。',
     LearningCaseStatus.stable => '',
     LearningCaseStatus.closed => '',
