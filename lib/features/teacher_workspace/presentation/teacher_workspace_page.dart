@@ -1908,9 +1908,8 @@ class _WorkspaceCaseTypeEditorDialogState
       setState(() => _error = '名称不能超过 64 个字符。');
       return;
     }
-    Navigator.of(context).pop(
-      _CaseTypeDraft(displayName: displayName, baseType: _baseType),
-    );
+    Navigator.of(context)
+        .pop(_CaseTypeDraft(displayName: displayName, baseType: _baseType));
   }
 
   @override
