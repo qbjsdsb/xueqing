@@ -804,22 +804,22 @@ class _DesignShell extends StatelessWidget {
       autofocus: true,
       child: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-            onFocusStudentSearch,
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-            onFocusStudentSearch,
-      },
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+              onFocusStudentSearch,
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+              onFocusStudentSearch,
+        },
         child: ResponsiveLayout(
           builder: (context, sizeClass) {
             if (sizeClass == WindowSizeClass.compact) {
-            return Scaffold(
-              body: SafeArea(child: child),
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: selectedIndex,
-                onDestinationSelected: onDestinationSelected,
-                destinations: _navigationDestinations,
-              ),
-            );
+              return Scaffold(
+                body: SafeArea(child: child),
+                bottomNavigationBar: NavigationBar(
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: onDestinationSelected,
+                  destinations: _navigationDestinations,
+                ),
+              );
             }
 
             final extended = sizeClass == WindowSizeClass.expanded;
