@@ -92,5 +92,16 @@ drop function if exists private.can_read_student(uuid);
 drop function if exists private.can_read_organization(uuid);
 drop function if exists private.current_app_user_id();
 
+-- app_users remains the canonical local profile table used by the client.
+-- Recreate its read policy against the provider-neutral identity mapping.
+create policy "users can read their canonical application identity"
+on public.app_users
+for select
+to authenticated
+using (
+  status = 'active'
+  and id = (select private.current_app_user_id_v2())
+);
+
 drop table public.teacher_assignments;
 drop table public.memberships;
