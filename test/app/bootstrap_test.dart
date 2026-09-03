@@ -31,9 +31,9 @@ void main() {
     await tester.pumpWidget(AppBootstrap(loader: () async => config));
     await tester.pumpAndSettle();
 
-    expect(find.text('工程初始化完成'), findsOneWidget);
+    expect(find.text('教师工作台预览'), findsOneWidget);
     expect(find.text('Android / Windows'), findsOneWidget);
-    expect(find.text('Phase 0A'), findsWidgets);
+    expect(find.text('0B.1A 界面验证'), findsOneWidget);
   });
 
   testWidgets('shows a safe fallback when bootstrap fails', (tester) async {
