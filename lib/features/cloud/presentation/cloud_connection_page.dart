@@ -209,7 +209,8 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
           // local session. The warning below records that global revocation
           // still needs a successful online attempt.
           await authRepository.signOut(global: false);
-          signOutWarning = '已退出本机登录，但云端全局退出未完成。'
+          signOutWarning =
+              '已退出本机登录，但云端全局退出未完成。'
               '请在网络正常时再次登录并退出一次。';
         } catch (localError) {
           if (mounted) {
