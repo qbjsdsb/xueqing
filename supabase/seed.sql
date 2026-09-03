@@ -441,5 +441,20 @@ begin
       '2026-01-01'
     );
 
+  -- Teacher A is the fictional development manager for organization-scoped
+  -- Case type configuration. This seed data is never for production.
+  insert into public.membership_roles (
+    id,
+    organization_id,
+    membership_id,
+    role
+  )
+  values (
+    '62000000-0000-0000-0000-000000000010',
+    '00000000-0000-0000-0000-000000000001',
+    '61000000-0000-0000-0000-000000000001',
+    'org_admin'
+  );
+
 end;
 $seed$;

@@ -362,6 +362,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             clipBehavior: Clip.antiAlias,
             builder: (context) => _WorkspaceQuickCaptureForm(
               students: workspace.students,
+              caseTypes: workspace.caseTypes,
               initialStudent: student,
               repository: widget.repository,
             ),
@@ -372,6 +373,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             builder: (context) => Dialog(
               child: _WorkspaceQuickCaptureForm(
                 students: workspace.students,
+                caseTypes: workspace.caseTypes,
                 initialStudent: student,
                 repository: widget.repository,
               ),
@@ -387,6 +389,46 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
+  }
+
+
+  Future<void> _showCaseTypeManager() async {
+    final workspace = await _workspaceFuture;
+    final organizationId = workspace.organizationId;
+    if (!mounted ||
+        !workspace.canManageCaseTypes ||
+        organizationId == null) {
+      return;
+    }
+    final sizeClass = ResponsiveBreakpoints.classify(
+      MediaQuery.sizeOf(context).width,
+    );
+    final manager = _WorkspaceCaseTypeManager(
+      organizationId: organizationId,
+      caseTypes: workspace.caseTypes,
+      repository: widget.repository,
+      onChanged: () => _reload(),
+    );
+    if (sizeClass == WindowSizeClass.compact) {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        builder: (_) => manager,
+      );
+    } else {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => Dialog(child: manager),
+      );
+    }
   }
 
   Future<CaseCommandReceipt?> _showCaseForm({
@@ -467,6 +509,19 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
 
         final workspace = snapshot.data!;
         if (!workspace.hasTeachingAccess) {
+          if (workspace.canManageCaseTypes &&
+              workspace.organizationId != null) {
+            return _WorkspaceStatusScaffold(
+              title: '机构问题类型',
+              child: _WorkspaceCaseTypeManager(
+                organizationId: workspace.organizationId!,
+                caseTypes: workspace.caseTypes,
+                repository: widget.repository,
+                onChanged: () => _reload(),
+                showCloseButton: false,
+              ),
+            );
+          }
           return const _WorkspaceStatusScaffold(
             title: '教师工作台',
             child: _WorkspaceNoAccessBody(),
@@ -554,6 +609,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           title: '今日',
           subtitle: '先处理今天要做的事，再回看需要判断的学生。',
           actions: [
+            if (workspace.canManageCaseTypes && workspace.organizationId != null)
+              OutlinedButton.icon(
+                onPressed: _showCaseTypeManager,
+                icon: const Icon(Icons.category_outlined),
+                label: const Text('问题类型'),
+              ),
             OutlinedButton.icon(
               onPressed: () => _showQuickCapture(),
               icon: const Icon(Icons.edit_note_outlined),
@@ -714,6 +775,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               title: '学生',
               subtitle: '搜索学生，先理解当前重点，再进入需要处理的 Case。',
               actions: [
+                if (workspace.canManageCaseTypes && workspace.organizationId != null)
+                  OutlinedButton.icon(
+                    onPressed: _showCaseTypeManager,
+                    icon: const Icon(Icons.category_outlined),
+                    label: const Text('问题类型'),
+                  ),
                 OutlinedButton.icon(
                   onPressed: () => _showQuickCapture(),
                   icon: const Icon(Icons.edit_note_outlined),
@@ -895,7 +962,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.xs,
           children: [
-            _WorkspaceMetadata(learningCase.type.label),
+            _WorkspaceMetadata(learningCase.typeLabel),
             _WorkspaceMetadata(_priorityLabel(learningCase.priority)),
             if (primaryAction != null)
               _WorkspaceMetadata(
@@ -1260,7 +1327,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final caseContext =
-        '${widget.learningCase.type.label} · ${widget.learningCase.status.label} · version ${widget.learningCase.version}';
+        '${widget.learningCase.typeLabel} · ${widget.learningCase.status.label} · version ${widget.learningCase.version}';
     return PopScope<void>(
       canPop: !_isDirty && !_saving,
       onPopInvokedWithResult: (didPop, _) {
@@ -1448,11 +1515,13 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
 class _WorkspaceQuickCaptureForm extends StatefulWidget {
   const _WorkspaceQuickCaptureForm({
     required this.students,
+    required this.caseTypes,
     required this.repository,
     this.initialStudent,
   });
 
   final List<WorkspaceStudent> students;
+  final List<WorkspaceCaseType> caseTypes;
   final WorkspaceStudent? initialStudent;
   final LearningRepository repository;
 
@@ -1467,7 +1536,8 @@ class _WorkspaceQuickCaptureFormState
   late final TextEditingController _evidenceController;
   late final String _operationId;
   WorkspaceStudent? _selectedStudent;
-  LearningCaseType _selectedType = LearningCaseType.knowledge;
+  String _selectedCaseTypeKey =
+      WorkspaceCaseType.builtInTypes.first.key;
   String? _studentError;
   String? _titleError;
   String? _evidenceError;
@@ -1477,6 +1547,26 @@ class _WorkspaceQuickCaptureFormState
   bool get _isDirty =>
       _titleController.text.trim().isNotEmpty ||
       _evidenceController.text.trim().isNotEmpty;
+
+
+  List<WorkspaceCaseType> get _caseTypeOptions {
+    final customTypes = widget.caseTypes.where(
+      (caseType) => !caseType.isBuiltIn && caseType.isActive,
+    );
+    return <WorkspaceCaseType>[
+      ...WorkspaceCaseType.builtInTypes,
+      ...customTypes,
+    ];
+  }
+
+  WorkspaceCaseType get _selectedCaseType {
+    for (final caseType in _caseTypeOptions) {
+      if (caseType.key == _selectedCaseTypeKey) {
+        return caseType;
+      }
+    }
+    return WorkspaceCaseType.builtInTypes.first;
+  }
 
   @override
   void initState() {
@@ -1548,7 +1638,8 @@ class _WorkspaceQuickCaptureFormState
           operationId: _operationId,
           profileId: student.profileId,
           expectedProfileVersion: student.profileVersion,
-          caseType: _selectedType,
+          caseType: _selectedCaseType.baseType,
+          organizationCaseTypeId: _selectedCaseType.id,
           title: _titleController.text.trim(),
           description: _evidenceController.text.trim(),
           observedAt: DateTime.now(),
@@ -1680,21 +1771,24 @@ class _WorkspaceQuickCaptureFormState
                           },
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  DropdownButtonFormField<LearningCaseType>(
-                    initialValue: _selectedType,
+                  DropdownButtonFormField<String>(
+                    key: const Key('quick-capture-case-type-dropdown'),
+                    initialValue: _selectedCaseTypeKey,
                     decoration: const InputDecoration(labelText: '问题类型'),
                     items: [
-                      for (final type in LearningCaseType.values)
-                        DropdownMenuItem<LearningCaseType>(
-                          value: type,
+                      for (final type in _caseTypeOptions)
+                        DropdownMenuItem<String>(
+                          value: type.key,
                           child: Text(type.label),
                         ),
                     ],
                     onChanged: _saving
                         ? null
-                        : (type) {
-                            if (type != null) {
-                              setState(() => _selectedType = type);
+                        : (typeKey) {
+                            if (typeKey != null) {
+                              setState(
+                                () => _selectedCaseTypeKey = typeKey,
+                              );
                             }
                           },
                   ),
@@ -1730,9 +1824,10 @@ class _WorkspaceQuickCaptureFormState
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  const _WorkspaceContextLine(
+                  _WorkspaceContextLine(
                     label: '保存后',
-                    value: '待整理 Case · 下一步“补充证据并确认下一步” · 日期待安排',
+                    value:
+                        '待整理 Case · ${_selectedCaseType.label} · 下一步“补充证据并确认下一步” · 日期待安排',
                   ),
                   if (_saveError != null) ...[
                     const SizedBox(height: AppSpacing.md),
@@ -1758,6 +1853,481 @@ class _WorkspaceQuickCaptureFormState
                   ),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+class _CaseTypeDraft {
+  const _CaseTypeDraft({
+    required this.displayName,
+    required this.baseType,
+  });
+
+  final String displayName;
+  final LearningCaseType baseType;
+}
+
+class _WorkspaceCaseTypeEditorDialog extends StatefulWidget {
+  const _WorkspaceCaseTypeEditorDialog({
+    this.initialName = '',
+    this.initialBaseType = LearningCaseType.knowledge,
+    this.allowBaseTypeChange = true,
+  });
+
+  final String initialName;
+  final LearningCaseType initialBaseType;
+  final bool allowBaseTypeChange;
+
+  @override
+  State<_WorkspaceCaseTypeEditorDialog> createState() =>
+      _WorkspaceCaseTypeEditorDialogState();
+}
+
+class _WorkspaceCaseTypeEditorDialogState
+    extends State<_WorkspaceCaseTypeEditorDialog> {
+  late final TextEditingController _nameController;
+  late LearningCaseType _baseType;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+    _baseType = widget.initialBaseType;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final displayName = _nameController.text.trim();
+    if (displayName.isEmpty) {
+      setState(() => _error = '请输入问题类型名称。');
+      return;
+    }
+    if (displayName.length > 64) {
+      setState(() => _error = '名称不能超过 64 个字符。');
+      return;
+    }
+    Navigator.of(context).pop(
+      _CaseTypeDraft(displayName: displayName, baseType: _baseType),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.initialName.isEmpty ? '新增问题类型' : '重命名问题类型'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _nameController,
+                autofocus: true,
+                maxLength: 64,
+                decoration: InputDecoration(
+                  labelText: '显示名称',
+                  hintText: '例如：审题习惯、计算步骤',
+                  errorText: _error,
+                ),
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              if (widget.allowBaseTypeChange)
+                DropdownButtonFormField<LearningCaseType>(
+                  initialValue: _baseType,
+                  decoration: const InputDecoration(labelText: '归入基础分类'),
+                  items: [
+                    for (final type in LearningCaseType.values)
+                      DropdownMenuItem<LearningCaseType>(
+                        value: type,
+                        child: Text(type.label),
+                      ),
+                  ],
+                  onChanged: (type) {
+                    if (type != null) {
+                      setState(() => _baseType = type);
+                    }
+                  },
+                )
+              else
+                _WorkspaceContextLine(
+                  label: '基础分类',
+                  value: _baseType.label,
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('保存')),
+      ],
+    );
+  }
+}
+
+class _WorkspaceCaseTypeManager extends StatefulWidget {
+  const _WorkspaceCaseTypeManager({
+    required this.organizationId,
+    required this.caseTypes,
+    required this.repository,
+    this.onChanged,
+    this.showCloseButton = true,
+  });
+
+  final String organizationId;
+  final List<WorkspaceCaseType> caseTypes;
+  final LearningRepository repository;
+  final Future<void> Function()? onChanged;
+  final bool showCloseButton;
+
+  @override
+  State<_WorkspaceCaseTypeManager> createState() =>
+      _WorkspaceCaseTypeManagerState();
+}
+
+class _WorkspaceCaseTypeManagerState
+    extends State<_WorkspaceCaseTypeManager> {
+  late List<WorkspaceCaseType> _caseTypes;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _caseTypes = List<WorkspaceCaseType>.of(widget.caseTypes);
+  }
+
+  Future<void> _createCaseType() async {
+    final draft = await showDialog<_CaseTypeDraft>(
+      context: context,
+      builder: (_) => const _WorkspaceCaseTypeEditorDialog(),
+    );
+    if (!mounted || draft == null) {
+      return;
+    }
+    await _runMutation(
+      () => widget.repository.createCaseType(
+        organizationId: widget.organizationId,
+        displayName: draft.displayName,
+        baseType: draft.baseType,
+      ),
+    );
+  }
+
+  Future<void> _renameCaseType(WorkspaceCaseType caseType) async {
+    final caseTypeId = caseType.id;
+    if (caseTypeId == null) {
+      return;
+    }
+    final draft = await showDialog<_CaseTypeDraft>(
+      context: context,
+      builder: (_) => _WorkspaceCaseTypeEditorDialog(
+        initialName: caseType.label,
+        initialBaseType: caseType.baseType,
+        allowBaseTypeChange: false,
+      ),
+    );
+    if (!mounted || draft == null) {
+      return;
+    }
+    await _runMutation(
+      () => widget.repository.renameCaseType(
+        caseTypeId: caseTypeId,
+        displayName: draft.displayName,
+        expectedVersion: caseType.version,
+      ),
+    );
+  }
+
+  Future<void> _archiveCaseType(WorkspaceCaseType caseType) async {
+    final caseTypeId = caseType.id;
+    if (caseTypeId == null || !caseType.isActive) {
+      return;
+    }
+    final shouldArchive = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('归档这个问题类型？'),
+        content: Text(
+          '归档后不能用于新记录，但已有“${caseType.label}”的问题历史仍会保留。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('归档'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || shouldArchive != true) {
+      return;
+    }
+    await _runMutation(
+      () => widget.repository.archiveCaseType(
+        caseTypeId: caseTypeId,
+        expectedVersion: caseType.version,
+      ),
+    );
+  }
+
+  Future<void> _runMutation(
+    Future<WorkspaceCaseType> Function() mutation,
+  ) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final updated = await mutation();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        final index = _caseTypes.indexWhere((item) => item.key == updated.key);
+        if (index == -1) {
+          _caseTypes = [..._caseTypes, updated];
+        } else {
+          _caseTypes = [
+            ..._caseTypes.sublist(0, index),
+            updated,
+            ..._caseTypes.sublist(index + 1),
+          ];
+        }
+      });
+      final onChanged = widget.onChanged;
+      if (onChanged != null) {
+        await onChanged();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = _describeCaseTypeError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  String _describeCaseTypeError(Object error) {
+    final detail = error.toString().toLowerCase();
+    if (detail.contains('case_type_name_taken')) {
+      return '这个名称已经存在，请换一个名称。';
+    }
+    if (detail.contains('invalid_case_type_input')) {
+      return '名称不能与系统类型重复，且不能超过 64 个字符。';
+    }
+    if (detail.contains('version_conflict')) {
+      return '类型列表已经更新，请关闭后重新打开再操作。';
+    }
+    if (detail.contains('case_type_archived')) {
+      return '这个类型已经归档，请刷新列表。';
+    }
+    if (detail.contains('case_type_manager_required') ||
+        detail.contains('permission')) {
+      return '当前账号没有修改机构问题类型的权限。';
+    }
+    if (detail.contains('network') ||
+        detail.contains('socket') ||
+        detail.contains('timeout')) {
+      return '网络暂时不可用，列表和输入都保留，请稍后重试。';
+    }
+    return '操作失败，列表没有被静默改写，请重试。';
+  }
+
+  List<WorkspaceCaseType> _customTypes({required bool active}) {
+    final result = _caseTypes
+        .where(
+          (caseType) =>
+              !caseType.isBuiltIn && caseType.isActive == active,
+        )
+        .toList();
+    result.sort((left, right) {
+      final order = left.sortOrder.compareTo(right.sortOrder);
+      if (order != 0) {
+        return order;
+      }
+      return left.label.compareTo(right.label);
+    });
+    return result;
+  }
+
+  Widget _typeRow(WorkspaceCaseType caseType) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppRadii.small),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.label_outline, color: AppColors.accent),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(caseType.label),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  '基础分类：${caseType.baseType.label}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          if (caseType.isActive)
+            PopupMenuButton<String>(
+              enabled: !_busy,
+              tooltip: '更多操作',
+              onSelected: (value) {
+                if (value == 'rename') {
+                  _renameCaseType(caseType);
+                } else if (value == 'archive') {
+                  _archiveCaseType(caseType);
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem<String>(
+                  value: 'rename',
+                  child: Text('重命名'),
+                ),
+                PopupMenuItem<String>(
+                  value: 'archive',
+                  child: Text('归档'),
+                ),
+              ],
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.only(top: AppSpacing.xs),
+              child: Text('已归档'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _typeSection({
+    required String title,
+    required List<WorkspaceCaseType> types,
+    required String emptyTitle,
+    required String emptyMessage,
+    required IconData icon,
+  }) {
+    return _WorkspaceSection(
+      title: title,
+      count: '${types.length} 个',
+      child: types.isEmpty
+          ? _WorkspaceStateNotice(
+              title: emptyTitle,
+              message: emptyMessage,
+              icon: icon,
+            )
+          : Column(children: [for (final type in types) _typeRow(type)]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final activeTypes = _customTypes(active: true);
+    final archivedTypes = _customTypes(active: false);
+    return SafeArea(
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '问题类型',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    if (widget.showCloseButton)
+                      IconButton(
+                        tooltip: '关闭',
+                        onPressed: _busy
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
+                  ],
+                ),
+                Text(
+                  '系统类型始终保留。自定义类型只负责分类，仍沿用同一套 Case、证据、行动和验证流程。',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                if (_error != null) ...[
+                  _WorkspaceErrorText(message: _error!),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                _typeSection(
+                  title: '可用于新记录',
+                  types: activeTypes,
+                  emptyTitle: '还没有自定义类型',
+                  emptyMessage: '先添加一个贴合你们教学语言的分类，教师记录问题时就能直接选择。',
+                  icon: Icons.category_outlined,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _typeSection(
+                  title: '已归档',
+                  types: archivedTypes,
+                  emptyTitle: '没有已归档类型',
+                  emptyMessage: '归档后仍会保留历史名称，不会改变已有 Case。',
+                  icon: Icons.archive_outlined,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _busy ? null : _createCaseType,
+                    icon: const Icon(Icons.add),
+                    label: const Text('新增自定义类型'),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
