@@ -157,12 +157,14 @@ teacher_a_students="$temp_dir/teacher-a-students.json"
 teacher_a_cross_student="$temp_dir/teacher-a-cross-student.json"
 teacher_a_cross_org="$temp_dir/teacher-a-cross-org.json"
 teacher_a_memberships="$temp_dir/teacher-a-memberships.json"
+teacher_a_roles="$temp_dir/teacher-a-roles.json"
 teacher_a_assignments="$temp_dir/teacher-a-assignments.json"
 teacher_a_app_user="$temp_dir/teacher-a-app-user.json"
 teacher_b_students="$temp_dir/teacher-b-students.json"
 teacher_b_cross_student="$temp_dir/teacher-b-cross-student.json"
 teacher_b_cross_org="$temp_dir/teacher-b-cross-org.json"
 teacher_b_memberships="$temp_dir/teacher-b-memberships.json"
+teacher_b_roles="$temp_dir/teacher-b-roles.json"
 teacher_b_assignments="$temp_dir/teacher-b-assignments.json"
 no_membership_students="$temp_dir/no-membership-students.json"
 no_membership_orgs="$temp_dir/no-membership-orgs.json"
@@ -185,18 +187,25 @@ assert_status_and_json "$teacher_a_status" 200 "$teacher_a_app_user" \
   "Teacher A resolves to the provider-neutral application identity"
 
 teacher_a_status="$(request GET \
-  "$base_url/rest/v1/memberships?select=organization_id,role,status&status=eq.active" \
+  "$base_url/rest/v1/organization_memberships?select=organization_id,status&status=eq.active" \
   "$teacher_a_memberships" "$teacher_a_token")"
 assert_status_and_json "$teacher_a_status" 200 "$teacher_a_memberships" \
-  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_a_id\" and .[0].role == \"teacher\"" \
-  "Teacher A has one active membership in Organization A"
+  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_a_id\" and .[0].status == \"active\"" \
+  "Teacher A has one active canonical membership in Organization A"
 
 teacher_a_status="$(request GET \
-  "$base_url/rest/v1/teacher_assignments?select=student_id,subject,status&status=eq.active" \
+  "$base_url/rest/v1/membership_roles?select=organization_id,role&role=eq.teacher" \
+  "$teacher_a_roles" "$teacher_a_token")"
+assert_status_and_json "$teacher_a_status" 200 "$teacher_a_roles" \
+  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_a_id\" and .[0].role == \"teacher\"" \
+  "Teacher A has the teacher role in Organization A"
+
+teacher_a_status="$(request GET \
+  "$base_url/rest/v1/student_teacher_assignments?select=student_subject_profile_id,status&status=eq.active" \
   "$teacher_a_assignments" "$teacher_a_token")"
 assert_status_and_json "$teacher_a_status" 200 "$teacher_a_assignments" \
-  "type == \"array\" and length == 1 and .[0].student_id == \"$student_a_id\"" \
-  "Teacher A has one active assignment"
+  "type == \"array\" and length == 1 and .[0].student_subject_profile_id == \"67000000-0000-0000-0000-000000000001\"" \
+  "Teacher A has one active canonical assignment"
 
 teacher_a_status="$(request GET \
   "$base_url/rest/v1/students?select=id,name,organization_id&order=id" \
@@ -218,18 +227,25 @@ assert_denied_rows "$teacher_a_status" "$teacher_a_cross_org" \
   "Teacher A cannot read Organization B"
 
 teacher_b_status="$(request GET \
-  "$base_url/rest/v1/memberships?select=organization_id,role,status&status=eq.active" \
+  "$base_url/rest/v1/organization_memberships?select=organization_id,status&status=eq.active" \
   "$teacher_b_memberships" "$teacher_b_token")"
 assert_status_and_json "$teacher_b_status" 200 "$teacher_b_memberships" \
-  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_b_id\" and .[0].role == \"teacher\"" \
-  "Teacher B has one active membership in Organization B"
+  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_b_id\" and .[0].status == \"active\"" \
+  "Teacher B has one active canonical membership in Organization B"
 
 teacher_b_status="$(request GET \
-  "$base_url/rest/v1/teacher_assignments?select=student_id,subject,status&status=eq.active" \
+  "$base_url/rest/v1/membership_roles?select=organization_id,role&role=eq.teacher" \
+  "$teacher_b_roles" "$teacher_b_token")"
+assert_status_and_json "$teacher_b_status" 200 "$teacher_b_roles" \
+  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_b_id\" and .[0].role == \"teacher\"" \
+  "Teacher B has the teacher role in Organization B"
+
+teacher_b_status="$(request GET \
+  "$base_url/rest/v1/student_teacher_assignments?select=student_subject_profile_id,status&status=eq.active" \
   "$teacher_b_assignments" "$teacher_b_token")"
 assert_status_and_json "$teacher_b_status" 200 "$teacher_b_assignments" \
-  "type == \"array\" and length == 1 and .[0].student_id == \"$student_b_id\"" \
-  "Teacher B has one active assignment"
+  "type == \"array\" and length == 1 and .[0].student_subject_profile_id == \"67000000-0000-0000-0000-000000000002\"" \
+  "Teacher B has one active canonical assignment"
 
 teacher_b_status="$(request GET \
   "$base_url/rest/v1/students?select=id,name,organization_id&order=id" \
@@ -251,7 +267,7 @@ assert_denied_rows "$teacher_b_status" "$teacher_b_cross_org" \
   "Teacher B cannot read Organization A"
 
 no_membership_status="$(request GET \
-  "$base_url/rest/v1/memberships?select=id&status=eq.active" \
+  "$base_url/rest/v1/organization_memberships?select=id&status=eq.active" \
   "$no_membership_memberships" "$no_membership_token")"
 assert_status_and_json "$no_membership_status" 200 "$no_membership_memberships" \
   'type == "array" and length == 0' \

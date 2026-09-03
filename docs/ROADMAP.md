@@ -326,7 +326,7 @@
 
 - [ ] profiles / organizations / roles
 - [ ] organization timezone
-- [ ] memberships / membership_roles
+- [ ] organization_memberships / membership_roles
 - [ ] bootstrap 首位 org_admin
 - [ ] provision / onboarding / reset / disable
 - [ ] current organization context
