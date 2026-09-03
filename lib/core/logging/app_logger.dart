@@ -23,7 +23,7 @@ class AppLogger {
       message,
       name: name,
       level: 1000,
-      object: error,
+      error: error,
       stackTrace: stackTrace,
     );
   }
