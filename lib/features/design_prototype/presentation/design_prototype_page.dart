@@ -127,14 +127,14 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
             enableDrag: false,
             backgroundColor: Colors.transparent,
             builder: (context) =>
-                DesignQuickCaptureForm(students: _students, student: student),
+                DesignQuickCaptureForm(students: List<PrototypeStudent>.of(_students), student: student),
           )
         : await showDialog<QuickCaptureResult>(
             context: context,
             barrierDismissible: false,
             builder: (context) => Dialog(
               child: DesignQuickCaptureForm(
-                students: _students,
+                students: List<PrototypeStudent>.of(_students),
                 student: student,
               ),
             ),
