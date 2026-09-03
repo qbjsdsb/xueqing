@@ -21,7 +21,7 @@ Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、
 
 ### 当前执行证据
 
-最近一次最终源码 commit 为 `3a208523597825145b7416a8050491a4823cec60`。已执行并通过：
+最近一次包含应用实现与发布配置改动的 commit 为 `3a208523597825145b7416a8050491a4823cec60`；随后仅同步了 README。已执行并通过：
 
 - Flutter checks run `33816121891`：lockfile、Dart format、`flutter analyze`、`flutter test`；
 - Supabase checks run `33816121863`：migration 冷重建、本地 RLS 测试和旧 token 安全测试；
