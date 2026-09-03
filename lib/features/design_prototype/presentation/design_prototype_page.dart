@@ -24,6 +24,8 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   final FocusNode _studentSearchFocusNode = FocusNode(debugLabel: '学生搜索');
   late final List<PrototypeStudent> _students;
   int _localCaptureSerial = 0;
+  final List<PrototypeQuickCapture> _previewDrafts =
+      <PrototypeQuickCapture>[];
 
   @override
   void initState() {
@@ -151,9 +153,13 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已保留本机草稿（设计预览）。')),
-    );
+    if (result.outcome == QuickCaptureOutcome.draft && result.capture != null) {
+      _addPreviewDraft(result.capture!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('草稿已保留在本次预览会话中。')),
+      );
+    }
   }
 
   PrototypeStudent _studentForCase(PrototypeCase targetCase) {
@@ -163,8 +169,11 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   }
 
   void _addQuickCapture(PrototypeQuickCapture capture) {
+    final studentId = capture.studentId;
+    if (studentId == null) return;
+
     final studentIndex = _students.indexWhere(
-      (student) => student.id == capture.studentId,
+      (student) => student.id == studentId,
     );
     if (studentIndex < 0) return;
 
@@ -221,10 +230,47 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     });
   }
 
+  void _addPreviewDraft(PrototypeQuickCapture draft) {
+    setState(() {
+      _previewDrafts.insert(0, draft);
+    });
+  }
+
   void _completeAction(PrototypeAction action) {
     setState(() => _completedActionIds.add(action.id));
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text('已完成：${action.title}')));
+  }
+
+  Widget _buildPreviewDraftSection({String? studentId}) {
+    final drafts = _previewDrafts
+        .where(
+          (draft) => studentId == null || draft.studentId == studentId,
+        )
+        .toList();
+    if (drafts.isEmpty) return const SizedBox.shrink();
+
+    return DesignSection(
+      title: '本次预览会话草稿',
+      count: '${drafts.length} 条',
+      showTopDivider: true,
+      child: Column(
+        children: [
+          for (final draft in drafts)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                draft.title.isEmpty ? '未填写标题' : draft.title,
+              ),
+              subtitle: Text(
+                draft.note.isEmpty
+                    ? '尚未补充说明 · 仅本次预览会话保留'
+                    : '${draft.note}\n仅本次预览会话保留',
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildCurrentPage(BuildContext context, WindowSizeClass sizeClass) {
@@ -311,6 +357,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
             ),
           ],
         ),
+        _buildPreviewDraftSection(),
         if (overdue.isNotEmpty || dueToday.isNotEmpty) ...[
           DesignSection(
             key: const Key('today-work-section'),
@@ -461,6 +508,13 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
               ..write(learningCase.evidence)
               ..write(learningCase.nextAction);
           }
+          for (final draft in _previewDrafts) {
+            if (draft.studentId == student.id) {
+              searchable
+                ..write(draft.title)
+                ..write(draft.note);
+            }
+          }
           return searchable.toString().toLowerCase().contains(
             query.toLowerCase(),
           );
@@ -482,6 +536,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                 ),
               ],
             ),
+            _buildPreviewDraftSection(),
             TextField(
               controller: _studentSearchController,
               focusNode: _studentSearchFocusNode,
@@ -526,6 +581,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
         const DesignPreviewBanner(),
         const SizedBox(height: AppSpacing.lg),
         DesignPageHeader(title: '课程', subtitle: '从一次教学进入记录，不负责排课、考勤或收费。'),
+        _buildPreviewDraftSection(),
         DesignSection(
           title: '可以开始记录',
           child: Column(
@@ -570,6 +626,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
             ),
           ],
         ),
+        _buildPreviewDraftSection(),
         DesignSection(
           title: '当前 Learning Cases',
           count: '${cases.length} 个',
@@ -699,6 +756,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                   ],
                 ),
         ),
+        _buildPreviewDraftSection(studentId: student.id),
         const SizedBox(height: AppSpacing.lg),
         _DetailFacts(student: student, sizeClass: sizeClass),
       ],
@@ -1298,12 +1356,12 @@ enum QuickCaptureOutcome { saved, draft }
 
 class PrototypeQuickCapture {
   const PrototypeQuickCapture({
-    required this.studentId,
+    this.studentId,
     required this.title,
     required this.note,
   });
 
-  final String studentId;
+  final String? studentId;
   final String title;
   final String note;
 }
@@ -1312,9 +1370,8 @@ class QuickCaptureResult {
   const QuickCaptureResult.saved(this.capture)
       : outcome = QuickCaptureOutcome.saved;
 
-  const QuickCaptureResult.draft()
-      : outcome = QuickCaptureOutcome.draft,
-        capture = null;
+  const QuickCaptureResult.draft(this.capture)
+      : outcome = QuickCaptureOutcome.draft;
 
   final QuickCaptureOutcome outcome;
   final PrototypeQuickCapture? capture;
@@ -1407,8 +1464,10 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('还没有保存'),
-        content: const Text('还没有保存，要保留这段记录吗？'),
+        title: const Text('暂存这段记录？'),
+        content: const Text(
+          '这段记录还没有形成 Case。暂存后会留在本次预览会话，关闭应用后不会保留。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -1416,14 +1475,22 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('保留草稿'),
+            child: const Text('暂存草稿'),
           ),
         ],
       ),
     );
     if (!mounted || result == null) return;
     Navigator.of(context).pop(
-      result ? QuickCaptureResult.draft() : null,
+      result
+          ? QuickCaptureResult.draft(
+              PrototypeQuickCapture(
+                studentId: _selectedStudent?.id,
+                title: _titleController.text.trim(),
+                note: _noteController.text.trim(),
+              ),
+            )
+          : null,
     );
   }
 
