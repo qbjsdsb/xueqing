@@ -112,7 +112,7 @@ select set_config(
   json_build_object(
     'role', 'authenticated',
     'sub', '20000000-0000-0000-0000-000000000001',
-    'iss', 'supabase',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
     'session_id', '50000000-0000-0000-0000-000000000001'
   )::text,
   true
@@ -261,7 +261,7 @@ select set_config(
   json_build_object(
     'role', 'authenticated',
     'sub', '20000000-0000-0000-0000-000000000002',
-    'iss', 'supabase',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
     'session_id', '50000000-0000-0000-0000-000000000002'
   )::text,
   true
@@ -335,7 +335,7 @@ select set_config(
   json_build_object(
     'role', 'authenticated',
     'sub', '20000000-0000-0000-0000-000000000003',
-    'iss', 'supabase',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
     'session_id', '50000000-0000-0000-0000-000000000003'
   )::text,
   true
