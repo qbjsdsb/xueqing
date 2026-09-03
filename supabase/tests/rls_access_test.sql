@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(16);
 
 set local role authenticated;
 
@@ -25,10 +25,18 @@ select is(
   1,
   'Teacher A can read only the matching application identity'
 );
+select ok(
+  to_regclass('public.memberships') is null,
+  'legacy memberships table is retired'
+);
+select ok(
+  to_regclass('public.teacher_assignments') is null,
+  'legacy teacher assignments table is retired'
+);
 select is(
-  (select count(*)::int from public.memberships),
+  (select count(*)::int from public.organization_memberships),
   1,
-  'Teacher A can read the active membership'
+  'Teacher A can read the active canonical membership'
 );
 select is(
   (select count(*)::int from public.students),

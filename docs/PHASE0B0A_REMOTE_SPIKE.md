@@ -15,9 +15,12 @@ fictional data only. The spike covers only:
 
 - `organizations`;
 - `app_users`;
-- `memberships`;
+- `identity_links`;
+- `organization_memberships`;
+- `membership_roles`;
 - `students`;
-- `teacher_assignments`;
+- `student_subject_profiles`;
+- `student_teacher_assignments`;
 - Password Auth, REST/Data API, RLS, logout and live-session checks.
 
 It does not create or test Learning Cases, Lessons, Evidence, Assessments,

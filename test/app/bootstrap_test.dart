@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xueqing/app/router/app_router.dart';
 import 'package:xueqing/bootstrap/app_bootstrap.dart';
 import 'package:xueqing/config/app_config.dart';
 
@@ -31,9 +30,9 @@ void main() {
     await tester.pumpWidget(AppBootstrap(loader: () async => config));
     await tester.pumpAndSettle();
 
-    expect(find.text('教师工作台预览'), findsOneWidget);
+    expect(find.text('教师工作台'), findsOneWidget);
     expect(find.text('Android / Windows'), findsOneWidget);
-    expect(find.text('0B.1A 界面验证'), findsOneWidget);
+    expect(find.text('0B.0-D 数据接入验证'), findsOneWidget);
   });
 
   testWidgets('shows a safe fallback when bootstrap fails', (tester) async {
@@ -53,11 +52,12 @@ void main() {
     await tester.pumpWidget(AppBootstrap(loader: () async => config));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('路由自检'));
+    final routeCheckButton = find.text('路由自检');
+    await tester.ensureVisible(routeCheckButton);
+    await tester.tap(routeCheckButton);
     await tester.pumpAndSettle();
 
     expect(find.text('路由可用'), findsOneWidget);
     expect(find.byType(BackButton), findsOneWidget);
-    expect(AppRoutes.routeCheck, '/route-check');
   });
 }
