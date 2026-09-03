@@ -738,9 +738,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   }
 
   void _showPrototypeNotice(String actionLabel) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$actionLabel 入口已定义；当前预览不会写入业务数据。')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$actionLabel 入口已定义；当前预览不会写入业务数据。')));
   }
 
   String _casePrimaryLabel(PrototypeCase learningCase) {
