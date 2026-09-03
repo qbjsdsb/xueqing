@@ -65,12 +65,12 @@ class _CompactRail extends StatelessWidget {
         child: Column(
           children: [
             Tooltip(
-              message: '工程状态',
+              message: '开发验证状态',
               child: const Icon(Icons.build_outlined, color: AppColors.accent),
             ),
             const Spacer(),
             Text(
-              'Phase 0A',
+              '开发验证',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -132,7 +132,7 @@ class _DesktopRail extends StatelessWidget {
                 children: [
                   Icon(Icons.build_outlined, size: 18, color: AppColors.accent),
                   SizedBox(width: AppSpacing.sm),
-                  Text('工程状态'),
+                  Text('开发验证状态'),
                 ],
               ),
               const Spacer(),
