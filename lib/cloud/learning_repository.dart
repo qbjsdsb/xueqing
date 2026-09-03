@@ -317,10 +317,166 @@ class QuickCaptureReceipt {
   }
 }
 
+enum CaseAssessmentResult { passed, partial, notPassed }
+
+extension CaseAssessmentResultPresentation on CaseAssessmentResult {
+  String get wireValue => switch (this) {
+    CaseAssessmentResult.passed => 'passed',
+    CaseAssessmentResult.partial => 'partial',
+    CaseAssessmentResult.notPassed => 'not_passed',
+  };
+
+  String get label => switch (this) {
+    CaseAssessmentResult.passed => '通过',
+    CaseAssessmentResult.partial => '部分通过',
+    CaseAssessmentResult.notPassed => '未通过',
+  };
+}
+
+class CaseCommandReceipt {
+  const CaseCommandReceipt({
+    required this.operationId,
+    required this.caseId,
+    required this.actionId,
+    required this.eventId,
+    required this.status,
+    required this.caseVersion,
+    this.recordId,
+  });
+
+  final String operationId;
+  final String caseId;
+  final String actionId;
+  final String eventId;
+  final String status;
+  final int caseVersion;
+  final String? recordId;
+
+  factory CaseCommandReceipt.fromJson(Map<String, dynamic> json) {
+    return CaseCommandReceipt(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      caseId: _requiredString(json['case_id'], 'case_id'),
+      actionId: _requiredString(json['action_id'], 'action_id'),
+      eventId: _requiredString(json['event_id'], 'event_id'),
+      status: _requiredString(json['status'], 'status'),
+      caseVersion: _requiredInt(json['case_version'], 'case_version'),
+      recordId:
+          _stringValue(json['intervention_id']) ??
+          _stringValue(json['assessment_id']) ??
+          _stringValue(json['evidence_id']),
+    );
+  }
+}
+
+class ConfirmCaseCommand {
+  const ConfirmCaseCommand({
+    required this.operationId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.nextActionTitle,
+    required this.nextActionDueAt,
+  });
+
+  final String operationId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final String nextActionTitle;
+  final DateTime? nextActionDueAt;
+
+  void validate() {
+    _validateCaseCommandIdentity(
+      operationId: operationId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+    );
+    _validateNextActionTitle(nextActionTitle);
+  }
+}
+
+class RecordInterventionCommand {
+  const RecordInterventionCommand({
+    required this.operationId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.strategy,
+    required this.notes,
+    required this.occurredAt,
+    required this.nextActionTitle,
+    required this.nextActionDueAt,
+  });
+
+  final String operationId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final String strategy;
+  final String? notes;
+  final DateTime? occurredAt;
+  final String nextActionTitle;
+  final DateTime? nextActionDueAt;
+
+  void validate() {
+    _validateCaseCommandIdentity(
+      operationId: operationId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+    );
+    if (strategy.trim().isEmpty) {
+      throw ArgumentError('strategy cannot be empty.');
+    }
+    _validateNextActionTitle(nextActionTitle);
+  }
+}
+
+class RecordAssessmentCommand {
+  const RecordAssessmentCommand({
+    required this.operationId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.result,
+    required this.evidenceSummary,
+    required this.notes,
+    required this.assessedAt,
+    required this.nextActionTitle,
+    required this.nextActionDueAt,
+  });
+
+  final String operationId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final CaseAssessmentResult result;
+  final String evidenceSummary;
+  final String? notes;
+  final DateTime? assessedAt;
+  final String nextActionTitle;
+  final DateTime? nextActionDueAt;
+
+  void validate() {
+    _validateCaseCommandIdentity(
+      operationId: operationId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+    );
+    if (evidenceSummary.trim().isEmpty) {
+      throw ArgumentError('evidenceSummary cannot be empty.');
+    }
+    _validateNextActionTitle(nextActionTitle);
+  }
+}
+
 abstract interface class LearningRepository {
   Future<TeacherWorkspace> loadWorkspace();
 
   Future<QuickCaptureReceipt> quickCapture(QuickCaptureCommand command);
+
+  Future<CaseCommandReceipt> confirmCase(ConfirmCaseCommand command);
+
+  Future<CaseCommandReceipt> recordIntervention(
+    RecordInterventionCommand command,
+  );
+
+  Future<CaseCommandReceipt> recordAssessment(
+    RecordAssessmentCommand command,
+  );
 }
 
 class SupabaseLearningRepository implements LearningRepository {
@@ -632,6 +788,78 @@ class SupabaseLearningRepository implements LearningRepository {
     return QuickCaptureReceipt.fromJson(Map<String, dynamic>.from(response));
   }
 
+  @override
+  Future<CaseCommandReceipt> confirmCase(ConfirmCaseCommand command) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'confirm_case',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_next_action_title': command.nextActionTitle.trim(),
+        'p_next_action_due_at': _utcIso8601(command.nextActionDueAt),
+      },
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> recordIntervention(
+    RecordInterventionCommand command,
+  ) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'record_intervention',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_strategy': command.strategy.trim(),
+        'p_notes': command.notes?.trim(),
+        'p_occurred_at': _utcIso8601(command.occurredAt),
+        'p_next_action_title': command.nextActionTitle.trim(),
+        'p_next_action_due_at': _utcIso8601(command.nextActionDueAt),
+      },
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> recordAssessment(
+    RecordAssessmentCommand command,
+  ) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'record_assessment',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_result': command.result.wireValue,
+        'p_evidence_summary': command.evidenceSummary.trim(),
+        'p_notes': command.notes?.trim(),
+        'p_assessed_at': _utcIso8601(command.assessedAt),
+        'p_next_action_title': command.nextActionTitle.trim(),
+        'p_next_action_due_at': _utcIso8601(command.nextActionDueAt),
+      },
+    );
+  }
+
+  Future<CaseCommandReceipt> _invokeCaseCommand({
+    required String functionName,
+    required Map<String, dynamic> params,
+  }) async {
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) {
+      throw const AuthException('No active session.');
+    }
+    final response = await _client.rpc(functionName, params: params);
+    _assertSameSession(authUser.id);
+    if (response is! Map) {
+      throw FormatException('$functionName returned an invalid result.');
+    }
+    return CaseCommandReceipt.fromJson(Map<String, dynamic>.from(response));
+  }
+
   Future<List<Map<String, dynamic>>> _rows(
     dynamic query,
     String expectedUserId,
@@ -871,6 +1099,30 @@ String createOperationId() {
 }
 
 final Random _secureRandom = Random.secure();
+
+void _validateCaseCommandIdentity({
+  required String operationId,
+  required String caseId,
+  required int expectedCaseVersion,
+}) {
+  if (operationId.trim().isEmpty) {
+    throw ArgumentError('operationId cannot be empty.');
+  }
+  if (caseId.trim().isEmpty) {
+    throw ArgumentError('caseId cannot be empty.');
+  }
+  if (expectedCaseVersion <= 0) {
+    throw ArgumentError('expectedCaseVersion must be positive.');
+  }
+}
+
+void _validateNextActionTitle(String value) {
+  if (value.trim().isEmpty) {
+    throw ArgumentError('nextActionTitle cannot be empty.');
+  }
+}
+
+String? _utcIso8601(DateTime? value) => value?.toUtc().toIso8601String();
 
 String _requiredString(dynamic value, String field) {
   final stringValue = _stringValue(value);
