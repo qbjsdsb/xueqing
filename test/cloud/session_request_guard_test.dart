@@ -17,6 +17,20 @@ void main() {
       );
     });
 
+    test('rejects a result when the active user id changes', () {
+      final guard = SessionRequestGuard();
+      final requestForA = guard.begin();
+
+      expect(
+        guard.isCurrent(
+          requestForA,
+          expectedUserId: 'user-a',
+          currentUserId: 'user-b',
+        ),
+        isFalse,
+      );
+    });
+
     test('rejects an earlier request after an account switch', () {
       final guard = SessionRequestGuard();
       final requestForA = guard.begin();
