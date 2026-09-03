@@ -136,7 +136,7 @@ class _DesktopRail extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              Text('Phase 0A', style: Theme.of(context).textTheme.bodySmall),
+              Text('开发验证', style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
         ),
