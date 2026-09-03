@@ -169,7 +169,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
     try {
       await authRepository.signIn(email: email, password: password);
       await _loadUserContext();
-      _passwordController.clear();
+      _clearPassword();
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -223,7 +223,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
       }
 
       _contextRequestGuard.invalidate();
-      _passwordController.clear();
+      _clearPassword();
       if (mounted) {
         setState(() {
           _userContext = null;
@@ -236,6 +236,12 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
           _busy = false;
         });
       }
+    }
+  }
+
+  void _clearPassword() {
+    if (mounted) {
+      _passwordController.clear();
     }
   }
 
