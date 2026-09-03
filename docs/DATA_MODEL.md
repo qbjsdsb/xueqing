@@ -178,6 +178,12 @@ Advisor/homeroom/coordinator 等综合职责；不伪装学科教师。
 - `version`
 - created_by/timestamps
 
+Phase 0B.0-C physical foundation:
+- `learning_cases` is the current Case snapshot; `version` protects state-changing commands；
+- `case_events` is append-only and command-generated lifecycle events carry operation identity；
+- `case_evidence` is finalized append-only history in this vertical slice；
+- `operation_receipts` stores the committed result for exactly-once command retry。
+
 唯一 lifecycle：
 
 ```text
@@ -241,10 +247,21 @@ command retry 不得重复 lifecycle event。
 - physical implementation（immutable revision、version 或 freshness token）可在 Phase 0B.0 provider Spike 中冻结；Phase 0A.6 先冻结以上逻辑契约。任一 Case/close-event/Evidence/Profile/assignment/version 校验失败都必须 whole rollback，并返回明确 domain conflict；
 
 ### `interventions`
-Case/lesson/teacher/strategy/notes/occurred_at。
+- `id`
+- `organization_id`
+- `learning_case_id`
+- actor App User / Membership
+- `strategy` / `notes` / `occurred_at` / `created_at`
+- finalized append-only teaching history
 
 ### `assessments`
-Case/lesson/assessor/result/evidence/notes/assessed_at。
+- `id`
+- `organization_id`
+- `learning_case_id`
+- assessor App User / Membership
+- `result`: passed / partial / not_passed
+- `evidence_summary` / `notes` / `assessed_at` / `created_at`
+- finalized append-only verification history
 
 ### Teaching Fact Gate
 
@@ -270,7 +287,9 @@ V1 所有 teaching writes 依赖 legal active Student Teacher Assignment。Lesso
 - action_type: reteach / practice / verify / communicate / review / other
 - title/due_at/is_primary
 - status: pending / done / cancelled
-- completed_at/timestamps
+- completed_at / cancelled_at / actor provenance / version / timestamps
+
+Phase 0B.0-C 的命令只授予一个 pending primary Action；状态变化先结束旧 primary，再在同一事务创建新 primary。关闭 Case 会取消当前 primary。
 
 Rules：
 - 同一 Case 最多一个 pending primary；

@@ -242,6 +242,10 @@ unresolved formal Case 保留真实 status，但：
 
 原子检查：new + expected_version、Profile active、actor permission、合法 owner、最小 Evidence、taxonomy 一致、一个 pending primary Action；写 event/audit/version 后一次 commit。
 
+Phase 0B.0-C 已实现的第一条垂直命令路径为：
+`quick_capture_case` → `confirm_case` → `add_case_evidence` / `record_intervention` → `record_assessment` → `stabilize_case` → `close_case`。
+所有路径都使用 `operation_id`；会改变 Case current snapshot 的命令同时要求 `expected_case_version`，Quick Capture 要求 `expected_profile_version`。普通 Evidence append 不递增 Case.version，但仍以 operation receipt 保证重试不重复。
+
 ---
 
 ## 8. `reopen_case`｜唯一语义
