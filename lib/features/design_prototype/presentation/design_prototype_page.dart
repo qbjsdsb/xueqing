@@ -1597,6 +1597,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: FilledButton(
+                          key: const Key('design-preview-quick-capture-save'),
                           onPressed: _saving ? null : _save,
                           child: Text(_saving ? '保存中…' : '记录问题'),
                         ),

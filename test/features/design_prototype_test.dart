@@ -174,7 +174,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('示例学生甲 · 数学').last);
     await tester.enterText(find.byType(TextField).first, '记录一个新的课堂问题');
-    await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
+    await tester.tap(
+      find.byKey(const Key('design-preview-quick-capture-save')),
+    );
     await tester.pump(const Duration(milliseconds: 260));
     await tester.pumpAndSettle();
 
@@ -202,7 +204,9 @@ void main() {
     addTearDown(() => _resetView(tester));
     await _pumpPreview(tester, const Size(390, 844));
 
-    await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
+    await tester.tap(
+      find.byKey(const Key('design-preview-today-record-question')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<PrototypeStudent>));
     await tester.pumpAndSettle();
