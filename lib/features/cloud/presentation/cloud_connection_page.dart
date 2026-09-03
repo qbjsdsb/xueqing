@@ -106,8 +106,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
     if (authRepository == null ||
         studentRepository == null ||
         authUser == null) {
-      if (mounted &&
-          requestGeneration == _contextRequestGuard.begin() - 1) {
+      if (mounted) {
         setState(() {
           _userContext = null;
         });
