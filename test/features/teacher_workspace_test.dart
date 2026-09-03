@@ -278,9 +278,7 @@ void main() {
     expect(find.textContaining('Case 进入已确认'), findsOneWidget);
   });
 
-  testWidgets('records an intervention from a confirmed Case', (
-    tester,
-  ) async {
+  testWidgets('records an intervention from a confirmed Case', (tester) async {
     final repository = _FakeLearningRepository(
       _fixtureWorkspace(status: LearningCaseStatus.confirmed),
     );
