@@ -2185,6 +2185,63 @@ grant execute on function public.close_case(
   integer,
   timestamptz
 ) to authenticated;
+revoke execute on function public.quick_capture_case(
+  uuid,
+  uuid,
+  integer,
+  text,
+  text,
+  text,
+  timestamptz,
+  text,
+  text,
+  timestamptz
+) from anon;
+revoke execute on function public.confirm_case(
+  uuid,
+  uuid,
+  integer,
+  text,
+  timestamptz
+) from anon;
+revoke execute on function public.add_case_evidence(
+  uuid,
+  uuid,
+  integer,
+  text,
+  text,
+  timestamptz,
+  text
+) from anon;
+revoke execute on function public.record_intervention(
+  uuid,
+  uuid,
+  integer,
+  text,
+  text,
+  timestamptz,
+  text,
+  timestamptz
+) from anon;
+revoke execute on function public.record_assessment(
+  uuid,
+  uuid,
+  integer,
+  text,
+  text,
+  text,
+  timestamptz,
+  text,
+  timestamptz
+) from anon;
+revoke execute on function public.stabilize_case(
+  uuid,
+  uuid,
+  integer,
+  timestamptz,
+  text,
+  timestamptz
+) from anon;
 revoke execute on function public.close_case(
   uuid,
   uuid,
