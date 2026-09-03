@@ -2902,8 +2902,7 @@ String _caseCommandHint(WorkspaceCase learningCase) {
     _CaseCommandMode.confirm => '确认问题范围、补充判断，然后生成一条可执行的练习行动。',
     _CaseCommandMode.intervention =>
       '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
-    _CaseCommandMode.assessment =>
-      '记录一次可观察的验证结果；通过后仍会停在待确认，不会自动关闭。',
+    _CaseCommandMode.assessment => '记录一次可观察的验证结果；通过后仍会停在待确认，不会自动关闭。',
     null => '',
   };
 }
