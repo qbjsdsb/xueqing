@@ -69,7 +69,7 @@ jobs:
           retention-days: 7
 
   windows-debug:
-    name: Windows debug bundle
+    name: Windows release bundle
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -89,18 +89,82 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Windows debug bundle
+      - name: Build Windows release bundle
         shell: pwsh
         run: |
-          flutter build windows --debug `
+          flutter build windows --release `
             --dart-define="XUEQING_ENV=$env:XUEQING_ENV" `
             --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
             --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY"
 
-      - name: Upload Windows debug bundle
+      - name: Bundle Visual C++ release runtime
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            throw "Visual Studio locator was not found."
+          }
+
+          $vsPath = (& $vswhere `
+            -latest `
+            -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath).Trim()
+          if ([string]::IsNullOrWhiteSpace($vsPath)) {
+            throw "Visual C++ toolset installation was not found."
+          }
+
+          $releaseDir = Join-Path $pwd "build/windows/x64/runner/Release"
+          $redistRoot = Join-Path $vsPath "VC/Redist/MSVC"
+          $runtimeDir = Get-ChildItem -Path $redistRoot -Directory -Recurse |
+            Where-Object {
+              $_.Name -eq "Microsoft.VC143.CRT" -and
+              (Test-Path (Join-Path $_.FullName "msvcp140.dll")) -and
+              (Test-Path (Join-Path $_.FullName "vcruntime140.dll")) -and
+              (Test-Path (Join-Path $_.FullName "vcruntime140_1.dll"))
+            } |
+            Select-Object -First 1
+          if ($null -eq $runtimeDir) {
+            throw "The Visual C++ release runtime directory was not found."
+          }
+
+          $requiredRuntime = @(
+            "msvcp140.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll"
+          )
+          foreach ($runtimeName in $requiredRuntime) {
+            Copy-Item `
+              -Path (Join-Path $runtimeDir.FullName $runtimeName) `
+              -Destination $releaseDir `
+              -Force
+          }
+
+          $dumpbin = Get-ChildItem `
+            -Path (Join-Path $vsPath "VC/Tools/MSVC") `
+            -Filter "dumpbin.exe" `
+            -File `
+            -Recurse |
+            Select-Object -First 1
+          if ($null -eq $dumpbin) {
+            throw "dumpbin.exe was not found for dependency verification."
+          }
+
+          $exePath = Join-Path $releaseDir "xueqing.exe"
+          $dependencies = (& $dumpbin.FullName /DEPENDENTS $exePath 2>&1) -join "`n"
+          if ($dependencies -match "(?i)MSVCP140D\.dll|VCRUNTIME140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
+            throw "Release binary still depends on a Debug Visual C++ runtime."
+          }
+
+          foreach ($runtimeName in $requiredRuntime) {
+            if (-not (Test-Path (Join-Path $releaseDir $runtimeName))) {
+              throw "Missing bundled runtime: $runtimeName"
+            }
+          }
+      - name: Upload Windows release bundle
         uses: actions/upload-artifact@v4
         with:
-          name: xueqing-windows-debug-${{ github.sha }}
-          path: build/windows/x64/runner/Debug
+          name: xueqing-windows-release-${{ github.sha }}
+          path: build/windows/x64/runner/Release
           if-no-files-found: error
           retention-days: 7
