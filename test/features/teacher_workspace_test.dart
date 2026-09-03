@@ -139,16 +139,16 @@ void main() {
         ..failFirstSave = true;
       await _pumpWorkspace(tester, repository);
 
-    await tester.tap(find.text('记录问题').first);
-    await tester.pumpAndSettle();
-    expect(find.text('现场表现 / Evidence *'), findsOneWidget);
+      await tester.tap(find.text('记录问题').first);
+      await tester.pumpAndSettle();
+      expect(find.text('现场表现 / Evidence *'), findsOneWidget);
 
-    await tester.tap(find.text('选择学生后开始'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('示例学生甲 · 数学'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('选择学生后开始'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('示例学生甲 · 数学'));
+      await tester.pumpAndSettle();
 
-    final textFields = find.byType(TextField);
+      final textFields = find.byType(TextField);
       await tester.enterText(textFields.at(0), '新的课堂问题');
       await tester.enterText(textFields.at(1), '课堂练习中连续两次跳过通分。');
       final saveButton = find.widgetWithText(FilledButton, '保存问题');
