@@ -314,10 +314,7 @@ void main() {
     );
     final repository = _FakeLearningRepository(
       _fixtureWorkspace(
-        caseTypes: [
-          ...WorkspaceCaseType.builtInTypes,
-          customType,
-        ],
+        caseTypes: [...WorkspaceCaseType.builtInTypes, customType],
         canManageCaseTypes: true,
       ),
     );
@@ -344,10 +341,7 @@ void main() {
     );
     final repository = _FakeLearningRepository(
       _fixtureWorkspace(
-        caseTypes: [
-          ...WorkspaceCaseType.builtInTypes,
-          customType,
-        ],
+        caseTypes: [...WorkspaceCaseType.builtInTypes, customType],
       ),
     );
     await _pumpWorkspace(tester, repository);
@@ -378,10 +372,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.commands.single.organizationCaseTypeId, 'case-type-1');
-    expect(
-      repository.commands.single.caseType,
-      LearningCaseType.examStrategy,
-    );
+    expect(repository.commands.single.caseType, LearningCaseType.examStrategy);
   });
 
   testWidgets('runs the confirmation command from a new Case', (tester) async {

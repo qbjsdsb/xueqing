@@ -60,11 +60,11 @@ class WorkspaceCaseType {
   });
 
   const WorkspaceCaseType.builtIn(this.baseType)
-      : id = null,
-        displayName = null,
-        status = 'active',
-        sortOrder = 0,
-        version = 1;
+    : id = null,
+      displayName = null,
+      status = 'active',
+      sortOrder = 0,
+      version = 1;
 
   final String? id;
   final String? displayName;
@@ -652,9 +652,7 @@ class SupabaseLearningRepository implements LearningRepository {
     final caseTypeRows = await _rows(
       _client
           .from('organization_case_types')
-          .select(
-            'id,display_name,base_case_type,status,sort_order,version',
-          )
+          .select('id,display_name,base_case_type,status,sort_order,version')
           .eq('organization_id', organizationId)
           .order('sort_order')
           .order('created_at'),
@@ -662,8 +660,7 @@ class SupabaseLearningRepository implements LearningRepository {
     );
     final caseTypes = <WorkspaceCaseType>[
       ...WorkspaceCaseType.builtInTypes,
-      for (final row in caseTypeRows)
-        WorkspaceCaseType.fromJson(row),
+      for (final row in caseTypeRows) WorkspaceCaseType.fromJson(row),
     ];
 
     if (!hasTeachingAccess) {
@@ -899,8 +896,7 @@ class SupabaseLearningRepository implements LearningRepository {
           .toIso8601String(),
     };
     if (command.organizationCaseTypeId != null) {
-      params['p_organization_case_type_id'] =
-          command.organizationCaseTypeId;
+      params['p_organization_case_type_id'] = command.organizationCaseTypeId;
     }
     final response = await _client.rpc(functionName, params: params);
     _assertSameSession(authUser.id);
@@ -1221,9 +1217,7 @@ class SupabaseLearningRepository implements LearningRepository {
       profileId: profileId,
       title: _requiredString(row['title'], 'case_title'),
       type: _caseTypeFromWire(row['case_type']),
-      organizationCaseTypeId: _stringValue(
-        row['organization_case_type_id'],
-      ),
+      organizationCaseTypeId: _stringValue(row['organization_case_type_id']),
       caseTypeLabelSnapshot: _stringValue(row['case_type_label_snapshot']),
       status: _caseStatusFromWire(row['status']),
       priority: _stringValue(row['priority']) ?? 'normal',

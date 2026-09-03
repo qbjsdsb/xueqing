@@ -394,9 +394,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   Future<void> _showCaseTypeManager() async {
     final workspace = await _workspaceFuture;
     final organizationId = workspace.organizationId;
-    if (!mounted ||
-        !workspace.canManageCaseTypes ||
-        organizationId == null) {
+    if (!mounted || !workspace.canManageCaseTypes || organizationId == null) {
       return;
     }
     final sizeClass = ResponsiveBreakpoints.classify(
@@ -1537,8 +1535,7 @@ class _WorkspaceQuickCaptureFormState
   late final TextEditingController _evidenceController;
   late final String _operationId;
   WorkspaceStudent? _selectedStudent;
-  String _selectedCaseTypeKey =
-      WorkspaceCaseType.builtInTypes.first.key;
+  String _selectedCaseTypeKey = WorkspaceCaseType.builtInTypes.first.key;
   String? _studentError;
   String? _titleError;
   String? _evidenceError;
@@ -1786,9 +1783,7 @@ class _WorkspaceQuickCaptureFormState
                         ? null
                         : (typeKey) {
                             if (typeKey != null) {
-                              setState(
-                                () => _selectedCaseTypeKey = typeKey,
-                              );
+                              setState(() => _selectedCaseTypeKey = typeKey);
                             }
                           },
                   ),
@@ -1862,10 +1857,7 @@ class _WorkspaceQuickCaptureFormState
 }
 
 class _CaseTypeDraft {
-  const _CaseTypeDraft({
-    required this.displayName,
-    required this.baseType,
-  });
+  const _CaseTypeDraft({required this.displayName, required this.baseType});
 
   final String displayName;
   final LearningCaseType baseType;
@@ -2001,8 +1993,7 @@ class _WorkspaceCaseTypeManager extends StatefulWidget {
       _WorkspaceCaseTypeManagerState();
 }
 
-class _WorkspaceCaseTypeManagerState
-    extends State<_WorkspaceCaseTypeManager> {
+class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
   late List<WorkspaceCaseType> _caseTypes;
   bool _busy = false;
   String? _error;
@@ -2157,10 +2148,7 @@ class _WorkspaceCaseTypeManagerState
 
   List<WorkspaceCaseType> _customTypes({required bool active}) {
     final result = _caseTypes
-        .where(
-          (caseType) =>
-              !caseType.isBuiltIn && caseType.isActive == active,
-        )
+        .where((caseType) => !caseType.isBuiltIn && caseType.isActive == active)
         .toList();
     result.sort((left, right) {
       final order = left.sortOrder.compareTo(right.sortOrder);
@@ -2215,14 +2203,8 @@ class _WorkspaceCaseTypeManagerState
                 }
               },
               itemBuilder: (context) => const [
-                PopupMenuItem<String>(
-                  value: 'rename',
-                  child: Text('重命名'),
-                ),
-                PopupMenuItem<String>(
-                  value: 'archive',
-                  child: Text('归档'),
-                ),
+                PopupMenuItem<String>(value: 'rename', child: Text('重命名')),
+                PopupMenuItem<String>(value: 'archive', child: Text('归档')),
               ],
             )
           else
