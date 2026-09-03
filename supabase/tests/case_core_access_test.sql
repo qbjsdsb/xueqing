@@ -277,7 +277,7 @@ select is(
 );
 
 select throws_ok(
-  $select public.record_intervention(
+  $$select public.record_intervention(
       '71000000-0000-0000-0000-00000000000a',
       (select id from public.learning_cases
        where title = '异分母比较步骤不稳定'),
@@ -287,7 +287,7 @@ select throws_ok(
       timestamptz '2026-09-03 15:30:00+08',
       '过期版本 Action 不应写入',
       null
-    )$,
+    )$$,
   'P0001',
   null,
   'a stale Case version is rejected'
@@ -420,7 +420,7 @@ select is(
 );
 
 select lives_ok(
-  $select public.record_intervention(
+  $$select public.record_intervention(
       '71000000-0000-0000-0000-000000000004',
       (select id from public.learning_cases
        where title = '异分母比较步骤不稳定'),
@@ -430,7 +430,7 @@ select lives_ok(
       timestamptz '2026-09-03 17:00:00+08',
       '这条重试 Action 不应写入',
       null
-    )$,
+    )$$,
   'repeating an Intervention with the same operation id is safe'
 );
 
