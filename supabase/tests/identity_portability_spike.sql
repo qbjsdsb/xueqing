@@ -242,6 +242,18 @@ select is(
   'retired provider identity cannot remain an active login link'
 );
 
+select is(
+  (
+    select count(*)::int
+    from portability_identity_links
+    where provider_key = 'supabase'
+      and issuer = 'supabase-dev'
+      and status = 'retired'
+  ),
+  1,
+  'retired provider identity remains available as historical provenance'
+);
+
 create temporary table duplicate_probe (caught boolean not null default false);
 insert into duplicate_probe values (false);
 
