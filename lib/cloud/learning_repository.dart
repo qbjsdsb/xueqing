@@ -264,22 +264,22 @@ class QuickCaptureCommand {
 
   void validate() {
     if (operationId.trim().isEmpty) {
-      throw const ArgumentError('operationId cannot be empty.');
+      throw ArgumentError('operationId cannot be empty.');
     }
     if (profileId.trim().isEmpty) {
-      throw const ArgumentError('profileId cannot be empty.');
+      throw ArgumentError('profileId cannot be empty.');
     }
     if (expectedProfileVersion <= 0) {
-      throw const ArgumentError('expectedProfileVersion must be positive.');
+      throw ArgumentError('expectedProfileVersion must be positive.');
     }
     if (title.trim().isEmpty) {
-      throw const ArgumentError('title cannot be empty.');
+      throw ArgumentError('title cannot be empty.');
     }
     if (evidenceSummary.trim().isEmpty) {
-      throw const ArgumentError('evidenceSummary cannot be empty.');
+      throw ArgumentError('evidenceSummary cannot be empty.');
     }
     if (nextActionTitle.trim().isEmpty) {
-      throw const ArgumentError('nextActionTitle cannot be empty.');
+      throw ArgumentError('nextActionTitle cannot be empty.');
     }
   }
 }
@@ -499,10 +499,6 @@ class SupabaseLearningRepository implements LearningRepository {
       for (final row in studentRows)
         _requiredString(row['id'], 'student_id'): row,
     };
-    final profilesById = <String, Map<String, dynamic>>{
-      for (final row in profileRows)
-        _requiredString(row['id'], 'profile_id'): row,
-    };
     final bucketByActionId = <String, WorkspaceActionBucket>{
       for (final row in queueRows)
         _requiredString(row['id'], 'action_id'): _actionBucketFromWire(
@@ -553,7 +549,7 @@ class SupabaseLearningRepository implements LearningRepository {
         WorkspaceStudent(
           id: studentId,
           profileId: profileId,
-          profileVersion: _intValue(profile['version'], fallback: 1),
+          profileVersion: _intValue(profile['version']) ?? 1,
           name: _requiredString(student['name'], 'student_name'),
           grade: grade,
           subject: subjectsById[subjectId] ?? '未命名学科',
@@ -793,7 +789,7 @@ class SupabaseLearningRepository implements LearningRepository {
         row['first_observed_at'],
         'case_first_observed_at',
       ),
-      version: _intValue(row['version'], fallback: 1),
+      version: _intValue(row['version']) ?? 1,
       evidence: List<WorkspaceEvidence>.unmodifiable(evidence),
       interventions: List<WorkspaceIntervention>.unmodifiable(interventions),
       assessments: List<WorkspaceAssessment>.unmodifiable(assessments),
