@@ -355,7 +355,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             isScrollControlled: true,
             isDismissible: false,
             enableDrag: false,
-            backgroundColor: Colors.transparent,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            clipBehavior: Clip.antiAlias,
             builder: (context) => _WorkspaceQuickCaptureForm(
               students: workspace.students,
               initialStudent: student,
@@ -403,7 +407,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             isScrollControlled: true,
             isDismissible: false,
             enableDrag: false,
-            backgroundColor: Colors.transparent,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            clipBehavior: Clip.antiAlias,
             builder: (_) => form,
           )
         : showDialog<CaseCommandReceipt>(

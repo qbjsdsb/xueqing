@@ -44,7 +44,7 @@ extension LearningCaseTypePresentation on LearningCaseType {
   String get label => switch (this) {
     LearningCaseType.knowledge => '知识漏洞',
     LearningCaseType.habit => '学习习惯',
-    LearningCaseType.examStrategy => '考试策略',
+    LearningCaseType.examStrategy => '考试技巧',
     LearningCaseType.other => '其他',
   };
 }
