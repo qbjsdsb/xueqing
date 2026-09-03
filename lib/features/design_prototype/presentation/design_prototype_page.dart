@@ -61,7 +61,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   }
 
   void _focusStudentSearch() {
-    if (_selectedIndex != 1 || _selectedStudent != null || _selectedCase != null) {
+    if (_selectedIndex != 1 ||
+        _selectedStudent != null ||
+        _selectedCase != null) {
       setState(() {
         _selectedIndex = 1;
         _selectedStudent = null;
