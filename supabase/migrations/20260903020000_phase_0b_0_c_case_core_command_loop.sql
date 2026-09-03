@@ -643,6 +643,7 @@ declare
   case_status text;
   case_organization_id uuid;
   profile_id uuid;
+  profile_subject_id uuid;
   profile_status text;
   owner_id uuid;
   pending_primary_count integer;
@@ -666,8 +667,8 @@ begin
       message = 'case_not_found';
   end if;
 
-  select profile.status
-  into profile_status
+  select profile.status, profile.organization_subject_id
+  into profile_status, profile_subject_id
   from public.student_subject_profiles as profile
   where profile.id = profile_id
     and profile.organization_id = case_organization_id;
@@ -705,7 +706,7 @@ begin
       join public.membership_subject_scopes as scope
         on scope.membership_id = membership.id
        and scope.organization_id = membership.organization_id
-       and scope.organization_subject_id = profile_id
+       and scope.organization_subject_id = profile_subject_id
       where assignment.student_subject_profile_id = profile_id
         and assignment.organization_id = case_organization_id
         and assignment.membership_id = owner_id
@@ -825,11 +826,6 @@ begin
   if organization_id is null then
     raise exception using errcode = 'P0001', message = 'teaching_fact_gate';
   end if;
-
-  select profile.version
-  into p_expected_profile_version
-  from public.student_subject_profiles as profile
-  where profile.id = p_profile_id;
 
   if p_expected_profile_version <> (
     select profile.version
