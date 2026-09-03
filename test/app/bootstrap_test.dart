@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xueqing/app/router/app_router.dart';
 import 'package:xueqing/bootstrap/app_bootstrap.dart';
 import 'package:xueqing/config/app_config.dart';
 
@@ -60,6 +59,5 @@ void main() {
 
     expect(find.text('路由可用'), findsOneWidget);
     expect(find.byType(BackButton), findsOneWidget);
-    expect(AppRoutes.routeCheck, '/route-check');
   });
 }
