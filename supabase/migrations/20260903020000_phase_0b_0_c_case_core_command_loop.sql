@@ -2015,7 +2015,7 @@ begin
   where id = p_case_id;
 
   insert into public.case_events (
-    v_organization_id,
+    organization_id,
     learning_case_id,
     event_type,
     actor_app_user_id,
@@ -2032,7 +2032,7 @@ begin
     app_user_id,
     v_membership_id,
     coalesce(p_closed_at, timezone('utc', now())),
-    jsonb_build_object('v_cancelled_action_id', v_cancelled_action_id),
+    jsonb_build_object('cancelled_action_id', v_cancelled_action_id),
     p_operation_id,
     'case_closed'
   )
@@ -2043,9 +2043,9 @@ begin
   v_command_result := jsonb_build_object(
     'operation_id', p_operation_id,
     'case_id', p_case_id,
-    'v_event_id', v_event_id,
+    'event_id', v_event_id,
     'status', 'closed',
-    'v_case_version', v_case_version + 1
+    'case_version', v_case_version + 1
   );
 
   perform private.finish_case_operation_v2(
