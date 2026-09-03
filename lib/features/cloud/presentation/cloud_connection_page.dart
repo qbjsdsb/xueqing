@@ -8,6 +8,7 @@ import '../../../config/app_config.dart';
 import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
 import '../../../cloud/cloud_models.dart';
+import '../../../cloud/session_request_guard.dart';
 import '../../../cloud/student_repository.dart';
 
 class CloudConnectionPage extends StatefulWidget {
@@ -30,6 +31,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _contextRequestGuard = SessionRequestGuard();
 
   late final Future<void> _initialization;
   StreamSubscription<AuthState>? _authSubscription;
@@ -37,6 +39,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
   AuthRepository? _authRepository;
   StudentRepository? _studentRepository;
   CloudUserContext? _userContext;
+  String? _activeUserId;
   String? _errorMessage;
   bool _busy = false;
 
@@ -48,6 +51,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
 
   @override
   void dispose() {
+    _contextRequestGuard.invalidate();
     _authSubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
@@ -77,16 +81,35 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
       _studentRepository = SupabaseStudentRepository(CloudClient.client);
     }
 
+    _activeUserId = _authRepository!.currentUser?.id;
+
     _authSubscription = _authRepository!.authStateChanges.listen((authState) {
+      final nextUserId = authState.session?.user.id;
       if (!mounted) {
         return;
       }
-      if (authState.session == null) {
+
+      if (nextUserId == null) {
+        _contextRequestGuard.invalidate();
         setState(() {
+          _activeUserId = null;
           _userContext = null;
           _errorMessage = null;
         });
-      } else {
+        return;
+      }
+
+      final userChanged = _activeUserId != nextUserId;
+      _contextRequestGuard.invalidate();
+      setState(() {
+        _activeUserId = nextUserId;
+        if (userChanged) {
+          _userContext = null;
+          _errorMessage = null;
+        }
+      });
+
+      if (userChanged || _userContext == null) {
         unawaited(_loadUserContext());
       }
     });
@@ -95,10 +118,17 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
   }
 
   Future<void> _loadUserContext() async {
+    final requestGeneration = _contextRequestGuard.begin();
     final authRepository = _authRepository;
     final studentRepository = _studentRepository;
-    if (authRepository == null || authRepository.currentUser == null) {
-      if (mounted) {
+    final activeUserId = _activeUserId;
+    final authUser = authRepository?.currentUser;
+    if (authRepository == null ||
+        studentRepository == null ||
+        authUser == null ||
+        activeUserId == null ||
+        authUser.id != activeUserId) {
+      if (mounted && activeUserId == _activeUserId) {
         setState(() {
           _userContext = null;
         });
@@ -106,22 +136,50 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
       return;
     }
 
+    final expectedUserId = activeUserId;
     try {
-      final userContext = await studentRepository!.loadContext();
-      if (mounted) {
-        setState(() {
-          _userContext = userContext;
-          _errorMessage = null;
-        });
+      final userContext = await studentRepository.loadContext();
+      if (!mounted ||
+          !_isCurrentContextRequest(
+            requestGeneration: requestGeneration,
+            expectedUserId: expectedUserId,
+            authRepository: authRepository,
+          )) {
+        return;
       }
+
+      setState(() {
+        _userContext = userContext;
+        _errorMessage = null;
+      });
     } catch (error) {
-      if (mounted) {
-        setState(() {
-          _userContext = null;
-          _errorMessage = error.toString();
-        });
+      if (!mounted ||
+          !_isCurrentContextRequest(
+            requestGeneration: requestGeneration,
+            expectedUserId: expectedUserId,
+            authRepository: authRepository,
+          )) {
+        return;
       }
+
+      setState(() {
+        _userContext = null;
+        _errorMessage = _describeError(error, action: '读取账号资料');
+      });
     }
+  }
+
+  bool _isCurrentContextRequest({
+    required int requestGeneration,
+    required String expectedUserId,
+    required AuthRepository authRepository,
+  }) {
+    return _activeUserId == expectedUserId &&
+        _contextRequestGuard.isCurrent(
+          requestGeneration,
+          expectedUserId: expectedUserId,
+          currentUserId: authRepository.currentUser?.id,
+        );
   }
 
   Future<void> _signIn() async {
@@ -134,21 +192,39 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
       return;
     }
 
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    _contextRequestGuard.invalidate();
     setState(() {
       _busy = true;
+      _activeUserId = null;
+      _userContext = null;
       _errorMessage = null;
     });
 
     try {
-      await authRepository.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-      await _loadUserContext();
-    } catch (error) {
+      await authRepository.signIn(email: email, password: password);
+      final signedInUser = authRepository.currentUser;
+      if (signedInUser == null) {
+        throw const AuthException('Authentication did not return a user.');
+      }
+
       if (mounted) {
         setState(() {
-          _errorMessage = error.toString();
+          _activeUserId = signedInUser.id;
+        });
+      }
+      await _loadUserContext();
+      _clearPassword();
+    } catch (error) {
+      final currentUser = authRepository.currentUser;
+      if (mounted) {
+        setState(() {
+          _activeUserId = currentUser?.id;
+          if (currentUser == null) {
+            _userContext = null;
+          }
+          _errorMessage = _describeError(error, action: '登录');
         });
       }
     } finally {
@@ -162,26 +238,77 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
 
   Future<void> _signOut() async {
     final authRepository = _authRepository;
-    if (authRepository == null) {
+    if (authRepository == null || !mounted) {
       return;
     }
 
+    final previousUserId = _activeUserId ?? authRepository.currentUser?.id;
+    final previousContext = _userContext;
+    _contextRequestGuard.invalidate();
     setState(() {
       _busy = true;
+      _activeUserId = null;
+      _userContext = null;
       _errorMessage = null;
     });
 
+    String? signOutWarning;
     try {
-      await authRepository.signOut();
-      if (mounted) {
-        setState(() {
-          _userContext = null;
-        });
+      try {
+        await authRepository.signOut();
+      } catch (_) {
+        try {
+          // A network failure must not leave the user trapped behind a stale
+          // local session. The warning below records that global revocation
+          // still needs a successful online attempt.
+          await authRepository.signOut(global: false);
+          signOutWarning =
+              '已退出本机登录，但云端全局退出未完成。'
+              '请在网络正常时再次登录并退出一次。';
+        } catch (localError) {
+          if (authRepository.currentUser != null) {
+            _restoreSessionAfterSignOutFailure(
+              previousUserId: previousUserId,
+              previousContext: previousContext,
+              error: localError,
+            );
+            return;
+          }
+          signOutWarning =
+              '已清理本机登录状态，但云端全局退出未完成。'
+              '请在网络正常时再次登录并退出一次。';
+        }
       }
-    } catch (error) {
+
+      if (authRepository.currentUser != null) {
+        try {
+          await authRepository.signOut(global: false);
+        } catch (localError) {
+          _restoreSessionAfterSignOutFailure(
+            previousUserId: previousUserId,
+            previousContext: previousContext,
+            error: localError,
+          );
+          return;
+        }
+      }
+
+      if (authRepository.currentUser != null) {
+        _restoreSessionAfterSignOutFailure(
+          previousUserId: previousUserId,
+          previousContext: previousContext,
+          error: const AuthException('本机登录状态未清除。'),
+        );
+        return;
+      }
+
+      _contextRequestGuard.invalidate();
+      _clearCredentials();
       if (mounted) {
         setState(() {
-          _errorMessage = error.toString();
+          _activeUserId = null;
+          _userContext = null;
+          _errorMessage = signOutWarning;
         });
       }
     } finally {
@@ -191,6 +318,57 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
         });
       }
     }
+  }
+
+  void _restoreSessionAfterSignOutFailure({
+    required String? previousUserId,
+    required CloudUserContext? previousContext,
+    required Object error,
+  }) {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _activeUserId = previousUserId;
+      _userContext = previousContext;
+      _errorMessage = _describeError(error, action: '退出登录');
+    });
+  }
+
+  void _clearPassword() {
+    if (mounted) {
+      _passwordController.clear();
+    }
+  }
+
+  void _clearCredentials() {
+    if (mounted) {
+      _emailController.clear();
+      _passwordController.clear();
+    }
+  }
+
+  String _describeError(Object error, {required String action}) {
+    if (error is AuthException) {
+      final detail = error.message.trim();
+      if (detail.isEmpty) {
+        return '$action失败，请检查网络后重试。';
+      }
+
+      final normalized = detail.toLowerCase();
+      if (normalized == 'invalid login credentials') {
+        return '$action失败：账号或密码不正确。';
+      }
+      if (normalized.contains('network') ||
+          normalized.contains('socket') ||
+          normalized.contains('timeout')) {
+        return '$action失败：网络连接异常，请检查网络后重试。';
+      }
+      return '$action失败：$detail';
+    }
+
+    return '$action失败：$error';
   }
 
   @override
@@ -226,7 +404,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
 
   Widget _buildAuthenticatedBody() {
     final user = _authRepository!.currentUser;
-    if (user == null) {
+    if (user == null || _activeUserId != user.id) {
       return _buildLoginForm();
     }
 
@@ -324,6 +502,10 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
                     value: userContext?.userDisplayName ?? user.email ?? '—',
                   ),
                   _SummaryRow(
+                    label: 'Email',
+                    value: user.email ?? userContext?.userEmail ?? '—',
+                  ),
+                  _SummaryRow(
                     label: 'Organization',
                     value: userContext?.organizationName ?? '—',
                   ),
@@ -343,7 +525,12 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
               OutlinedButton.icon(
                 onPressed: _busy ? null : _signOut,
                 icon: const Icon(Icons.logout),
-                label: const Text('全局退出登录'),
+                label: const Text('退出并切换账号'),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '退出后可以登录另一位教师；网络异常时也会先清理本机登录状态。',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),

@@ -29,6 +29,9 @@ jobs:
         with:
           version: 2.116.0
 
+      - name: Check shell test syntax
+        run: bash -n supabase/tests/old_token_security.sh supabase/tests/remote_security_spike.sh
+
       - name: Start local Supabase development stack
         run: supabase start
 

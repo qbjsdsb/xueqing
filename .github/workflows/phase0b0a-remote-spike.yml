@@ -1,0 +1,34 @@
+name: Phase 0B.0-A remote Supabase spike
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase0b0a-remote-supabase-spike
+  cancel-in-progress: false
+
+jobs:
+  remote-security:
+    name: Verify fictional remote identity and RLS boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      XUEQING_SPIKE_CONFIRM_DEV_ONLY: YES
+      XUEQING_SPIKE_PROJECT_REF: ${{ secrets.XUEQING_SPIKE_PROJECT_REF }}
+      XUEQING_SUPABASE_URL: ${{ secrets.XUEQING_SUPABASE_URL }}
+      XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.XUEQING_SUPABASE_PUBLISHABLE_KEY }}
+      XUEQING_SPIKE_TEACHER_A_EMAIL: ${{ secrets.XUEQING_SPIKE_TEACHER_A_EMAIL }}
+      XUEQING_SPIKE_TEACHER_A_PASSWORD: ${{ secrets.XUEQING_SPIKE_TEACHER_A_PASSWORD }}
+      XUEQING_SPIKE_TEACHER_B_EMAIL: ${{ secrets.XUEQING_SPIKE_TEACHER_B_EMAIL }}
+      XUEQING_SPIKE_TEACHER_B_PASSWORD: ${{ secrets.XUEQING_SPIKE_TEACHER_B_PASSWORD }}
+      XUEQING_SPIKE_NO_MEMBERSHIP_EMAIL: ${{ secrets.XUEQING_SPIKE_NO_MEMBERSHIP_EMAIL }}
+      XUEQING_SPIKE_NO_MEMBERSHIP_PASSWORD: ${{ secrets.XUEQING_SPIKE_NO_MEMBERSHIP_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run remote fictional-data security harness
+        run: bash supabase/tests/remote_security_spike.sh

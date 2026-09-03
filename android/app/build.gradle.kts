@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.xueqing.app"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_secure_storage currently requires Android API 37 to compile.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
