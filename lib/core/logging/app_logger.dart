@@ -18,11 +18,7 @@ class AppLogger {
     developer.log(message, name: name, level: 900);
   }
 
-  void error(
-    String message, {
-    Object? error,
-    StackTrace? stackTrace,
-  }) {
+  void error(String message, {Object? error, StackTrace? stackTrace}) {
     developer.log(
       message,
       name: name,
