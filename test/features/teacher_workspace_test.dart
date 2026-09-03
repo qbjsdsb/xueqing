@@ -143,9 +143,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('现场表现 / Evidence *'), findsOneWidget);
 
-      await tester.tap(find.text('选择学生后开始'));
+      final studentPicker = find.byType(
+        DropdownButtonFormField<WorkspaceStudent>,
+      );
+      await tester.ensureVisible(studentPicker);
+      await tester.tap(studentPicker);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('示例学生甲 · 数学'));
+      await tester.tap(find.text('示例学生甲 · 数学').last);
       await tester.pumpAndSettle();
 
       final textFields = find.byType(TextField);
