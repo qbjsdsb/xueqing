@@ -417,14 +417,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceStudent student,
     WorkspaceCase learningCase,
   ) async {
-    final mode = switch (learningCase.status) {
-      LearningCaseStatus.newCase => _CaseCommandMode.confirm,
-      LearningCaseStatus.confirmed => _CaseCommandMode.intervention,
-      LearningCaseStatus.intervening => _CaseCommandMode.intervention,
-      LearningCaseStatus.pendingVerification => _CaseCommandMode.assessment,
-      LearningCaseStatus.stable => null,
-      LearningCaseStatus.closed => null,
-    };
+    final mode = _caseCommandMode(learningCase);
     if (mode == null) {
       return;
     }
@@ -876,6 +869,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceCase learningCase,
   ) {
     final primaryAction = learningCase.primaryAction;
+    final commandLabel = _caseCommandLabel(learningCase);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -921,12 +915,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             message: 'Quick Capture 已保存原始问题和证据；确认前请补充判断和合适的下一步。',
             icon: Icons.edit_note_outlined,
           ),
-        if (_caseCommandLabel(learningCase.status) != null) ...[
+        if (commandLabel != null) ...[
           const SizedBox(height: AppSpacing.md),
           _WorkspaceCaseCommandSection(
-            title: _caseCommandLabel(learningCase.status)!,
-            message: _caseCommandHint(learningCase.status),
-            buttonLabel: _caseCommandLabel(learningCase.status)!,
+            title: commandLabel,
+            message: _caseCommandHint(learningCase),
+            buttonLabel: commandLabel,
             onPressed: () => _showCaseCommand(student, learningCase),
           ),
         ],
@@ -2880,26 +2874,37 @@ class WorkspaceCaseWithContext {
   final WorkspaceCase learningCase;
 }
 
-String? _caseCommandLabel(LearningCaseStatus status) {
-  return switch (status) {
-    LearningCaseStatus.newCase => '确认 Case',
-    LearningCaseStatus.confirmed => '记录教学动作',
-    LearningCaseStatus.intervening => '记录教学动作',
-    LearningCaseStatus.pendingVerification => '记录验证结果',
+_CaseCommandMode? _caseCommandMode(WorkspaceCase learningCase) {
+  return switch (learningCase.status) {
+    LearningCaseStatus.newCase => _CaseCommandMode.confirm,
+    LearningCaseStatus.confirmed => _CaseCommandMode.intervention,
+    LearningCaseStatus.intervening =>
+      learningCase.primaryAction?.actionType == 'verify'
+          ? _CaseCommandMode.assessment
+          : _CaseCommandMode.intervention,
+    LearningCaseStatus.pendingVerification => _CaseCommandMode.assessment,
     LearningCaseStatus.stable => null,
     LearningCaseStatus.closed => null,
   };
 }
 
-String _caseCommandHint(LearningCaseStatus status) {
-  return switch (status) {
-    LearningCaseStatus.newCase => '确认问题范围、补充判断，然后生成一条可执行的练习行动。',
-    LearningCaseStatus.confirmed => '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
-    LearningCaseStatus.intervening =>
+String? _caseCommandLabel(WorkspaceCase learningCase) {
+  return switch (_caseCommandMode(learningCase)) {
+    _CaseCommandMode.confirm => '确认 Case',
+    _CaseCommandMode.intervention => '记录教学动作',
+    _CaseCommandMode.assessment => '记录验证结果',
+    null => null,
+  };
+}
+
+String _caseCommandHint(WorkspaceCase learningCase) {
+  return switch (_caseCommandMode(learningCase)) {
+    _CaseCommandMode.confirm => '确认问题范围、补充判断，然后生成一条可执行的练习行动。',
+    _CaseCommandMode.intervention =>
       '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
-    LearningCaseStatus.pendingVerification => '记录一次可观察的验证结果；通过后仍会停在待确认，不会自动关闭。',
-    LearningCaseStatus.stable => '',
-    LearningCaseStatus.closed => '',
+    _CaseCommandMode.assessment =>
+      '记录一次可观察的验证结果；通过后仍会停在待确认，不会自动关闭。',
+    null => '',
   };
 }
 

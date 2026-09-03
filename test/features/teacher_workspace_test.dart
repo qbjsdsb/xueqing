@@ -108,12 +108,13 @@ class _FakeLearningRepository implements LearningRepository {
 
 TeacherWorkspace _fixtureWorkspace({
   LearningCaseStatus status = LearningCaseStatus.newCase,
+  String actionType = 'practice',
 }) {
   final action = WorkspaceAction(
     id: 'action-1',
     caseId: 'case-1',
     title: '补充一次课堂证据',
-    actionType: 'practice',
+    actionType: actionType,
     status: WorkspaceActionStatus.pending,
     isPrimary: true,
     bucket: WorkspaceActionBucket.today,
@@ -308,6 +309,43 @@ void main() {
     expect(repository.interventionCommands.single.strategy, '用图示带学生重新完成通分步骤。');
     expect(repository.interventionCommands.single.expectedCaseVersion, 1);
     expect(find.textContaining('Case 进入干预中'), findsOneWidget);
+  });
+
+  testWidgets('records verification from an intervening Case', (tester) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        status: LearningCaseStatus.intervening,
+        actionType: 'verify',
+      ),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
+    await tester.pumpAndSettle();
+    final commandButton = find.widgetWithText(FilledButton, '记录验证结果');
+    await tester.ensureVisible(commandButton);
+    await tester.tap(commandButton);
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '学生能独立完成，但仍有一次漏写通分步骤。');
+    final saveButton = find.widgetWithText(FilledButton, '保存并进入下一步');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.assessmentCount, 1);
+    expect(
+      repository.assessmentCommands.single.result,
+      CaseAssessmentResult.partial,
+    );
+    expect(find.textContaining('Case 进入待验证'), findsOneWidget);
   });
 
   testWidgets('records a verification result without auto-closing the Case', (
