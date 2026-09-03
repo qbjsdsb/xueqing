@@ -17,7 +17,6 @@ class SessionRequestGuard {
     required String expectedUserId,
     required String? currentUserId,
   }) {
-    return requestGeneration == _generation &&
-        expectedUserId == currentUserId;
+    return requestGeneration == _generation && expectedUserId == currentUserId;
   }
 }
