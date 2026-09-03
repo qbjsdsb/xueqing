@@ -145,17 +145,15 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     if (result.outcome == QuickCaptureOutcome.saved && result.capture != null) {
       _addQuickCapture(result.capture!);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已记录为待整理问题，并已显示在当前预览。')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已记录为待整理问题，并已显示在当前预览。')));
       return;
     }
     if (result.outcome == QuickCaptureOutcome.draft && result.capture != null) {
       _addPreviewDraft(result.capture!);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('草稿已保留在本次预览会话中。')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('草稿已保留在本次预览会话中。')));
     }
   }
 
@@ -233,9 +231,8 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
 
   void _completeAction(PrototypeAction action) {
     setState(() => _completedActionIds.add(action.id));
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('已完成：${action.title}')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('已完成：${action.title}')));
   }
 
   Widget _buildPreviewDraftSection({String? studentId}) {
@@ -889,9 +886,8 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   }
 
   void _showPrototypeNotice(String actionLabel) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$actionLabel 入口已定义；当前预览不会写入业务数据。')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$actionLabel 入口已定义；当前预览不会写入业务数据。')));
   }
 
   String _casePrimaryLabel(PrototypeCase learningCase) {
@@ -1213,9 +1209,8 @@ class _ActionSubheading extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: color),
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(color: color),
           ),
         ],
       ),

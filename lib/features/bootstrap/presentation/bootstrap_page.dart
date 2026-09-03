@@ -153,9 +153,8 @@ class _StatusRow extends StatelessWidget {
           ),
           Text(
             value,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),

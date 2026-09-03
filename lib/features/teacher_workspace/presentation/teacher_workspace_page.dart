@@ -386,9 +386,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
   }
 
   Future<void> _showCaseTypeManager() async {
@@ -3286,9 +3285,8 @@ class _WorkspaceSubheading extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(color: color),
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(color: color),
           ),
         ],
       ),
