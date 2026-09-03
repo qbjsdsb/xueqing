@@ -170,4 +170,39 @@ void main() {
 
     expect(find.text('已记录为待整理问题'), findsOneWidget);
   });
+
+  testWidgets('keeps the fictional-data boundary explicit', (tester) async {
+    addTearDown(() => _resetView(tester));
+    final semanticsHandle = tester.ensureSemantics();
+    await _pumpPreview(tester, const Size(390, 844));
+
+    expect(
+      find.bySemanticsLabel('设计预览，使用虚构数据，不写入云端'),
+      findsOneWidget,
+    );
+    expect(find.text('不写入云端'), findsOneWidget);
+
+    await tester.tap(find.text('学生').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(FocusableActionDetector), findsNWidgets(2));
+    semanticsHandle.dispose();
+  });
+
+  testWidgets('focuses student search with the Windows keyboard shortcut', (
+    tester,
+  ) async {
+    addTearDown(() => _resetView(tester));
+    await _pumpPreview(tester, const Size(390, 844));
+
+    await tester.tap(find.text('学生').last);
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyK);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    final searchField = tester.widget<TextField>(find.byType(TextField));
+    expect(searchField.focusNode?.hasFocus, isTrue);
+  });
+
 }
