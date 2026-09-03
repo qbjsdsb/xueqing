@@ -471,7 +471,7 @@ security definer
 set search_path = ''
 as $function$
 declare
-  app_user_id uuid;
+  current_app_user_id uuid;
   membership_id uuid;
   case_type_id uuid := gen_random_uuid();
   command_result jsonb;
@@ -486,8 +486,8 @@ begin
     raise exception using errcode = 'P0001', message = 'invalid_case_type_input';
   end if;
 
-  app_user_id := (select private.current_app_user_id_v2());
-  if app_user_id is null then
+  current_app_user_id := (select private.current_app_user_id_v2());
+  if current_app_user_id is null then
     raise exception using errcode = 'P0001', message = 'invalid_live_session';
   end if;
 
@@ -499,7 +499,7 @@ begin
   into membership_id
   from public.organization_memberships as membership
   where membership.organization_id = p_organization_id
-    and membership.app_user_id = app_user_id
+    and membership.app_user_id = current_app_user_id
     and membership.status = 'active'
   order by membership.id
   limit 1;
@@ -526,7 +526,7 @@ begin
       btrim(p_display_name),
       p_base_case_type,
       'active',
-      app_user_id,
+      current_app_user_id,
       membership_id
     );
   exception
