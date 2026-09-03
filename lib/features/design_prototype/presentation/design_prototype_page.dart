@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/layout/responsive.dart';
 import '../../../app/theme/app_colors.dart';
@@ -20,10 +21,12 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   final Set<String> _completedActionIds = <String>{};
   final TextEditingController _studentSearchController =
       TextEditingController();
+  final FocusNode _studentSearchFocusNode = FocusNode(debugLabel: '学生搜索');
 
   @override
   void dispose() {
     _studentSearchController.dispose();
+    _studentSearchFocusNode.dispose();
     super.dispose();
   }
 
@@ -37,6 +40,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       child: _DesignShell(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _selectDestination,
+        onFocusStudentSearch: _focusStudentSearch,
         child: ResponsiveLayout(
           builder: (context, sizeClass) {
             return _PageFrame(
@@ -55,6 +59,24 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       _selectedStudent = null;
       _selectedCase = null;
     });
+  }
+
+  void _focusStudentSearch() {
+    if (_selectedIndex != 1 ||
+        _selectedStudent != null ||
+        _selectedCase != null) {
+      setState(() {
+        _selectedIndex = 1;
+        _selectedStudent = null;
+        _selectedCase = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _studentSearchFocusNode.requestFocus();
+      });
+      return;
+    }
+
+    _studentSearchFocusNode.requestFocus();
   }
 
   void _openStudent(PrototypeStudent student) {
@@ -362,6 +384,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
             ),
             TextField(
               controller: _studentSearchController,
+              focusNode: _studentSearchFocusNode,
               decoration: const InputDecoration(
                 labelText: '搜索学生或学情',
                 hintText: '输入姓名、学科或问题关键词',
@@ -716,9 +739,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   }
 
   void _showPrototypeNotice(String actionLabel) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$actionLabel 入口已定义；Phase 0A.5 原型不接业务保存。')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$actionLabel 入口已定义；当前预览不会写入业务数据。')));
   }
 
   String _casePrimaryLabel(PrototypeCase learningCase) {
@@ -766,45 +789,58 @@ class _DesignShell extends StatelessWidget {
   const _DesignShell({
     required this.selectedIndex,
     required this.onDestinationSelected,
+    required this.onFocusStudentSearch,
     required this.child,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final VoidCallback onFocusStudentSearch;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveLayout(
-      builder: (context, sizeClass) {
-        if (sizeClass == WindowSizeClass.compact) {
-          return Scaffold(
-            body: SafeArea(child: child),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: onDestinationSelected,
-              destinations: _navigationDestinations,
-            ),
-          );
-        }
-
-        final extended = sizeClass == WindowSizeClass.expanded;
-        return Scaffold(
-          body: SafeArea(
-            child: Row(
-              children: [
-                _DesignRail(
-                  extended: extended,
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            onFocusStudentSearch,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            onFocusStudentSearch,
+      },
+      child: Focus(
+        autofocus: true,
+        child: ResponsiveLayout(
+          builder: (context, sizeClass) {
+            if (sizeClass == WindowSizeClass.compact) {
+              return Scaffold(
+                body: SafeArea(child: child),
+                bottomNavigationBar: NavigationBar(
                   selectedIndex: selectedIndex,
                   onDestinationSelected: onDestinationSelected,
+                  destinations: _navigationDestinations,
                 ),
-                const VerticalDivider(width: 1),
-                Expanded(child: child),
-              ],
-            ),
-          ),
-        );
-      },
+              );
+            }
+
+            final extended = sizeClass == WindowSizeClass.expanded;
+            return Scaffold(
+              body: SafeArea(
+                child: Row(
+                  children: [
+                    _DesignRail(
+                      extended: extended,
+                      selectedIndex: selectedIndex,
+                      onDestinationSelected: onDestinationSelected,
+                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: child),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -877,7 +913,7 @@ class _DesignRail extends StatelessWidget {
               AppSpacing.lg,
             ),
             child: Text(
-              'Phase 0A.5 设计预览',
+              extended ? '教师工作台 · 虚构数据' : '虚构数据',
               textAlign: extended ? TextAlign.start : TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

@@ -10,7 +10,9 @@ class DesignPreviewBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '设计预览，使用虚构数据，没有后端连接',
+      container: true,
+      excludeSemantics: true,
+      label: '设计预览，使用虚构数据，不写入云端',
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(
@@ -22,9 +24,28 @@ class DesignPreviewBanner extends StatelessWidget {
           border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(AppRadii.small),
         ),
-        child: Text(
-          '设计预览 · 虚构数据 · 无后端连接',
-          style: Theme.of(context).textTheme.bodySmall,
+        child: Row(
+          children: [
+            const Icon(
+              Icons.science_outlined,
+              size: 17,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Text(
+                '设计预览 · 虚构数据',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            Text(
+              '不写入云端',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -53,7 +74,11 @@ class DesignPageHeader extends StatelessWidget {
         Text(title, style: Theme.of(context).textTheme.headlineSmall),
         if (subtitle != null) ...[
           const SizedBox(height: AppSpacing.xs),
-          Text(subtitle!, style: Theme.of(context).textTheme.bodyLarge),
+          Text(
+            subtitle!,
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: AppColors.textSecondary),
+          ),
         ],
       ],
     );
@@ -565,25 +590,39 @@ class _InteractiveSurface extends StatefulWidget {
 
 class _InteractiveSurfaceState extends State<_InteractiveSurface> {
   bool _hovering = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovering = true),
-      onExit: (_) => setState(() => _hovering = false),
+    return FocusableActionDetector(
+      mouseCursor: SystemMouseCursors.click,
+      onShowHoverHighlight: (value) {
+        if (mounted) setState(() => _hovering = value);
+      },
+      onShowFocusHighlight: (value) {
+        if (mounted) setState(() => _focused = value);
+      },
       child: Semantics(
         button: true,
         explicitChildNodes: true,
         label: widget.label,
         child: InkWell(
           onTap: widget.onTap,
+          focusColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          splashColor: AppColors.surfaceAccent,
+          highlightColor: AppColors.surfaceAccent.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(AppRadii.small),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: _hovering ? AppColors.surfaceMuted : Colors.transparent,
-              border: const Border(bottom: BorderSide(color: AppColors.border)),
+              color: _focused || _hovering
+                  ? AppColors.surfaceMuted
+                  : Colors.transparent,
+              border: _focused
+                  ? Border.all(color: AppColors.accent)
+                  : const Border(bottom: BorderSide(color: AppColors.border)),
             ),
             child: widget.child,
           ),
