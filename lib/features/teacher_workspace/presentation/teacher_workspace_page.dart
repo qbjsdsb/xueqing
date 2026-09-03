@@ -9,6 +9,7 @@ import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../config/app_config.dart';
+import '../../../core/logging/app_logger.dart';
 
 class TeacherWorkspaceEntryPage extends StatefulWidget {
   const TeacherWorkspaceEntryPage({
@@ -37,6 +38,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   AuthRepository? _authRepository;
   LearningRepository? _learningRepository;
   String? _errorMessage;
+  String? _activeUserId;
   bool _signedIn = false;
   bool _busy = false;
 
@@ -76,14 +78,18 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       _learningRepository = SupabaseLearningRepository(CloudClient.client);
     }
 
-    _signedIn = _authRepository!.currentUser != null;
+    _activeUserId = _authRepository!.currentUser?.id;
+    _signedIn = _activeUserId != null;
     _authSubscription = _authRepository!.authStateChanges.listen((state) {
       if (!mounted) {
         return;
       }
+      final nextUserId = state.session?.user.id;
+      final userChanged = _activeUserId != nextUserId;
       setState(() {
-        _signedIn = state.session != null;
-        if (_signedIn) {
+        _activeUserId = nextUserId;
+        _signedIn = nextUserId != null;
+        if (!_signedIn || userChanged) {
           _errorMessage = null;
         }
       });
@@ -110,11 +116,13 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-      if (_authRepository!.currentUser == null) {
+      final nextUserId = _authRepository!.currentUser?.id;
+      if (nextUserId == null) {
         throw const AuthException('Authentication did not return a user.');
       }
       if (mounted) {
         setState(() {
+          _activeUserId = nextUserId;
           _signedIn = true;
         });
       }
@@ -149,8 +157,10 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
         await authRepository.signOut(global: false);
       }
       if (mounted) {
+        final nextUserId = authRepository.currentUser?.id;
         setState(() {
-          _signedIn = authRepository.currentUser != null;
+          _activeUserId = nextUserId;
+          _signedIn = nextUserId != null;
           if (!_signedIn) {
             _emailController.clear();
             _passwordController.clear();
@@ -159,8 +169,10 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       }
     } catch (error) {
       if (mounted) {
+        final nextUserId = authRepository.currentUser?.id;
         setState(() {
-          _signedIn = authRepository.currentUser != null;
+          _activeUserId = nextUserId;
+          _signedIn = nextUserId != null;
           _errorMessage = _describeAuthError(error, action: '退出登录');
         });
       }
@@ -202,7 +214,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           return _WorkspaceStatusScaffold(
             title: '教师工作台',
             child: _WorkspaceErrorBody(
-              message: '工作台初始化失败，请检查开发环境配置后重试。',
+              title: '工作台初始化失败',
+              message: '请检查开发环境配置后重试。',
               onRetry: _retryInitialization,
             ),
           );
@@ -224,6 +237,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           );
         }
         return TeacherWorkspacePage(
+          key: ValueKey(_activeUserId),
           repository: _learningRepository!,
           onSignOut: _busy ? null : _signOut,
         );
@@ -247,6 +261,10 @@ class TeacherWorkspacePage extends StatefulWidget {
 }
 
 class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
+  static const _workspaceLogger = AppLogger(
+    environment: AppEnvironment.production,
+  );
+
   final _studentSearchController = TextEditingController();
   int _selectedIndex = 0;
   WorkspaceStudent? _selectedStudent;
@@ -256,7 +274,20 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   @override
   void initState() {
     super.initState();
-    _workspaceFuture = widget.repository.loadWorkspace();
+    _workspaceFuture = _loadWorkspace();
+  }
+
+  Future<TeacherWorkspace> _loadWorkspace() async {
+    try {
+      return await widget.repository.loadWorkspace();
+    } catch (error, stackTrace) {
+      _workspaceLogger.error(
+        'Teacher workspace load failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -301,7 +332,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceStudent? preserveStudent,
     String? preserveCaseId,
   }) async {
-    final nextFuture = widget.repository.loadWorkspace();
+    final nextFuture = _loadWorkspace();
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _workspaceFuture = nextFuture;
     });
@@ -497,7 +531,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           return _WorkspaceStatusScaffold(
             title: '教师工作台',
             child: _WorkspaceErrorBody(
-              message: '学生和今日事项暂时加载失败。可以重试，已有输入不会被删除。',
+              title: '暂时无法加载工作台',
+              message: _describeWorkspaceLoadError(snapshot.error),
               onRetry: () => _reload(),
             ),
           );
@@ -3506,13 +3541,19 @@ class _WorkspaceLoadingBody extends StatelessWidget {
 }
 
 class _WorkspaceErrorBody extends StatelessWidget {
-  const _WorkspaceErrorBody({required this.message, required this.onRetry});
+  const _WorkspaceErrorBody({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+  });
 
+  final String title;
   final String message;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -3521,9 +3562,23 @@ class _WorkspaceErrorBody extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_outlined, size: 32),
+              Icon(
+                Icons.cloud_off_outlined,
+                size: 40,
+                color: colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(height: AppSpacing.md),
-              Text(message, textAlign: TextAlign.center),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: AppSpacing.md),
               OutlinedButton(onPressed: onRetry, child: const Text('重试')),
             ],
@@ -3731,6 +3786,27 @@ String _caseStatusLabelFromWire(String value) {
     'closed' => '已关闭',
     _ => value,
   };
+}
+
+String _describeWorkspaceLoadError(Object? error) {
+  final detail = error?.toString().toLowerCase() ?? '';
+  if (detail.contains('organization_case_types') &&
+      (detail.contains('404') ||
+          detail.contains('pgrst205') ||
+          detail.contains('relation'))) {
+    return '开发环境服务还没有完成同步，请稍后重试。';
+  }
+  if (detail.contains('network') ||
+      detail.contains('socket') ||
+      detail.contains('timeout')) {
+    return '网络暂时不可用，请检查网络后重试。';
+  }
+  if (detail.contains('no active session') ||
+      detail.contains('not authenticated') ||
+      detail.contains('signed out')) {
+    return '登录状态已失效，请重新登录后再试。';
+  }
+  return '学生和今日事项暂时没有加载完成。可以重试，已打开的输入不会被删除。';
 }
 
 String _describeCaseCommandError(Object error) {

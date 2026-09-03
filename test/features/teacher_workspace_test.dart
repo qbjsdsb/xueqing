@@ -9,6 +9,7 @@ class _FakeLearningRepository implements LearningRepository {
   _FakeLearningRepository(this.workspace);
 
   TeacherWorkspace workspace;
+  Object? loadError;
   int loadCount = 0;
   int saveCount = 0;
   bool failFirstSave = false;
@@ -25,6 +26,9 @@ class _FakeLearningRepository implements LearningRepository {
   @override
   Future<TeacherWorkspace> loadWorkspace() async {
     loadCount++;
+    if (loadError != null) {
+      throw loadError!;
+    }
     return workspace;
   }
 
@@ -253,6 +257,26 @@ void main() {
     expect(find.text('待整理 Case'), findsOneWidget);
     expect(find.text('待整理'), findsOneWidget);
     expect(find.text('尚未记录教学动作。'), findsOneWidget);
+  });
+
+  testWidgets('explains schema drift and lets the user retry', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace())
+      ..loadError = StateError(
+        '404 PGRST205 relation organization_case_types does not exist',
+      );
+    await _pumpWorkspace(tester, repository);
+
+    expect(find.text('暂时无法加载工作台'), findsOneWidget);
+    expect(find.text('开发环境服务还没有完成同步，请稍后重试。'), findsOneWidget);
+
+    repository.loadError = null;
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('今日'), findsWidgets);
+    expect(repository.loadCount, 2);
   });
 
   testWidgets(
