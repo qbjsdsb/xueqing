@@ -11,6 +11,7 @@ class DesignPreviewBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
+      excludeSemantics: true,
       label: '设计预览，使用虚构数据，不写入云端',
       child: Container(
         width: double.infinity,
