@@ -809,9 +809,9 @@ class _DesignShell extends StatelessWidget {
         const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
             onFocusStudentSearch,
       },
-      child: ResponsiveLayout(
-        builder: (context, sizeClass) {
-          if (sizeClass == WindowSizeClass.compact) {
+        child: ResponsiveLayout(
+          builder: (context, sizeClass) {
+            if (sizeClass == WindowSizeClass.compact) {
             return Scaffold(
               body: SafeArea(child: child),
               bottomNavigationBar: NavigationBar(
