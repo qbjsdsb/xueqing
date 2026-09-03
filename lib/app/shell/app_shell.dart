@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../layout/responsive.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
 class AppShell extends StatelessWidget {
@@ -66,7 +65,10 @@ class _CompactRail extends StatelessWidget {
           children: [
             Tooltip(
               message: '开发验证状态',
-              child: const Icon(Icons.build_outlined, color: AppColors.accent),
+              child: Icon(
+                Icons.build_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
             const Spacer(),
             Text(
@@ -128,9 +130,13 @@ class _DesktopRail extends StatelessWidget {
               const SizedBox(height: AppSpacing.lg),
               const Divider(),
               const SizedBox(height: AppSpacing.sm),
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.build_outlined, size: 18, color: AppColors.accent),
+                  Icon(
+                    Icons.build_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   SizedBox(width: AppSpacing.sm),
                   Text('开发验证状态'),
                 ],

@@ -165,6 +165,8 @@ CI 证据规则：以 PR #9 最终 Head 对应的最新成功 GitHub Actions `Fl
 - [x] P0：`PrototypeCaseStatus` 恢复六段 Foundation 生命周期，移除 `reopened` status。
 - [x] P0：Today 使用显式 overdue/today/future/undated due bucket；pending verification 作为 Case 级互斥 bucket，并有 future fixture 与 executable widget test。
 - [x] P1：确认稳定/安排下一次检查/重新打开等 Case command 不调用普通 `_completeAction`；prototype 明确提示“不改变领域状态”。
+- [x] P1：AppTheme 提供浅色/深色 ColorScheme，应用根使用 `ThemeMode.system`；页面语义色统一从当前主题读取。
+- [x] P1：compact Quick Capture 的学生和问题类型选择器使用 SafeArea bottom sheet；expanded/medium 保留下拉控件，选择结果与业务 ID 不变。
 - [x] P1：48dp touch target 由 `AppSpacing.touchTarget` 统一提供并映射到 Flutter theme。
 - [x] P1：Case row 改为静态信息容器 + 独立导航/主操作按钮，消除嵌套交互与父级 button semantics。
 - [x] P1：补充生命周期、Today bucket、Student → Case → back、compact/expanded navigation 与语义边界测试。

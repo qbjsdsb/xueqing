@@ -164,7 +164,7 @@ void main() {
     expect(find.text('待验证'), findsWidgets);
     expect(find.text('待安排'), findsWidgets);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '记录问题'));
+    await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
     await tester.pumpAndSettle();
 
     expect(find.text('问题标题 *'), findsOneWidget);
@@ -200,7 +200,7 @@ void main() {
     addTearDown(() => _resetView(tester));
     await _pumpPreview(tester, const Size(390, 844));
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '记录问题'));
+    await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<PrototypeStudent>));
     await tester.pumpAndSettle();

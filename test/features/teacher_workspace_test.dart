@@ -377,6 +377,64 @@ void main() {
     expect(repository.commands.single.caseType, LearningCaseType.examStrategy);
   });
 
+  testWidgets('uses bottom sheets for compact Quick Capture selectors', (
+    tester,
+  ) async {
+    const customType = WorkspaceCaseType(
+      id: 'case-type-1',
+      displayName: '审题策略',
+      baseType: LearningCaseType.examStrategy,
+      status: 'active',
+      sortOrder: 0,
+      version: 1,
+    );
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        caseTypes: [...WorkspaceCaseType.builtInTypes, customType],
+      ),
+    );
+    final originalPhysicalSize = tester.view.physicalSize;
+    final originalDevicePixelRatio = tester.view.devicePixelRatio;
+    addTearDown(() {
+      tester.view.physicalSize = originalPhysicalSize;
+      tester.view.devicePixelRatio = originalDevicePixelRatio;
+    });
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(375, 812);
+
+    await _pumpWorkspace(tester, repository);
+    await tester.tap(find.text('记录问题').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byType(DropdownButtonFormField<WorkspaceStudent>),
+      findsNothing,
+    );
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+
+    final studentPicker = find.byKey(const Key('quick-capture-student-picker'));
+    await tester.tap(studentPicker);
+    await tester.pumpAndSettle();
+    expect(find.text('选择学生'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('quick-capture-student-option-student-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('示例学生甲 · 数学'), findsOneWidget);
+
+    final typePicker = find.byKey(
+      const Key('quick-capture-case-type-dropdown'),
+    );
+    await tester.tap(typePicker);
+    await tester.pumpAndSettle();
+    expect(find.text('选择问题类型'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('quick-capture-case-type-option-case-type-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('审题策略'), findsOneWidget);
+  });
+
   testWidgets('runs the confirmation command from a new Case', (tester) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace());
     await _pumpWorkspace(tester, repository);

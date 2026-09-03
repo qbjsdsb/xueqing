@@ -16,9 +16,9 @@ abstract final class AppSpacing {
 
 abstract final class AppRadii {
   static const compact = 4.0;
-  static const small = 6.0;
-  static const medium = 8.0;
-  static const dialog = 12.0;
+  static const small = 8.0;
+  static const medium = 12.0;
+  static const dialog = 28.0;
 }
 
 abstract final class AppBorders {

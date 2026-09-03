@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/layout/responsive.dart';
-import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
@@ -357,7 +356,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             enableDrag: false,
             backgroundColor: Theme.of(context).colorScheme.surface,
             shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
             clipBehavior: Clip.antiAlias,
             builder: (context) => _WorkspaceQuickCaptureForm(
@@ -387,8 +386,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
   }
 
   Future<void> _showCaseTypeManager() async {
@@ -414,7 +414,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         enableDrag: false,
         backgroundColor: Theme.of(context).colorScheme.surface,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         clipBehavior: Clip.antiAlias,
         builder: (_) => manager,
@@ -448,7 +448,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             enableDrag: false,
             backgroundColor: Theme.of(context).colorScheme.surface,
             shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
             clipBehavior: Clip.antiAlias,
             builder: (_) => form,
@@ -610,12 +610,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                 workspace.organizationId != null)
               OutlinedButton.icon(
                 onPressed: _showCaseTypeManager,
-                icon: const Icon(Icons.category_outlined),
+                icon: Icon(Icons.category_outlined),
                 label: const Text('问题类型'),
               ),
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: () => _showQuickCapture(),
-              icon: const Icon(Icons.edit_note_outlined),
+              icon: Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -634,18 +634,18 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             child: Column(
               children: [
                 if (overdue.isNotEmpty) ...[
-                  const _WorkspaceSubheading(
+                  _WorkspaceSubheading(
                     label: '已逾期',
-                    color: AppColors.danger,
+                    color: Theme.of(context).colorScheme.error,
                     icon: Icons.warning_amber_outlined,
                   ),
                   ..._buildActionRows(overdue),
                 ],
                 if (today.isNotEmpty) ...[
                   if (overdue.isNotEmpty) const Divider(height: AppSpacing.lg),
-                  const _WorkspaceSubheading(
+                  _WorkspaceSubheading(
                     label: '今天到期',
-                    color: AppColors.warning,
+                    color: Theme.of(context).colorScheme.secondary,
                     icon: Icons.today_outlined,
                   ),
                   ..._buildActionRows(today),
@@ -777,12 +777,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     workspace.organizationId != null)
                   OutlinedButton.icon(
                     onPressed: _showCaseTypeManager,
-                    icon: const Icon(Icons.category_outlined),
+                    icon: Icon(Icons.category_outlined),
                     label: const Text('问题类型'),
                   ),
-                OutlinedButton.icon(
+                FilledButton.icon(
                   onPressed: () => _showQuickCapture(),
-                  icon: const Icon(Icons.edit_note_outlined),
+                  icon: Icon(Icons.edit_note_outlined),
                   label: const Text('记录问题'),
                 ),
               ],
@@ -849,12 +849,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           leading: IconButton(
             tooltip: '返回',
             onPressed: _goBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: Icon(Icons.arrow_back),
           ),
           actions: [
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: () => _showQuickCapture(student: student),
-              icon: const Icon(Icons.edit_note_outlined),
+              icon: Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -953,7 +953,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           leading: IconButton(
             tooltip: '返回学生详情',
             onPressed: _goBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: Icon(Icons.arrow_back),
           ),
           actions: [_WorkspaceStatusMarker(label: learningCase.status.label)],
         ),
@@ -1357,15 +1357,16 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                       IconButton(
                         tooltip: '关闭',
                         onPressed: _saving ? null : _confirmDiscard,
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close),
                       ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     _subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium
-                        ?.copyWith(color: AppColors.textSecondary),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _WorkspaceContextLine(label: '当前 Case', value: caseContext),
@@ -1454,7 +1455,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _saving ? null : _pickDueDate,
-                          icon: const Icon(Icons.event_outlined),
+                          icon: Icon(Icons.event_outlined),
                           label: Text(
                             _nextActionDueAt == null
                                 ? '安排日期（可选）'
@@ -1469,7 +1470,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                           onPressed: _saving
                               ? null
                               : () => setState(() => _nextActionDueAt = null),
-                          icon: const Icon(Icons.close),
+                          icon: Icon(Icons.close),
                         ),
                       ],
                     ],
@@ -1700,6 +1701,141 @@ class _WorkspaceQuickCaptureFormState
     return '保存失败。输入仍保留在这里，请重试；未确认成功前不会生成重复 Case。';
   }
 
+  bool _isCompact(BuildContext context) =>
+      ResponsiveBreakpoints.classify(MediaQuery.sizeOf(context).width) ==
+      WindowSizeClass.compact;
+
+  Widget _buildStudentField(BuildContext context) {
+    if (!_isCompact(context)) {
+      return DropdownButtonFormField<WorkspaceStudent>(
+        initialValue: _selectedStudent,
+        decoration: InputDecoration(
+          labelText: '学生 *',
+          errorText: _studentError,
+        ),
+        hint: const Text('选择学生后开始'),
+        items: [
+          for (final student in widget.students)
+            DropdownMenuItem<WorkspaceStudent>(
+              value: student,
+              child: Text([student.name, student.subject].join(' · ')),
+            ),
+        ],
+        onChanged: _saving
+            ? null
+            : (student) {
+                setState(() {
+                  _selectedStudent = student;
+                  _studentError = null;
+                });
+              },
+      );
+    }
+
+    final student = _selectedStudent;
+    return _WorkspaceChoiceField(
+      fieldKey: const Key('quick-capture-student-picker'),
+      label: '学生 *',
+      value: student == null
+          ? '请选择学生'
+          : [student.name, student.subject].join(' · '),
+      errorText: _studentError,
+      onTap: _saving ? null : _openStudentPicker,
+    );
+  }
+
+  Widget _buildCaseTypeField(BuildContext context) {
+    if (!_isCompact(context)) {
+      return DropdownButtonFormField<String>(
+        key: const Key('quick-capture-case-type-dropdown'),
+        initialValue: _selectedCaseTypeKey,
+        decoration: const InputDecoration(labelText: '问题类型'),
+        items: [
+          for (final type in _caseTypeOptions)
+            DropdownMenuItem<String>(value: type.key, child: Text(type.label)),
+        ],
+        onChanged: _saving
+            ? null
+            : (typeKey) {
+                if (typeKey != null) {
+                  setState(() => _selectedCaseTypeKey = typeKey);
+                }
+              },
+      );
+    }
+
+    return _WorkspaceChoiceField(
+      fieldKey: const Key('quick-capture-case-type-dropdown'),
+      label: '问题类型',
+      value: _selectedCaseType.label,
+      onTap: _saving ? null : _openCaseTypePicker,
+    );
+  }
+
+  Future<void> _openStudentPicker() async {
+    if (_saving || widget.students.isEmpty) {
+      return;
+    }
+    final selectedStudent = await showModalBottomSheet<WorkspaceStudent>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _WorkspaceChoiceSheet<WorkspaceStudent>(
+        title: '选择学生',
+        selectedValue: _selectedStudent,
+        options: [
+          for (final student in widget.students)
+            _WorkspaceChoiceOption<WorkspaceStudent>(
+              key: ValueKey<String>(
+                'quick-capture-student-option-' + student.id,
+              ),
+              value: student,
+              title: [student.name, student.subject].join(' · '),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || selectedStudent == null) {
+      return;
+    }
+    setState(() {
+      _selectedStudent = selectedStudent;
+      _studentError = null;
+    });
+  }
+
+  Future<void> _openCaseTypePicker() async {
+    if (_saving) {
+      return;
+    }
+    final selectedTypeKey = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _WorkspaceChoiceSheet<String>(
+        title: '选择问题类型',
+        selectedValue: _selectedCaseTypeKey,
+        options: [
+          for (final type in _caseTypeOptions)
+            _WorkspaceChoiceOption<String>(
+              key: ValueKey<String>(
+                'quick-capture-case-type-option-' + type.key,
+              ),
+              value: type.key,
+              title: type.label,
+              subtitle: type.isBuiltIn
+                  ? '系统类型'
+                  : '自定义类型 · ' + type.baseType.label,
+            ),
+        ],
+      ),
+    );
+    if (!mounted || selectedTypeKey == null) {
+      return;
+    }
+    setState(() => _selectedCaseTypeKey = selectedTypeKey);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -1733,60 +1869,21 @@ class _WorkspaceQuickCaptureFormState
                       IconButton(
                         tooltip: '关闭',
                         onPressed: _saving ? null : _confirmDiscard,
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close),
                       ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     '先记录一条真实观察；保存后 Case 会保持“待整理”，不会自动跳过教师判断。',
-                    style: Theme.of(context).textTheme.bodyMedium
-                        ?.copyWith(color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  DropdownButtonFormField<WorkspaceStudent>(
-                    initialValue: _selectedStudent,
-                    decoration: InputDecoration(
-                      labelText: '学生 *',
-                      errorText: _studentError,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    hint: const Text('选择学生后开始'),
-                    items: [
-                      for (final student in widget.students)
-                        DropdownMenuItem<WorkspaceStudent>(
-                          value: student,
-                          child: Text('${student.name} · ${student.subject}'),
-                        ),
-                    ],
-                    onChanged: _saving
-                        ? null
-                        : (student) {
-                            setState(() {
-                              _selectedStudent = student;
-                              _studentError = null;
-                            });
-                          },
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  DropdownButtonFormField<String>(
-                    key: const Key('quick-capture-case-type-dropdown'),
-                    initialValue: _selectedCaseTypeKey,
-                    decoration: const InputDecoration(labelText: '问题类型'),
-                    items: [
-                      for (final type in _caseTypeOptions)
-                        DropdownMenuItem<String>(
-                          value: type.key,
-                          child: Text(type.label),
-                        ),
-                    ],
-                    onChanged: _saving
-                        ? null
-                        : (typeKey) {
-                            if (typeKey != null) {
-                              setState(() => _selectedCaseTypeKey = typeKey);
-                            }
-                          },
-                  ),
+                  _buildStudentField(context),
+                  const SizedBox(height: AppSpacing.md),
+                  _buildCaseTypeField(context),
                   const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: _titleController,
@@ -1856,6 +1953,144 @@ class _WorkspaceQuickCaptureFormState
   }
 }
 
+class _WorkspaceChoiceOption<T> {
+  const _WorkspaceChoiceOption({
+    required this.key,
+    required this.value,
+    required this.title,
+    this.subtitle,
+  });
+
+  final Key key;
+  final T value;
+  final String title;
+  final String? subtitle;
+}
+
+class _WorkspaceChoiceSheet<T> extends StatelessWidget {
+  const _WorkspaceChoiceSheet({
+    required this.title,
+    required this.options,
+    required this.selectedValue,
+    super.key,
+  });
+
+  final String title;
+  final List<_WorkspaceChoiceOption<T>> options;
+  final T? selectedValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.72;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              for (final option in options)
+                ListTile(
+                  key: option.key,
+                  selected: selectedValue == option.value,
+                  selectedTileColor: colorScheme.secondaryContainer.withValues(
+                    alpha: 0.34,
+                  ),
+                  title: Text(option.title),
+                  subtitle: option.subtitle == null
+                      ? null
+                      : Text(option.subtitle!),
+                  trailing: selectedValue == option.value
+                      ? Icon(
+                          Icons.check,
+                          color: colorScheme.onSecondaryContainer,
+                        )
+                      : null,
+                  onTap: () => Navigator.of(context).pop(option.value),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceChoiceField extends StatelessWidget {
+  const _WorkspaceChoiceField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.errorText,
+    this.fieldKey,
+    super.key,
+  });
+
+  final String label;
+  final String value;
+  final String? errorText;
+  final VoidCallback? onTap;
+  final Key? fieldKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final valueStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
+      color: onTap == null
+          ? colorScheme.onSurfaceVariant.withValues(alpha: 0.60)
+          : colorScheme.onSurface,
+    );
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      value: value,
+      child: InkWell(
+        key: fieldKey,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.medium),
+        child: InputDecorator(
+          decoration: InputDecoration(labelText: label, errorText: errorText),
+          child: Row(
+            children: [
+              Expanded(child: Text(value, style: valueStyle)),
+              Icon(
+                Icons.keyboard_arrow_down,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CaseTypeDraft {
   const _CaseTypeDraft({required this.displayName, required this.baseType});
 
@@ -1908,8 +2143,9 @@ class _WorkspaceCaseTypeEditorDialogState
       setState(() => _error = '名称不能超过 64 个字符。');
       return;
     }
-    Navigator.of(context)
-        .pop(_CaseTypeDraft(displayName: displayName, baseType: _baseType));
+    Navigator.of(
+      context,
+    ).pop(_CaseTypeDraft(displayName: displayName, baseType: _baseType));
   }
 
   @override
@@ -2163,14 +2399,17 @@ class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(AppRadii.small),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.label_outline, color: AppColors.accent),
+          Icon(
+            Icons.label_outline,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -2202,7 +2441,7 @@ class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
               ],
             )
           else
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: AppSpacing.xs),
               child: Text('已归档'),
             ),
@@ -2262,14 +2501,15 @@ class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
                         onPressed: _busy
                             ? null
                             : () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close),
                       ),
                   ],
                 ),
                 Text(
                   '系统类型始终保留。自定义类型只负责分类，仍沿用同一套 Case、证据、行动和验证流程。',
-                  style: Theme.of(context).textTheme.bodyMedium
-                      ?.copyWith(color: AppColors.textSecondary),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 if (_error != null) ...[
@@ -2296,7 +2536,7 @@ class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: _busy ? null : _createCaseType,
-                    icon: const Icon(Icons.add),
+                    icon: Icon(Icons.add),
                     label: const Text('新增自定义类型'),
                   ),
                 ),
@@ -2328,16 +2568,18 @@ class _WorkspaceCaseCommandSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
-        borderRadius: BorderRadius.circular(10),
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.medium),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.arrow_circle_right_outlined,
-            color: AppColors.accent,
+            color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -2350,7 +2592,7 @@ class _WorkspaceCaseCommandSection extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
                 FilledButton.icon(
                   onPressed: onPressed,
-                  icon: const Icon(Icons.arrow_forward, size: 18),
+                  icon: Icon(Icons.arrow_forward, size: 18),
                   label: Text(buttonLabel),
                 ),
               ],
@@ -2388,7 +2630,7 @@ class _WorkspaceShell extends StatelessWidget {
                   IconButton(
                     tooltip: '退出登录',
                     onPressed: onSignOut,
-                    icon: const Icon(Icons.logout),
+                    icon: Icon(Icons.logout),
                   ),
               ],
             ),
@@ -2474,10 +2716,12 @@ class _WorkspaceRail extends StatelessWidget {
               selectedIndex: selectedIndex,
               onDestinationSelected: onDestinationSelected,
               labelType: NavigationRailLabelType.none,
-              indicatorColor: AppColors.surfaceAccent,
-              selectedIconTheme: const IconThemeData(color: AppColors.accent),
-              unselectedIconTheme: const IconThemeData(
-                color: AppColors.textSecondary,
+              indicatorColor: Theme.of(context).colorScheme.primaryContainer,
+              selectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              unselectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               destinations: _workspaceRailDestinations,
             ),
@@ -2502,7 +2746,7 @@ class _WorkspaceRail extends StatelessWidget {
                   IconButton(
                     tooltip: '退出登录',
                     onPressed: onSignOut,
-                    icon: const Icon(Icons.logout),
+                    icon: Icon(Icons.logout),
                   ),
               ],
             ),
@@ -2593,8 +2837,9 @@ class _WorkspacePageHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             subtitle!,
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: AppColors.textSecondary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ],
@@ -2719,7 +2964,7 @@ class _WorkspaceStudentRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: AppSpacing.xxs),
                 child: Icon(Icons.person_outline, size: 21),
               ),
@@ -2754,7 +2999,10 @@ class _WorkspaceStudentRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+              Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),
@@ -2778,8 +3026,12 @@ class _WorkspaceCaseRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final primaryAction = learningCase.primaryAction;
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
       ),
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
       child: Column(
@@ -2851,7 +3103,7 @@ class _WorkspaceActionGroup extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.arrow_forward_outlined, size: 21),
+                      Icon(Icons.arrow_forward_outlined, size: 21),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Column(
@@ -2985,9 +3237,13 @@ class _WorkspaceTimelineItem extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 5),
-            child: Icon(Icons.circle, size: 8, color: AppColors.accent),
+            child: Icon(
+              Icons.circle,
+              size: 8,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -3010,7 +3266,7 @@ class _WorkspaceTimelineItem extends StatelessWidget {
 }
 
 class _WorkspaceSubheading extends StatelessWidget {
-  const _WorkspaceSubheading({
+  _WorkspaceSubheading({
     required this.label,
     required this.color,
     required this.icon,
@@ -3030,8 +3286,9 @@ class _WorkspaceSubheading extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelLarge
-                ?.copyWith(color: color),
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: color),
           ),
         ],
       ),
@@ -3047,11 +3304,11 @@ class _WorkspaceStatusMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (label) {
-      '已逾期' => AppColors.danger,
-      '待验证' => AppColors.info,
-      '稳定' => AppColors.success,
-      '已关闭' => AppColors.textSecondary,
-      _ => AppColors.warning,
+      '已逾期' => Theme.of(context).colorScheme.error,
+      '待验证' => Theme.of(context).colorScheme.tertiary,
+      '稳定' => Theme.of(context).colorScheme.primary,
+      '已关闭' => Theme.of(context).colorScheme.onSurfaceVariant,
+      _ => Theme.of(context).colorScheme.secondary,
     };
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -3061,12 +3318,14 @@ class _WorkspaceStatusMarker extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
         border: Border.all(color: color.withValues(alpha: 0.35)),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(AppRadii.compact),
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.bodySmall
-            ?.copyWith(color: color, fontWeight: FontWeight.w600),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -3084,7 +3343,11 @@ class _WorkspaceMetadata extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (icon != null) ...[
-          Icon(icon, size: 15, color: AppColors.textSecondary),
+          Icon(
+            icon,
+            size: 15,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: AppSpacing.xxs),
         ],
         ConstrainedBox(
@@ -3113,14 +3376,14 @@ class _WorkspaceStateNotice extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(AppRadii.medium),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.textSecondary),
+          Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -3153,16 +3416,18 @@ class _WorkspaceBoundaryBanner extends StatelessWidget {
           vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: AppColors.surfaceMuted,
-          border: Border.all(color: AppColors.border),
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
           borderRadius: BorderRadius.circular(AppRadii.small),
         ),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.shield_outlined,
               size: 18,
-              color: AppColors.accent,
+              color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
@@ -3187,8 +3452,12 @@ class _WorkspaceContextLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
       ),
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Row(
@@ -3258,7 +3527,7 @@ class _WorkspaceErrorBody extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_outlined, size: 32),
+              Icon(Icons.cloud_off_outlined, size: 32),
               const SizedBox(height: AppSpacing.md),
               Text(message, textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.md),
@@ -3281,7 +3550,8 @@ class _WorkspaceNoAccessBody extends StatelessWidget {
         padding: EdgeInsets.all(AppSpacing.lg),
         child: _WorkspaceStateNotice(
           title: '当前账号没有可用的教师教学范围',
-          message: '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',
+          message:
+              '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',
           icon: Icons.lock_outline,
         ),
       ),
@@ -3299,7 +3569,8 @@ class _WorkspaceConfigBody extends StatelessWidget {
         padding: EdgeInsets.all(AppSpacing.lg),
         child: _WorkspaceStateNotice(
           title: '开发云端尚未配置',
-          message: '请使用 XUEQING_SUPABASE_URL 和 XUEQING_SUPABASE_PUBLISHABLE_KEY 启动开发环境。正式 provider、region 和真实资料仍未启用。',
+          message:
+              '请使用 XUEQING_SUPABASE_URL 和 XUEQING_SUPABASE_PUBLISHABLE_KEY 启动开发环境。正式 provider、region 和真实资料仍未启用。',
           icon: Icons.settings_outlined,
         ),
       ),

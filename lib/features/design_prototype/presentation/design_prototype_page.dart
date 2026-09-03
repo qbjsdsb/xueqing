@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/layout/responsive.dart';
-import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../design_fixture.dart';
 import 'design_components.dart';
@@ -146,15 +145,17 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     if (result.outcome == QuickCaptureOutcome.saved && result.capture != null) {
       _addQuickCapture(result.capture!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已记录为待整理问题，并已显示在当前预览。')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已记录为待整理问题，并已显示在当前预览。')));
       return;
     }
     if (result.outcome == QuickCaptureOutcome.draft && result.capture != null) {
       _addPreviewDraft(result.capture!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('草稿已保留在本次预览会话中。')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('草稿已保留在本次预览会话中。')));
     }
   }
 
@@ -232,8 +233,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
 
   void _completeAction(PrototypeAction action) {
     setState(() => _completedActionIds.add(action.id));
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('已完成：${action.title}')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已完成：${action.title}')));
   }
 
   Widget _buildPreviewDraftSection({String? studentId}) {
@@ -340,9 +342,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           title: '今日',
           subtitle: '先处理今天要做的事，再回看需要判断的学生。',
           actions: [
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: () => _showQuickCapture(),
-              icon: const Icon(Icons.edit_note_outlined),
+              icon: Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -358,7 +360,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                 if (overdue.isNotEmpty) ...[
                   _ActionSubheading(
                     label: '已逾期',
-                    color: AppColors.danger,
+                    color: Theme.of(context).colorScheme.error,
                     icon: Icons.warning_amber_outlined,
                   ),
                   ..._buildActionGroups(overdue),
@@ -367,7 +369,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                   if (overdue.isNotEmpty) const Divider(height: AppSpacing.lg),
                   _ActionSubheading(
                     label: '今天到期',
-                    color: AppColors.warning,
+                    color: Theme.of(context).colorScheme.secondary,
                     icon: Icons.today_outlined,
                   ),
                   ..._buildActionGroups(dueToday),
@@ -519,9 +521,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
               title: '学生',
               subtitle: '搜索学生，先理解当前重点，再进入需要处理的 Case。',
               actions: [
-                OutlinedButton.icon(
+                FilledButton.icon(
                   onPressed: () => _showQuickCapture(),
-                  icon: const Icon(Icons.edit_note_outlined),
+                  icon: Icon(Icons.edit_note_outlined),
                   label: const Text('记录问题'),
                 ),
               ],
@@ -609,9 +611,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           title: '学情',
           subtitle: '按 Case 查看问题、证据、教学动作和下一行动。',
           actions: [
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: () => _showQuickCapture(),
-              icon: const Icon(Icons.edit_note_outlined),
+              icon: Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -659,12 +661,12 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           leading: IconButton(
             tooltip: '返回',
             onPressed: _goBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: Icon(Icons.arrow_back),
           ),
           actions: [
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: () => _showQuickCapture(student: student),
-              icon: const Icon(Icons.edit_note_outlined),
+              icon: Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -767,7 +769,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           leading: IconButton(
             tooltip: '返回学生详情',
             onPressed: _goBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: Icon(Icons.arrow_back),
           ),
           actions: [
             DesignStatusMarker(label: learningCase.statusLabel),
@@ -1059,10 +1061,12 @@ class _DesignRail extends StatelessWidget {
               labelType: extended
                   ? NavigationRailLabelType.none
                   : NavigationRailLabelType.none,
-              indicatorColor: AppColors.surfaceAccent,
-              selectedIconTheme: const IconThemeData(color: AppColors.accent),
-              unselectedIconTheme: const IconThemeData(
-                color: AppColors.textSecondary,
+              indicatorColor: Theme.of(context).colorScheme.primaryContainer,
+              selectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              unselectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               destinations: _railDestinations,
             ),
@@ -1189,7 +1193,7 @@ class _StudentActionGroup extends StatelessWidget {
 }
 
 class _ActionSubheading extends StatelessWidget {
-  const _ActionSubheading({
+  _ActionSubheading({
     required this.label,
     required this.color,
     required this.icon,
@@ -1209,8 +1213,9 @@ class _ActionSubheading extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelLarge
-                ?.copyWith(color: color),
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: color),
           ),
         ],
       ),
@@ -1228,12 +1233,16 @@ class _LessonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.menu_book_outlined, size: 21),
+          Icon(Icons.menu_book_outlined, size: 21),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -1511,7 +1520,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
                       IconButton(
                         tooltip: '关闭',
                         onPressed: _saving ? null : _cancel,
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close),
                       ),
                     ],
                   ),
@@ -1576,7 +1585,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   if (_saving)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: AppSpacing.sm),
                       child: Text('保存中…'),
                     ),
@@ -1630,8 +1639,12 @@ class _ContextField extends StatelessWidget {
       ),
     );
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
       ),
       child: content,
     );
