@@ -338,17 +338,31 @@ class SupabaseLearningRepository implements LearningRepository {
 
     final appUser = await _client
         .from('app_users')
-        .select('display_name')
+        .select('id,display_name')
         .eq('auth_provider', 'supabase')
         .eq('auth_subject_id', expectedUserId)
+        .eq('status', 'active')
         .maybeSingle();
     _assertSameSession(expectedUserId);
     final viewerName =
         _stringValue(appUser?['display_name']) ?? authUser.email ?? '教师';
 
+    final appUserId = appUser?['id'] as String?;
+    if (appUserId == null) {
+      return TeacherWorkspace(
+        viewerName: viewerName,
+        organizationName: '无活动机构',
+        organizationTimeZone: 'UTC',
+        hasTeachingAccess: false,
+        students: const <WorkspaceStudent>[],
+        loadedAt: DateTime.now(),
+      );
+    }
+
     final membership = await _client
         .from('organization_memberships')
         .select('id,organization_id')
+        .eq('app_user_id', appUserId)
         .eq('status', 'active')
         .limit(1)
         .maybeSingle();
@@ -397,98 +411,111 @@ class SupabaseLearningRepository implements LearningRepository {
       throw const FormatException('Active organization was not found.');
     }
 
-    final subjectRows = await _rows(
-      _client
-          .from('organization_subjects')
-          .select('id,display_name')
-          .eq('organization_id', organizationId)
-          .eq('status', 'active'),
-      expectedUserId,
-    );
-    final profileRows = await _rows(
-      _client
-          .from('student_subject_profiles')
-          .select(
-            'id,student_id,organization_subject_id,positioning,strengths, '
-            'cadence_note,version',
-          )
-          .eq('organization_id', organizationId)
-          .eq('status', 'active'),
-      expectedUserId,
-    );
-    final studentRows = await _rows(
-      _client
-          .from('students')
-          .select('id,name,organization_id')
-          .eq('organization_id', organizationId)
-          .eq('status', 'active'),
-      expectedUserId,
-    );
-    final enrollmentRows = await _rows(
-      _client
-          .from('student_enrollments')
-          .select('student_id,grade,class_name,campus,starts_on,ends_on')
-          .eq('organization_id', organizationId),
-      expectedUserId,
-    );
-    final caseRows = await _rows(
-      _client
-          .from('learning_cases')
-          .select(
-            'id,student_subject_profile_id,case_type,title,description, '
-            'priority,status,first_observed_at,version',
-          )
-          .eq('organization_id', organizationId),
-      expectedUserId,
-    );
-    final actionRows = await _rows(
-      _client
-          .from('case_actions')
-          .select(
-            'id,learning_case_id,action_type,title,due_at,is_primary,status',
-          )
-          .eq('organization_id', organizationId),
-      expectedUserId,
-    );
-    final queueRows = await _rows(
-      _client
-          .from('teacher_workspace_action_queue')
-          .select('id,due_bucket')
-          .eq('organization_id', organizationId),
-      expectedUserId,
-    );
-    final evidenceRows = await _rows(
-      _client
-          .from('case_evidence')
-          .select(
-            'id,learning_case_id,source_type,title,observed_at,summary,status',
-          )
-          .eq('organization_id', organizationId),
-      expectedUserId,
-    );
-    final interventionRows = await _rows(
-      _client
-          .from('interventions')
-          .select('id,learning_case_id,strategy,notes,occurred_at')
-          .eq('organization_id', organizationId),
-      expectedUserId,
-    );
-    final assessmentRows = await _rows(
-      _client
-          .from('assessments')
-          .select(
-            'id,learning_case_id,result,evidence_summary,notes,assessed_at',
-          )
-          .eq('organization_id', organizationId),
-      expectedUserId,
-    );
-    final eventRows = await _rows(
-      _client
-          .from('case_events')
-          .select('id,learning_case_id,event_type,occurred_at,metadata')
-          .eq('organization_id', organizationId),
-      expectedUserId,
-    );
+    final rows = await Future.wait<List<Map<String, dynamic>>>([
+      _rows(
+        _client
+            .from('organization_subjects')
+            .select('id,display_name')
+            .eq('organization_id', organizationId)
+            .eq('status', 'active'),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('student_subject_profiles')
+            .select(
+              'id,student_id,organization_subject_id,positioning,strengths, '
+              'cadence_note,version',
+            )
+            .eq('organization_id', organizationId)
+            .eq('status', 'active'),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('students')
+            .select('id,name,organization_id')
+            .eq('organization_id', organizationId)
+            .eq('status', 'active'),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('student_enrollments')
+            .select('student_id,grade,class_name,campus,starts_on,ends_on')
+            .eq('organization_id', organizationId),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('learning_cases')
+            .select(
+              'id,student_subject_profile_id,case_type,title,description, '
+              'priority,status,first_observed_at,version',
+            )
+            .eq('organization_id', organizationId),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('case_actions')
+            .select(
+              'id,learning_case_id,action_type,title,due_at,is_primary,status',
+            )
+            .eq('organization_id', organizationId),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('teacher_workspace_action_queue')
+            .select('id,due_bucket')
+            .eq('organization_id', organizationId),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('case_evidence')
+            .select(
+              'id,learning_case_id,source_type,title,observed_at,summary,status',
+            )
+            .eq('organization_id', organizationId),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('interventions')
+            .select('id,learning_case_id,strategy,notes,occurred_at')
+            .eq('organization_id', organizationId),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('assessments')
+            .select(
+              'id,learning_case_id,result,evidence_summary,notes,assessed_at',
+            )
+            .eq('organization_id', organizationId),
+        expectedUserId,
+      ),
+      _rows(
+        _client
+            .from('case_events')
+            .select('id,learning_case_id,event_type,occurred_at,metadata')
+            .eq('organization_id', organizationId),
+        expectedUserId,
+      ),
+    ]);
+    final subjectRows = rows[0];
+    final profileRows = rows[1];
+    final studentRows = rows[2];
+    final enrollmentRows = rows[3];
+    final caseRows = rows[4];
+    final actionRows = rows[5];
+    final queueRows = rows[6];
+    final evidenceRows = rows[7];
+    final interventionRows = rows[8];
+    final assessmentRows = rows[9];
+    final eventRows = rows[10];
 
     final subjectsById = <String, String>{
       for (final row in subjectRows)
