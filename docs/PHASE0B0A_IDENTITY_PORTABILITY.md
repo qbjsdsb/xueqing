@@ -64,7 +64,7 @@ supabase/tests/identity_portability_spike.sql 会验证：
 
 因此，P0 Gate A 的身份物理建模/迁移契约已通过。候选 provider 的真实地区网络、Storage、backup/restore 与 Production Go/No-Go 仍是后续边界，不在本 Gate 中伪装成已完成。
 
-通过前继续遵守：
+Gate 通过后仍继续遵守：
 
 - Supabase 只作为 reference candidate；
 - 只用虚构数据；
@@ -72,4 +72,4 @@ supabase/tests/identity_portability_spike.sql 会验证：
 - 不将 Supabase provider/region/session strategy 宣布为最终冻结；身份解耦契约已由 ADR-046 冻结；
 - 不实现 Student / Case 的正式远程 CRUD。
 
-Gate 通过后，下一条 PR 才进入 Phase 0B.0-B：把本契约落实到 provider-neutral 的正式身份表和最小 Student / Subject Profile 基础，并再次单独验证 RLS、时间语义、命令幂等和恢复路径。
+下一条 PR 进入 Phase 0B.0-B：把本契约落实到 provider-neutral 的正式身份表和最小 Student / Subject Profile 基础，并再次单独验证 RLS、时间语义、命令幂等和恢复路径。

@@ -17,9 +17,7 @@
 
 ### Phase 0B.0 pre-migration hard gates
 
-Production provider 尚未冻结。正式 business migrations 前必须实测：
-1. Auth Identity Portability；
-2. Revoked Session / Old Token Security。
+P0 Gate A（Auth Identity Portability）与 P0 Gate B（Revoked Session / Old Token Security）的 compatibility spike 已通过；Production provider、region 与最终 session strategy 仍未冻结。正式 production business migrations 前，仍需完成候选 provider 的地区网络、Storage、backup/restore 与 Go/No-Go 证据。
 
 Supabase 是 reference candidate，不是已锁定 provider。
 

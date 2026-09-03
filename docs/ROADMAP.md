@@ -98,7 +98,7 @@
 - [ ] Production provider / region / session strategy 最终冻结
 - [ ] 无代理机构网络、Storage、backup/restore 与 Go/No-Go
 
-> 本节只允许用虚构数据执行 compatibility/security Spike，不等于 production migration/Auth/RLS/CRUD 授权。必须先完成 P0 Gate A（Auth Identity Portability）与 P0 Gate B（Revoked Session / Old Token Security），再冻结 provider/region/identity/session strategy。
+> 本节只允许用虚构数据执行 compatibility/security Spike，不等于 production migration/Auth/RLS/CRUD 授权。P0 Gate A/B 的身份与旧 token spike 已完成；在 provider/region/session strategy 和 Go/No-Go 最终冻结前，仍不授权 Production 业务数据。
 
 
 - [ ] 初始化 `supabase/`
