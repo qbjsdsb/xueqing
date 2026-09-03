@@ -24,8 +24,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   final FocusNode _studentSearchFocusNode = FocusNode(debugLabel: '学生搜索');
   late final List<PrototypeStudent> _students;
   int _localCaptureSerial = 0;
-  final List<PrototypeQuickCapture> _previewDrafts =
-      <PrototypeQuickCapture>[];
+  final List<PrototypeQuickCapture> _previewDrafts = <PrototypeQuickCapture>[];
 
   @override
   void initState() {
@@ -127,38 +126,33 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
             isDismissible: false,
             enableDrag: false,
             backgroundColor: Colors.transparent,
-            builder: (context) => DesignQuickCaptureForm(
-              students: _students,
-              student: student,
-            ),
+            builder: (context) =>
+                DesignQuickCaptureForm(students: _students, student: student),
           )
         : await showDialog<QuickCaptureResult>(
             context: context,
             barrierDismissible: false,
-            builder: (context) =>
-                Dialog(
-                  child: DesignQuickCaptureForm(
-                    students: _students,
-                    student: student,
-                  ),
-                ),
+            builder: (context) => Dialog(
+              child: DesignQuickCaptureForm(
+                students: _students,
+                student: student,
+              ),
+            ),
           );
 
     if (!mounted || result == null) return;
     if (result.outcome == QuickCaptureOutcome.saved && result.capture != null) {
       _addQuickCapture(result.capture!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已记录为待整理问题，并已显示在当前预览。')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已记录为待整理问题，并已显示在当前预览。')));
       return;
     }
     if (result.outcome == QuickCaptureOutcome.draft && result.capture != null) {
       _addPreviewDraft(result.capture!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('草稿已保留在本次预览会话中。')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('草稿已保留在本次预览会话中。')));
     }
   }
 
@@ -188,16 +182,14 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     );
     final caseNumber = ++_localCaptureSerial;
     final learningCase = PrototypeCase(
-      id: 'preview-case-${caseNumber}',
+      id: 'preview-case-$caseNumber',
       title: capture.title,
       status: PrototypeCaseStatus.newCase,
       statusLabel: '待整理',
       priorityLabel: '新记录',
       subject: student.subject,
       problem: capture.title,
-      evidence: capture.note.isEmpty
-          ? '刚刚记录，尚未补充具体证据。'
-          : capture.note,
+      evidence: capture.note.isEmpty ? '刚刚记录，尚未补充具体证据。' : capture.note,
       judgement: '尚未形成教师判断。',
       intervention: '尚未记录。',
       assessment: '尚未记录。',
@@ -205,7 +197,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       nextActionDue: '待安排',
       timeline: <PrototypeTimelineEvent>[event],
       primaryAction: PrototypeAction(
-        id: 'preview-action-${caseNumber}',
+        id: 'preview-action-$caseNumber',
         title: '补充一条题目或课堂证据后再整理',
         dueLabel: '待安排',
         kind: PrototypeActionKind.evidence,
@@ -244,9 +236,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
 
   Widget _buildPreviewDraftSection({String? studentId}) {
     final drafts = _previewDrafts
-        .where(
-          (draft) => studentId == null || draft.studentId == studentId,
-        )
+        .where((draft) => studentId == null || draft.studentId == studentId)
         .toList();
     if (drafts.isEmpty) return const SizedBox.shrink();
 
@@ -259,9 +249,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           for (final draft in drafts)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(
-                draft.title.isEmpty ? '未填写标题' : draft.title,
-              ),
+              title: Text(draft.title.isEmpty ? '未填写标题' : draft.title),
               subtitle: Text(
                 draft.note.isEmpty
                     ? '尚未补充说明 · 仅本次预览会话保留'
@@ -912,9 +900,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   }
 }
 
-
-String _previewDateLabel(DateTime value) =>
-    '${value.month} 月 ${value.day} 日';
+String _previewDateLabel(DateTime value) => '${value.month} 月 ${value.day} 日';
 
 PrototypeStudent _copyPrototypeStudent(PrototypeStudent student) {
   return PrototypeStudent(
@@ -1368,10 +1354,10 @@ class PrototypeQuickCapture {
 
 class QuickCaptureResult {
   const QuickCaptureResult.saved(this.capture)
-      : outcome = QuickCaptureOutcome.saved;
+    : outcome = QuickCaptureOutcome.saved;
 
   const QuickCaptureResult.draft(this.capture)
-      : outcome = QuickCaptureOutcome.draft;
+    : outcome = QuickCaptureOutcome.draft;
 
   final QuickCaptureOutcome outcome;
   final PrototypeQuickCapture? capture;
@@ -1465,9 +1451,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('暂存这段记录？'),
-        content: const Text(
-          '这段记录还没有形成 Case。暂存后会留在本次预览会话，关闭应用后不会保留。',
-        ),
+        content: const Text('这段记录还没有形成 Case。暂存后会留在本次预览会话，关闭应用后不会保留。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
