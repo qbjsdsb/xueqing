@@ -188,64 +188,6 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
     return '$action失败，请检查网络后重试。';
   }
 
-  Future<CaseCommandReceipt?> _showCaseForm({
-    required _CaseCommandMode mode,
-    required WorkspaceCase learningCase,
-  }) {
-    final sizeClass = ResponsiveBreakpoints.classify(
-      MediaQuery.sizeOf(context).width,
-    );
-    final form = _WorkspaceCaseCommandForm(
-      mode: mode,
-      learningCase: learningCase,
-      repository: widget.repository,
-    );
-    return sizeClass == WindowSizeClass.compact
-        ? showModalBottomSheet<CaseCommandReceipt>(
-            context: context,
-            isScrollControlled: true,
-            isDismissible: false,
-            enableDrag: false,
-            backgroundColor: Colors.transparent,
-            builder: (_) => form,
-          )
-        : showDialog<CaseCommandReceipt>(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => Dialog(child: form),
-          );
-  }
-
-  Future<void> _showCaseCommand(
-    WorkspaceStudent student,
-    WorkspaceCase learningCase,
-  ) async {
-    final mode = switch (learningCase.status) {
-      LearningCaseStatus.newCase => _CaseCommandMode.confirm,
-      LearningCaseStatus.confirmed => _CaseCommandMode.intervention,
-      LearningCaseStatus.intervening => _CaseCommandMode.intervention,
-      LearningCaseStatus.pendingVerification => _CaseCommandMode.assessment,
-      LearningCaseStatus.stable => null,
-      LearningCaseStatus.closed => null,
-    };
-    if (mode == null) {
-      return;
-    }
-    final result = await _showCaseForm(mode: mode, learningCase: learningCase);
-    if (!mounted || result == null) {
-      return;
-    }
-    await _reload(preserveStudent: student, preserveCaseId: learningCase.id);
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<void>(
@@ -441,6 +383,64 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
+  }
+
+  Future<CaseCommandReceipt?> _showCaseForm({
+    required _CaseCommandMode mode,
+    required WorkspaceCase learningCase,
+  }) {
+    final sizeClass = ResponsiveBreakpoints.classify(
+      MediaQuery.sizeOf(context).width,
+    );
+    final form = _WorkspaceCaseCommandForm(
+      mode: mode,
+      learningCase: learningCase,
+      repository: widget.repository,
+    );
+    return sizeClass == WindowSizeClass.compact
+        ? showModalBottomSheet<CaseCommandReceipt>(
+            context: context,
+            isScrollControlled: true,
+            isDismissible: false,
+            enableDrag: false,
+            backgroundColor: Colors.transparent,
+            builder: (_) => form,
+          )
+        : showDialog<CaseCommandReceipt>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => Dialog(child: form),
+          );
+  }
+
+  Future<void> _showCaseCommand(
+    WorkspaceStudent student,
+    WorkspaceCase learningCase,
+  ) async {
+    final mode = switch (learningCase.status) {
+      LearningCaseStatus.newCase => _CaseCommandMode.confirm,
+      LearningCaseStatus.confirmed => _CaseCommandMode.intervention,
+      LearningCaseStatus.intervening => _CaseCommandMode.intervention,
+      LearningCaseStatus.pendingVerification => _CaseCommandMode.assessment,
+      LearningCaseStatus.stable => null,
+      LearningCaseStatus.closed => null,
+    };
+    if (mode == null) {
+      return;
+    }
+    final result = await _showCaseForm(mode: mode, learningCase: learningCase);
+    if (!mounted || result == null) {
+      return;
+    }
+    await _reload(preserveStudent: student, preserveCaseId: learningCase.id);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+      ),
+    );
   }
 
   @override
@@ -2942,7 +2942,7 @@ String _describeCaseCommandError(Object error) {
 String _formatDateOnly(DateTime value) {
   final month = value.month.toString().padLeft(2, '0');
   final day = value.day.toString().padLeft(2, '0');
-  return '${value.year}-${month}-${day}';
+  return '${value.year}-$month-$day';
 }
 
 String _priorityLabel(String value) {
