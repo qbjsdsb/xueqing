@@ -43,9 +43,8 @@ class BootstrapPage extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       '从学生当前重点开始，把问题、证据和下一步放在同一条工作线上。',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                      style: Theme.of(context).textTheme.bodyLarge
+                          ?.copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     _StatusPanel(config: config),
@@ -145,16 +144,14 @@ class _StatusRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppColors.textSecondary),
             ),
           ),
           Text(
             value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),

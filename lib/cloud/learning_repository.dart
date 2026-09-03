@@ -13,51 +13,51 @@ enum LearningCaseStatus {
 
 extension LearningCaseStatusPresentation on LearningCaseStatus {
   String get wireValue => switch (this) {
-        LearningCaseStatus.newCase => 'new',
-        LearningCaseStatus.confirmed => 'confirmed',
-        LearningCaseStatus.intervening => 'intervening',
-        LearningCaseStatus.pendingVerification => 'pending_verification',
-        LearningCaseStatus.stable => 'stable',
-        LearningCaseStatus.closed => 'closed',
-      };
+    LearningCaseStatus.newCase => 'new',
+    LearningCaseStatus.confirmed => 'confirmed',
+    LearningCaseStatus.intervening => 'intervening',
+    LearningCaseStatus.pendingVerification => 'pending_verification',
+    LearningCaseStatus.stable => 'stable',
+    LearningCaseStatus.closed => 'closed',
+  };
 
   String get label => switch (this) {
-        LearningCaseStatus.newCase => '待整理',
-        LearningCaseStatus.confirmed => '已确认',
-        LearningCaseStatus.intervening => '干预中',
-        LearningCaseStatus.pendingVerification => '待验证',
-        LearningCaseStatus.stable => '稳定',
-        LearningCaseStatus.closed => '已关闭',
-      };
+    LearningCaseStatus.newCase => '待整理',
+    LearningCaseStatus.confirmed => '已确认',
+    LearningCaseStatus.intervening => '干预中',
+    LearningCaseStatus.pendingVerification => '待验证',
+    LearningCaseStatus.stable => '稳定',
+    LearningCaseStatus.closed => '已关闭',
+  };
 }
 
 enum LearningCaseType { knowledge, habit, examStrategy, other }
 
 extension LearningCaseTypePresentation on LearningCaseType {
   String get wireValue => switch (this) {
-        LearningCaseType.knowledge => 'knowledge',
-        LearningCaseType.habit => 'habit',
-        LearningCaseType.examStrategy => 'exam_strategy',
-        LearningCaseType.other => 'other',
-      };
+    LearningCaseType.knowledge => 'knowledge',
+    LearningCaseType.habit => 'habit',
+    LearningCaseType.examStrategy => 'exam_strategy',
+    LearningCaseType.other => 'other',
+  };
 
   String get label => switch (this) {
-        LearningCaseType.knowledge => '知识漏洞',
-        LearningCaseType.habit => '学习习惯',
-        LearningCaseType.examStrategy => '考试策略',
-        LearningCaseType.other => '其他',
-      };
+    LearningCaseType.knowledge => '知识漏洞',
+    LearningCaseType.habit => '学习习惯',
+    LearningCaseType.examStrategy => '考试策略',
+    LearningCaseType.other => '其他',
+  };
 }
 
 enum WorkspaceActionBucket { overdue, today, future, undated }
 
 extension WorkspaceActionBucketPresentation on WorkspaceActionBucket {
   String get label => switch (this) {
-        WorkspaceActionBucket.overdue => '已逾期',
-        WorkspaceActionBucket.today => '今天到期',
-        WorkspaceActionBucket.future => '未来',
-        WorkspaceActionBucket.undated => '待安排',
-      };
+    WorkspaceActionBucket.overdue => '已逾期',
+    WorkspaceActionBucket.today => '今天到期',
+    WorkspaceActionBucket.future => '未来',
+    WorkspaceActionBucket.undated => '待安排',
+  };
 }
 
 enum WorkspaceActionStatus { pending, done, cancelled }
@@ -469,9 +469,7 @@ class SupabaseLearningRepository implements LearningRepository {
     final interventionRows = await _rows(
       _client
           .from('interventions')
-          .select(
-            'id,learning_case_id,strategy,notes,occurred_at',
-          )
+          .select('id,learning_case_id,strategy,notes,occurred_at')
           .eq('organization_id', organizationId),
       expectedUserId,
     );
@@ -507,8 +505,9 @@ class SupabaseLearningRepository implements LearningRepository {
     };
     final bucketByActionId = <String, WorkspaceActionBucket>{
       for (final row in queueRows)
-        _requiredString(row['id'], 'action_id'):
-            _actionBucketFromWire(row['due_bucket']),
+        _requiredString(row['id'], 'action_id'): _actionBucketFromWire(
+          row['due_bucket'],
+        ),
     };
 
     final workspaceStudents = <WorkspaceStudent>[];
@@ -546,7 +545,8 @@ class SupabaseLearningRepository implements LearningRepository {
       ]..sort((left, right) => right.occurredAt.compareTo(left.occurredAt));
       final enrollment = _currentEnrollment(enrollmentRows, studentId);
       final grade = _stringValue(enrollment?['grade']) ?? '年级未设置';
-      final context = _stringValue(profile['positioning']) ??
+      final context =
+          _stringValue(profile['positioning']) ??
           _stringValue(profile['cadence_note']) ??
           '尚未填写学科定位';
       workspaceStudents.add(
@@ -562,9 +562,7 @@ class SupabaseLearningRepository implements LearningRepository {
           strengths: _stringValue(profile['strengths']),
           cadenceNote: _stringValue(profile['cadence_note']),
           cases: List<WorkspaceCase>.unmodifiable(cases),
-          recentFacts: List<WorkspaceTimelineEvent>.unmodifiable(
-            facts.take(5),
-          ),
+          recentFacts: List<WorkspaceTimelineEvent>.unmodifiable(facts.take(5)),
         ),
       );
     }
@@ -573,8 +571,7 @@ class SupabaseLearningRepository implements LearningRepository {
     return TeacherWorkspace(
       viewerName: viewerName,
       organizationName: _stringValue(organization['name']) ?? '未命名机构',
-      organizationTimeZone:
-          _stringValue(organization['time_zone']) ?? 'UTC',
+      organizationTimeZone: _stringValue(organization['time_zone']) ?? 'UTC',
       hasTeachingAccess: true,
       students: List<WorkspaceStudent>.unmodifiable(workspaceStudents),
       loadedAt: DateTime.now(),
@@ -649,8 +646,7 @@ class SupabaseLearningRepository implements LearningRepository {
           actionType: _stringValue(actionRow['action_type']) ?? 'other',
           status: _actionStatusFromWire(actionRow['status']),
           isPrimary: actionRow['is_primary'] == true,
-          bucket: bucketByActionId[actionId] ??
-              _fallbackBucketForDueAt(dueAt),
+          bucket: bucketByActionId[actionId] ?? _fallbackBucketForDueAt(dueAt),
           dueAt: dueAt,
         ),
       );
@@ -659,8 +655,9 @@ class SupabaseLearningRepository implements LearningRepository {
       if (left.status != right.status) {
         return left.status.index.compareTo(right.status.index);
       }
-      return (left.dueAt ?? DateTime.utc(9999))
-          .compareTo(right.dueAt ?? DateTime.utc(9999));
+      return (left.dueAt ?? DateTime.utc(9999)).compareTo(
+        right.dueAt ?? DateTime.utc(9999),
+      );
     });
 
     final evidence = <WorkspaceEvidence>[];
@@ -671,17 +668,13 @@ class SupabaseLearningRepository implements LearningRepository {
       evidence.add(
         WorkspaceEvidence(
           id: _requiredString(evidenceRow['id'], 'evidence_id'),
-          sourceType:
-              _stringValue(evidenceRow['source_type']) ?? 'other',
+          sourceType: _stringValue(evidenceRow['source_type']) ?? 'other',
           title: _requiredString(evidenceRow['title'], 'evidence_title'),
           observedAt: _requiredDateTime(
             evidenceRow['observed_at'],
             'evidence_observed_at',
           ),
-          summary: _requiredString(
-            evidenceRow['summary'],
-            'evidence_summary',
-          ),
+          summary: _requiredString(evidenceRow['summary'], 'evidence_summary'),
           status: _stringValue(evidenceRow['status']) ?? 'finalized',
         ),
       );
@@ -695,10 +688,7 @@ class SupabaseLearningRepository implements LearningRepository {
       }
       interventions.add(
         WorkspaceIntervention(
-          id: _requiredString(
-            interventionRow['id'],
-            'intervention_id',
-          ),
+          id: _requiredString(interventionRow['id'], 'intervention_id'),
           strategy: _requiredString(
             interventionRow['strategy'],
             'intervention_strategy',
@@ -736,7 +726,9 @@ class SupabaseLearningRepository implements LearningRepository {
         ),
       );
     }
-    assessments.sort((left, right) => right.assessedAt.compareTo(left.assessedAt));
+    assessments.sort(
+      (left, right) => right.assessedAt.compareTo(left.assessedAt),
+    );
 
     final timeline = <WorkspaceTimelineEvent>[];
     for (final eventRow in eventRows) {
@@ -782,7 +774,8 @@ class SupabaseLearningRepository implements LearningRepository {
           id: 'assessment:${item.id}',
           occurredAt: item.assessedAt,
           typeLabel: 'Assessment / 验证',
-          text: '${_assessmentResultLabel(item.result)}：${item.evidenceSummary}',
+          text:
+              '${_assessmentResultLabel(item.result)}：${item.evidenceSummary}',
         ),
       );
     }
@@ -821,13 +814,15 @@ class SupabaseLearningRepository implements LearningRepository {
       final startsOn = _dateOnlyValue(row['starts_on']);
       final endsOn = _dateOnlyValue(row['ends_on']);
       return startsOn == null ||
-          (!today.isBefore(startsOn) && (endsOn == null || !today.isAfter(endsOn)));
+          (!today.isBefore(startsOn) &&
+              (endsOn == null || !today.isAfter(endsOn)));
     }).toList();
     candidates.sort((left, right) {
       final leftDate = _dateOnlyValue(left['starts_on']);
       final rightDate = _dateOnlyValue(right['starts_on']);
-      return (rightDate ?? DateTime.utc(1970))
-          .compareTo(leftDate ?? DateTime.utc(1970));
+      return (rightDate ?? DateTime.utc(1970)).compareTo(
+        leftDate ?? DateTime.utc(1970),
+      );
     });
     return candidates.isEmpty ? null : candidates.first;
   }
@@ -984,7 +979,8 @@ String _eventText(String eventType, dynamic rawMetadata) {
     'case_confirmed' => 'Case 已确认，进入正式跟进。',
     'evidence_recorded' => '补充了一条 Evidence。',
     'intervention_recorded' => '记录了一次教学动作。',
-    'assessment_recorded' => '记录了一次验证：${_assessmentResultLabel(metadata['result'])}。',
+    'assessment_recorded' =>
+      '记录了一次验证：${_assessmentResultLabel(metadata['result'])}。',
     'case_stabilized' => '教师确认 Case 已稳定，仍可安排复查。',
     'case_closed' => 'Case 已关闭。',
     _ => '记录了一条 Case 事件。',

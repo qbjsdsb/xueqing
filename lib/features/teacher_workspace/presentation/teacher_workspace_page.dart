@@ -28,8 +28,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
       _TeacherWorkspaceEntryPageState();
 }
 
-class _TeacherWorkspaceEntryPageState
-    extends State<TeacherWorkspaceEntryPage> {
+class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -365,9 +364,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
   }
 
   @override
@@ -444,12 +442,16 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       for (final learningCase in student.cases) {
         if (learningCase.status == LearningCaseStatus.pendingVerification) {
           pendingVerification.add(
-            WorkspaceCaseWithContext(student: student, learningCase: learningCase),
+            WorkspaceCaseWithContext(
+              student: student,
+              learningCase: learningCase,
+            ),
           );
           continue;
         }
         final action = learningCase.primaryAction;
-        if (action == null || learningCase.status == LearningCaseStatus.closed) {
+        if (action == null ||
+            learningCase.status == LearningCaseStatus.closed) {
           continue;
         }
         actions.add(
@@ -534,7 +536,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                       _WorkspaceCaseRow(
                         student: item.student,
                         learningCase: item.learningCase,
-                        onOpen: () => _openCase(item.student, item.learningCase),
+                        onOpen: () =>
+                            _openCase(item.student, item.learningCase),
                       ),
                   ],
                 ),
@@ -618,7 +621,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             return true;
           }
           final caseText = student.cases
-              .map((learningCase) => '${learningCase.title}${learningCase.description ?? ''}')
+              .map(
+                (learningCase) =>
+                    '${learningCase.title}${learningCase.description ?? ''}',
+              )
               .join();
           return '${student.name}${student.subject}${student.context}$caseText'
               .contains(query);
@@ -680,19 +686,24 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WindowSizeClass sizeClass,
   ) {
     final importantCases = student.cases
-        .where((learningCase) => learningCase.status != LearningCaseStatus.closed)
+        .where(
+          (learningCase) => learningCase.status != LearningCaseStatus.closed,
+        )
         .take(3)
         .toList();
     final pendingCases = student.cases
-        .where((learningCase) =>
-            learningCase.status == LearningCaseStatus.pendingVerification)
+        .where(
+          (learningCase) =>
+              learningCase.status == LearningCaseStatus.pendingVerification,
+        )
         .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _WorkspacePageHeader(
           title: student.name,
-          subtitle: '${student.grade} · ${student.subject} · ${student.context}',
+          subtitle:
+              '${student.grade} · ${student.subject} · ${student.context}',
           leading: IconButton(
             tooltip: '返回',
             onPressed: _goBack,
@@ -801,9 +812,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             onPressed: _goBack,
             icon: const Icon(Icons.arrow_back),
           ),
-          actions: [
-            _WorkspaceStatusMarker(label: learningCase.status.label),
-          ],
+          actions: [_WorkspaceStatusMarker(label: learningCase.status.label)],
         ),
         Wrap(
           spacing: AppSpacing.sm,
@@ -847,25 +856,33 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           content: learningCase.evidence.isEmpty
               ? '尚未记录 Evidence。'
               : learningCase.evidence
-                  .map((item) => '${_formatDate(item.observedAt)} ${item.title}：${item.summary}')
-                  .join('\n\n'),
+                    .map(
+                      (item) =>
+                          '${_formatDate(item.observedAt)} ${item.title}：${item.summary}',
+                    )
+                    .join('\n\n'),
         ),
         _WorkspaceNarrativeSection(
           title: 'Intervention / 教学动作',
           content: learningCase.interventions.isEmpty
               ? '尚未记录教学动作。'
               : learningCase.interventions
-                  .map((item) => '${_formatDate(item.occurredAt)}：${item.strategy}')
-                  .join('\n\n'),
+                    .map(
+                      (item) =>
+                          '${_formatDate(item.occurredAt)}：${item.strategy}',
+                    )
+                    .join('\n\n'),
         ),
         _WorkspaceNarrativeSection(
           title: 'Assessment / Verification',
           content: learningCase.assessments.isEmpty
               ? '尚未记录验证。'
               : learningCase.assessments
-                  .map((item) =>
-                      '${_formatDate(item.assessedAt)} ${_assessmentLabel(item.result)}：${item.evidenceSummary}')
-                  .join('\n\n'),
+                    .map(
+                      (item) =>
+                          '${_formatDate(item.assessedAt)} ${_assessmentLabel(item.result)}：${item.evidenceSummary}',
+                    )
+                    .join('\n\n'),
         ),
         _WorkspaceNarrativeSection(
           title: 'Next Action / 下一行动',
@@ -1102,9 +1119,8 @@ class _WorkspaceQuickCaptureFormState
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     '先记录一条真实观察；保存后 Case 会保持“待整理”，不会自动跳过教师判断。',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<WorkspaceStudent>(
@@ -1448,9 +1464,8 @@ class _WorkspacePageHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             subtitle!,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ],
@@ -1539,7 +1554,10 @@ class _WorkspaceSection extends StatelessWidget {
                     Text(title, style: Theme.of(context).textTheme.titleMedium),
                     if (count != null) ...[
                       const SizedBox(width: AppSpacing.xs),
-                      Text(count!, style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        count!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ],
                 ),
@@ -1581,13 +1599,18 @@ class _WorkspaceStudentRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(student.name, style: Theme.of(context).textTheme.titleSmall),
+                    Text(
+                      student.name,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                     const SizedBox(height: AppSpacing.xxs),
                     Wrap(
                       spacing: AppSpacing.sm,
                       runSpacing: AppSpacing.xxs,
                       children: [
-                        _WorkspaceMetadata('${student.grade} · ${student.subject}'),
+                        _WorkspaceMetadata(
+                          '${student.grade} · ${student.subject}',
+                        ),
                         _WorkspaceMetadata(student.context),
                       ],
                     ),
@@ -1765,7 +1788,9 @@ class _WorkspaceFacts extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _WorkspaceSection(title: '最近关键事实', child: facts)),
+        Expanded(
+          child: _WorkspaceSection(title: '最近关键事实', child: facts),
+        ),
         const SizedBox(width: AppSpacing.xl),
         const Expanded(
           child: _WorkspaceStateNotice(
@@ -1826,7 +1851,10 @@ class _WorkspaceTimelineItem extends StatelessWidget {
         children: [
           SizedBox(
             width: 72,
-            child: Text(_formatDate(event.occurredAt), style: Theme.of(context).textTheme.bodySmall),
+            child: Text(
+              _formatDate(event.occurredAt),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
           const Padding(
             padding: EdgeInsets.only(top: 5),
@@ -1837,7 +1865,10 @@ class _WorkspaceTimelineItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(event.typeLabel, style: Theme.of(context).textTheme.labelLarge),
+                Text(
+                  event.typeLabel,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(event.text, style: Theme.of(context).textTheme.bodyMedium),
               ],
@@ -1870,9 +1901,8 @@ class _WorkspaceSubheading extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: color,
-            ),
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(color: color),
           ),
         ],
       ),
@@ -1906,10 +1936,8 @@ class _WorkspaceStatusMarker extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
+        style: Theme.of(context).textTheme.bodySmall
+            ?.copyWith(color: color, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -2002,7 +2030,11 @@ class _WorkspaceBoundaryBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.shield_outlined, size: 18, color: AppColors.accent),
+            const Icon(
+              Icons.shield_outlined,
+              size: 18,
+              color: AppColors.accent,
+            ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
@@ -2037,7 +2069,9 @@ class _WorkspaceContextLine extends StatelessWidget {
             width: 64,
             child: Text(label, style: Theme.of(context).textTheme.bodySmall),
           ),
-          Expanded(child: Text(value, style: Theme.of(context).textTheme.bodyMedium)),
+          Expanded(
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          ),
         ],
       ),
     );
@@ -2176,7 +2210,10 @@ class _WorkspaceLoginBody extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('登录开发环境', style: Theme.of(context).textTheme.headlineSmall),
+                    Text(
+                      '登录开发环境',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       '仅使用虚构测试账号。登录后，服务端仍会按 membership、角色、学科范围和学生分配限制数据。',
@@ -2188,7 +2225,9 @@ class _WorkspaceLoginBody extends StatelessWidget {
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(labelText: 'Email'),
                       validator: (value) =>
-                          value == null || value.trim().isEmpty ? '请输入开发环境账号' : null,
+                          value == null || value.trim().isEmpty
+                          ? '请输入开发环境账号'
+                          : null,
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     TextFormField(
