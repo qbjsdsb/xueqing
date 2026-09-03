@@ -22,6 +22,17 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   final TextEditingController _studentSearchController =
       TextEditingController();
   final FocusNode _studentSearchFocusNode = FocusNode(debugLabel: '学生搜索');
+  late final List<PrototypeStudent> _students;
+  int _localCaptureSerial = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _students = [
+      for (final student in DesignFixture.students)
+        _copyPrototypeStudent(student),
+    ];
+  }
 
   @override
   void dispose() {
@@ -88,7 +99,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
 
   void _openCase(PrototypeCase learningCase) {
     setState(() {
-      _selectedStudent = DesignFixture.studentForCase(learningCase);
+      _selectedStudent = _studentForCase(learningCase);
       _selectedCase = learningCase;
     });
   }
@@ -114,22 +125,100 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
             isDismissible: false,
             enableDrag: false,
             backgroundColor: Colors.transparent,
-            builder: (context) => DesignQuickCaptureForm(student: student),
+            builder: (context) => DesignQuickCaptureForm(
+              students: _students,
+              student: student,
+            ),
           )
         : await showDialog<QuickCaptureResult>(
             context: context,
             barrierDismissible: false,
             builder: (context) =>
-                Dialog(child: DesignQuickCaptureForm(student: student)),
+                Dialog(
+                  child: DesignQuickCaptureForm(
+                    students: _students,
+                    student: student,
+                  ),
+                ),
           );
 
     if (!mounted || result == null) return;
-    final message = switch (result) {
-      QuickCaptureResult.saved => '已记录为待整理问题',
-      QuickCaptureResult.draft => '已保留本机草稿（设计预览）',
-    };
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    if (result.outcome == QuickCaptureOutcome.saved && result.capture != null) {
+      _addQuickCapture(result.capture!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已记录为待整理问题，并已显示在当前预览。')),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已保留本机草稿（设计预览）。')),
+    );
+  }
+
+  PrototypeStudent _studentForCase(PrototypeCase targetCase) {
+    return _students.firstWhere(
+      (student) => student.cases.any((item) => item.id == targetCase.id),
+    );
+  }
+
+  void _addQuickCapture(PrototypeQuickCapture capture) {
+    final studentIndex = _students.indexWhere(
+      (student) => student.id == capture.studentId,
+    );
+    if (studentIndex < 0) return;
+
+    final student = _students[studentIndex];
+    final now = DateTime.now();
+    final event = PrototypeTimelineEvent(
+      dateLabel: _previewDateLabel(now),
+      typeLabel: 'Quick Capture',
+      text: capture.note.isEmpty
+          ? '记录为待整理问题：${capture.title}'
+          : '${capture.title}：${capture.note}',
+    );
+    final caseNumber = ++_localCaptureSerial;
+    final learningCase = PrototypeCase(
+      id: 'preview-case-${caseNumber}',
+      title: capture.title,
+      status: PrototypeCaseStatus.newCase,
+      statusLabel: '待整理',
+      priorityLabel: '新记录',
+      subject: student.subject,
+      problem: capture.title,
+      evidence: capture.note.isEmpty
+          ? '刚刚记录，尚未补充具体证据。'
+          : capture.note,
+      judgement: '尚未形成教师判断。',
+      intervention: '尚未记录。',
+      assessment: '尚未记录。',
+      nextAction: '补充一条题目或课堂证据后再整理',
+      nextActionDue: '待安排',
+      timeline: <PrototypeTimelineEvent>[event],
+      primaryAction: PrototypeAction(
+        id: 'preview-action-${caseNumber}',
+        title: '补充一条题目或课堂证据后再整理',
+        dueLabel: '待安排',
+        kind: PrototypeActionKind.evidence,
+        dueBucket: PrototypeActionDueBucket.undated,
+      ),
+    );
+    final updatedStudent = PrototypeStudent(
+      id: student.id,
+      name: student.name,
+      grade: student.grade,
+      subject: student.subject,
+      context: student.context,
+      cases: <PrototypeCase>[learningCase, ...student.cases],
+      recentFacts: <PrototypeTimelineEvent>[event, ...student.recentFacts],
+    );
+
+    setState(() {
+      _students[studentIndex] = updatedStudent;
+      if (_selectedStudent?.id == student.id) {
+        _selectedStudent = updatedStudent;
+      }
+    });
   }
 
   void _completeAction(PrototypeAction action) {
@@ -156,7 +245,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
 
   Widget _buildToday(BuildContext context) {
     final actionGroups = <String, List<_ActionWithContext>>{};
-    for (final student in DesignFixture.students) {
+    for (final student in _students) {
       for (final learningCase in student.cases) {
         final action = learningCase.primaryAction;
         if (action == null ||
@@ -193,7 +282,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       ordinaryActions,
       PrototypeActionDueBucket.undated,
     );
-    final pendingVerification = DesignFixture.students
+    final pendingVerification = _students
         .expand(
           (student) => student.cases.map(
             (learningCase) => (student: student, learningCase: learningCase),
@@ -315,7 +404,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           ),
           child: Column(
             children: [
-              for (final student in DesignFixture.students)
+              for (final student in _students)
                 DesignStudentRow(
                   student: student,
                   onOpen: () => _openStudent(student),
@@ -359,10 +448,21 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       animation: _studentSearchController,
       builder: (context, _) {
         final query = _studentSearchController.text.trim();
-        final students = DesignFixture.students.where((student) {
+        final students = _students.where((student) {
           if (query.isEmpty) return true;
-          return '${student.name}${student.subject}${student.context}'.contains(
-            query,
+          final searchable = StringBuffer()
+            ..write(student.name)
+            ..write(student.subject)
+            ..write(student.context);
+          for (final learningCase in student.cases) {
+            searchable
+              ..write(learningCase.title)
+              ..write(learningCase.problem)
+              ..write(learningCase.evidence)
+              ..write(learningCase.nextAction);
+          }
+          return searchable.toString().toLowerCase().contains(
+            query.toLowerCase(),
           );
         }).toList();
 
@@ -430,7 +530,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           title: '可以开始记录',
           child: Column(
             children: [
-              for (final student in DesignFixture.students)
+              for (final student in _students)
                 _LessonRow(
                   student: student,
                   onStart: () => _openStudent(student),
@@ -450,7 +550,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
 
   Widget _buildLearning(BuildContext context) {
     final cases = [
-      for (final student in DesignFixture.students)
+      for (final student in _students)
         for (final learningCase in student.cases)
           (student: student, learningCase: learningCase),
     ];
@@ -752,6 +852,22 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       _ => '处理下一步',
     };
   }
+}
+
+
+String _previewDateLabel(DateTime value) =>
+    '${value.month} 月 ${value.day} 日';
+
+PrototypeStudent _copyPrototypeStudent(PrototypeStudent student) {
+  return PrototypeStudent(
+    id: student.id,
+    name: student.name,
+    grade: student.grade,
+    subject: student.subject,
+    context: student.context,
+    cases: List<PrototypeCase>.of(student.cases),
+    recentFacts: List<PrototypeTimelineEvent>.of(student.recentFacts),
+  );
 }
 
 class _PageFrame extends StatelessWidget {
@@ -1178,11 +1294,40 @@ class _CaseNarrativeSection extends StatelessWidget {
   }
 }
 
-enum QuickCaptureResult { saved, draft }
+enum QuickCaptureOutcome { saved, draft }
+
+class PrototypeQuickCapture {
+  const PrototypeQuickCapture({
+    required this.studentId,
+    required this.title,
+    required this.note,
+  });
+
+  final String studentId;
+  final String title;
+  final String note;
+}
+
+class QuickCaptureResult {
+  const QuickCaptureResult.saved(this.capture)
+      : outcome = QuickCaptureOutcome.saved;
+
+  const QuickCaptureResult.draft()
+      : outcome = QuickCaptureOutcome.draft,
+        capture = null;
+
+  final QuickCaptureOutcome outcome;
+  final PrototypeQuickCapture? capture;
+}
 
 class DesignQuickCaptureForm extends StatefulWidget {
-  const DesignQuickCaptureForm({this.student, super.key});
+  const DesignQuickCaptureForm({
+    required this.students,
+    this.student,
+    super.key,
+  });
 
+  final List<PrototypeStudent> students;
   final PrototypeStudent? student;
 
   @override
@@ -1243,7 +1388,15 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
     setState(() => _saving = true);
     await Future<void>.delayed(const Duration(milliseconds: 220));
     if (!mounted) return;
-    Navigator.of(context).pop(QuickCaptureResult.saved);
+    Navigator.of(context).pop(
+      QuickCaptureResult.saved(
+        PrototypeQuickCapture(
+          studentId: _selectedStudent!.id,
+          title: title,
+          note: _noteController.text.trim(),
+        ),
+      ),
+    );
   }
 
   Future<void> _cancel() async {
@@ -1269,7 +1422,9 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
       ),
     );
     if (!mounted || result == null) return;
-    Navigator.of(context).pop(result ? QuickCaptureResult.draft : null);
+    Navigator.of(context).pop(
+      result ? QuickCaptureResult.draft() : null,
+    );
   }
 
   @override
@@ -1316,7 +1471,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
                     ),
                     hint: const Text('选择学生后开始'),
                     items: [
-                      for (final student in DesignFixture.students)
+                      for (final student in widget.students)
                         DropdownMenuItem<PrototypeStudent>(
                           value: student,
                           child: Text('${student.name} · ${student.subject}'),
