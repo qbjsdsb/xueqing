@@ -628,9 +628,7 @@ class _InteractiveSurfaceState extends State<_InteractiveSurface> {
           focusColor: Colors.transparent,
           hoverColor: Colors.transparent,
           splashColor: Theme.of(context).colorScheme.primaryContainer,
-          highlightColor: Theme.of(context)
-              .colorScheme
-              .primaryContainer
+          highlightColor: Theme.of(context).colorScheme.primaryContainer
               .withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(AppRadii.small),
           child: AnimatedContainer(

@@ -51,9 +51,8 @@ class BootstrapPage extends StatelessWidget {
                     const SizedBox(height: AppSpacing.lg),
                     FilledButton.icon(
                       onPressed: () {
-                        Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.teacherWorkspace);
+                        Navigator.of(context)
+                            .pushNamed(AppRoutes.teacherWorkspace);
                       },
                       icon: const Icon(Icons.people_alt_outlined),
                       label: const Text('进入教师工作台'),
@@ -61,9 +60,8 @@ class BootstrapPage extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     OutlinedButton.icon(
                       onPressed: () {
-                        Navigator.of(
-                          context,
-                        ).pushNamed(AppRoutes.designPreview);
+                        Navigator.of(context)
+                            .pushNamed(AppRoutes.designPreview);
                       },
                       icon: const Icon(Icons.design_services_outlined),
                       label: const Text('打开虚构数据预览'),

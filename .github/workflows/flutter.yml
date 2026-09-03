@@ -32,10 +32,7 @@ jobs:
         run: git diff --exit-code -- pubspec.lock
 
       - name: Check Dart formatting
-        run: |
-          dart format .
-          git diff -- .
-          git diff --exit-code -- .
+        run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze
         run: flutter analyze

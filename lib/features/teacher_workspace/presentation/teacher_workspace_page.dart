@@ -2142,9 +2142,8 @@ class _WorkspaceCaseTypeEditorDialogState
       setState(() => _error = '名称不能超过 64 个字符。');
       return;
     }
-    Navigator.of(
-      context,
-    ).pop(_CaseTypeDraft(displayName: displayName, baseType: _baseType));
+    Navigator.of(context)
+        .pop(_CaseTypeDraft(displayName: displayName, baseType: _baseType));
   }
 
   @override
@@ -3320,10 +3319,8 @@ class _WorkspaceStatusMarker extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
+        style: Theme.of(context).textTheme.bodySmall
+            ?.copyWith(color: color, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -3548,8 +3545,7 @@ class _WorkspaceNoAccessBody extends StatelessWidget {
         padding: EdgeInsets.all(AppSpacing.lg),
         child: _WorkspaceStateNotice(
           title: '当前账号没有可用的教师教学范围',
-          message:
-              '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',
+          message: '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',
           icon: Icons.lock_outline,
         ),
       ),
@@ -3567,8 +3563,7 @@ class _WorkspaceConfigBody extends StatelessWidget {
         padding: EdgeInsets.all(AppSpacing.lg),
         child: _WorkspaceStateNotice(
           title: '开发云端尚未配置',
-          message:
-              '请使用 XUEQING_SUPABASE_URL 和 XUEQING_SUPABASE_PUBLISHABLE_KEY 启动开发环境。正式 provider、region 和真实资料仍未启用。',
+          message: '请使用 XUEQING_SUPABASE_URL 和 XUEQING_SUPABASE_PUBLISHABLE_KEY 启动开发环境。正式 provider、region 和真实资料仍未启用。',
           icon: Icons.settings_outlined,
         ),
       ),
