@@ -1,5 +1,7 @@
 # P0 Gate A｜Auth Identity Portability Spike
 
+**状态：PASS（2026-09-03，身份契约与本地迁移模拟）**
+
 ## 目的
 
 在写正式业务 migration、Production Auth/RLS/CRUD 或接入真实学生资料前，确认业务身份不会被某一个认证供应商的用户主键绑死。
@@ -51,16 +53,23 @@ supabase/tests/identity_portability_spike.sql 会验证：
 - 相同字符串 subject 在不同 issuer 下不会误碰撞；
 - child fact 只引用业务 Profile UUID。
 
-## Gate 通过条件
+## Gate 通过条件（已满足）
 
-本分支必须先通过 GitHub Supabase workflow 的空库重建、pgTAP 测试和旧 token 回归；随后在 PR 中记录实际 run URL 与 commit SHA。
+本分支已通过 GitHub Supabase workflow 的空库重建、pgTAP 测试和旧 token 回归，并记录了实际执行证据：
+
+- Supabase checks：`https://github.com/qbjsdsb/xueqing/actions/runs/33741847279`
+- Flutter checks：`https://github.com/qbjsdsb/xueqing/actions/runs/33741847275`
+- 验证 head：`8efba87d553deafe3e6011e140a30f1cebd6d44c`
+- 身份契约测试：18/18 通过；既有 RLS 与 old-token 回归同时通过。
+
+因此，P0 Gate A 的身份物理建模/迁移契约已通过。候选 provider 的真实地区网络、Storage、backup/restore 与 Production Go/No-Go 仍是后续边界，不在本 Gate 中伪装成已完成。
 
 通过前继续遵守：
 
 - Supabase 只作为 reference candidate；
 - 只用虚构数据；
 - 不创建正式 Production business migration；
-- 不将 provider/region/session strategy 宣布为最终冻结；
+- 不将 Supabase provider/region/session strategy 宣布为最终冻结；身份解耦契约已由 ADR-046 冻结；
 - 不实现 Student / Case 的正式远程 CRUD。
 
 Gate 通过后，下一条 PR 才进入 Phase 0B.0-B：把本契约落实到 provider-neutral 的正式身份表和最小 Student / Subject Profile 基础，并再次单独验证 RLS、时间语义、命令幂等和恢复路径。

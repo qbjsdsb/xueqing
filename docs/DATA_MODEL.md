@@ -34,10 +34,30 @@ Supabase 是 reference candidate，不是已锁定 provider。
 - `status`
 - timestamps
 
+### `app_users`
+- `id`: application-owned stable UUID
+- `display_name`
+- `status`
+- timestamps
+- no foreign key to a provider auth primary key
+
+### `identity_links`
+- `id`
+- `app_user_id`
+- `provider_key`
+- `issuer`: provider project, environment, or tenant namespace
+- `external_subject`: opaque `text`; never cast to UUID
+- `status`: active / retired
+- timestamps / retired_at
+- unique `(provider_key, issuer, external_subject)`
+- V1 partial uniqueness: at most one active link per App User
+
+A provider switch retires the old link and activates the new link in one controlled transaction. Business facts reference `app_user_id`; they never reference `external_subject` or a provider auth primary key. Email is not an identity key.
+
 ### `organization_memberships`
 - `id`
 - `organization_id`
-- provider-neutral auth identity link（物理类型 Phase 0B.0 冻结）
+- `app_user_id`
 - `status`: onboarding / active / disabled
 - timestamps / onboarding expiry
 

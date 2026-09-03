@@ -90,6 +90,14 @@
 
 ## Phase 0B.0（原 0C）. Local Supabase Compatibility / Security Spikes
 
+### 当前 Gate 证据
+
+- [x] P0 Gate A — Auth Identity Portability（PR #17，18/18 identity contract assertions）
+- [x] P0 Gate B — Revoked Session / Old Token（PR #15 remote harness + device evidence）
+- [x] 业务身份解耦契约已由 ADR-046 冻结
+- [ ] Production provider / region / session strategy 最终冻结
+- [ ] 无代理机构网络、Storage、backup/restore 与 Go/No-Go
+
 > 本节只允许用虚构数据执行 compatibility/security Spike，不等于 production migration/Auth/RLS/CRUD 授权。必须先完成 P0 Gate A（Auth Identity Portability）与 P0 Gate B（Revoked Session / Old Token Security），再冻结 provider/region/identity/session strategy。
 
 
