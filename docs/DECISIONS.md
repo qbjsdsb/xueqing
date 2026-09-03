@@ -189,3 +189,34 @@ Windows/Android Auth、RLS、RPC/transactions、private Storage、backup/restore
 - 不把 provider-specific Session helper 当领域事实。
 
 Spike 通过后新增/更新 ADR 明确最终 provider、region、identity strategy、restore strategy。
+## ADR-046｜业务身份与外部认证身份解耦
+
+**Accepted — P0 Gate A 通过（2026-09-03）**
+
+### 背景
+
+Supabase reference 路径通常使用 UUID 形式的 Auth 用户标识，而候选 provider 的用户 subject 可能是普通字符串。若直接把 provider auth 主键作为业务 Profile/App User 主键，认证供应商迁移会迫使学生事实、教学事实、审计 actor 和外键一起迁移。
+
+### 决定
+
+- 业务 App User/Profile 使用应用生成的稳定 UUID；
+- 外部认证身份使用独立 identity link；
+- identity link 的精确键为 provider_key + issuer + external_subject；
+- external_subject 物理类型固定为 text，不做 UUID cast，也不按 email 自动匹配；
+- V1 一个业务身份同时只允许一个 active link；迁移在同一受控事务中 retire 旧 link、activate 新 link；
+- 旧 link 保留为 retired 历史，真实改绑必须由可信迁移流程完成并留下审计；
+- 学生、Subject Profile、Case、Evidence、Intervention、Assessment、Action 等事实只引用业务 UUID，不引用 provider auth PK。
+
+### 影响
+
+正式 provider-neutral schema 应使用 app_users/Profile 与 identity_links 的关系。当前 Phase 0B.0-A 的 app_users.auth_provider/auth_subject_id 只属于兼容性 spike 形状；进入后续正式 schema 时应迁移为独立 link，而不是把 spike 形状直接当作最终产品表。
+
+本 ADR 只冻结身份解耦契约，不选择 Production provider、region 或最终 session 实现；这些仍需网络、Storage、恢复和 Go/No-Go 证据。
+
+### 证据
+
+- PR #17：`https://github.com/qbjsdsb/xueqing/pull/17`
+- Supabase checks：`https://github.com/qbjsdsb/xueqing/actions/runs/33741847279`
+- Flutter checks：`https://github.com/qbjsdsb/xueqing/actions/runs/33741847275`
+- 验证提交：`8efba87d553deafe3e6011e140a30f1cebd6d44c`
+- identity_portability_spike.sql：18/18 通过；既有 RLS 与旧 token 回归通过。

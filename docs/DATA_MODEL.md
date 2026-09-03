@@ -17,9 +17,7 @@
 
 ### Phase 0B.0 pre-migration hard gates
 
-Production provider 尚未冻结。正式 business migrations 前必须实测：
-1. Auth Identity Portability；
-2. Revoked Session / Old Token Security。
+P0 Gate A（Auth Identity Portability）与 P0 Gate B（Revoked Session / Old Token Security）的 compatibility spike 已通过；Production provider、region 与最终 session strategy 仍未冻结。正式 production business migrations 前，仍需完成候选 provider 的地区网络、Storage、backup/restore 与 Go/No-Go 证据。
 
 Supabase 是 reference candidate，不是已锁定 provider。
 
@@ -34,10 +32,30 @@ Supabase 是 reference candidate，不是已锁定 provider。
 - `status`
 - timestamps
 
+### `app_users`
+- `id`: application-owned stable UUID
+- `display_name`
+- `status`
+- timestamps
+- no foreign key to a provider auth primary key
+
+### `identity_links`
+- `id`
+- `app_user_id`
+- `provider_key`
+- `issuer`: provider project, environment, or tenant namespace
+- `external_subject`: opaque `text`; never cast to UUID
+- `status`: active / retired
+- timestamps / retired_at
+- unique `(provider_key, issuer, external_subject)`
+- V1 partial uniqueness: at most one active link per App User
+
+A provider switch retires the old link and activates the new link in one controlled transaction. Business facts reference `app_user_id`; they never reference `external_subject` or a provider auth primary key. Email is not an identity key.
+
 ### `organization_memberships`
 - `id`
 - `organization_id`
-- provider-neutral auth identity link（物理类型 Phase 0B.0 冻结）
+- `app_user_id`
 - `status`: onboarding / active / disabled
 - timestamps / onboarding expiry
 
