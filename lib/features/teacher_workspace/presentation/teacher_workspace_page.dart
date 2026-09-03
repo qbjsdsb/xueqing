@@ -1786,7 +1786,7 @@ class _WorkspaceQuickCaptureFormState
           for (final student in widget.students)
             _WorkspaceChoiceOption<WorkspaceStudent>(
               key: ValueKey<String>(
-                'quick-capture-student-option-' + student.id,
+                'quick-capture-student-option-${student.id}',
               ),
               value: student,
               title: [student.name, student.subject].join(' · '),
@@ -1818,13 +1818,13 @@ class _WorkspaceQuickCaptureFormState
           for (final type in _caseTypeOptions)
             _WorkspaceChoiceOption<String>(
               key: ValueKey<String>(
-                'quick-capture-case-type-option-' + type.key,
+                'quick-capture-case-type-option-${type.key}',
               ),
               value: type.key,
               title: type.label,
               subtitle: type.isBuiltIn
                   ? '系统类型'
-                  : '自定义类型 · ' + type.baseType.label,
+                  : '自定义类型 · ${type.baseType.label}',
             ),
         ],
       ),
@@ -2047,7 +2047,6 @@ class _WorkspaceChoiceField extends StatelessWidget {
     required this.onTap,
     this.errorText,
     this.fieldKey,
-    super.key,
   });
 
   final String label;
@@ -3264,7 +3263,7 @@ class _WorkspaceTimelineItem extends StatelessWidget {
 }
 
 class _WorkspaceSubheading extends StatelessWidget {
-  _WorkspaceSubheading({
+  const _WorkspaceSubheading({
     required this.label,
     required this.color,
     required this.icon,

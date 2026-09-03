@@ -1190,7 +1190,7 @@ class _StudentActionGroup extends StatelessWidget {
 }
 
 class _ActionSubheading extends StatelessWidget {
-  _ActionSubheading({
+  const _ActionSubheading({
     required this.label,
     required this.color,
     required this.icon,
