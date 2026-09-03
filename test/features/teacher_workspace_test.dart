@@ -252,9 +252,13 @@ void main() {
     final repository = _FakeLearningRepository(_fixtureWorkspace());
     await _pumpWorkspace(tester, repository);
 
-    await tester.tap(find.text('示例学生甲').first);
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
     await tester.pumpAndSettle();
 
     final commandButton = find.widgetWithText(FilledButton, '确认 Case');
@@ -274,7 +278,7 @@ void main() {
     expect(find.textContaining('Case 进入已确认'), findsOneWidget);
   });
 
-  testWidgets('records an intervention with preserved retry inputs', (
+  testWidgets('records an intervention from a confirmed Case', (
     tester,
   ) async {
     final repository = _FakeLearningRepository(
@@ -282,16 +286,24 @@ void main() {
     );
     await _pumpWorkspace(tester, repository);
 
-    await tester.tap(find.text('示例学生甲').first);
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '记录教学动作'));
+    final commandButton = find.widgetWithText(FilledButton, '记录教学动作');
+    await tester.ensureVisible(commandButton);
+    await tester.tap(commandButton);
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), '用图示带学生重新完成通分步骤。');
-    await tester.tap(find.widgetWithText(FilledButton, '保存并进入下一步'));
+    final saveButton = find.widgetWithText(FilledButton, '保存并进入下一步');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
     expect(repository.interventionCount, 1);
@@ -308,16 +320,24 @@ void main() {
     );
     await _pumpWorkspace(tester, repository);
 
-    await tester.tap(find.text('示例学生甲').first);
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '记录验证结果'));
+    final commandButton = find.widgetWithText(FilledButton, '记录验证结果');
+    await tester.ensureVisible(commandButton);
+    await tester.tap(commandButton);
     await tester.pumpAndSettle();
 
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), '学生能独立完成，但仍有一次漏写通分步骤。');
-    await tester.tap(find.widgetWithText(FilledButton, '保存并进入下一步'));
+    final saveButton = find.widgetWithText(FilledButton, '保存并进入下一步');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
     expect(repository.assessmentCount, 1);
