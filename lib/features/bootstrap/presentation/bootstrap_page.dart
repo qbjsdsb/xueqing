@@ -71,7 +71,7 @@ class BootstrapPage extends StatelessWidget {
                             .pushNamed(AppRoutes.designPreview);
                       },
                       icon: const Icon(Icons.design_services_outlined),
-                      label: const Text('打开教师工作台预览'),
+                      label: const Text('进入教师工作台'),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     Text(
