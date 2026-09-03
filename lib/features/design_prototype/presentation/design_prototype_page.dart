@@ -820,25 +820,26 @@ class _DesignShell extends StatelessWidget {
                 destinations: _navigationDestinations,
               ),
             );
-          }
+            }
 
-          final extended = sizeClass == WindowSizeClass.expanded;
-          return Scaffold(
-            body: SafeArea(
-              child: Row(
-                children: [
-                  _DesignRail(
-                    extended: extended,
-                    selectedIndex: selectedIndex,
-                    onDestinationSelected: onDestinationSelected,
-                  ),
-                  const VerticalDivider(width: 1),
-                  Expanded(child: child),
-                ],
+            final extended = sizeClass == WindowSizeClass.expanded;
+            return Scaffold(
+              body: SafeArea(
+                child: Row(
+                  children: [
+                    _DesignRail(
+                      extended: extended,
+                      selectedIndex: selectedIndex,
+                      onDestinationSelected: onDestinationSelected,
+                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: child),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
