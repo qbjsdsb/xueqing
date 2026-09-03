@@ -360,8 +360,7 @@ class CaseCommandReceipt {
       eventId: _requiredString(json['event_id'], 'event_id'),
       status: _requiredString(json['status'], 'status'),
       caseVersion: _requiredInt(json['case_version'], 'case_version'),
-      recordId:
-          _stringValue(json['intervention_id']) ??
+      recordId: _stringValue(json['intervention_id']) ??
           _stringValue(json['assessment_id']) ??
           _stringValue(json['evidence_id']),
     );

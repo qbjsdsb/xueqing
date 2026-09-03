@@ -265,8 +265,7 @@ void main() {
     await tester.tap(commandButton);
     await tester.pumpAndSettle();
 
-    final saveButton =
-        find.widgetWithText(FilledButton, '保存并进入下一步');
+    final saveButton = find.widgetWithText(FilledButton, '保存并进入下一步');
     await tester.ensureVisible(saveButton);
     await tester.tap(saveButton);
     await tester.pumpAndSettle();

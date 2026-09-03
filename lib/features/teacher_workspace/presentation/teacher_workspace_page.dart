@@ -222,10 +222,11 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   ) async {
     final mode = switch (learningCase.status) {
       LearningCaseStatus.newCase => _CaseCommandMode.confirm,
-      LearningCaseStatus.confirmed ||
+      LearningCaseStatus.confirmed => _CaseCommandMode.intervention,
       LearningCaseStatus.intervening => _CaseCommandMode.intervention,
       LearningCaseStatus.pendingVerification => _CaseCommandMode.assessment,
-      LearningCaseStatus.stable || LearningCaseStatus.closed => null,
+      LearningCaseStatus.stable => null,
+      LearningCaseStatus.closed => null,
     };
     if (mode == null) {
       return;
@@ -1802,7 +1803,10 @@ class _WorkspaceCaseCommandSection extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.arrow_circle_right_outlined, color: AppColors.accent),
+          const Icon(
+            Icons.arrow_circle_right_outlined,
+            color: AppColors.accent,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -2892,20 +2896,21 @@ class WorkspaceCaseWithContext {
 String? _caseCommandLabel(LearningCaseStatus status) {
   return switch (status) {
     LearningCaseStatus.newCase => '确认 Case',
-    LearningCaseStatus.confirmed ||
+    LearningCaseStatus.confirmed => '记录教学动作',
     LearningCaseStatus.intervening => '记录教学动作',
     LearningCaseStatus.pendingVerification => '记录验证结果',
-    LearningCaseStatus.stable || LearningCaseStatus.closed => null,
+    LearningCaseStatus.stable => null,
+    LearningCaseStatus.closed => null,
   };
 }
 
 String _caseCommandHint(LearningCaseStatus status) {
   return switch (status) {
     LearningCaseStatus.newCase => '确认问题范围、补充判断，然后生成一条可执行的练习行动。',
-    LearningCaseStatus.confirmed ||
+    LearningCaseStatus.confirmed => '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
     LearningCaseStatus.intervening => '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
     LearningCaseStatus.pendingVerification => '记录一次可观察的验证结果；通过后仍会停在待确认，不会自动关闭。',
-    LearningCaseStatus.stable ||
+    LearningCaseStatus.stable => '',
     LearningCaseStatus.closed => '',
   };
 }
