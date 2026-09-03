@@ -259,9 +259,7 @@ void main() {
     expect(find.text('尚未记录教学动作。'), findsOneWidget);
   });
 
-  testWidgets('explains schema drift and lets the user retry', (
-    tester,
-  ) async {
+  testWidgets('explains schema drift and lets the user retry', (tester) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace())
       ..loadError = StateError(
         '404 PGRST205 relation organization_case_types does not exist',
