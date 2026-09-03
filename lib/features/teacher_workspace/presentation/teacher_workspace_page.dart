@@ -2268,9 +2268,8 @@ class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
                 ),
                 Text(
                   '系统类型始终保留。自定义类型只负责分类，仍沿用同一套 Case、证据、行动和验证流程。',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 if (_error != null) ...[
