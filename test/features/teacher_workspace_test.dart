@@ -421,10 +421,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.descendant(
-        of: studentPicker,
-        matching: find.text('示例学生甲 · 数学'),
-      ),
+      find.descendant(of: studentPicker, matching: find.text('示例学生甲 · 数学')),
       findsOneWidget,
     );
 
@@ -439,10 +436,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.descendant(
-        of: typePicker,
-        matching: find.text('审题策略'),
-      ),
+      find.descendant(of: typePicker, matching: find.text('审题策略')),
       findsOneWidget,
     );
   });
