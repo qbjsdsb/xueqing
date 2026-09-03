@@ -10,7 +10,7 @@
 
 Xueqing 采用浅色、低装饰、编辑部/专业工作台式的视觉秩序：中性画布、白色工作面、深色正文、低饱和语义色、细分隔线和少量边界明确的容器。
 
-不使用大面积渐变、玻璃、glow、neon、AI 星星/魔法棒、巨大 KPI、环形/雷达图、彩色胶囊泛滥或每行一个 Card。阴影只服务于 modal/sheet 的层级，不服务于“显得高级”。
+不使用大面积渐变、玻璃、glow、neon、AI 星星/魔法棒、巨大 KPI、环形/雷达图、彩色胶囊泛滥或每行一个 Card。阴影只服务于 modal/sheet 的层级，不服务于“显得高级”。应用同时提供浅色和深色 ColorScheme，由 `ThemeMode.system` 跟随系统；页面不直接读取固定语义色。
 
 ## 2. Color tokens
 
@@ -106,7 +106,7 @@ Flutter 先通过 `fontFamilyFallback` 保留上述 fallback，不在 Phase 0A.5
 | 强 border / focus 外围 | 1–2px `borderStrong` / `accent` |
 | 紧凑控件 radius | 4px |
 | 普通行/轻容器 radius | 8px |
-| dialog/sheet radius | 12px，仅顶部或外框 |
+| dialog/sheet radius | 28px（Material 3 modal/sheet），仅顶部或外框 |
 | 默认 elevation | 0 |
 | modal/sheet elevation | 低、单层，避免漂浮叠层 |
 
@@ -142,7 +142,7 @@ Flutter 先通过 `fontFamilyFallback` 保留上述 fallback，不在 Phase 0A.5
 | --- | --- |
 | color | `lib/app/theme/app_colors.dart` 的 `AppColors` |
 | spacing/radius/border | `lib/app/theme/app_spacing.dart` 的 `AppSpacing`、`AppRadii`、`AppBorders` |
-| type/color scheme | `lib/app/theme/app_theme.dart` 的 `AppTheme.light()` |
+| type/color scheme | `lib/app/theme/app_theme.dart` 的 `AppTheme.light()` / `AppTheme.dark()`；应用根使用 `ThemeMode.system` |
 | size class | `lib/app/layout/responsive.dart` 的 `ResponsiveBreakpoints` |
 | focus/keyboard | Material controls + `FocusTraversalGroup` / `Shortcuts` |
 | safe area/IME | `SafeArea` + `MediaQuery.viewInsetsOf` |
@@ -158,7 +158,7 @@ Flutter 先通过 `fontFamilyFallback` 保留上述 fallback，不在 Phase 0A.5
 | `AppColors` 的中性画布、深色正文、青绿色 accent | 值得保留的方向，与产品关键词一致 | 保留色相关系；补充 surface、focus、borderStrong、info 和语义背景，降低把颜色当装饰分类的风险 |
 | 原 `surface` 同时承担页面背景和工作面 | 命名/层级不足 | 分成 `canvas` 与 `surface`；页面背景使用 canvas，工作面使用白色 surface |
 | 4/8/12/16/24/32 间距骨架 | 值得保留 | 增加 20/40 供中文长内容和页面呼吸；不在 feature 内另建间距；48dp 触控目标单独作为交互 token |
-| 6/10/12 radius | 可用但偏向 bootstrap | 收敛常用 radius 到 4/8/12 关系，保留小号 6 以兼容既有 bootstrap；不大面积使用圆角 |
+| 6/10/12 radius | 可用但偏向 bootstrap | 收敛普通控件 radius 到 4/8/12 关系，保留小号 6 以兼容既有 bootstrap；dialog/sheet 单独使用 Material 3 的 28，不大面积使用圆角 |
 | Microsoft YaHei / Noto Sans CJK SC fallback | 只是工程占位，不等于完成中文排版 | 按中文真实层级调整字号/行高；保留 fallback，后续在目标设备复测系统字体 |
 | Material 3 seed color / CardTheme | 可作为 Flutter 基线 | 覆盖 surface、outline、button、input、navigation 状态；原型优先使用 rows/dividers，Card 不作为默认分组 |
 | expanded rail、compact/mobile AppBar | 结构起点 | 补上 medium compact rail，并在设计 prototype 中验证 expanded/medium/compact 三种关系 |

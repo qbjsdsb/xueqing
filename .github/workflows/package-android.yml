@@ -1,0 +1,65 @@
+name: Package Android APK
+
+on:
+  push:
+    branches:
+      - "phase0b0f/custom-case-types"
+    paths:
+      - ".github/workflows/package-android.yml"
+  workflow_dispatch:
+    inputs:
+      supabase_url:
+        description: "Optional Supabase URL"
+        required: false
+        type: string
+      supabase_publishable_key:
+        description: "Optional Supabase publishable key"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  XUEQING_ENV: development
+  XUEQING_SUPABASE_URL: ${{ github.event.inputs.supabase_url || 'https://czuctoulgnfytcfonkhc.supabase.co' }}
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}
+
+jobs:
+  android-debug:
+    name: Android debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.47.1"
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Build Android debug APK
+        run: |
+          flutter build apk --debug \
+            --dart-define="XUEQING_ENV=${XUEQING_ENV}" \
+            --dart-define="XUEQING_SUPABASE_URL=${XUEQING_SUPABASE_URL}" \
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=${XUEQING_SUPABASE_PUBLISHABLE_KEY}"
+
+      - name: Verify APK
+        run: |
+          test -s build/app/outputs/flutter-apk/app-debug.apk
+          file build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: xueqing-android-debug-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

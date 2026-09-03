@@ -9,6 +9,7 @@ class _FakeLearningRepository implements LearningRepository {
   _FakeLearningRepository(this.workspace);
 
   TeacherWorkspace workspace;
+  Object? loadError;
   int loadCount = 0;
   int saveCount = 0;
   bool failFirstSave = false;
@@ -25,6 +26,9 @@ class _FakeLearningRepository implements LearningRepository {
   @override
   Future<TeacherWorkspace> loadWorkspace() async {
     loadCount++;
+    if (loadError != null) {
+      throw loadError!;
+    }
     return workspace;
   }
 
@@ -42,6 +46,53 @@ class _FakeLearningRepository implements LearningRepository {
       actionId: 'action-created',
       status: 'new',
       caseVersion: 1,
+    );
+  }
+
+  @override
+  Future<WorkspaceCaseType> createCaseType({
+    required String organizationId,
+    required String displayName,
+    required LearningCaseType baseType,
+  }) async {
+    return WorkspaceCaseType(
+      id: 'case-type-created',
+      displayName: displayName,
+      baseType: baseType,
+      status: 'active',
+      sortOrder: 0,
+      version: 1,
+    );
+  }
+
+  @override
+  Future<WorkspaceCaseType> renameCaseType({
+    required String caseTypeId,
+    required String displayName,
+    required int expectedVersion,
+  }) async {
+    return WorkspaceCaseType(
+      id: caseTypeId,
+      displayName: displayName,
+      baseType: LearningCaseType.knowledge,
+      status: 'active',
+      sortOrder: 0,
+      version: expectedVersion + 1,
+    );
+  }
+
+  @override
+  Future<WorkspaceCaseType> archiveCaseType({
+    required String caseTypeId,
+    required int expectedVersion,
+  }) async {
+    return WorkspaceCaseType(
+      id: caseTypeId,
+      displayName: '已归档类型',
+      baseType: LearningCaseType.knowledge,
+      status: 'archived',
+      sortOrder: 0,
+      version: expectedVersion + 1,
     );
   }
 
@@ -109,6 +160,8 @@ class _FakeLearningRepository implements LearningRepository {
 TeacherWorkspace _fixtureWorkspace({
   LearningCaseStatus status = LearningCaseStatus.newCase,
   String actionType = 'practice',
+  List<WorkspaceCaseType>? caseTypes,
+  bool canManageCaseTypes = false,
 }) {
   final action = WorkspaceAction(
     id: 'action-1',
@@ -141,6 +194,9 @@ TeacherWorkspace _fixtureWorkspace({
     organizationName: '虚构机构',
     organizationTimeZone: 'Asia/Shanghai',
     hasTeachingAccess: true,
+    organizationId: 'org-1',
+    caseTypes: caseTypes ?? WorkspaceCaseType.builtInTypes,
+    canManageCaseTypes: canManageCaseTypes,
     students: [
       WorkspaceStudent(
         id: 'student-1',
@@ -203,6 +259,24 @@ void main() {
     expect(find.text('尚未记录教学动作。'), findsOneWidget);
   });
 
+  testWidgets('explains schema drift and lets the user retry', (tester) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace())
+      ..loadError = StateError(
+        '404 PGRST205 relation organization_case_types does not exist',
+      );
+    await _pumpWorkspace(tester, repository);
+
+    expect(find.text('暂时无法加载工作台'), findsOneWidget);
+    expect(find.text('开发环境服务还没有完成同步，请稍后重试。'), findsOneWidget);
+
+    repository.loadError = null;
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('今日'), findsWidgets);
+    expect(repository.loadCount, 2);
+  });
+
   testWidgets(
     'keeps Quick Capture input and reuses operation id after failure',
     (tester) async {
@@ -248,6 +322,146 @@ void main() {
       expect(repository.commands[1].profileId, 'profile-1');
     },
   );
+
+  testWidgets('shows custom type settings to an organization manager', (
+    tester,
+  ) async {
+    final customType = WorkspaceCaseType(
+      id: 'case-type-1',
+      displayName: '审题策略',
+      baseType: LearningCaseType.examStrategy,
+      status: 'active',
+      sortOrder: 0,
+      version: 1,
+    );
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        caseTypes: [...WorkspaceCaseType.builtInTypes, customType],
+        canManageCaseTypes: true,
+      ),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '问题类型'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('可用于新记录'), findsOneWidget);
+    expect(find.text('审题策略'), findsOneWidget);
+    expect(find.textContaining('系统类型始终保留。自定义类型只负责分类'), findsOneWidget);
+  });
+
+  testWidgets('sends a selected custom type with its base classification', (
+    tester,
+  ) async {
+    const customType = WorkspaceCaseType(
+      id: 'case-type-1',
+      displayName: '审题策略',
+      baseType: LearningCaseType.examStrategy,
+      status: 'active',
+      sortOrder: 0,
+      version: 1,
+    );
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        caseTypes: [...WorkspaceCaseType.builtInTypes, customType],
+      ),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.text('记录问题').first);
+    await tester.pumpAndSettle();
+
+    final studentPicker = find.byType(
+      DropdownButtonFormField<WorkspaceStudent>,
+    );
+    await tester.tap(studentPicker);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('示例学生甲 · 数学').last);
+    await tester.pumpAndSettle();
+
+    final typePicker = find.byKey(
+      const Key('quick-capture-case-type-dropdown'),
+    );
+    await tester.tap(typePicker);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('审题策略').last);
+    await tester.pumpAndSettle();
+
+    final textFields = find.byType(TextField);
+    await tester.enterText(textFields.at(0), '新题审题策略不稳定');
+    await tester.enterText(textFields.at(1), '面对综合题时没有先识别已知条件。');
+    final saveButton = find.widgetWithText(FilledButton, '保存问题');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.commands.single.organizationCaseTypeId, 'case-type-1');
+    expect(repository.commands.single.caseType, LearningCaseType.examStrategy);
+  });
+
+  testWidgets('uses bottom sheets for compact Quick Capture selectors', (
+    tester,
+  ) async {
+    const customType = WorkspaceCaseType(
+      id: 'case-type-1',
+      displayName: '审题策略',
+      baseType: LearningCaseType.examStrategy,
+      status: 'active',
+      sortOrder: 0,
+      version: 1,
+    );
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        caseTypes: [...WorkspaceCaseType.builtInTypes, customType],
+      ),
+    );
+    final originalPhysicalSize = tester.view.physicalSize;
+    final originalDevicePixelRatio = tester.view.devicePixelRatio;
+    addTearDown(() {
+      tester.view.physicalSize = originalPhysicalSize;
+      tester.view.devicePixelRatio = originalDevicePixelRatio;
+    });
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(375, 812);
+
+    await _pumpWorkspace(tester, repository);
+    await tester.tap(find.text('记录问题').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byType(DropdownButtonFormField<WorkspaceStudent>),
+      findsNothing,
+    );
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+
+    final studentPicker = find.byKey(const Key('quick-capture-student-picker'));
+    await tester.tap(studentPicker);
+    await tester.pumpAndSettle();
+    expect(find.text('选择学生'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('quick-capture-student-option-student-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: studentPicker, matching: find.text('示例学生甲 · 数学')),
+      findsOneWidget,
+    );
+
+    final typePicker = find.byKey(
+      const Key('quick-capture-case-type-dropdown'),
+    );
+    await tester.tap(typePicker);
+    await tester.pumpAndSettle();
+    expect(find.text('选择问题类型'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('quick-capture-case-type-option-case-type-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: typePicker, matching: find.text('审题策略')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('runs the confirmation command from a new Case', (tester) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace());

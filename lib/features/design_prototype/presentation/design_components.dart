@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../design_fixture.dart';
 
@@ -20,16 +19,18 @@ class DesignPreviewBanner extends StatelessWidget {
           vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: AppColors.surfaceMuted,
-          border: Border.all(color: AppColors.border),
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
           borderRadius: BorderRadius.circular(AppRadii.small),
         ),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.science_outlined,
               size: 17,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: AppSpacing.xs),
             Expanded(
@@ -41,7 +42,7 @@ class DesignPreviewBanner extends StatelessWidget {
             Text(
               '不写入云端',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -76,8 +77,9 @@ class DesignPageHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             subtitle!,
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(color: AppColors.textSecondary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ],
@@ -197,7 +199,7 @@ class DesignStatusMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _statusColors(label);
+    final colors = _statusColors(label, Theme.of(context).colorScheme);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xs,
@@ -239,7 +241,11 @@ class DesignMetadata extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (icon != null) ...[
-          Icon(icon, size: 15, color: AppColors.textSecondary),
+          Icon(
+            icon,
+            size: 15,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: AppSpacing.xxs),
         ],
         ConstrainedBox(
@@ -271,7 +277,7 @@ class DesignStudentRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: AppSpacing.xxs),
               child: Icon(Icons.person_outline, size: 21),
             ),
@@ -304,7 +310,10 @@ class DesignStudentRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            Icon(
+              Icons.chevron_right,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),
@@ -335,8 +344,12 @@ class DesignCaseRow extends StatelessWidget {
       explicitChildNodes: true,
       label: 'Case 信息：${student.name} · ${learningCase.title}',
       child: Container(
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.border)),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
@@ -413,7 +426,7 @@ class DesignActionRow extends StatelessWidget {
     final titleStyle = Theme.of(context).textTheme.titleSmall;
     final effectiveTitleStyle = isCompleted
         ? titleStyle?.copyWith(
-            color: AppColors.textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             decoration: TextDecoration.lineThrough,
           )
         : titleStyle;
@@ -432,7 +445,7 @@ class DesignActionRow extends StatelessWidget {
               Icon(
                 _actionIcon(action.kind),
                 size: 21,
-                color: _actionColor(action),
+                color: _actionColor(action, Theme.of(context).colorScheme),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -502,7 +515,11 @@ class DesignTimelineItem extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.only(top: 5),
-            child: Icon(Icons.circle, size: 8, color: AppColors.accent),
+            child: Icon(
+              Icons.circle,
+              size: 8,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -544,14 +561,14 @@ class DesignStateNotice extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(AppRadii.medium),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.textSecondary),
+          Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -610,19 +627,24 @@ class _InteractiveSurfaceState extends State<_InteractiveSurface> {
           onTap: widget.onTap,
           focusColor: Colors.transparent,
           hoverColor: Colors.transparent,
-          splashColor: AppColors.surfaceAccent,
-          highlightColor: AppColors.surfaceAccent.withValues(alpha: 0.55),
+          splashColor: Theme.of(context).colorScheme.primaryContainer,
+          highlightColor: Theme.of(context).colorScheme.primaryContainer
+              .withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(AppRadii.small),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 140),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
               color: _focused || _hovering
-                  ? AppColors.surfaceMuted
+                  ? Theme.of(context).colorScheme.surfaceContainerHigh
                   : Colors.transparent,
               border: _focused
-                  ? Border.all(color: AppColors.accent)
-                  : const Border(bottom: BorderSide(color: AppColors.border)),
+                  ? Border.all(color: Theme.of(context).colorScheme.primary)
+                  : Border(
+                      bottom: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
             ),
             child: widget.child,
           ),
@@ -633,7 +655,7 @@ class _InteractiveSurfaceState extends State<_InteractiveSurface> {
 }
 
 class _StatusColors {
-  const _StatusColors({
+  _StatusColors({
     required this.foreground,
     required this.background,
     required this.icon,
@@ -644,38 +666,38 @@ class _StatusColors {
   final IconData icon;
 }
 
-_StatusColors _statusColors(String label) {
+_StatusColors _statusColors(String label, ColorScheme scheme) {
   if (label.contains('逾期')) {
-    return const _StatusColors(
-      foreground: AppColors.danger,
-      background: AppColors.dangerSurface,
+    return _StatusColors(
+      foreground: scheme.error,
+      background: scheme.errorContainer,
       icon: Icons.warning_amber_outlined,
     );
   }
   if (label.contains('验证')) {
-    return const _StatusColors(
-      foreground: AppColors.info,
-      background: AppColors.infoSurface,
+    return _StatusColors(
+      foreground: scheme.tertiary,
+      background: scheme.tertiaryContainer,
       icon: Icons.fact_check_outlined,
     );
   }
   if (label.contains('稳定')) {
-    return const _StatusColors(
-      foreground: AppColors.success,
-      background: AppColors.successSurface,
+    return _StatusColors(
+      foreground: scheme.primary,
+      background: scheme.primaryContainer,
       icon: Icons.check_circle_outline,
     );
   }
   if (label.contains('关闭')) {
-    return const _StatusColors(
-      foreground: AppColors.textSecondary,
-      background: AppColors.surfaceMuted,
+    return _StatusColors(
+      foreground: scheme.onSurfaceVariant,
+      background: scheme.surfaceContainerHigh,
       icon: Icons.archive_outlined,
     );
   }
-  return const _StatusColors(
-    foreground: AppColors.warning,
-    background: AppColors.warningSurface,
+  return _StatusColors(
+    foreground: scheme.secondary,
+    background: scheme.secondaryContainer,
     icon: Icons.pending_outlined,
   );
 }
@@ -689,11 +711,11 @@ IconData _actionIcon(PrototypeActionKind kind) {
   };
 }
 
-Color _actionColor(PrototypeAction action) {
+Color _actionColor(PrototypeAction action, ColorScheme scheme) {
   return switch (action.dueBucket) {
-    PrototypeActionDueBucket.overdue => AppColors.danger,
-    PrototypeActionDueBucket.undated => AppColors.warning,
+    PrototypeActionDueBucket.overdue => scheme.error,
+    PrototypeActionDueBucket.undated => scheme.secondary,
     PrototypeActionDueBucket.today ||
-    PrototypeActionDueBucket.future => AppColors.accent,
+    PrototypeActionDueBucket.future => scheme.primary,
   };
 }

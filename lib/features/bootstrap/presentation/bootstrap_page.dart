@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../app/layout/responsive.dart';
 import '../../../app/router/app_router.dart';
 import '../../../app/shell/app_shell.dart';
-import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../config/app_config.dart';
 
@@ -43,8 +42,9 @@ class BootstrapPage extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       '从学生当前重点开始，把问题、证据和下一步放在同一条工作线上。',
-                      style: Theme.of(context).textTheme.bodyLarge
-                          ?.copyWith(color: AppColors.textSecondary),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     _StatusPanel(config: config),
@@ -107,9 +107,9 @@ class _StatusPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(6),
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(AppRadii.medium),
       ),
       child: Column(
         children: [
@@ -144,8 +144,9 @@ class _StatusRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Text(

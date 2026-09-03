@@ -49,6 +49,61 @@ extension LearningCaseTypePresentation on LearningCaseType {
   };
 }
 
+class WorkspaceCaseType {
+  const WorkspaceCaseType({
+    required this.displayName,
+    required this.baseType,
+    required this.status,
+    required this.sortOrder,
+    required this.version,
+    this.id,
+  });
+
+  const WorkspaceCaseType.builtIn(this.baseType)
+    : id = null,
+      displayName = null,
+      status = 'active',
+      sortOrder = 0,
+      version = 1;
+
+  final String? id;
+  final String? displayName;
+  final LearningCaseType baseType;
+  final String status;
+  final int sortOrder;
+  final int version;
+
+  static const List<WorkspaceCaseType> builtInTypes = <WorkspaceCaseType>[
+    WorkspaceCaseType.builtIn(LearningCaseType.knowledge),
+    WorkspaceCaseType.builtIn(LearningCaseType.habit),
+    WorkspaceCaseType.builtIn(LearningCaseType.examStrategy),
+    WorkspaceCaseType.builtIn(LearningCaseType.other),
+  ];
+
+  bool get isBuiltIn => id == null;
+
+  bool get isActive => status == 'active';
+
+  String get key => id ?? 'builtin:${baseType.wireValue}';
+
+  String get label => isBuiltIn ? baseType.label : displayName!;
+
+  factory WorkspaceCaseType.fromJson(Map<String, dynamic> json) {
+    final id = _stringValue(json['id']);
+    if (id == null) {
+      throw const FormatException('Missing case_type_id in server response.');
+    }
+    return WorkspaceCaseType(
+      id: id,
+      displayName: _requiredString(json['display_name'], 'case_type_name'),
+      baseType: _caseTypeFromWire(json['base_case_type']),
+      status: _stringValue(json['status']) ?? 'active',
+      sortOrder: _intValue(json['sort_order']) ?? 0,
+      version: _intValue(json['version']) ?? 1,
+    );
+  }
+}
+
 enum WorkspaceActionBucket { overdue, today, future, undated }
 
 extension WorkspaceActionBucketPresentation on WorkspaceActionBucket {
@@ -162,12 +217,16 @@ class WorkspaceCase {
     required this.assessments,
     required this.actions,
     required this.timeline,
+    this.organizationCaseTypeId,
+    this.caseTypeLabelSnapshot,
   });
 
   final String id;
   final String profileId;
   final String title;
   final LearningCaseType type;
+  final String? organizationCaseTypeId;
+  final String? caseTypeLabelSnapshot;
   final LearningCaseStatus status;
   final String priority;
   final String? description;
@@ -178,6 +237,8 @@ class WorkspaceCase {
   final List<WorkspaceAssessment> assessments;
   final List<WorkspaceAction> actions;
   final List<WorkspaceTimelineEvent> timeline;
+
+  String get typeLabel => caseTypeLabelSnapshot ?? type.label;
 
   WorkspaceAction? get primaryAction {
     for (final action in actions) {
@@ -227,6 +288,9 @@ class TeacherWorkspace {
     required this.hasTeachingAccess,
     required this.students,
     required this.loadedAt,
+    this.organizationId,
+    this.caseTypes = WorkspaceCaseType.builtInTypes,
+    this.canManageCaseTypes = false,
   });
 
   final String viewerName;
@@ -235,6 +299,9 @@ class TeacherWorkspace {
   final bool hasTeachingAccess;
   final List<WorkspaceStudent> students;
   final DateTime loadedAt;
+  final String? organizationId;
+  final List<WorkspaceCaseType> caseTypes;
+  final bool canManageCaseTypes;
 }
 
 class QuickCaptureCommand {
@@ -249,12 +316,14 @@ class QuickCaptureCommand {
     required this.evidenceSummary,
     required this.nextActionTitle,
     required this.nextActionDueAt,
+    this.organizationCaseTypeId,
   });
 
   final String operationId;
   final String profileId;
   final int expectedProfileVersion;
   final LearningCaseType caseType;
+  final String? organizationCaseTypeId;
   final String title;
   final String? description;
   final DateTime observedAt;
@@ -280,6 +349,10 @@ class QuickCaptureCommand {
     }
     if (nextActionTitle.trim().isEmpty) {
       throw ArgumentError('nextActionTitle cannot be empty.');
+    }
+    if (organizationCaseTypeId != null &&
+        organizationCaseTypeId!.trim().isEmpty) {
+      throw ArgumentError('organizationCaseTypeId cannot be blank.');
     }
   }
 }
@@ -468,6 +541,23 @@ abstract interface class LearningRepository {
 
   Future<QuickCaptureReceipt> quickCapture(QuickCaptureCommand command);
 
+  Future<WorkspaceCaseType> createCaseType({
+    required String organizationId,
+    required String displayName,
+    required LearningCaseType baseType,
+  });
+
+  Future<WorkspaceCaseType> renameCaseType({
+    required String caseTypeId,
+    required String displayName,
+    required int expectedVersion,
+  });
+
+  Future<WorkspaceCaseType> archiveCaseType({
+    required String caseTypeId,
+    required int expectedVersion,
+  });
+
   Future<CaseCommandReceipt> confirmCase(ConfirmCaseCommand command);
 
   Future<CaseCommandReceipt> recordIntervention(
@@ -537,23 +627,17 @@ class SupabaseLearningRepository implements LearningRepository {
       'organization_id',
     );
     final membershipId = _requiredString(membership['id'], 'membership_id');
-    final role = await _client
-        .from('membership_roles')
-        .select('role')
-        .eq('membership_id', membershipId)
-        .eq('role', 'teacher')
-        .maybeSingle();
-    _assertSameSession(expectedUserId);
-    if (role == null) {
-      return TeacherWorkspace(
-        viewerName: viewerName,
-        organizationName: '无教师教学权限',
-        organizationTimeZone: 'UTC',
-        hasTeachingAccess: false,
-        students: const <WorkspaceStudent>[],
-        loadedAt: DateTime.now(),
-      );
-    }
+    final roleRows = await _rows(
+      _client
+          .from('membership_roles')
+          .select('role')
+          .eq('membership_id', membershipId),
+      expectedUserId,
+    );
+    final hasTeachingAccess = roleRows.any((row) => row['role'] == 'teacher');
+    final canManageCaseTypes = roleRows.any(
+      (row) => row['role'] == 'org_admin' || row['role'] == 'academic_admin',
+    );
 
     final organization = await _client
         .from('organizations')
@@ -563,6 +647,34 @@ class SupabaseLearningRepository implements LearningRepository {
     _assertSameSession(expectedUserId);
     if (organization == null) {
       throw const FormatException('Active organization was not found.');
+    }
+
+    final caseTypeRows = await _rows(
+      _client
+          .from('organization_case_types')
+          .select('id,display_name,base_case_type,status,sort_order,version')
+          .eq('organization_id', organizationId)
+          .order('sort_order')
+          .order('created_at'),
+      expectedUserId,
+    );
+    final caseTypes = <WorkspaceCaseType>[
+      ...WorkspaceCaseType.builtInTypes,
+      for (final row in caseTypeRows) WorkspaceCaseType.fromJson(row),
+    ];
+
+    if (!hasTeachingAccess) {
+      return TeacherWorkspace(
+        organizationId: organizationId,
+        viewerName: viewerName,
+        organizationName: _stringValue(organization['name']) ?? '未命名机构',
+        organizationTimeZone: _stringValue(organization['time_zone']) ?? 'UTC',
+        hasTeachingAccess: false,
+        students: const <WorkspaceStudent>[],
+        loadedAt: DateTime.now(),
+        caseTypes: List<WorkspaceCaseType>.unmodifiable(caseTypes),
+        canManageCaseTypes: canManageCaseTypes,
+      );
     }
 
     final rows = await Future.wait<List<Map<String, dynamic>>>([
@@ -604,8 +716,9 @@ class SupabaseLearningRepository implements LearningRepository {
         _client
             .from('learning_cases')
             .select(
-              'id,student_subject_profile_id,case_type,title,description, '
-              'priority,status,first_observed_at,version',
+              'id,student_subject_profile_id,case_type,'
+              'organization_case_type_id,case_type_label_snapshot,'
+              'title,description,priority,status,first_observed_at,version',
             )
             .eq('organization_id', organizationId),
         expectedUserId,
@@ -746,12 +859,15 @@ class SupabaseLearningRepository implements LearningRepository {
     workspaceStudents.sort((left, right) => left.name.compareTo(right.name));
 
     return TeacherWorkspace(
+      organizationId: organizationId,
       viewerName: viewerName,
       organizationName: _stringValue(organization['name']) ?? '未命名机构',
       organizationTimeZone: _stringValue(organization['time_zone']) ?? 'UTC',
       hasTeachingAccess: true,
       students: List<WorkspaceStudent>.unmodifiable(workspaceStudents),
       loadedAt: DateTime.now(),
+      caseTypes: List<WorkspaceCaseType>.unmodifiable(caseTypes),
+      canManageCaseTypes: canManageCaseTypes,
     );
   }
 
@@ -762,28 +878,94 @@ class SupabaseLearningRepository implements LearningRepository {
     if (authUser == null) {
       throw const AuthException('No active session.');
     }
-    final response = await _client.rpc(
-      'quick_capture_case',
-      params: <String, dynamic>{
-        'p_operation_id': command.operationId,
-        'p_profile_id': command.profileId,
-        'p_expected_profile_version': command.expectedProfileVersion,
-        'p_case_type': command.caseType.wireValue,
-        'p_title': command.title.trim(),
-        'p_description': command.description?.trim(),
-        'p_observed_at': command.observedAt.toUtc().toIso8601String(),
-        'p_evidence_summary': command.evidenceSummary.trim(),
-        'p_next_action_title': command.nextActionTitle.trim(),
-        'p_next_action_due_at': command.nextActionDueAt
-            ?.toUtc()
-            .toIso8601String(),
-      },
-    );
+    final functionName = command.organizationCaseTypeId == null
+        ? 'quick_capture_case'
+        : 'quick_capture_case_with_type';
+    final params = <String, dynamic>{
+      'p_operation_id': command.operationId,
+      'p_profile_id': command.profileId,
+      'p_expected_profile_version': command.expectedProfileVersion,
+      'p_case_type': command.caseType.wireValue,
+      'p_title': command.title.trim(),
+      'p_description': command.description?.trim(),
+      'p_observed_at': command.observedAt.toUtc().toIso8601String(),
+      'p_evidence_summary': command.evidenceSummary.trim(),
+      'p_next_action_title': command.nextActionTitle.trim(),
+      'p_next_action_due_at': command.nextActionDueAt
+          ?.toUtc()
+          .toIso8601String(),
+    };
+    if (command.organizationCaseTypeId != null) {
+      params['p_organization_case_type_id'] = command.organizationCaseTypeId;
+    }
+    final response = await _client.rpc(functionName, params: params);
     _assertSameSession(authUser.id);
     if (response is! Map) {
       throw const FormatException('Quick Capture returned an invalid result.');
     }
     return QuickCaptureReceipt.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  @override
+  Future<WorkspaceCaseType> createCaseType({
+    required String organizationId,
+    required String displayName,
+    required LearningCaseType baseType,
+  }) {
+    return _invokeCaseTypeCommand(
+      functionName: 'create_organization_case_type',
+      params: <String, dynamic>{
+        'p_organization_id': organizationId,
+        'p_display_name': displayName.trim(),
+        'p_base_case_type': baseType.wireValue,
+      },
+    );
+  }
+
+  @override
+  Future<WorkspaceCaseType> renameCaseType({
+    required String caseTypeId,
+    required String displayName,
+    required int expectedVersion,
+  }) {
+    return _invokeCaseTypeCommand(
+      functionName: 'rename_organization_case_type',
+      params: <String, dynamic>{
+        'p_case_type_id': caseTypeId,
+        'p_display_name': displayName.trim(),
+        'p_expected_version': expectedVersion,
+      },
+    );
+  }
+
+  @override
+  Future<WorkspaceCaseType> archiveCaseType({
+    required String caseTypeId,
+    required int expectedVersion,
+  }) {
+    return _invokeCaseTypeCommand(
+      functionName: 'archive_organization_case_type',
+      params: <String, dynamic>{
+        'p_case_type_id': caseTypeId,
+        'p_expected_version': expectedVersion,
+      },
+    );
+  }
+
+  Future<WorkspaceCaseType> _invokeCaseTypeCommand({
+    required String functionName,
+    required Map<String, dynamic> params,
+  }) async {
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) {
+      throw const AuthException('No active session.');
+    }
+    final response = await _client.rpc(functionName, params: params);
+    _assertSameSession(authUser.id);
+    if (response is! Map) {
+      throw FormatException('$functionName returned an invalid result.');
+    }
+    return WorkspaceCaseType.fromJson(Map<String, dynamic>.from(response));
   }
 
   @override
@@ -1035,6 +1217,8 @@ class SupabaseLearningRepository implements LearningRepository {
       profileId: profileId,
       title: _requiredString(row['title'], 'case_title'),
       type: _caseTypeFromWire(row['case_type']),
+      organizationCaseTypeId: _stringValue(row['organization_case_type_id']),
+      caseTypeLabelSnapshot: _stringValue(row['case_type_label_snapshot']),
       status: _caseStatusFromWire(row['status']),
       priority: _stringValue(row['priority']) ?? 'normal',
       description: _stringValue(row['description']),

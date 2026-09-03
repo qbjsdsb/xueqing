@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/layout/responsive.dart';
-import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../design_fixture.dart';
 import 'design_components.dart';
@@ -340,9 +339,10 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           title: '今日',
           subtitle: '先处理今天要做的事，再回看需要判断的学生。',
           actions: [
-            OutlinedButton.icon(
+            FilledButton.icon(
+              key: const Key('design-preview-today-record-question'),
               onPressed: () => _showQuickCapture(),
-              icon: const Icon(Icons.edit_note_outlined),
+              icon: Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -358,7 +358,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                 if (overdue.isNotEmpty) ...[
                   _ActionSubheading(
                     label: '已逾期',
-                    color: AppColors.danger,
+                    color: Theme.of(context).colorScheme.error,
                     icon: Icons.warning_amber_outlined,
                   ),
                   ..._buildActionGroups(overdue),
@@ -367,7 +367,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
                   if (overdue.isNotEmpty) const Divider(height: AppSpacing.lg),
                   _ActionSubheading(
                     label: '今天到期',
-                    color: AppColors.warning,
+                    color: Theme.of(context).colorScheme.secondary,
                     icon: Icons.today_outlined,
                   ),
                   ..._buildActionGroups(dueToday),
@@ -519,9 +519,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
               title: '学生',
               subtitle: '搜索学生，先理解当前重点，再进入需要处理的 Case。',
               actions: [
-                OutlinedButton.icon(
+                FilledButton.icon(
                   onPressed: () => _showQuickCapture(),
-                  icon: const Icon(Icons.edit_note_outlined),
+                  icon: Icon(Icons.edit_note_outlined),
                   label: const Text('记录问题'),
                 ),
               ],
@@ -609,9 +609,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           title: '学情',
           subtitle: '按 Case 查看问题、证据、教学动作和下一行动。',
           actions: [
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: () => _showQuickCapture(),
-              icon: const Icon(Icons.edit_note_outlined),
+              icon: Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -659,12 +659,12 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           leading: IconButton(
             tooltip: '返回',
             onPressed: _goBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: Icon(Icons.arrow_back),
           ),
           actions: [
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: () => _showQuickCapture(student: student),
-              icon: const Icon(Icons.edit_note_outlined),
+              icon: Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -767,7 +767,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           leading: IconButton(
             tooltip: '返回学生详情',
             onPressed: _goBack,
-            icon: const Icon(Icons.arrow_back),
+            icon: Icon(Icons.arrow_back),
           ),
           actions: [
             DesignStatusMarker(label: learningCase.statusLabel),
@@ -1059,10 +1059,12 @@ class _DesignRail extends StatelessWidget {
               labelType: extended
                   ? NavigationRailLabelType.none
                   : NavigationRailLabelType.none,
-              indicatorColor: AppColors.surfaceAccent,
-              selectedIconTheme: const IconThemeData(color: AppColors.accent),
-              unselectedIconTheme: const IconThemeData(
-                color: AppColors.textSecondary,
+              indicatorColor: Theme.of(context).colorScheme.primaryContainer,
+              selectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              unselectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               destinations: _railDestinations,
             ),
@@ -1228,12 +1230,16 @@ class _LessonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.menu_book_outlined, size: 21),
+          Icon(Icons.menu_book_outlined, size: 21),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -1511,7 +1517,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
                       IconButton(
                         tooltip: '关闭',
                         onPressed: _saving ? null : _cancel,
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close),
                       ),
                     ],
                   ),
@@ -1576,7 +1582,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   if (_saving)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: AppSpacing.sm),
                       child: Text('保存中…'),
                     ),
@@ -1591,6 +1597,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: FilledButton(
+                          key: const Key('design-preview-quick-capture-save'),
                           onPressed: _saving ? null : _save,
                           child: Text(_saving ? '保存中…' : '记录问题'),
                         ),
@@ -1630,8 +1637,12 @@ class _ContextField extends StatelessWidget {
       ),
     );
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
       ),
       child: content,
     );
