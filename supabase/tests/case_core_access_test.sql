@@ -158,12 +158,13 @@ select is(
 );
 
 select is(
-  (select count(*)::int
-   from public.operation_receipts
-   where operation_id =
-     '71000000-0000-0000-0000-000000000001'),
-  1,
-  'Quick Capture writes one operation receipt'
+  has_table_privilege(
+    'authenticated',
+    'public.operation_receipts',
+    'select'
+  ),
+  false,
+  'clients cannot read operation receipts directly'
 );
 
 select is(
