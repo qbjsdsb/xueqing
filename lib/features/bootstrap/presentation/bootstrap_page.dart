@@ -37,12 +37,12 @@ class BootstrapPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '工程初始化完成',
+                      '教师工作台预览',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '启动链路、平台目标与基础 UI 能力已经就绪。',
+                      '先从学生当前重点开始，把问题、证据和下一步放在同一条工作线上。',
                       style: Theme.of(context).textTheme.bodyLarge
                           ?.copyWith(color: AppColors.textSecondary),
                     ),
@@ -54,7 +54,7 @@ class BootstrapPage extends StatelessWidget {
                         Navigator.of(context).pushNamed(AppRoutes.cloudSpike);
                       },
                       icon: const Icon(Icons.cloud_outlined),
-                      label: const Text('打开 Cloud Spike'),
+                      label: const Text('打开云端连接测试'),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     OutlinedButton.icon(
@@ -71,11 +71,11 @@ class BootstrapPage extends StatelessWidget {
                             .pushNamed(AppRoutes.designPreview);
                       },
                       icon: const Icon(Icons.design_services_outlined),
-                      label: const Text('打开 UX/UI 设计预览'),
+                      label: const Text('打开教师工作台预览'),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     Text(
-                      '当前页面仅验证工程启动状态，不代表业务功能已经接入。',
+                      '当前仅使用虚构资料；业务保存和真实学生数据尚未接入。',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -104,13 +104,13 @@ class _StatusPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const _StatusRow(label: '工程状态', value: 'Bootstrap ready'),
+          const _StatusRow(label: '当前状态', value: '开发验证'),
           const Divider(height: 1),
-          _StatusRow(label: 'Environment', value: config.environmentLabel),
+          _StatusRow(label: '运行环境', value: config.environmentLabel),
           const Divider(height: 1),
           const _StatusRow(label: '目标平台', value: 'Android / Windows'),
           const Divider(height: 1),
-          const _StatusRow(label: '阶段', value: 'Phase 0A'),
+          const _StatusRow(label: '工作范围', value: '0B.1A 界面验证'),
         ],
       ),
     );
