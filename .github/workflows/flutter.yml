@@ -33,8 +33,8 @@ jobs:
 
       - name: Check Dart formatting
         run: |
-          dart format --output=none .
-          git diff -- lib/features/design_prototype/presentation/design_prototype_page.dart test/features/design_prototype_test.dart
+          dart format .
+          git diff --no-ext-diff --unified=3 -- lib/features/design_prototype/presentation/design_prototype_page.dart test/features/design_prototype_test.dart
 
       - name: Analyze
         run: flutter analyze
