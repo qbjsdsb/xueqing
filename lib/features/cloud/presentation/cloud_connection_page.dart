@@ -398,6 +398,10 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
                     value: userContext?.userDisplayName ?? user.email ?? '—',
                   ),
                   _SummaryRow(
+                    label: 'Email',
+                    value: user.email ?? userContext?.userEmail ?? '—',
+                  ),
+                  _SummaryRow(
                     label: 'Organization',
                     value: userContext?.organizationName ?? '—',
                   ),
