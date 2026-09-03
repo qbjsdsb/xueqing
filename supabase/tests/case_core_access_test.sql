@@ -1,6 +1,6 @@
 begin;
 
-select plan(55);
+select plan(59);
 
 select is(
   (
@@ -275,6 +275,34 @@ select is(
   'confirm_case writes one lifecycle event'
 );
 
+select throws_ok(
+  $select public.record_intervention(
+      '71000000-0000-0000-0000-00000000000a',
+      (select id from public.learning_cases
+       where title = '异分母比较步骤不稳定'),
+      1,
+      '过期版本不应写入',
+      null,
+      timestamptz '2026-09-03 15:30:00+08',
+      '过期版本 Action 不应写入',
+      null
+    )$,
+  'P0001',
+  null,
+  'a stale Case version is rejected'
+);
+
+select is(
+  (select count(*)::int
+   from public.interventions
+   where learning_case_id = (
+       select id from public.learning_cases
+       where title = '异分母比较步骤不稳定'
+     )),
+  0,
+  'a stale command leaves no Intervention side effect'
+);
+
 select lives_ok(
   $$select public.add_case_evidence(
       '71000000-0000-0000-0000-000000000003',
@@ -388,6 +416,32 @@ select is(
      and is_primary),
   1,
   'intervention leaves one verification Action'
+);
+
+select lives_ok(
+  $select public.record_intervention(
+      '71000000-0000-0000-0000-000000000004',
+      (select id from public.learning_cases
+       where title = '异分母比较步骤不稳定'),
+      2,
+      '这次重试不应新增 Intervention',
+      '这段重试不应写入。',
+      timestamptz '2026-09-03 17:00:00+08',
+      '这条重试 Action 不应写入',
+      null
+    )$,
+  'repeating an Intervention with the same operation id is safe'
+);
+
+select is(
+  (select count(*)::int
+   from public.interventions
+   where learning_case_id = (
+       select id from public.learning_cases
+       where title = '异分母比较步骤不稳定'
+     )),
+  1,
+  'Intervention retry does not duplicate history'
 );
 
 select lives_ok(

@@ -1809,7 +1809,7 @@ begin
   order by assessment.assessed_at desc, assessment.created_at desc, assessment.id desc
   limit 1;
 
-  if latest_result <> 'passed' then
+  if latest_result is distinct from 'passed' then
     raise exception using errcode = 'P0001', message = 'latest_assessment_not_passed';
   end if;
 
