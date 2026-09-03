@@ -176,10 +176,7 @@ void main() {
     final semanticsHandle = tester.ensureSemantics();
     await _pumpPreview(tester, const Size(390, 844));
 
-    expect(
-      find.bySemanticsLabel('设计预览，使用虚构数据，不写入云端'),
-      findsOneWidget,
-    );
+    expect(find.bySemanticsLabel('设计预览，使用虚构数据，不写入云端'), findsOneWidget);
     expect(find.text('不写入云端'), findsOneWidget);
 
     await tester.tap(find.text('学生').last);
