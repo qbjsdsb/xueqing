@@ -37,18 +37,37 @@ class BootstrapPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '教师工作台预览',
+                      '教师工作台',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '先从学生当前重点开始，把问题、证据和下一步放在同一条工作线上。',
-                      style: Theme.of(context).textTheme.bodyLarge
-                          ?.copyWith(color: AppColors.textSecondary),
+                      '从学生当前重点开始，把问题、证据和下一步放在同一条工作线上。',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     _StatusPanel(config: config),
                     const SizedBox(height: AppSpacing.lg),
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context)
+                            .pushNamed(AppRoutes.teacherWorkspace);
+                      },
+                      icon: const Icon(Icons.people_alt_outlined),
+                      label: const Text('进入教师工作台'),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context)
+                            .pushNamed(AppRoutes.designPreview);
+                      },
+                      icon: const Icon(Icons.design_services_outlined),
+                      label: const Text('打开虚构数据预览'),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
                     OutlinedButton.icon(
                       onPressed: () {
                         Navigator.of(context).pushNamed(AppRoutes.cloudSpike);
@@ -64,18 +83,9 @@ class BootstrapPage extends StatelessWidget {
                       icon: const Icon(Icons.route_outlined),
                       label: const Text('路由自检'),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    FilledButton.icon(
-                      onPressed: () {
-                        Navigator.of(context)
-                            .pushNamed(AppRoutes.designPreview);
-                      },
-                      icon: const Icon(Icons.design_services_outlined),
-                      label: const Text('进入教师工作台'),
-                    ),
                     const SizedBox(height: AppSpacing.lg),
                     Text(
-                      '当前仅使用虚构资料；业务保存和真实学生数据尚未接入。',
+                      '当前只连接开发环境虚构资料；正式 provider、真实学生数据和生产配置尚未启用。',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -110,7 +120,7 @@ class _StatusPanel extends StatelessWidget {
           const Divider(height: 1),
           const _StatusRow(label: '目标平台', value: 'Android / Windows'),
           const Divider(height: 1),
-          const _StatusRow(label: '工作范围', value: '0B.1A 界面验证'),
+          const _StatusRow(label: '工作范围', value: '0B.0-D 数据接入验证'),
         ],
       ),
     );
@@ -135,14 +145,16 @@ class _StatusRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
           Text(
             value,
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

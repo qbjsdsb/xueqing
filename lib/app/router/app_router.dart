@@ -4,11 +4,13 @@ import '../../config/app_config.dart';
 import '../../features/bootstrap/presentation/bootstrap_page.dart';
 import '../../features/cloud/presentation/cloud_connection_page.dart';
 import '../../features/design_prototype/presentation/design_prototype_page.dart';
+import '../../features/teacher_workspace/presentation/teacher_workspace_page.dart';
 
 abstract final class AppRoutes {
   static const bootstrap = '/';
   static const cloudSpike = '/cloud-spike';
   static const designPreview = '/design-preview';
+  static const teacherWorkspace = '/teacher-workspace';
   static const routeCheck = '/route-check';
   static const notFound = '/not-found';
 }
@@ -34,6 +36,11 @@ class XueqingRouter {
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => const DesignPrototypePage(),
+        );
+      case AppRoutes.teacherWorkspace:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => TeacherWorkspaceEntryPage(config: config),
         );
       case AppRoutes.routeCheck:
         return MaterialPageRoute<void>(
