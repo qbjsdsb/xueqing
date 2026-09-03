@@ -801,14 +801,10 @@ class _DesignShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(
-          LogicalKeyboardKey.keyK,
-          control: true,
-        ): onFocusStudentSearch,
-        const SingleActivator(
-          LogicalKeyboardKey.keyK,
-          meta: true,
-        ): onFocusStudentSearch,
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            onFocusStudentSearch,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            onFocusStudentSearch,
       },
       child: ResponsiveLayout(
         builder: (context, sizeClass) {
