@@ -7,12 +7,19 @@ import 'package:xueqing/features/design_prototype/design_fixture.dart';
 import 'package:xueqing/features/design_prototype/presentation/'
     'design_prototype_page.dart';
 
-Future<void> _pumpPreview(WidgetTester tester, Size size) async {
+Future<void> _pumpPreview(
+  WidgetTester tester,
+  Size size, {
+  Key? pageKey,
+}) async {
   tester.view
     ..physicalSize = size
     ..devicePixelRatio = 1;
   await tester.pumpWidget(
-    MaterialApp(theme: AppTheme.light(), home: const DesignPrototypePage()),
+    MaterialApp(
+      theme: AppTheme.light(),
+      home: DesignPrototypePage(key: pageKey),
+    ),
   );
   await tester.pumpAndSettle();
 }
@@ -183,7 +190,11 @@ void main() {
     expect(find.bySemanticsLabel('Case 信息：示例学生甲 · 记录一个新的课堂问题'), findsWidgets);
     expect(find.textContaining('补充一条题目或课堂证据后再整理'), findsWidgets);
 
-    await _pumpPreview(tester, const Size(390, 844));
+    await _pumpPreview(
+      tester,
+      const Size(390, 844),
+      pageKey: UniqueKey(),
+    );
     expect(find.text('记录一个新的课堂问题'), findsNothing);
   });
 
