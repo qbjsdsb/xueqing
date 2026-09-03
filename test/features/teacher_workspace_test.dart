@@ -13,6 +13,14 @@ class _FakeLearningRepository implements LearningRepository {
   int saveCount = 0;
   bool failFirstSave = false;
   final List<QuickCaptureCommand> commands = <QuickCaptureCommand>[];
+  int confirmCount = 0;
+  int interventionCount = 0;
+  int assessmentCount = 0;
+  final List<ConfirmCaseCommand> confirmCommands = <ConfirmCaseCommand>[];
+  final List<RecordInterventionCommand> interventionCommands =
+      <RecordInterventionCommand>[];
+  final List<RecordAssessmentCommand> assessmentCommands =
+      <RecordAssessmentCommand>[];
 
   @override
   Future<TeacherWorkspace> loadWorkspace() async {
@@ -36,14 +44,77 @@ class _FakeLearningRepository implements LearningRepository {
       caseVersion: 1,
     );
   }
+
+  @override
+  Future<CaseCommandReceipt> confirmCase(ConfirmCaseCommand command) async {
+    confirmCount++;
+    confirmCommands.add(command);
+    return _caseReceipt(
+      command.operationId,
+      command.caseId,
+      'confirmed',
+      command.expectedCaseVersion + 1,
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> recordIntervention(
+    RecordInterventionCommand command,
+  ) async {
+    interventionCount++;
+    interventionCommands.add(command);
+    return _caseReceipt(
+      command.operationId,
+      command.caseId,
+      'intervening',
+      command.expectedCaseVersion + 1,
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> recordAssessment(
+    RecordAssessmentCommand command,
+  ) async {
+    assessmentCount++;
+    assessmentCommands.add(command);
+    final status = command.result == CaseAssessmentResult.notPassed
+        ? 'intervening'
+        : 'pending_verification';
+    return _caseReceipt(
+      command.operationId,
+      command.caseId,
+      status,
+      command.expectedCaseVersion + 1,
+    );
+  }
+
+  CaseCommandReceipt _caseReceipt(
+    String operationId,
+    String caseId,
+    String status,
+    int caseVersion,
+  ) {
+    return CaseCommandReceipt(
+      operationId: operationId,
+      caseId: caseId,
+      actionId: 'action-follow-up',
+      eventId: 'event-follow-up',
+      status: status,
+      caseVersion: caseVersion,
+      recordId: 'record-follow-up',
+    );
+  }
 }
 
-TeacherWorkspace _fixtureWorkspace() {
+TeacherWorkspace _fixtureWorkspace({
+  LearningCaseStatus status = LearningCaseStatus.newCase,
+  String actionType = 'practice',
+}) {
   final action = WorkspaceAction(
     id: 'action-1',
     caseId: 'case-1',
     title: '补充一次课堂证据',
-    actionType: 'practice',
+    actionType: actionType,
     status: WorkspaceActionStatus.pending,
     isPrimary: true,
     bucket: WorkspaceActionBucket.today,
@@ -54,7 +125,7 @@ TeacherWorkspace _fixtureWorkspace() {
     profileId: 'profile-1',
     title: '分数步骤需要继续观察',
     type: LearningCaseType.knowledge,
-    status: LearningCaseStatus.newCase,
+    status: status,
     priority: 'high',
     description: '学生在新题中跳过通分步骤。',
     firstObservedAt: DateTime(2026, 9, 3),
@@ -177,6 +248,184 @@ void main() {
       expect(repository.commands[1].profileId, 'profile-1');
     },
   );
+
+  testWidgets('runs the confirmation command from a new Case', (tester) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
+    await tester.pumpAndSettle();
+
+    final commandButton = find.widgetWithText(FilledButton, '确认 Case');
+    await tester.ensureVisible(commandButton);
+    await tester.tap(commandButton);
+    await tester.pumpAndSettle();
+
+    final saveButton = find.widgetWithText(FilledButton, '保存并进入下一步');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.confirmCount, 1);
+    expect(repository.confirmCommands.single.caseId, 'case-1');
+    expect(repository.confirmCommands.single.expectedCaseVersion, 1);
+    expect(repository.confirmCommands.single.nextActionTitle, '安排一次针对性练习');
+    expect(find.textContaining('Case 进入已确认'), findsOneWidget);
+  });
+
+  testWidgets('records an intervention from a confirmed Case', (tester) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.confirmed),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
+    await tester.pumpAndSettle();
+    final commandButton = find.widgetWithText(FilledButton, '记录教学动作');
+    await tester.ensureVisible(commandButton);
+    await tester.tap(commandButton);
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '用图示带学生重新完成通分步骤。');
+    final saveButton = find.widgetWithText(FilledButton, '保存并进入下一步');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.interventionCount, 1);
+    expect(repository.interventionCommands.single.strategy, '用图示带学生重新完成通分步骤。');
+    expect(repository.interventionCommands.single.expectedCaseVersion, 1);
+    expect(find.textContaining('Case 进入干预中'), findsOneWidget);
+  });
+
+  testWidgets('records verification from an intervening Case', (tester) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        status: LearningCaseStatus.intervening,
+        actionType: 'verify',
+      ),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
+    await tester.pumpAndSettle();
+    final commandButton = find.widgetWithText(FilledButton, '记录验证结果');
+    await tester.ensureVisible(commandButton);
+    await tester.tap(commandButton);
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '学生能独立完成，但仍有一次漏写通分步骤。');
+    final saveButton = find.widgetWithText(FilledButton, '保存并进入下一步');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.assessmentCount, 1);
+    expect(
+      repository.assessmentCommands.single.result,
+      CaseAssessmentResult.partial,
+    );
+    expect(find.textContaining('Case 进入待验证'), findsOneWidget);
+  });
+
+  testWidgets('records a verification result without auto-closing the Case', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.pendingVerification),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
+    await tester.pumpAndSettle();
+    final commandButton = find.widgetWithText(FilledButton, '记录验证结果');
+    await tester.ensureVisible(commandButton);
+    await tester.tap(commandButton);
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '学生能独立完成，但仍有一次漏写通分步骤。');
+    final saveButton = find.widgetWithText(FilledButton, '保存并进入下一步');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.assessmentCount, 1);
+    expect(
+      repository.assessmentCommands.single.result,
+      CaseAssessmentResult.partial,
+    );
+    expect(
+      repository.assessmentCommands.single.evidenceSummary,
+      '学生能独立完成，但仍有一次漏写通分步骤。',
+    );
+    expect(find.textContaining('Case 进入待验证'), findsOneWidget);
+  });
+
+  test('validates Case commands and parses command receipts', () {
+    expect(
+      () => ConfirmCaseCommand(
+        operationId: '',
+        caseId: 'case-1',
+        expectedCaseVersion: 1,
+        nextActionTitle: '下一步',
+        nextActionDueAt: null,
+      ).validate(),
+      throwsArgumentError,
+    );
+    expect(
+      () => RecordAssessmentCommand(
+        operationId: 'op-1',
+        caseId: 'case-1',
+        expectedCaseVersion: 1,
+        result: CaseAssessmentResult.partial,
+        evidenceSummary: '',
+        notes: null,
+        assessedAt: null,
+        nextActionTitle: '下一步',
+        nextActionDueAt: null,
+      ).validate(),
+      throwsArgumentError,
+    );
+
+    final receipt = CaseCommandReceipt.fromJson(<String, dynamic>{
+      'operation_id': 'op-1',
+      'case_id': 'case-1',
+      'assessment_id': 'assessment-1',
+      'action_id': 'action-1',
+      'event_id': 'event-1',
+      'status': 'pending_verification',
+      'case_version': 2,
+    });
+    expect(receipt.recordId, 'assessment-1');
+    expect(receipt.caseVersion, 2);
+  });
 
   testWidgets('does not expose student data without teaching access', (
     tester,

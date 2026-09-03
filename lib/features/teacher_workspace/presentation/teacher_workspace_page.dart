@@ -298,7 +298,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
   }
 
-  Future<void> _reload({WorkspaceStudent? preserveStudent}) async {
+  Future<void> _reload({
+    WorkspaceStudent? preserveStudent,
+    String? preserveCaseId,
+  }) async {
     final nextFuture = widget.repository.loadWorkspace();
     setState(() {
       _workspaceFuture = nextFuture;
@@ -316,7 +319,21 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         }
       }
       if (matchingStudent != null) {
-        setState(() => _selectedStudent = matchingStudent);
+        WorkspaceCase? matchingCase;
+        if (preserveCaseId != null) {
+          for (final learningCase in matchingStudent.cases) {
+            if (learningCase.id == preserveCaseId) {
+              matchingCase = learningCase;
+              break;
+            }
+          }
+        }
+        setState(() {
+          _selectedStudent = matchingStudent;
+          if (preserveCaseId != null) {
+            _selectedCase = matchingCase;
+          }
+        });
       }
     } catch (_) {
       // FutureBuilder renders the retained error state. The input form has
@@ -338,7 +355,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             isScrollControlled: true,
             isDismissible: false,
             enableDrag: false,
-            backgroundColor: Colors.transparent,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            clipBehavior: Clip.antiAlias,
             builder: (context) => _WorkspaceQuickCaptureForm(
               students: workspace.students,
               initialStudent: student,
@@ -366,6 +387,61 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
+  }
+
+  Future<CaseCommandReceipt?> _showCaseForm({
+    required _CaseCommandMode mode,
+    required WorkspaceCase learningCase,
+  }) {
+    final sizeClass = ResponsiveBreakpoints.classify(
+      MediaQuery.sizeOf(context).width,
+    );
+    final form = _WorkspaceCaseCommandForm(
+      mode: mode,
+      learningCase: learningCase,
+      repository: widget.repository,
+    );
+    return sizeClass == WindowSizeClass.compact
+        ? showModalBottomSheet<CaseCommandReceipt>(
+            context: context,
+            isScrollControlled: true,
+            isDismissible: false,
+            enableDrag: false,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            builder: (_) => form,
+          )
+        : showDialog<CaseCommandReceipt>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => Dialog(child: form),
+          );
+  }
+
+  Future<void> _showCaseCommand(
+    WorkspaceStudent student,
+    WorkspaceCase learningCase,
+  ) async {
+    final mode = _caseCommandMode(learningCase);
+    if (mode == null) {
+      return;
+    }
+    final result = await _showCaseForm(mode: mode, learningCase: learningCase);
+    if (!mounted || result == null) {
+      return;
+    }
+    await _reload(preserveStudent: student, preserveCaseId: learningCase.id);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+      ),
+    );
   }
 
   @override
@@ -801,6 +877,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceCase learningCase,
   ) {
     final primaryAction = learningCase.primaryAction;
+    final commandLabel = _caseCommandLabel(learningCase);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -846,6 +923,15 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             message: 'Quick Capture 已保存原始问题和证据；确认前请补充判断和合适的下一步。',
             icon: Icons.edit_note_outlined,
           ),
+        if (commandLabel != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          _WorkspaceCaseCommandSection(
+            title: commandLabel,
+            message: _caseCommandHint(learningCase),
+            buttonLabel: commandLabel,
+            onPressed: () => _showCaseCommand(student, learningCase),
+          ),
+        ],
         const SizedBox(height: AppSpacing.lg),
         _WorkspaceNarrativeSection(
           title: '问题',
@@ -908,6 +994,453 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+enum _CaseCommandMode { confirm, intervention, assessment }
+
+class _WorkspaceCaseCommandForm extends StatefulWidget {
+  const _WorkspaceCaseCommandForm({
+    required this.mode,
+    required this.learningCase,
+    required this.repository,
+  });
+
+  final _CaseCommandMode mode;
+  final WorkspaceCase learningCase;
+  final LearningRepository repository;
+
+  @override
+  State<_WorkspaceCaseCommandForm> createState() =>
+      _WorkspaceCaseCommandFormState();
+}
+
+class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
+  late final TextEditingController _strategyController;
+  late final TextEditingController _evidenceController;
+  late final TextEditingController _notesController;
+  late final TextEditingController _nextActionController;
+  late final String _operationId;
+
+  CaseAssessmentResult _assessmentResult = CaseAssessmentResult.partial;
+  DateTime? _nextActionDueAt;
+  String? _strategyError;
+  String? _evidenceError;
+  String? _nextActionError;
+  String? _saveError;
+  bool _saving = false;
+
+  String get _defaultNextActionTitle => switch (widget.mode) {
+    _CaseCommandMode.confirm => '安排一次针对性练习',
+    _CaseCommandMode.intervention => '安排一次检查',
+    _CaseCommandMode.assessment => '安排下一次验证',
+  };
+
+  String get _title => switch (widget.mode) {
+    _CaseCommandMode.confirm => '确认 Case',
+    _CaseCommandMode.intervention => '记录教学动作',
+    _CaseCommandMode.assessment => '记录验证结果',
+  };
+
+  String get _subtitle => switch (widget.mode) {
+    _CaseCommandMode.confirm => '把原始观察转成一个可执行的学习问题，并安排下一步。',
+    _CaseCommandMode.intervention => '记录这次实际做了什么；保存后系统会生成 verify action。',
+    _CaseCommandMode.assessment => '记录本次检查看到的结果；不要用结果直接替代后续教师判断。',
+  };
+
+  bool get _isDirty =>
+      _strategyController.text.trim().isNotEmpty ||
+      _evidenceController.text.trim().isNotEmpty ||
+      _notesController.text.trim().isNotEmpty ||
+      _nextActionController.text.trim() != _defaultNextActionTitle ||
+      _nextActionDueAt != null ||
+      _assessmentResult != CaseAssessmentResult.partial;
+
+  @override
+  void initState() {
+    super.initState();
+    _operationId = createOperationId();
+    _strategyController = TextEditingController();
+    _evidenceController = TextEditingController();
+    _notesController = TextEditingController();
+    _nextActionController = TextEditingController(
+      text: _defaultNextActionTitle,
+    );
+    _strategyController.addListener(_clearInlineErrors);
+    _evidenceController.addListener(_clearInlineErrors);
+    _nextActionController.addListener(_clearInlineErrors);
+  }
+
+  @override
+  void dispose() {
+    _strategyController
+      ..removeListener(_clearInlineErrors)
+      ..dispose();
+    _evidenceController
+      ..removeListener(_clearInlineErrors)
+      ..dispose();
+    _notesController.dispose();
+    _nextActionController
+      ..removeListener(_clearInlineErrors)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _clearInlineErrors() {
+    if (!mounted) {
+      return;
+    }
+    final clearStrategy =
+        _strategyError != null && _strategyController.text.trim().isNotEmpty;
+    final clearEvidence =
+        _evidenceError != null && _evidenceController.text.trim().isNotEmpty;
+    final clearNextAction =
+        _nextActionError != null &&
+        _nextActionController.text.trim().isNotEmpty;
+    if (clearStrategy || clearEvidence || clearNextAction) {
+      setState(() {
+        if (clearStrategy) {
+          _strategyError = null;
+        }
+        if (clearEvidence) {
+          _evidenceError = null;
+        }
+        if (clearNextAction) {
+          _nextActionError = null;
+        }
+      });
+    }
+  }
+
+  Future<void> _pickDueDate() async {
+    final today = DateTime.now();
+    final current = _nextActionDueAt ?? today;
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: DateTime(current.year, current.month, current.day),
+      firstDate: DateTime(today.year, today.month, today.day),
+      lastDate: DateTime(today.year + 2, 12, 31),
+      helpText: '选择下一行动日期',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (selected == null || !mounted) {
+      return;
+    }
+    setState(() {
+      // Use UTC noon as the date-only convention; the read model renders
+      // the stored instant in the organization timezone.
+      _nextActionDueAt = DateTime.utc(
+        selected.year,
+        selected.month,
+        selected.day,
+        12,
+      );
+    });
+  }
+
+  Future<void> _save() async {
+    if (_saving) {
+      return;
+    }
+    final strategy = _strategyController.text.trim();
+    final evidenceSummary = _evidenceController.text.trim();
+    final notes = _notesController.text.trim();
+    final nextActionTitle = _nextActionController.text.trim();
+
+    var valid = true;
+    if (widget.mode == _CaseCommandMode.intervention && strategy.isEmpty) {
+      _strategyError = '请写下这次实际采用的教学动作';
+      valid = false;
+    }
+    if (widget.mode == _CaseCommandMode.assessment && evidenceSummary.isEmpty) {
+      _evidenceError = '请写下本次验证中可观察到的结果';
+      valid = false;
+    }
+    if (nextActionTitle.isEmpty) {
+      _nextActionError = '请保留或改写下一行动';
+      valid = false;
+    }
+    if (!valid) {
+      setState(() {});
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      late final CaseCommandReceipt receipt;
+      if (widget.mode == _CaseCommandMode.confirm) {
+        receipt = await widget.repository.confirmCase(
+          ConfirmCaseCommand(
+            operationId: _operationId,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            nextActionTitle: nextActionTitle,
+            nextActionDueAt: _nextActionDueAt,
+          ),
+        );
+      } else if (widget.mode == _CaseCommandMode.intervention) {
+        receipt = await widget.repository.recordIntervention(
+          RecordInterventionCommand(
+            operationId: _operationId,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            strategy: strategy,
+            notes: notes.isEmpty ? null : notes,
+            occurredAt: null,
+            nextActionTitle: nextActionTitle,
+            nextActionDueAt: _nextActionDueAt,
+          ),
+        );
+      } else {
+        receipt = await widget.repository.recordAssessment(
+          RecordAssessmentCommand(
+            operationId: _operationId,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            result: _assessmentResult,
+            evidenceSummary: evidenceSummary,
+            notes: notes.isEmpty ? null : notes,
+            assessedAt: null,
+            nextActionTitle: nextActionTitle,
+            nextActionDueAt: _nextActionDueAt,
+          ),
+        );
+      }
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(receipt);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _saving = false;
+        _saveError = _describeCaseCommandError(error);
+      });
+    }
+  }
+
+  Future<void> _confirmDiscard() async {
+    if (_saving) {
+      return;
+    }
+    if (!_isDirty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('放弃这次记录？'),
+        content: const Text('当前输入还没有保存。放弃后不会生成新的教学事实。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('继续编辑'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('放弃记录'),
+          ),
+        ],
+      ),
+    );
+    if (mounted && discard == true) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final caseContext =
+        '${widget.learningCase.type.label} · ${widget.learningCase.status.label} · version ${widget.learningCase.version}';
+    return PopScope<void>(
+      canPop: !_isDirty && !_saving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_saving) {
+          _confirmDiscard();
+        }
+      },
+      child: SafeArea(
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _title,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '关闭',
+                        onPressed: _saving ? null : _confirmDiscard,
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    _subtitle,
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _WorkspaceContextLine(label: '当前 Case', value: caseContext),
+                  if (widget.mode == _CaseCommandMode.intervention) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    TextField(
+                      controller: _strategyController,
+                      autofocus: true,
+                      enabled: !_saving,
+                      minLines: 3,
+                      maxLines: 6,
+                      textInputAction: TextInputAction.newline,
+                      decoration: InputDecoration(
+                        labelText: '教学动作 / Intervention *',
+                        hintText: '记下讲解、练习、提示或调整方式',
+                        errorText: _strategyError,
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
+                  if (widget.mode == _CaseCommandMode.assessment) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    DropdownButtonFormField<CaseAssessmentResult>(
+                      initialValue: _assessmentResult,
+                      decoration: const InputDecoration(labelText: '验证结果 *'),
+                      items: [
+                        for (final result in CaseAssessmentResult.values)
+                          DropdownMenuItem<CaseAssessmentResult>(
+                            value: result,
+                            child: Text(result.label),
+                          ),
+                      ],
+                      onChanged: _saving
+                          ? null
+                          : (result) {
+                              if (result != null) {
+                                setState(() => _assessmentResult = result);
+                              }
+                            },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextField(
+                      controller: _evidenceController,
+                      autofocus: true,
+                      enabled: !_saving,
+                      minLines: 3,
+                      maxLines: 6,
+                      textInputAction: TextInputAction.newline,
+                      decoration: InputDecoration(
+                        labelText: '本次验证 / Evidence *',
+                        hintText: '记下学生这次能否独立完成、错在哪里、是否需要提示',
+                        errorText: _evidenceError,
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
+                  if (widget.mode != _CaseCommandMode.confirm) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    TextField(
+                      controller: _notesController,
+                      enabled: !_saving,
+                      minLines: 2,
+                      maxLines: 4,
+                      textInputAction: TextInputAction.newline,
+                      decoration: const InputDecoration(
+                        labelText: '补充备注（可选）',
+                        hintText: '记录对下一次教学有帮助的上下文',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: _nextActionController,
+                    enabled: !_saving,
+                    textInputAction: TextInputAction.done,
+                    decoration: InputDecoration(
+                      labelText: '下一行动 *',
+                      hintText: '明确下一次要做什么',
+                      errorText: _nextActionError,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _saving ? null : _pickDueDate,
+                          icon: const Icon(Icons.event_outlined),
+                          label: Text(
+                            _nextActionDueAt == null
+                                ? '安排日期（可选）'
+                                : '行动日期：${_formatDateOnly(_nextActionDueAt!)}',
+                          ),
+                        ),
+                      ),
+                      if (_nextActionDueAt != null) ...[
+                        const SizedBox(width: AppSpacing.xs),
+                        IconButton(
+                          tooltip: '清除日期',
+                          onPressed: _saving
+                              ? null
+                              : () => setState(() => _nextActionDueAt = null),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '日期按机构时区解释；提交失败时输入会保留，重试沿用同一 operation ID。',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (_saveError != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _WorkspaceErrorText(message: _saveError!),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _saving ? null : _confirmDiscard,
+                          child: const Text('取消'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _saving ? null : _save,
+                          child: Text(_saving ? '保存中…' : '保存并进入下一步'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1228,6 +1761,59 @@ class _WorkspaceQuickCaptureFormState
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceCaseCommandSection extends StatelessWidget {
+  const _WorkspaceCaseCommandSection({
+    required this.title,
+    required this.message,
+    required this.buttonLabel,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String message;
+  final String buttonLabel;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.arrow_circle_right_outlined,
+            color: AppColors.accent,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(message, style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: AppSpacing.sm),
+                FilledButton.icon(
+                  onPressed: onPressed,
+                  icon: const Icon(Icons.arrow_forward, size: 18),
+                  label: Text(buttonLabel),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2294,6 +2880,81 @@ class WorkspaceCaseWithContext {
 
   final WorkspaceStudent student;
   final WorkspaceCase learningCase;
+}
+
+_CaseCommandMode? _caseCommandMode(WorkspaceCase learningCase) {
+  return switch (learningCase.status) {
+    LearningCaseStatus.newCase => _CaseCommandMode.confirm,
+    LearningCaseStatus.confirmed => _CaseCommandMode.intervention,
+    LearningCaseStatus.intervening =>
+      learningCase.primaryAction?.actionType == 'verify'
+          ? _CaseCommandMode.assessment
+          : _CaseCommandMode.intervention,
+    LearningCaseStatus.pendingVerification => _CaseCommandMode.assessment,
+    LearningCaseStatus.stable => null,
+    LearningCaseStatus.closed => null,
+  };
+}
+
+String? _caseCommandLabel(WorkspaceCase learningCase) {
+  return switch (_caseCommandMode(learningCase)) {
+    _CaseCommandMode.confirm => '确认 Case',
+    _CaseCommandMode.intervention => '记录教学动作',
+    _CaseCommandMode.assessment => '记录验证结果',
+    null => null,
+  };
+}
+
+String _caseCommandHint(WorkspaceCase learningCase) {
+  return switch (_caseCommandMode(learningCase)) {
+    _CaseCommandMode.confirm => '确认问题范围、补充判断，然后生成一条可执行的练习行动。',
+    _CaseCommandMode.intervention =>
+      '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
+    _CaseCommandMode.assessment => '记录一次可观察的验证结果；通过后仍会停在待确认，不会自动关闭。',
+    null => '',
+  };
+}
+
+String _caseStatusLabelFromWire(String value) {
+  return switch (value) {
+    'new' => '待整理',
+    'confirmed' => '已确认',
+    'intervening' => '干预中',
+    'pending_verification' => '待验证',
+    'stable' => '稳定',
+    'closed' => '已关闭',
+    _ => value,
+  };
+}
+
+String _describeCaseCommandError(Object error) {
+  final detail = error.toString().toLowerCase();
+  if (detail.contains('case_version_conflict') ||
+      detail.contains('version_conflict')) {
+    return '这个 Case 已经被更新。输入仍保留，请先刷新后确认最新状态再重试。';
+  }
+  if (detail.contains('no active session') ||
+      detail.contains('not authenticated') ||
+      detail.contains('signed out')) {
+    return '登录状态已失效。请重新登录后再保存，这次输入仍保留在表单中。';
+  }
+  if (detail.contains('not authorized') ||
+      detail.contains('permission') ||
+      detail.contains('teaching membership')) {
+    return '当前账号已经不能执行这一步，可能是权限或 Case 状态发生了变化。请刷新后再试。';
+  }
+  if (detail.contains('network') ||
+      detail.contains('socket') ||
+      detail.contains('timeout')) {
+    return '网络暂时不可用。输入仍保留在这里，请检查网络后重试。';
+  }
+  return '保存失败。输入仍保留在这里，请重试；未确认成功前不会生成重复事实。';
+}
+
+String _formatDateOnly(DateTime value) {
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '${value.year}-$month-$day';
 }
 
 String _priorityLabel(String value) {
