@@ -31,8 +31,8 @@ concurrency:
 
 env:
   XUEQING_ENV: development
-  XUEQING_SUPABASE_URL: ${{ github.event.inputs.supabase_url || '' }}
-  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || '' }}
+  XUEQING_SUPABASE_URL: ${{ github.event.inputs.supabase_url || 'https://czuctoulgnfytcfonkhc.supabase.co' }}
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}
 
 jobs:
   android-debug:
