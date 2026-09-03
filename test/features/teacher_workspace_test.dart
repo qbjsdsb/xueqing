@@ -115,7 +115,7 @@ void main() {
     expect(find.text('补充一次课堂证据'), findsOneWidget);
     expect(repository.loadCount, 1);
 
-    final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
+    final studentRow = find.text('示例学生甲');
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
@@ -139,11 +139,16 @@ void main() {
         ..failFirstSave = true;
       await _pumpWorkspace(tester, repository);
 
-      await tester.tap(find.text('记录问题').first);
-      await tester.pumpAndSettle();
-      expect(find.text('现场表现 / Evidence *'), findsOneWidget);
+    await tester.tap(find.text('记录问题').first);
+    await tester.pumpAndSettle();
+    expect(find.text('现场表现 / Evidence *'), findsOneWidget);
 
-      final textFields = find.byType(TextField);
+    await tester.tap(find.text('选择学生后开始'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('示例学生甲 · 数学'));
+    await tester.pumpAndSettle();
+
+    final textFields = find.byType(TextField);
       await tester.enterText(textFields.at(0), '新的课堂问题');
       await tester.enterText(textFields.at(1), '课堂练习中连续两次跳过通分。');
       final saveButton = find.widgetWithText(FilledButton, '保存问题');
