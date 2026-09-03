@@ -203,7 +203,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
     try {
       try {
         await authRepository.signOut();
-      } catch (globalError) {
+      } catch (_) {
         try {
           // A network failure must not leave the user trapped behind a stale
           // local session. The warning below records that global revocation
