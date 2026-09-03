@@ -391,7 +391,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         .showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
   }
 
-
   Future<void> _showCaseTypeManager() async {
     final workspace = await _workspaceFuture;
     final organizationId = workspace.organizationId;
@@ -609,7 +608,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           title: '今日',
           subtitle: '先处理今天要做的事，再回看需要判断的学生。',
           actions: [
-            if (workspace.canManageCaseTypes && workspace.organizationId != null)
+            if (workspace.canManageCaseTypes &&
+                workspace.organizationId != null)
               OutlinedButton.icon(
                 onPressed: _showCaseTypeManager,
                 icon: const Icon(Icons.category_outlined),
@@ -775,7 +775,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               title: '学生',
               subtitle: '搜索学生，先理解当前重点，再进入需要处理的 Case。',
               actions: [
-                if (workspace.canManageCaseTypes && workspace.organizationId != null)
+                if (workspace.canManageCaseTypes &&
+                    workspace.organizationId != null)
                   OutlinedButton.icon(
                     onPressed: _showCaseTypeManager,
                     icon: const Icon(Icons.category_outlined),
@@ -1548,7 +1549,6 @@ class _WorkspaceQuickCaptureFormState
       _titleController.text.trim().isNotEmpty ||
       _evidenceController.text.trim().isNotEmpty;
 
-
   List<WorkspaceCaseType> get _caseTypeOptions {
     final customTypes = widget.caseTypes.where(
       (caseType) => !caseType.isBuiltIn && caseType.isActive,
@@ -1860,8 +1860,6 @@ class _WorkspaceQuickCaptureFormState
     );
   }
 }
-
-
 
 class _CaseTypeDraft {
   const _CaseTypeDraft({

@@ -45,7 +45,6 @@ class _FakeLearningRepository implements LearningRepository {
     );
   }
 
-
   @override
   Future<WorkspaceCaseType> createCaseType({
     required String organizationId,
@@ -301,8 +300,6 @@ void main() {
       expect(repository.commands[1].profileId, 'profile-1');
     },
   );
-
-
 
   testWidgets('shows custom type settings to an organization manager', (
     tester,

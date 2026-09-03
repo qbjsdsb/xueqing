@@ -122,19 +122,6 @@ select is(
   'the original Quick Capture signature remains available'
 );
 
-insert into public.membership_roles (
-  id,
-  organization_id,
-  membership_id,
-  role
-)
-values (
-  '62000000-0000-0000-0000-000000000011',
-  '00000000-0000-0000-0000-000000000001',
-  '61000000-0000-0000-0000-000000000001',
-  'org_admin'
-);
-
 set local role authenticated;
 
 select set_config(

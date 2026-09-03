@@ -49,7 +49,6 @@ extension LearningCaseTypePresentation on LearningCaseType {
   };
 }
 
-
 class WorkspaceCaseType {
   const WorkspaceCaseType({
     required this.displayName,
@@ -61,11 +60,11 @@ class WorkspaceCaseType {
   });
 
   const WorkspaceCaseType.builtIn(this.baseType)
-    : id = null,
-      displayName = null,
-      status = 'active',
-      sortOrder = 0,
-      version = 1;
+      : id = null,
+        displayName = null,
+        status = 'active',
+        sortOrder = 0,
+        version = 1;
 
   final String? id;
   final String? displayName;
@@ -542,7 +541,6 @@ abstract interface class LearningRepository {
 
   Future<QuickCaptureReceipt> quickCapture(QuickCaptureCommand command);
 
-
   Future<WorkspaceCaseType> createCaseType({
     required String organizationId,
     required String displayName,
@@ -911,7 +909,6 @@ class SupabaseLearningRepository implements LearningRepository {
     }
     return QuickCaptureReceipt.fromJson(Map<String, dynamic>.from(response));
   }
-
 
   @override
   Future<WorkspaceCaseType> createCaseType({
