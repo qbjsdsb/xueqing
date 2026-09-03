@@ -1903,16 +1903,16 @@ set search_path = ''
 as $function$
 declare
   app_user_id uuid;
-  organization_id uuid;
-  profile_id uuid;
-  membership_id uuid;
-  case_status text;
-  case_version integer;
-  cancelled_action_id uuid;
-  event_id uuid;
-  is_claimed boolean;
-  existing_result jsonb;
-  command_result jsonb;
+  v_organization_id uuid;
+  v_profile_id uuid;
+  v_membership_id uuid;
+  v_case_status text;
+  v_case_version integer;
+  v_cancelled_action_id uuid;
+  v_event_id uuid;
+  v_is_claimed boolean;
+  v_existing_result jsonb;
+  v_command_result jsonb;
 begin
   if p_operation_id is null or p_case_id is null
     or p_expected_case_version is null or p_expected_case_version <= 0 then
@@ -1925,45 +1925,45 @@ begin
   end if;
 
   select learning_case.organization_id, learning_case.student_subject_profile_id
-  into organization_id, profile_id
+  into v_organization_id, v_profile_id
   from public.learning_cases as learning_case
   where learning_case.id = p_case_id;
 
-  if organization_id is null then
+  if v_organization_id is null then
     raise exception using errcode = 'P0001', message = 'case_not_found';
   end if;
 
   perform 1
   from public.student_subject_profiles as profile
-  where profile.id = profile_id
+  where profile.id = v_profile_id
   for update;
 
-  membership_id := (
-    select private.current_teaching_membership_for_profile_v2(profile_id)
+  v_membership_id := (
+    select private.current_teaching_membership_for_profile_v2(v_profile_id)
   );
-  if membership_id is null then
+  if v_membership_id is null then
     raise exception using errcode = 'P0001', message = 'teaching_fact_gate';
   end if;
 
   if not exists (
     select 1
     from public.student_teacher_assignments as assignment
-    where assignment.student_subject_profile_id = profile_id
-      and assignment.organization_id = organization_id
-      and assignment.membership_id = membership_id
+    where assignment.student_subject_profile_id = v_profile_id
+      and assignment.organization_id = v_organization_id
+      and assignment.membership_id = v_membership_id
       and assignment.assignment_role = 'lead'
       and assignment.status = 'active'
       and (now() at time zone (
         select organization.time_zone
         from public.organizations as organization
-        where organization.id = organization_id
+        where organization.id = v_organization_id
       ))::date >= assignment.active_from
       and (
         assignment.active_to is null
         or (now() at time zone (
           select organization.time_zone
           from public.organizations as organization
-          where organization.id = organization_id
+          where organization.id = v_organization_id
         ))::date <= assignment.active_to
       )
   ) then
@@ -1971,37 +1971,37 @@ begin
   end if;
 
   select learning_case.status, learning_case.version
-  into case_status, case_version
+  into v_case_status, v_case_version
   from public.learning_cases as learning_case
   where learning_case.id = p_case_id
   for update;
 
   select claimed, result
-  into is_claimed, existing_result
+  into v_is_claimed, v_existing_result
   from private.claim_case_operation_v2(
-    organization_id,
+    v_organization_id,
     p_operation_id,
     'close_case',
     'learning_case',
     p_case_id
   );
 
-  if not is_claimed then
-    return existing_result;
+  if not v_is_claimed then
+    return v_existing_result;
   end if;
 
-  if case_version <> p_expected_case_version then
+  if v_case_version <> p_expected_case_version then
     raise exception using errcode = 'P0001', message = 'version_conflict';
   end if;
 
-  if case_status <> 'stable' then
+  if v_case_status <> 'stable' then
     raise exception using errcode = 'P0001', message = 'case_transition_not_allowed';
   end if;
 
-  cancelled_action_id := (
+  v_cancelled_action_id := (
     select private.finish_primary_case_action_v2(
       p_case_id,
-      membership_id,
+      v_membership_id,
       coalesce(p_closed_at, timezone('utc', now())),
       'cancelled'
     )
@@ -2015,7 +2015,7 @@ begin
   where id = p_case_id;
 
   insert into public.case_events (
-    organization_id,
+    v_organization_id,
     learning_case_id,
     event_type,
     actor_app_user_id,
@@ -2026,35 +2026,35 @@ begin
     operation_event_key
   )
   values (
-    organization_id,
+    v_organization_id,
     p_case_id,
     'case_closed',
     app_user_id,
-    membership_id,
+    v_membership_id,
     coalesce(p_closed_at, timezone('utc', now())),
-    jsonb_build_object('cancelled_action_id', cancelled_action_id),
+    jsonb_build_object('v_cancelled_action_id', v_cancelled_action_id),
     p_operation_id,
     'case_closed'
   )
-  returning id into event_id;
+  returning id into v_event_id;
 
   perform private.assert_case_core_invariant_v2(p_case_id);
 
-  command_result := jsonb_build_object(
+  v_command_result := jsonb_build_object(
     'operation_id', p_operation_id,
     'case_id', p_case_id,
-    'event_id', event_id,
+    'v_event_id', v_event_id,
     'status', 'closed',
-    'case_version', case_version + 1
+    'v_case_version', v_case_version + 1
   );
 
   perform private.finish_case_operation_v2(
-    organization_id,
+    v_organization_id,
     p_operation_id,
-    command_result
+    v_command_result
   );
 
-  return command_result;
+  return v_command_result;
 end
 $function$;
 
@@ -2185,6 +2185,12 @@ grant execute on function public.close_case(
   integer,
   timestamptz
 ) to authenticated;
+revoke execute on function public.close_case(
+  uuid,
+  uuid,
+  integer,
+  timestamptz
+) from anon;
 
 alter table public.operation_receipts enable row level security;
 alter table public.learning_cases enable row level security;
