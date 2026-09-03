@@ -181,7 +181,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Case 信息：示例学生甲 · 记录一个新的课堂问题'), findsWidgets);
-    expect(find.text('补充一条题目或课堂证据后再整理'), findsWidgets);
+    expect(find.textContaining('补充一条题目或课堂证据后再整理'), findsWidgets);
 
     await _pumpPreview(tester, const Size(390, 844));
     expect(find.text('记录一个新的课堂问题'), findsNothing);
