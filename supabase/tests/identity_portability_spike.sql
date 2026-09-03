@@ -88,6 +88,7 @@ values (
 insert into portability_facts (id, business_profile_id, fact_text)
 values (
   '92000000-0000-0000-0000-000000000001',
+  '91000000-0000-0000-0000-000000000001',
   '第一条虚构教学事实'
 );
 
