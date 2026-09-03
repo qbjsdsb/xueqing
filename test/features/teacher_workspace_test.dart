@@ -420,7 +420,13 @@ void main() {
       find.byKey(const Key('quick-capture-student-option-student-1')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('示例学生甲 · 数学'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: studentPicker,
+        matching: find.text('示例学生甲 · 数学'),
+      ),
+      findsOneWidget,
+    );
 
     final typePicker = find.byKey(
       const Key('quick-capture-case-type-dropdown'),
@@ -432,7 +438,13 @@ void main() {
       find.byKey(const Key('quick-capture-case-type-option-case-type-1')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('审题策略'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: typePicker,
+        matching: find.text('审题策略'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('runs the confirmation command from a new Case', (tester) async {

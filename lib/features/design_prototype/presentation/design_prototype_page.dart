@@ -340,6 +340,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           subtitle: '先处理今天要做的事，再回看需要判断的学生。',
           actions: [
             FilledButton.icon(
+              key: const Key('design-preview-today-record-question'),
               onPressed: () => _showQuickCapture(),
               icon: Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
