@@ -47,6 +47,23 @@ void main() {
       );
     });
 
+    test('rejects stale work when the same user id returns after a switch', () {
+      final guard = SessionRequestGuard();
+      final requestForA = guard.begin();
+
+      guard.begin(); // user B
+      guard.begin(); // user A again
+
+      expect(
+        guard.isCurrent(
+          requestForA,
+          expectedUserId: 'user-a',
+          currentUserId: 'user-a',
+        ),
+        isFalse,
+      );
+    });
+
     test('rejects in-flight work after sign-out invalidates the session', () {
       final guard = SessionRequestGuard();
       final request = guard.begin();
