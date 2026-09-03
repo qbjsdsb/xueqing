@@ -169,10 +169,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 260));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('已记录为待整理问题，并已显示在当前预览。'),
-      findsOneWidget,
-    );
+    expect(find.text('已记录为待整理问题，并已显示在当前预览。'), findsOneWidget);
 
     await tester.tap(find.text('学生').last);
     await tester.pumpAndSettle();
@@ -183,21 +180,12 @@ void main() {
     await tester.tap(filteredStudent);
     await tester.pumpAndSettle();
 
-    expect(
-      find.bySemanticsLabel(
-        'Case 信息：示例学生甲 · 记录一个新的课堂问题',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.text('补充一条题目或课堂证据后再整理'),
-      findsWidgets,
-    );
+    expect(find.bySemanticsLabel('Case 信息：示例学生甲 · 记录一个新的课堂问题'), findsOneWidget);
+    expect(find.text('补充一条题目或课堂证据后再整理'), findsWidgets);
 
     await _pumpPreview(tester, const Size(390, 844));
     expect(find.text('记录一个新的课堂问题'), findsNothing);
   });
-
 
   testWidgets('keeps a draft visible for the current preview session', (
     tester,
