@@ -879,12 +879,14 @@ class SupabaseOrganizationManagementRepository
         membershipId.trim().isEmpty ||
         organizationSubjectId.trim().isEmpty ||
         normalizedStatus.isEmpty ||
-        normalizedStatus case 'active' when
-            normalizedScopeId != null || expectedScopeVersion != null ||
-        normalizedStatus case 'ended' when
-            normalizedScopeId == null ||
-            expectedScopeVersion == null ||
-            expectedScopeVersion <= 0) {
+        normalizedStatus != 'active' && normalizedStatus != 'ended' ||
+        normalizedScopeId != null && normalizedScopeId.isEmpty ||
+        normalizedStatus == 'active' &&
+            (normalizedScopeId != null || expectedScopeVersion != null) ||
+        normalizedStatus == 'ended' &&
+            (normalizedScopeId == null ||
+                expectedScopeVersion == null ||
+                expectedScopeVersion <= 0)) {
       throw ArgumentError('Teacher subject scope identity is invalid.');
     }
     final response = await _call(
