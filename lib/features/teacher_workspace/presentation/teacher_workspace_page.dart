@@ -701,7 +701,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       businessNow.day,
     );
     final lastDate = DateTime(today.year + 2, today.month, today.day);
-    final existing = item.action.businessDueDate ?? item.action.dueAt?.toLocal();
+    final existing =
+        item.action.businessDueDate ?? item.action.dueAt?.toLocal();
     final existingDate = existing == null
         ? null
         : DateTime(existing.year, existing.month, existing.day);
