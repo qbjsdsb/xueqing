@@ -56,6 +56,129 @@ class OrganizationMember {
   }
 }
 
+class OrganizationSetupSubject {
+  const OrganizationSetupSubject({required this.id, required this.displayName});
+
+  final String id;
+  final String displayName;
+
+  factory OrganizationSetupSubject.fromJson(Map<String, dynamic> json) {
+    return OrganizationSetupSubject(
+      id: _requiredString(json['id'], 'id'),
+      displayName: _stringValue(json['display_name']) ?? '未命名学科',
+    );
+  }
+}
+
+class OrganizationSetupTeacher {
+  const OrganizationSetupTeacher({
+    required this.membershipId,
+    required this.displayName,
+    required this.email,
+  });
+
+  final String membershipId;
+  final String displayName;
+  final String email;
+
+  factory OrganizationSetupTeacher.fromJson(Map<String, dynamic> json) {
+    return OrganizationSetupTeacher(
+      membershipId: _requiredString(json['membership_id'], 'membership_id'),
+      displayName: _stringValue(json['display_name']) ?? '未命名老师',
+      email: _stringValue(json['email']) ?? '',
+    );
+  }
+}
+
+class OrganizationSetupOptions {
+  const OrganizationSetupOptions({
+    required this.subjects,
+    required this.teachers,
+  });
+
+  final List<OrganizationSetupSubject> subjects;
+  final List<OrganizationSetupTeacher> teachers;
+
+  bool get canCreateStudent => subjects.isNotEmpty && teachers.isNotEmpty;
+
+  factory OrganizationSetupOptions.fromJson(Map<String, dynamic> json) {
+    final rawSubjects = json['subjects'];
+    final rawTeachers = json['teachers'];
+    if (rawSubjects is! List || rawTeachers is! List) {
+      throw const FormatException(
+        'Organization setup options returned invalid lists.',
+      );
+    }
+    return OrganizationSetupOptions(
+      subjects: List<OrganizationSetupSubject>.unmodifiable([
+        for (final item in rawSubjects)
+          if (item is Map)
+            OrganizationSetupSubject.fromJson(Map<String, dynamic>.from(item))
+          else
+            throw const FormatException(
+              'Organization setup returned an invalid subject.',
+            ),
+      ]),
+      teachers: List<OrganizationSetupTeacher>.unmodifiable([
+        for (final item in rawTeachers)
+          if (item is Map)
+            OrganizationSetupTeacher.fromJson(Map<String, dynamic>.from(item))
+          else
+            throw const FormatException(
+              'Organization setup returned an invalid teacher.',
+            ),
+      ]),
+    );
+  }
+}
+
+class OrganizationStudentSetupResult {
+  const OrganizationStudentSetupResult({
+    required this.operationId,
+    required this.studentId,
+    required this.studentName,
+    required this.studentSubjectProfileId,
+    required this.organizationSubjectId,
+    required this.subjectName,
+    required this.teacherMembershipId,
+    required this.teacherDisplayName,
+    required this.startsOn,
+  });
+
+  final String operationId;
+  final String studentId;
+  final String studentName;
+  final String studentSubjectProfileId;
+  final String organizationSubjectId;
+  final String subjectName;
+  final String teacherMembershipId;
+  final String teacherDisplayName;
+  final DateTime? startsOn;
+
+  factory OrganizationStudentSetupResult.fromJson(Map<String, dynamic> json) {
+    return OrganizationStudentSetupResult(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      studentId: _requiredString(json['student_id'], 'student_id'),
+      studentName: _stringValue(json['student_name']) ?? '未命名学生',
+      studentSubjectProfileId: _requiredString(
+        json['student_subject_profile_id'],
+        'student_subject_profile_id',
+      ),
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      subjectName: _stringValue(json['subject_name']) ?? '未命名学科',
+      teacherMembershipId: _requiredString(
+        json['teacher_membership_id'],
+        'teacher_membership_id',
+      ),
+      teacherDisplayName: _stringValue(json['teacher_display_name']) ?? '未命名老师',
+      startsOn: _dateTimeValue(json['starts_on']),
+    );
+  }
+}
+
 class OrganizationInvitation {
   const OrganizationInvitation({
     required this.id,
@@ -101,6 +224,26 @@ abstract interface class OrganizationManagementRepository {
 
   Future<List<OrganizationInvitation>> listInvitations({
     required String organizationId,
+  });
+
+  Future<OrganizationSetupOptions> listSetupOptions({
+    required String organizationId,
+  });
+
+  Future<OrganizationStudentSetupResult> createStudent({
+    required String operationId,
+    required String organizationId,
+    required String name,
+    String? studentCode,
+    String? grade,
+    String? className,
+    String? campus,
+    required String organizationSubjectId,
+    required String teacherMembershipId,
+    DateTime? startsOn,
+    String? positioning,
+    String? strengths,
+    String? cadenceNote,
   });
 
   Future<OrganizationInvitation> createInvitation({
@@ -170,6 +313,29 @@ class SupabaseOrganizationInvitationAcceptanceRepository
   }
 }
 
+String? organizationStudentSetupErrorMessage(Object error) {
+  final detail = switch (error) {
+    AuthException(:final message) => message.trim(),
+    PostgrestException(:final message) => message.trim(),
+    _ => null,
+  };
+  if (detail == null) {
+    return null;
+  }
+  return switch (detail.toLowerCase()) {
+    'invalid_student_setup_input' => '学生信息不完整或过长，请检查后重试。',
+    'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
+    'organization_subject_not_found' => '所选学科已变化，请刷新后重新选择。',
+    'teacher_membership_not_found' => '所选老师已不是本机构的在岗老师，请刷新后重新选择。',
+    'teacher_role_required' => '所选成员还没有老师角色，暂不能分配学生。',
+    'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开表单后再试。',
+    'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
+    'invalid_live_session' => '登录状态已失效，请重新登录。',
+    'organization_manager_required' => '当前账号没有本机构管理权限。',
+    _ => null,
+  };
+}
+
 String? organizationInvitationErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),
@@ -226,6 +392,57 @@ class SupabaseOrganizationManagementRepository
       <String, dynamic>{'p_organization_id': organizationId},
     );
     return _mapList(response, OrganizationInvitation.fromJson);
+  }
+
+  @override
+  Future<OrganizationSetupOptions> listSetupOptions({
+    required String organizationId,
+  }) async {
+    final response = await _call(
+      'list_organization_setup_options',
+      <String, dynamic>{'p_organization_id': organizationId},
+    );
+    return OrganizationSetupOptions.fromJson(_mapResponse(response));
+  }
+
+  @override
+  Future<OrganizationStudentSetupResult> createStudent({
+    required String operationId,
+    required String organizationId,
+    required String name,
+    String? studentCode,
+    String? grade,
+    String? className,
+    String? campus,
+    required String organizationSubjectId,
+    required String teacherMembershipId,
+    DateTime? startsOn,
+    String? positioning,
+    String? strengths,
+    String? cadenceNote,
+  }) async {
+    if (operationId.trim().isEmpty || name.trim().isEmpty) {
+      throw ArgumentError('Student setup identity cannot be empty.');
+    }
+    final response = await _call(
+      'create_organization_student',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_name': name.trim(),
+        'p_student_code': _nullableText(studentCode),
+        'p_grade': _nullableText(grade),
+        'p_class_name': _nullableText(className),
+        'p_campus': _nullableText(campus),
+        'p_organization_subject_id': organizationSubjectId,
+        'p_teacher_membership_id': teacherMembershipId,
+        'p_starts_on': _dateOnlyValue(startsOn),
+        'p_positioning': _nullableText(positioning),
+        'p_strengths': _nullableText(strengths),
+        'p_cadence_note': _nullableText(cadenceNote),
+      },
+    );
+    return OrganizationStudentSetupResult.fromJson(_mapResponse(response));
   }
 
   @override
@@ -323,6 +540,19 @@ OrganizationInvitationRole _roleFromWire(Object? value) {
     'teacher' => OrganizationInvitationRole.teacher,
     _ => throw FormatException('Unknown organization invitation role: $wire'),
   };
+}
+
+String? _nullableText(String? value) {
+  final normalized = value?.trim();
+  return normalized == null || normalized.isEmpty ? null : normalized;
+}
+
+String? _dateOnlyValue(DateTime? value) {
+  if (value == null) {
+    return null;
+  }
+  String pad(int number) => number.toString().padLeft(2, '0');
+  return '${value.year}-${pad(value.month)}-${pad(value.day)}';
 }
 
 String? _stringValue(Object? value) {

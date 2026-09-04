@@ -864,6 +864,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       onOpenCaseTypes: workspace.canManageCaseTypes
           ? () => unawaited(_showCaseTypeManager())
           : null,
+      onChanged: () => unawaited(_reload()),
     );
   }
 

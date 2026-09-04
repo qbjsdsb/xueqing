@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../app/layout/responsive.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/organization_management_repository.dart';
+import 'organization_student_setup_dialog.dart';
 
 class OrganizationManagementPage extends StatefulWidget {
   const OrganizationManagementPage({
@@ -14,6 +15,7 @@ class OrganizationManagementPage extends StatefulWidget {
     required this.roles,
     this.canManageCaseTypes = false,
     this.onOpenCaseTypes,
+    this.onChanged,
     super.key,
   });
 
@@ -23,6 +25,7 @@ class OrganizationManagementPage extends StatefulWidget {
   final List<String> roles;
   final bool canManageCaseTypes;
   final VoidCallback? onOpenCaseTypes;
+  final VoidCallback? onChanged;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -61,10 +64,12 @@ class _OrganizationManagementPageState
     final result = await Future.wait<dynamic>([
       widget.repository.listMembers(organizationId: widget.organizationId),
       widget.repository.listInvitations(organizationId: widget.organizationId),
+      widget.repository.listSetupOptions(organizationId: widget.organizationId),
     ]);
     return _OrganizationManagementSnapshot(
       members: result[0] as List<OrganizationMember>,
       invitations: result[1] as List<OrganizationInvitation>,
+      setupOptions: result[2] as OrganizationSetupOptions,
     );
   }
 
@@ -77,6 +82,63 @@ class _OrganizationManagementPageState
       _snapshotFuture = next;
     });
     await next;
+  }
+
+  Future<void> _addStudent() async {
+    if (_busy) {
+      return;
+    }
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) {
+        return;
+      }
+      if (!snapshot.setupOptions.canCreateStudent) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('请先配置至少一个活跃学科和在岗老师。')));
+        return;
+      }
+      final result = await showDialog<OrganizationStudentSetupResult>(
+        context: context,
+        builder: (context) => OrganizationStudentSetupDialog(
+          options: snapshot.setupOptions,
+          onSubmit: (draft) => widget.repository.createStudent(
+            operationId: draft.operationId,
+            organizationId: widget.organizationId,
+            name: draft.name,
+            studentCode: draft.studentCode,
+            grade: draft.grade,
+            className: draft.className,
+            campus: draft.campus,
+            organizationSubjectId: draft.organizationSubjectId,
+            teacherMembershipId: draft.teacherMembershipId,
+            positioning: draft.positioning,
+            strengths: draft.strengths,
+            cadenceNote: draft.cadenceNote,
+          ),
+        ),
+      );
+      if (!mounted || result == null) {
+        return;
+      }
+      await _refresh();
+      if (!mounted) {
+        return;
+      }
+      widget.onChanged?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '已添加 ${result.studentName} · ${result.subjectName} · '
+            '${result.teacherDisplayName}',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = _describeError(error));
+      }
+    }
   }
 
   Future<void> _inviteMember() async {
@@ -263,6 +325,10 @@ class _OrganizationManagementPageState
   }
 
   String _describeError(Object error) {
+    final setupError = organizationStudentSetupErrorMessage(error);
+    if (setupError != null) {
+      return setupError;
+    }
     final invitationError = organizationInvitationErrorMessage(error);
     if (invitationError != null) {
       return invitationError;
@@ -305,6 +371,11 @@ class _OrganizationManagementPageState
                       icon: const Icon(Icons.category_outlined),
                       label: const Text('问题类型'),
                     ),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _addStudent,
+                    icon: const Icon(Icons.person_add_alt_1_outlined),
+                    label: const Text('添加学生'),
+                  ),
                   FilledButton.icon(
                     onPressed: _busy || _inviteRoles.isEmpty
                         ? null
@@ -358,10 +429,12 @@ class _OrganizationManagementSnapshot {
   const _OrganizationManagementSnapshot({
     required this.members,
     required this.invitations,
+    required this.setupOptions,
   });
 
   final List<OrganizationMember> members;
   final List<OrganizationInvitation> invitations;
+  final OrganizationSetupOptions setupOptions;
 }
 
 class _ManagementContent extends StatelessWidget {
@@ -401,6 +474,16 @@ class _ManagementContent extends StatelessWidget {
               label: '待处理邀请',
               value: '${snapshot.invitations.length}',
             ),
+            _ManagementSummaryCard(
+              icon: Icons.menu_book_outlined,
+              label: '可用学科',
+              value: '${snapshot.setupOptions.subjects.length}',
+            ),
+            _ManagementSummaryCard(
+              icon: Icons.assignment_ind_outlined,
+              label: '可分配老师',
+              value: '${snapshot.setupOptions.teachers.length}',
+            ),
             if (pendingApprovals > 0)
               _ManagementSummaryCard(
                 icon: Icons.approval_outlined,
@@ -409,6 +492,8 @@ class _ManagementContent extends StatelessWidget {
               ),
           ],
         ),
+        const SizedBox(height: AppSpacing.md),
+        _ManagementSetupHint(options: snapshot.setupOptions),
         const SizedBox(height: AppSpacing.lg),
         _ManagementSection(
           title: '成员',
@@ -862,6 +947,55 @@ class _ManagementSection extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         child,
       ],
+    );
+  }
+}
+
+class _ManagementSetupHint extends StatelessWidget {
+  const _ManagementSetupHint({required this.options});
+
+  final OrganizationSetupOptions options;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final ready = options.canCreateStudent;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: ready
+            ? colorScheme.primaryContainer.withValues(alpha: 0.45)
+            : colorScheme.surfaceContainerHigh,
+        border: Border.all(
+          color: ready
+              ? colorScheme.primary.withValues(alpha: 0.35)
+              : colorScheme.outlineVariant,
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.small),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            ready ? Icons.check_circle_outline : Icons.info_outline,
+            size: 20,
+            color: ready ? colorScheme.primary : colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              ready
+                  ? '学科和负责老师已就绪；添加学生时会一次性完成最小教学关系配置。'
+                  : '添加学生前，请先确保机构至少有一个活跃学科和一个在岗老师角色。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

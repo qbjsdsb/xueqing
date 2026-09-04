@@ -10,13 +10,26 @@ class _FakeOrganizationManagementRepository
   _FakeOrganizationManagementRepository({
     required this.members,
     required this.invitations,
+    this.setupOptions = const OrganizationSetupOptions(
+      subjects: [OrganizationSetupSubject(id: 'subject-1', displayName: '数学')],
+      teachers: [
+        OrganizationSetupTeacher(
+          membershipId: 'membership-1',
+          displayName: '示例老师',
+          email: 'teacher@example.com',
+        ),
+      ],
+    ),
   });
 
   final List<OrganizationMember> members;
   final List<OrganizationInvitation> invitations;
+  final OrganizationSetupOptions setupOptions;
   int approveCount = 0;
   int revokeCount = 0;
   int createCount = 0;
+  int studentCreateCount = 0;
+  OrganizationStudentSetupResult? createdStudent;
 
   @override
   Future<List<OrganizationMember>> listMembers({
@@ -30,6 +43,44 @@ class _FakeOrganizationManagementRepository
     required String organizationId,
   }) async {
     return invitations;
+  }
+
+  @override
+  Future<OrganizationSetupOptions> listSetupOptions({
+    required String organizationId,
+  }) async {
+    return setupOptions;
+  }
+
+  @override
+  Future<OrganizationStudentSetupResult> createStudent({
+    required String operationId,
+    required String organizationId,
+    required String name,
+    String? studentCode,
+    String? grade,
+    String? className,
+    String? campus,
+    required String organizationSubjectId,
+    required String teacherMembershipId,
+    DateTime? startsOn,
+    String? positioning,
+    String? strengths,
+    String? cadenceNote,
+  }) async {
+    studentCreateCount++;
+    createdStudent = OrganizationStudentSetupResult(
+      operationId: operationId,
+      studentId: 'student-$studentCreateCount',
+      studentName: name,
+      studentSubjectProfileId: 'profile-$studentCreateCount',
+      organizationSubjectId: organizationSubjectId,
+      subjectName: '数学',
+      teacherMembershipId: teacherMembershipId,
+      teacherDisplayName: '示例老师',
+      startsOn: startsOn ?? DateTime(2026, 9, 4),
+    );
+    return createdStudent!;
   }
 
   @override
@@ -150,6 +201,18 @@ void main() {
         _member(name: '示例老师', email: 'teacher@example.com', roles: ['teacher']),
       ],
       invitations: [_ownerNomination()],
+      setupOptions: const OrganizationSetupOptions(
+        subjects: [
+          OrganizationSetupSubject(id: 'subject-1', displayName: '数学'),
+        ],
+        teachers: [
+          OrganizationSetupTeacher(
+            membershipId: 'membership-1',
+            displayName: '示例老师',
+            email: 'teacher@example.com',
+          ),
+        ],
+      ),
     );
     await _pumpManagement(tester, repository);
 
@@ -200,4 +263,26 @@ void main() {
       expect(find.text('管理员'), findsNothing);
     },
   );
+
+  testWidgets('admin can add a student with atomic setup fields', (
+    tester,
+  ) async {
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+    );
+    await _pumpManagement(tester, repository);
+
+    await tester.tap(find.text('添加学生'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('学生姓名 *'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).first, '新学生');
+    await tester.tap(find.text('保存并配置'));
+    await tester.pumpAndSettle();
+
+    expect(repository.studentCreateCount, 1);
+    expect(repository.createdStudent?.studentName, '新学生');
+    expect(find.text('学生姓名 *'), findsNothing);
+  });
 }
