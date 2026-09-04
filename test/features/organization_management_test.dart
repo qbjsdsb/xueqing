@@ -809,7 +809,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('交接学生任课老师'), findsOneWidget);
-    expect(find.text('原学生 · 数学'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('原学生 · 数学'),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.text('确认交接'));
     await tester.pumpAndSettle();
 
