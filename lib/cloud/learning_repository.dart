@@ -290,7 +290,9 @@ class TeacherWorkspace {
     required this.loadedAt,
     this.organizationId,
     this.caseTypes = WorkspaceCaseType.builtInTypes,
+    this.roles = const <String>[],
     this.canManageCaseTypes = false,
+    this.canManageOrganization = false,
   });
 
   final String viewerName;
@@ -301,7 +303,9 @@ class TeacherWorkspace {
   final DateTime loadedAt;
   final String? organizationId;
   final List<WorkspaceCaseType> caseTypes;
+  final List<String> roles;
   final bool canManageCaseTypes;
+  final bool canManageOrganization;
 }
 
 class QuickCaptureCommand {
@@ -631,12 +635,23 @@ class SupabaseLearningRepository implements LearningRepository {
       _client
           .from('membership_roles')
           .select('role')
+          .eq('organization_id', organizationId)
           .eq('membership_id', membershipId),
       expectedUserId,
     );
-    final hasTeachingAccess = roleRows.any((row) => row['role'] == 'teacher');
-    final canManageCaseTypes = roleRows.any(
-      (row) => row['role'] == 'org_admin' || row['role'] == 'academic_admin',
+    final roles = <String>[
+      for (final row in roleRows)
+        if (row['role'] is String) row['role'] as String,
+    ];
+    final hasTeachingAccess = roles.contains('teacher');
+    final canManageOrganization = roles.any(
+      (role) => role == 'org_owner' || role == 'org_admin',
+    );
+    final canManageCaseTypes = roles.any(
+      (role) =>
+          role == 'org_owner' ||
+          role == 'org_admin' ||
+          role == 'academic_admin',
     );
 
     final organization = await _client
@@ -673,7 +688,9 @@ class SupabaseLearningRepository implements LearningRepository {
         students: const <WorkspaceStudent>[],
         loadedAt: DateTime.now(),
         caseTypes: List<WorkspaceCaseType>.unmodifiable(caseTypes),
+        roles: List<String>.unmodifiable(roles),
         canManageCaseTypes: canManageCaseTypes,
+        canManageOrganization: canManageOrganization,
       );
     }
 
@@ -867,7 +884,9 @@ class SupabaseLearningRepository implements LearningRepository {
       students: List<WorkspaceStudent>.unmodifiable(workspaceStudents),
       loadedAt: DateTime.now(),
       caseTypes: List<WorkspaceCaseType>.unmodifiable(caseTypes),
+      roles: List<String>.unmodifiable(roles),
       canManageCaseTypes: canManageCaseTypes,
+      canManageOrganization: canManageOrganization,
     );
   }
 

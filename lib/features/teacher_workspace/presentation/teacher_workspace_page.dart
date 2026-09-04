@@ -8,7 +8,9 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
 import '../../../cloud/learning_repository.dart';
+import '../../../cloud/organization_management_repository.dart';
 import '../../../config/app_config.dart';
+import '../../organization_management/presentation/organization_management_page.dart';
 import '../../../core/logging/app_logger.dart';
 
 class TeacherWorkspaceEntryPage extends StatefulWidget {
@@ -16,12 +18,14 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     required this.config,
     this.authRepository,
     this.learningRepository,
+    this.organizationManagementRepository,
     super.key,
   });
 
   final AppConfig config;
   final AuthRepository? authRepository;
   final LearningRepository? learningRepository;
+  final OrganizationManagementRepository? organizationManagementRepository;
 
   @override
   State<TeacherWorkspaceEntryPage> createState() =>
@@ -37,6 +41,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   StreamSubscription<AuthState>? _authSubscription;
   AuthRepository? _authRepository;
   LearningRepository? _learningRepository;
+  OrganizationManagementRepository? _organizationManagementRepository;
   String? _errorMessage;
   String? _activeUserId;
   bool _signedIn = false;
@@ -68,6 +73,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
     if (hasAuthRepository && hasLearningRepository) {
       _authRepository = widget.authRepository;
       _learningRepository = widget.learningRepository;
+      _organizationManagementRepository =
+          widget.organizationManagementRepository;
     } else {
       widget.config.cloudConfig.validate();
       if (!widget.config.cloudConfig.isConfigured) {
@@ -76,6 +83,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       await CloudClient.initialize(widget.config.cloudConfig);
       _authRepository = SupabaseAuthRepository(CloudClient.client);
       _learningRepository = SupabaseLearningRepository(CloudClient.client);
+      _organizationManagementRepository =
+          SupabaseOrganizationManagementRepository(CloudClient.client);
     }
 
     _activeUserId = _authRepository!.currentUser?.id;
@@ -239,6 +248,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
         return TeacherWorkspacePage(
           key: ValueKey(_activeUserId),
           repository: _learningRepository!,
+          managementRepository: _organizationManagementRepository,
           onSignOut: _busy ? null : _signOut,
         );
       },
@@ -249,11 +259,13 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
 class TeacherWorkspacePage extends StatefulWidget {
   const TeacherWorkspacePage({
     required this.repository,
+    this.managementRepository,
     this.onSignOut,
     super.key,
   });
 
   final LearningRepository repository;
+  final OrganizationManagementRepository? managementRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -539,7 +551,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         }
 
         final workspace = snapshot.data!;
-        if (!workspace.hasTeachingAccess) {
+        if (!workspace.hasTeachingAccess && !workspace.canManageOrganization) {
           if (workspace.canManageCaseTypes &&
               workspace.organizationId != null) {
             return _WorkspaceStatusScaffold(
@@ -569,6 +581,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           child: _WorkspaceShell(
             selectedIndex: _selectedIndex,
             onDestinationSelected: _selectDestination,
+            hasTeachingAccess: workspace.hasTeachingAccess,
+            showManagement: workspace.canManageOrganization,
             onSignOut: widget.onSignOut,
             child: ResponsiveLayout(
               builder: (context, sizeClass) => _WorkspaceFrame(
@@ -592,9 +606,34 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     if (_selectedStudent != null) {
       return _buildStudentDetail(_selectedStudent!, sizeClass);
     }
+    final managementIndex = workspace.hasTeachingAccess ? 2 : 0;
+    if (workspace.canManageOrganization && _selectedIndex == managementIndex) {
+      return _buildManagement(workspace);
+    }
+    if (!workspace.hasTeachingAccess) {
+      return const _WorkspaceNoAccessBody();
+    }
     return _selectedIndex == 0
         ? _buildToday(workspace)
         : _buildStudents(workspace);
+  }
+
+  Widget _buildManagement(TeacherWorkspace workspace) {
+    final organizationId = workspace.organizationId;
+    final managementRepository = widget.managementRepository;
+    if (organizationId == null || managementRepository == null) {
+      return const _WorkspaceManagementUnavailable();
+    }
+    return OrganizationManagementPage(
+      repository: managementRepository,
+      organizationId: organizationId,
+      organizationName: workspace.organizationName,
+      roles: workspace.roles,
+      canManageCaseTypes: workspace.canManageCaseTypes,
+      onOpenCaseTypes: workspace.canManageCaseTypes
+          ? () => unawaited(_showCaseTypeManager())
+          : null,
+    );
   }
 
   Widget _buildToday(TeacherWorkspace workspace) {
@@ -2640,12 +2679,16 @@ class _WorkspaceShell extends StatelessWidget {
   const _WorkspaceShell({
     required this.selectedIndex,
     required this.onDestinationSelected,
+    required this.hasTeachingAccess,
+    required this.showManagement,
     required this.child,
     this.onSignOut,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final bool hasTeachingAccess;
+  final bool showManagement;
   final Widget child;
   final VoidCallback? onSignOut;
 
@@ -2656,7 +2699,7 @@ class _WorkspaceShell extends StatelessWidget {
         if (sizeClass == WindowSizeClass.compact) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('教师工作台'),
+              title: Text(hasTeachingAccess ? '教师工作台' : '机构管理'),
               actions: [
                 if (onSignOut != null)
                   IconButton(
@@ -2670,7 +2713,10 @@ class _WorkspaceShell extends StatelessWidget {
             bottomNavigationBar: NavigationBar(
               selectedIndex: selectedIndex,
               onDestinationSelected: onDestinationSelected,
-              destinations: _workspaceDestinations,
+              destinations: _workspaceDestinations(
+                hasTeachingAccess: hasTeachingAccess,
+                showManagement: showManagement,
+              ),
             ),
           );
         }
@@ -2682,6 +2728,8 @@ class _WorkspaceShell extends StatelessWidget {
                   extended: sizeClass == WindowSizeClass.expanded,
                   selectedIndex: selectedIndex,
                   onDestinationSelected: onDestinationSelected,
+                  hasTeachingAccess: hasTeachingAccess,
+                  showManagement: showManagement,
                   onSignOut: onSignOut,
                 ),
                 const VerticalDivider(width: 1),
@@ -2700,12 +2748,16 @@ class _WorkspaceRail extends StatelessWidget {
     required this.extended,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    required this.hasTeachingAccess,
+    required this.showManagement,
     this.onSignOut,
   });
 
   final bool extended;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final bool hasTeachingAccess;
+  final bool showManagement;
   final VoidCallback? onSignOut;
 
   @override
@@ -2732,7 +2784,7 @@ class _WorkspaceRail extends StatelessWidget {
                       ),
                       const SizedBox(height: AppSpacing.xxs),
                       Text(
-                        '教师工作台',
+                        hasTeachingAccess ? '教师工作台' : '机构管理',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -2755,7 +2807,10 @@ class _WorkspaceRail extends StatelessWidget {
               unselectedIconTheme: IconThemeData(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              destinations: _workspaceRailDestinations,
+              destinations: _workspaceRailDestinations(
+                hasTeachingAccess: hasTeachingAccess,
+                showManagement: showManagement,
+              ),
             ),
           ),
           Padding(
@@ -2789,31 +2844,57 @@ class _WorkspaceRail extends StatelessWidget {
   }
 }
 
-const _workspaceDestinations = <NavigationDestination>[
-  NavigationDestination(
-    icon: Icon(Icons.today_outlined),
-    selectedIcon: Icon(Icons.today),
-    label: '今日',
-  ),
-  NavigationDestination(
-    icon: Icon(Icons.people_outline),
-    selectedIcon: Icon(Icons.people),
-    label: '学生',
-  ),
-];
+List<NavigationDestination> _workspaceDestinations({
+  required bool hasTeachingAccess,
+  required bool showManagement,
+}) {
+  return [
+    if (hasTeachingAccess)
+      const NavigationDestination(
+        icon: Icon(Icons.today_outlined),
+        selectedIcon: Icon(Icons.today),
+        label: '今日',
+      ),
+    if (hasTeachingAccess)
+      const NavigationDestination(
+        icon: Icon(Icons.people_outline),
+        selectedIcon: Icon(Icons.people),
+        label: '学生',
+      ),
+    if (showManagement)
+      const NavigationDestination(
+        icon: Icon(Icons.admin_panel_settings_outlined),
+        selectedIcon: Icon(Icons.admin_panel_settings),
+        label: '管理',
+      ),
+  ];
+}
 
-const _workspaceRailDestinations = <NavigationRailDestination>[
-  NavigationRailDestination(
-    icon: Icon(Icons.today_outlined),
-    selectedIcon: Icon(Icons.today),
-    label: Text('今日'),
-  ),
-  NavigationRailDestination(
-    icon: Icon(Icons.people_outline),
-    selectedIcon: Icon(Icons.people),
-    label: Text('学生'),
-  ),
-];
+List<NavigationRailDestination> _workspaceRailDestinations({
+  required bool hasTeachingAccess,
+  required bool showManagement,
+}) {
+  return [
+    if (hasTeachingAccess)
+      const NavigationRailDestination(
+        icon: Icon(Icons.today_outlined),
+        selectedIcon: Icon(Icons.today),
+        label: Text('今日'),
+      ),
+    if (hasTeachingAccess)
+      const NavigationRailDestination(
+        icon: Icon(Icons.people_outline),
+        selectedIcon: Icon(Icons.people),
+        label: Text('学生'),
+      ),
+    if (showManagement)
+      const NavigationRailDestination(
+        icon: Icon(Icons.admin_panel_settings_outlined),
+        selectedIcon: Icon(Icons.admin_panel_settings),
+        label: Text('管理'),
+      ),
+  ];
+}
 
 class _WorkspaceFrame extends StatelessWidget {
   const _WorkspaceFrame({required this.sizeClass, required this.child});
@@ -3601,6 +3682,24 @@ class _WorkspaceNoAccessBody extends StatelessWidget {
           title: '当前账号没有可用的教师教学范围',
           message: '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',
           icon: Icons.lock_outline,
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceManagementUnavailable extends StatelessWidget {
+  const _WorkspaceManagementUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(AppSpacing.lg),
+        child: _WorkspaceStateNotice(
+          title: '机构管理尚未接通',
+          message: '当前账号有机构管理角色，但管理数据服务没有配置。请检查应用初始化和开发环境同步状态。',
+          icon: Icons.admin_panel_settings_outlined,
         ),
       ),
     );
