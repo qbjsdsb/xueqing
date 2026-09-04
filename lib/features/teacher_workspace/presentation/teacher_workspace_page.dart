@@ -10,6 +10,7 @@ import '../../../cloud/cloud_client.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
 import '../../../config/app_config.dart';
+import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
 import '../../organization_management/presentation/organization_management_page.dart';
 import '../../../core/logging/app_logger.dart';
 
@@ -19,6 +20,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     this.authRepository,
     this.learningRepository,
     this.organizationManagementRepository,
+    this.invitationAcceptanceRepository,
     super.key,
   });
 
@@ -26,6 +28,8 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
   final AuthRepository? authRepository;
   final LearningRepository? learningRepository;
   final OrganizationManagementRepository? organizationManagementRepository;
+  final OrganizationInvitationAcceptanceRepository?
+  invitationAcceptanceRepository;
 
   @override
   State<TeacherWorkspaceEntryPage> createState() =>
@@ -42,6 +46,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   AuthRepository? _authRepository;
   LearningRepository? _learningRepository;
   OrganizationManagementRepository? _organizationManagementRepository;
+  OrganizationInvitationAcceptanceRepository? _invitationAcceptanceRepository;
   String? _errorMessage;
   String? _activeUserId;
   bool _signedIn = false;
@@ -75,6 +80,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       _learningRepository = widget.learningRepository;
       _organizationManagementRepository =
           widget.organizationManagementRepository;
+      _invitationAcceptanceRepository = widget.invitationAcceptanceRepository;
     } else {
       widget.config.cloudConfig.validate();
       if (!widget.config.cloudConfig.isConfigured) {
@@ -85,6 +91,10 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       _learningRepository = SupabaseLearningRepository(CloudClient.client);
       _organizationManagementRepository =
           SupabaseOrganizationManagementRepository(CloudClient.client);
+      _invitationAcceptanceRepository =
+          SupabaseOrganizationInvitationAcceptanceRepository(
+            CloudClient.client,
+          );
     }
 
     _activeUserId = _authRepository!.currentUser?.id;
@@ -249,6 +259,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           key: ValueKey(_activeUserId),
           repository: _learningRepository!,
           managementRepository: _organizationManagementRepository,
+          invitationAcceptanceRepository: _invitationAcceptanceRepository,
           onSignOut: _busy ? null : _signOut,
         );
       },
@@ -260,12 +271,15 @@ class TeacherWorkspacePage extends StatefulWidget {
   const TeacherWorkspacePage({
     required this.repository,
     this.managementRepository,
+    this.invitationAcceptanceRepository,
     this.onSignOut,
     super.key,
   });
 
   final LearningRepository repository;
   final OrganizationManagementRepository? managementRepository;
+  final OrganizationInvitationAcceptanceRepository?
+  invitationAcceptanceRepository;
   final VoidCallback? onSignOut;
 
   @override
@@ -278,10 +292,15 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   );
 
   final _studentSearchController = TextEditingController();
+  final _invitationFormKey = GlobalKey<FormState>();
+  final _inviteCodeController = TextEditingController();
+  final _displayNameController = TextEditingController();
   int _selectedIndex = 0;
   WorkspaceStudent? _selectedStudent;
   WorkspaceCase? _selectedCase;
   late Future<TeacherWorkspace> _workspaceFuture;
+  String? _invitationErrorMessage;
+  bool _invitationBusy = false;
 
   @override
   void initState() {
@@ -305,6 +324,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   @override
   void dispose() {
     _studentSearchController.dispose();
+    _inviteCodeController.dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -384,6 +405,56 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       // FutureBuilder renders the retained error state. The input form has
       // already closed only after the command committed successfully.
     }
+  }
+
+  Future<void> _acceptInvitation() async {
+    if (_invitationBusy ||
+        !(_invitationFormKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    final repository = widget.invitationAcceptanceRepository;
+    if (repository == null) {
+      return;
+    }
+
+    setState(() {
+      _invitationBusy = true;
+      _invitationErrorMessage = null;
+    });
+    try {
+      await repository.acceptInvitation(
+        inviteCode: _inviteCodeController.text.trim(),
+        displayName: _displayNameController.text.trim(),
+      );
+      _inviteCodeController.clear();
+      _displayNameController.clear();
+      await _reload();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已加入机构，可以开始使用。')));
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _invitationErrorMessage = _describeInvitationError(error);
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _invitationBusy = false;
+        });
+      }
+    }
+  }
+
+  String _describeInvitationError(Object error) {
+    final knownMessage = organizationInvitationErrorMessage(error);
+    if (knownMessage != null) {
+      return '接受邀请失败：$knownMessage';
+    }
+    return '接受邀请失败，请检查代码、登录邮箱和网络后重试。';
   }
 
   Future<void> _showQuickCapture({WorkspaceStudent? student}) async {
@@ -565,9 +636,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               ),
             );
           }
-          return const _WorkspaceStatusScaffold(
+          return _WorkspaceStatusScaffold(
             title: '教师工作台',
-            child: _WorkspaceNoAccessBody(),
+            child: _WorkspaceNoAccessBody(
+              invitationAcceptanceCard: _buildInvitationAcceptanceCard(),
+            ),
           );
         }
 
@@ -611,7 +684,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       return _buildManagement(workspace);
     }
     if (!workspace.hasTeachingAccess) {
-      return const _WorkspaceNoAccessBody();
+      return _WorkspaceNoAccessBody(
+        invitationAcceptanceCard: _buildInvitationAcceptanceCard(),
+      );
     }
     return _selectedIndex == 0
         ? _buildToday(workspace)
@@ -633,6 +708,21 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       onOpenCaseTypes: workspace.canManageCaseTypes
           ? () => unawaited(_showCaseTypeManager())
           : null,
+    );
+  }
+
+  Widget? _buildInvitationAcceptanceCard() {
+    if (widget.invitationAcceptanceRepository == null) {
+      return null;
+    }
+    return OrganizationInvitationAcceptanceCard(
+      formKey: _invitationFormKey,
+      inviteCodeController: _inviteCodeController,
+      displayNameController: _displayNameController,
+      busy: _invitationBusy,
+      initiallyExpanded: true,
+      errorMessage: _invitationErrorMessage,
+      onAccept: _acceptInvitation,
     );
   }
 
@@ -3671,17 +3761,31 @@ class _WorkspaceErrorBody extends StatelessWidget {
 }
 
 class _WorkspaceNoAccessBody extends StatelessWidget {
-  const _WorkspaceNoAccessBody();
+  const _WorkspaceNoAccessBody({this.invitationAcceptanceCard});
+
+  final Widget? invitationAcceptanceCard;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(AppSpacing.lg),
-        child: _WorkspaceStateNotice(
-          title: '当前账号没有可用的教师教学范围',
-          message: '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',
-          icon: Icons.lock_outline,
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _WorkspaceStateNotice(
+                title: '当前账号没有可用的教师教学范围',
+                message: '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',
+                icon: Icons.lock_outline,
+              ),
+              if (invitationAcceptanceCard != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                invitationAcceptanceCard!,
+              ],
+            ],
+          ),
         ),
       ),
     );
