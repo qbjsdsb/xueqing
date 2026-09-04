@@ -128,6 +128,7 @@ class WorkspaceAction {
     required this.bucket,
     required this.version,
     this.dueAt,
+    this.businessDueDate,
   });
 
   final String id;
@@ -139,6 +140,7 @@ class WorkspaceAction {
   final WorkspaceActionBucket bucket;
   final int version;
   final DateTime? dueAt;
+  final DateTime? businessDueDate;
 }
 
 class WorkspaceEvidence {
@@ -290,6 +292,7 @@ class TeacherWorkspace {
     required this.hasTeachingAccess,
     required this.students,
     required this.loadedAt,
+    this.businessDate,
     this.organizationId,
     this.caseTypes = WorkspaceCaseType.builtInTypes,
     this.roles = const <String>[],
@@ -303,6 +306,7 @@ class TeacherWorkspace {
   final bool hasTeachingAccess;
   final List<WorkspaceStudent> students;
   final DateTime loadedAt;
+  final DateTime? businessDate;
   final String? organizationId;
   final List<WorkspaceCaseType> caseTypes;
   final List<String> roles;
@@ -742,14 +746,15 @@ class SupabaseLearningRepository implements LearningRepository {
     );
 
     final organization = await _client
-        .from('organizations')
-        .select('name,time_zone')
+        .from('teacher_workspace_context')
+        .select('id,name,time_zone,business_date')
         .eq('id', organizationId)
         .maybeSingle();
     _assertSameSession(expectedUserId);
     if (organization == null) {
       throw const FormatException('Active organization was not found.');
     }
+    final businessDate = _dateOnlyValue(organization['business_date']);
 
     final caseTypeRows = await _rows(
       _client
@@ -774,6 +779,7 @@ class SupabaseLearningRepository implements LearningRepository {
         hasTeachingAccess: false,
         students: const <WorkspaceStudent>[],
         loadedAt: DateTime.now(),
+        businessDate: businessDate,
         caseTypes: List<WorkspaceCaseType>.unmodifiable(caseTypes),
         roles: List<String>.unmodifiable(roles),
         canManageCaseTypes: canManageCaseTypes,
@@ -842,7 +848,7 @@ class SupabaseLearningRepository implements LearningRepository {
       _rows(
         _client
             .from('teacher_workspace_action_queue')
-            .select('id,due_bucket')
+            .select('id,due_bucket,business_due_date')
             .eq('organization_id', organizationId),
         expectedUserId,
       ),
@@ -929,6 +935,12 @@ class SupabaseLearningRepository implements LearningRepository {
           row['due_bucket'],
         ),
     };
+    final businessDueDateByActionId = <String, DateTime?>{
+      for (final row in queueRows)
+        _requiredString(row['id'], 'action_id'): _dateOnlyValue(
+          row['business_due_date'],
+        ),
+    };
 
     final workspaceStudents = <WorkspaceStudent>[];
     for (final profile in profileRows) {
@@ -951,6 +963,7 @@ class SupabaseLearningRepository implements LearningRepository {
             row: caseRow,
             actionRows: actionsByCaseId,
             bucketByActionId: bucketByActionId,
+            businessDueDateByActionId: businessDueDateByActionId,
             evidenceRows: evidenceByCaseId,
             interventionRows: interventionsByCaseId,
             assessmentRows: assessmentsByCaseId,
@@ -994,6 +1007,7 @@ class SupabaseLearningRepository implements LearningRepository {
       organizationName: _stringValue(organization['name']) ?? '未命名机构',
       organizationTimeZone: _stringValue(organization['time_zone']) ?? 'UTC',
       hasTeachingAccess: true,
+      businessDate: businessDate,
       students: List<WorkspaceStudent>.unmodifiable(workspaceStudents),
       loadedAt: DateTime.now(),
       caseTypes: List<WorkspaceCaseType>.unmodifiable(caseTypes),
@@ -1236,6 +1250,7 @@ class SupabaseLearningRepository implements LearningRepository {
     required Map<String, dynamic> row,
     required Map<String, List<Map<String, dynamic>>> actionRows,
     required Map<String, WorkspaceActionBucket> bucketByActionId,
+    required Map<String, DateTime?> businessDueDateByActionId,
     required Map<String, List<Map<String, dynamic>>> evidenceRows,
     required Map<String, List<Map<String, dynamic>>> interventionRows,
     required Map<String, List<Map<String, dynamic>>> assessmentRows,
@@ -1258,6 +1273,7 @@ class SupabaseLearningRepository implements LearningRepository {
           version: _requiredInt(actionRow['version'], 'action_version'),
           bucket: bucketByActionId[actionId] ?? _fallbackBucketForDueAt(dueAt),
           dueAt: dueAt,
+          businessDueDate: businessDueDateByActionId[actionId],
         ),
       );
     }
@@ -1265,9 +1281,10 @@ class SupabaseLearningRepository implements LearningRepository {
       if (left.status != right.status) {
         return left.status.index.compareTo(right.status.index);
       }
-      return (left.dueAt ?? DateTime.utc(9999)).compareTo(
-        right.dueAt ?? DateTime.utc(9999),
-      );
+      return (left.businessDueDate ?? left.dueAt ?? DateTime.utc(9999))
+          .compareTo(
+            right.businessDueDate ?? right.dueAt ?? DateTime.utc(9999),
+          );
     });
 
     final evidence = <WorkspaceEvidence>[];
