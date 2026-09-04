@@ -441,23 +441,25 @@ class OrganizationSetupOptions {
   final List<OrganizationSetupTeacher> teachers;
 
   List<OrganizationSetupSubject> get subjectsWithAvailableTeachers {
-    return List<OrganizationSetupSubject>.unmodifiable(
-      subjects.where(
-        (subject) => teachers.any(
-          (teacher) => teacher.supportsSubject(subject.id),
-        ),
-      ),
-    );
+    final availableSubjects = <OrganizationSetupSubject>[];
+    for (final subject in subjects) {
+      if (teachers.any((teacher) => teacher.supportsSubject(subject.id))) {
+        availableSubjects.add(subject);
+      }
+    }
+    return List<OrganizationSetupSubject>.unmodifiable(availableSubjects);
   }
 
   List<OrganizationSetupTeacher> teachersForSubject(
     String organizationSubjectId,
   ) {
-    return List<OrganizationSetupTeacher>.unmodifiable(
-      teachers.where(
-        (teacher) => teacher.supportsSubject(organizationSubjectId),
-      ),
-    );
+    final availableTeachers = <OrganizationSetupTeacher>[];
+    for (final teacher in teachers) {
+      if (teacher.supportsSubject(organizationSubjectId)) {
+        availableTeachers.add(teacher);
+      }
+    }
+    return List<OrganizationSetupTeacher>.unmodifiable(availableTeachers);
   }
 
   bool get canCreateStudent => subjectsWithAvailableTeachers.isNotEmpty;

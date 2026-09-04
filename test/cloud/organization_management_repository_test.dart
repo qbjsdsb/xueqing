@@ -105,14 +105,17 @@ void main() {
     expect(options.teachersForSubject('subject-2'), isEmpty);
   });
 
-  test('maps missing teaching scope to an actionable student setup error', () {
-    expect(
-      organizationStudentSetupErrorMessage(
-        const AuthException('teacher_subject_scope_required'),
-      ),
-      '所选老师没有该学科的有效教学范围，请先配置教学范围。',
-    );
-  });
+  test(
+    'maps missing teaching scope to an actionable student setup error',
+    () {
+      expect(
+        organizationStudentSetupErrorMessage(
+          const AuthException('teacher_subject_scope_required'),
+        ),
+        '所选老师没有该学科的有效教学范围，请先配置教学范围。',
+      );
+    },
+  );
 
   test('parses teacher subject scope history and command results', () {
     final scope = OrganizationTeacherSubjectScope.fromJson({
