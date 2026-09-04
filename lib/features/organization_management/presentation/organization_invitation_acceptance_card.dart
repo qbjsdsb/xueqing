@@ -32,7 +32,12 @@ class OrganizationInvitationAcceptanceCard extends StatelessWidget {
         subtitle: const Text('如果你收到了负责人或管理员发来的邀请代码'),
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
             child: Form(
               key: formKey,
               child: Column(
@@ -42,7 +47,7 @@ class OrganizationInvitationAcceptanceCard extends StatelessWidget {
                     '请使用被邀请的邮箱登录后，再粘贴邀请代码。代码只显示一次，接受后即加入对应机构。',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                   TextFormField(
                     controller: inviteCodeController,
                     enabled: !busy,
@@ -63,7 +68,7 @@ class OrganizationInvitationAcceptanceCard extends StatelessWidget {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   TextFormField(
                     controller: displayNameController,
                     enabled: !busy,
@@ -80,7 +85,7 @@ class OrganizationInvitationAcceptanceCard extends StatelessWidget {
                     },
                   ),
                   if (errorMessage != null) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       errorMessage!,
                       style: TextStyle(
@@ -88,7 +93,7 @@ class OrganizationInvitationAcceptanceCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
