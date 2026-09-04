@@ -77,7 +77,7 @@ class _FakeOrganizationManagementRepository
     return OrganizationSubjectSetupResult(
       operationId: operationId,
       organizationSubjectId:
-          'organization-subject-' + subjectCreateCount.toString(),
+          'organization-subject-$subjectCreateCount',
       subjectId: subjectId,
       subjectCode: 'english',
       subjectName: '英语',

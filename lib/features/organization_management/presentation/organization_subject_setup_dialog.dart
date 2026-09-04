@@ -81,7 +81,7 @@ class _OrganizationSubjectSetupDialogState
       return message;
     }
     if (error is AuthException && error.message.trim().isNotEmpty) {
-      return '操作未完成：' + error.message.trim();
+      return '操作未完成：${error.message.trim()}';
     }
     return '保存未完成；可以检查网络后重试。';
   }
@@ -111,7 +111,7 @@ class _OrganizationSubjectSetupDialogState
                   DropdownMenuItem(
                     value: subject,
                     child: Text(
-                      subject.displayName + ' · ' + subject.code,
+                      '${subject.displayName} · ${subject.code}',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

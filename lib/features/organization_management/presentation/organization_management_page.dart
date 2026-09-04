@@ -127,7 +127,7 @@ class _OrganizationManagementPageState
       }
       widget.onChanged?.call();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已添加学科：' + result.subjectName + '。')),
+        SnackBar(content: Text('已添加学科：${result.subjectName}。')),
       );
     } catch (error) {
       if (mounted) {
@@ -1063,7 +1063,7 @@ class _ManagementSetupHint extends StatelessWidget {
     final message = ready
         ? '学科和负责老师已就绪；添加学生时会一次性完成最小教学关系配置。'
         : options.subjects.isEmpty && subjectCatalog.isNotEmpty
-        ? '请先添加至少一个机构学科；当前有 ' + subjectCatalog.length.toString() + ' 个全局活跃学科可选。'
+        ? '请先添加至少一个机构学科；当前有 ${subjectCatalog.length} 个全局活跃学科可选。'
         : '添加学生前，请先确保机构至少有一个活跃学科和一个在岗老师角色。';
     return Container(
       width: double.infinity,
