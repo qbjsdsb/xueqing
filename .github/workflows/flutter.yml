@@ -31,10 +31,8 @@ jobs:
       - name: Verify lockfile is current
         run: git diff --exit-code -- pubspec.lock
 
-      - name: Check Dart formatting (diagnostic)
-        run: |
-          dart format .
-          git diff -- lib/features/bootstrap/presentation/bootstrap_page.dart test/app/bootstrap_test.dart
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze
         run: flutter analyze

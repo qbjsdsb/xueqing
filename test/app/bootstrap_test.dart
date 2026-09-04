@@ -60,8 +60,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         initialRoute: AppRoutes.designPreview,
-        onGenerateRoute:
-            XueqingRouter(config: productionConfig).onGenerateRoute,
+        onGenerateRoute: XueqingRouter(config: productionConfig)
+            .onGenerateRoute,
       ),
     );
     await tester.pumpAndSettle();
