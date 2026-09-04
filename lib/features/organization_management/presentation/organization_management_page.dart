@@ -287,9 +287,8 @@ class _OrganizationManagementPageState
       final message = result.status == 'disabled'
           ? '已停用 $displayName；已结束 ${result.endedScopeCount + result.endedAssignmentCount} 条教学关系。'
           : '已恢复 $displayName 的机构访问；历史教学关系未自动恢复，请重新配置。';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (mounted) {
         setState(() => _errorMessage = _describeError(error));
@@ -300,6 +299,7 @@ class _OrganizationManagementPageState
       }
     }
   }
+
   Future<void> _inviteMember() async {
     if (_busy) {
       return;
@@ -956,6 +956,7 @@ class _MemberTile extends StatelessWidget {
     );
   }
 }
+
 class _InvitationTile extends StatelessWidget {
   const _InvitationTile({
     required this.invitation,

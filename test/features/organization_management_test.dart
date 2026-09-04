@@ -90,6 +90,7 @@ class _FakeOrganizationManagementRepository
     );
     return updatedMember!;
   }
+
   @override
   Future<List<OrganizationInvitation>> listInvitations({
     required String organizationId,
@@ -387,11 +388,7 @@ void main() {
   testWidgets('admin can disable and restore a member safely', (tester) async {
     final repository = _FakeOrganizationManagementRepository(
       members: [
-        _member(
-          name: '示例老师',
-          email: 'teacher@example.com',
-          roles: ['teacher'],
-        ),
+        _member(name: '示例老师', email: 'teacher@example.com', roles: ['teacher']),
       ],
       invitations: const [],
     );

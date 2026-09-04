@@ -411,7 +411,6 @@ abstract interface class OrganizationManagementRepository {
     required String status,
   });
 
-
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   });
@@ -569,6 +568,7 @@ String? organizationMemberLifecycleErrorMessage(Object error) {
     _ => null,
   };
 }
+
 String? organizationStudentSetupErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),
@@ -689,6 +689,7 @@ class SupabaseOrganizationManagementRepository
       _mapResponse(response),
     );
   }
+
   @override
   Future<List<OrganizationInvitation>> listInvitations({
     required String organizationId,
