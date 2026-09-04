@@ -268,7 +268,7 @@ class _OrganizationManagementPageState
       return invitationError;
     }
     if (error is AuthException && error.message.trim().isNotEmpty) {
-      return '操作未完成：' + error.message.trim();
+      return '操作未完成：${error.message.trim()}';
     }
     return '操作未完成，请检查网络和账号状态后重试。';
   }
