@@ -1120,9 +1120,7 @@ class SupabaseLearningRepository implements LearningRepository {
   }
 
   @override
-  Future<CaseCommandReceipt> stabilizeCase(
-    StabilizeCaseCommand command,
-  ) async {
+  Future<CaseCommandReceipt> stabilizeCase(StabilizeCaseCommand command) async {
     command.validate();
     return _invokeCaseCommand(
       functionName: 'stabilize_case',

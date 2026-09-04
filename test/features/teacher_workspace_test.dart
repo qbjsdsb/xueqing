@@ -687,7 +687,6 @@ void main() {
     expect(closeReceipt.actionId, isNull);
   });
 
-
   testWidgets('stabilizes a Case after a passed verification', (tester) async {
     final repository = _FakeLearningRepository(
       _fixtureWorkspace(

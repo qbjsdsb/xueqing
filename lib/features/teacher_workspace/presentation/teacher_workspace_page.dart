@@ -664,10 +664,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (!mounted) {
         return;
       }
-      await _reload(
-        preserveStudent: student,
-        preserveCaseId: learningCase.id,
-      );
+      await _reload(preserveStudent: student, preserveCaseId: learningCase.id);
       if (!mounted) {
         return;
       }
@@ -682,9 +679,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_describeCaseCommandError(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_describeCaseCommandError(error))));
     }
   }
 
@@ -1335,12 +1332,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   }
 }
 
-enum _CaseCommandMode {
-  confirm,
-  intervention,
-  assessment,
-  stabilize,
-}
+enum _CaseCommandMode { confirm, intervention, assessment, stabilize }
 
 class _WorkspaceCaseCommandForm extends StatefulWidget {
   const _WorkspaceCaseCommandForm({
