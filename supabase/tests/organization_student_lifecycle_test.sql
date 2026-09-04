@@ -151,7 +151,7 @@ select is(
 
 select is(
   (
-    select item ->> 'grade' || '|' || item ->> 'class_name'
+    select (item ->> 'grade') || '|' || (item ->> 'class_name')
     from jsonb_array_elements(current_setting('xueqing.student_list')::jsonb) as item
   ),
   '初二|A班',
