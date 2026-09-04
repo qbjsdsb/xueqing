@@ -185,13 +185,13 @@ class _OrganizationManagementPageState
         return;
       }
       final draft = await showDialog<OrganizationTeacherSubjectScopeDraft>(
-            context: context,
-            builder: (context) => OrganizationTeacherSubjectScopeDialog(
-              teachers: teachers,
-              subjects: subjects,
-              activeScopeKeys: activeScopeKeys,
-            ),
-          );
+        context: context,
+        builder: (context) => OrganizationTeacherSubjectScopeDialog(
+          teachers: teachers,
+          subjects: subjects,
+          activeScopeKeys: activeScopeKeys,
+        ),
+      );
       if (!mounted || draft == null) {
         return;
       }
@@ -762,7 +762,7 @@ class _ManagementContent extends StatelessWidget {
   final Future<void> Function(OrganizationMember member) onToggleMemberStatus;
   final VoidCallback onAddTeacherScope;
   final Future<void> Function(OrganizationTeacherSubjectScope scope)
-      onToggleTeacherScope;
+  onToggleTeacherScope;
 
   @override
   Widget build(BuildContext context) {

@@ -112,7 +112,7 @@ class _FakeOrganizationManagementRepository
 
   @override
   Future<OrganizationTeacherSubjectScopeUpdateResult>
-      updateTeacherSubjectScope({
+  updateTeacherSubjectScope({
     required String operationId,
     required String organizationId,
     required String membershipId,
