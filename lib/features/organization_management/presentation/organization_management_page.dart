@@ -110,11 +110,7 @@ class _OrganizationManagementPageState
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            copied ? '邀请代码已复制。' : '邀请已创建，可在邀请列表中继续处理。',
-          ),
-        ),
+        SnackBar(content: Text(copied ? '邀请代码已复制。' : '邀请已创建，可在邀请列表中继续处理。')),
       );
     } catch (error) {
       if (mounted) {
@@ -227,9 +223,8 @@ class _OrganizationManagementPageState
       await mutation();
       await _refresh();
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(successMessage)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(successMessage)));
       }
     } catch (error) {
       if (mounted) {
@@ -472,7 +467,7 @@ class _MemberTile extends StatelessWidget {
     final displayName = member.displayName ?? member.email;
     final initials = displayName.trim().isEmpty
         ? '·'
-        : displayName.trim().characters.first.toUpperCase();
+        : String.fromCharCode(displayName.trim().runes.first).toUpperCase();
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -555,10 +550,7 @@ class _InvitationTile extends StatelessWidget {
     }
     if (invitation.isPending || invitation.isAwaitingOwnerApproval) {
       actions.add(
-        TextButton(
-          onPressed: busy ? null : onRevoke,
-          child: const Text('撤销'),
-        ),
+        TextButton(onPressed: busy ? null : onRevoke, child: const Text('撤销')),
       );
     }
     return Container(
@@ -661,10 +653,7 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
       return;
     }
     Navigator.of(context).pop(
-      _InviteDraft(
-        email: _emailController.text.trim(),
-        role: _selectedRole,
-      ),
+      _InviteDraft(email: _emailController.text.trim(), role: _selectedRole),
     );
   }
 
@@ -768,10 +757,7 @@ class _ManagementHeader extends StatelessWidget {
           final title = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '机构管理',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
+              Text('机构管理', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: AppSpacing.xs),
               Text(
                 '$organizationName · $roleLabel',
@@ -941,10 +927,7 @@ class _ManagementRoleChip extends StatelessWidget {
 }
 
 class _ManagementStatusChip extends StatelessWidget {
-  const _ManagementStatusChip({
-    required this.label,
-    required this.isPositive,
-  });
+  const _ManagementStatusChip({required this.label, required this.isPositive});
 
   final String label;
   final bool isPositive;
