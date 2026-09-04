@@ -2,6 +2,14 @@ begin;
 
 select plan(36);
 
+create temp table teacher_scope_test_state (
+  scope_id uuid primary key,
+  status text not null,
+  version integer not null
+);
+
+grant all on table teacher_scope_test_state to authenticated;
+
 select is(
   (
     select 1
@@ -217,19 +225,42 @@ select is(
   'new scope starts at version one'
 );
 
+insert into teacher_scope_test_state (
+  scope_id,
+  status,
+  version
+)
+select
+  (command.result ->> 'scope_id')::uuid,
+  command.result ->> 'status',
+  (command.result ->> 'version')::int
+from (
+  select public.update_organization_teacher_subject_scope(
+    '80000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    '71000000-0000-0000-0000-000000000001',
+    '64000000-0000-0000-0000-000000000001',
+    null,
+    null,
+    'active'
+  ) as result
+) as command;
+
+reset role;
+
 select is(
   (
     select count(*)::int
-    from public.list_organization_teacher_subject_scopes(
-      '00000000-0000-0000-0000-000000000001'
-    ) as item
-    where item ->> 'membership_id' =
+    from public.membership_subject_scopes as scope
+    where scope.membership_id =
       '71000000-0000-0000-0000-000000000001'
-      and item ->> 'status' = 'active'
+      and scope.status = 'active'
   ),
   1,
   'new teacher has one active scope'
 );
+
+set local role authenticated;
 
 select is(
   (
@@ -348,15 +379,8 @@ select throws_ok(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select (item ->> 'scope_id')::uuid
-        from public.list_organization_teacher_subject_scopes(
-          '00000000-0000-0000-0000-000000000001'
-        ) as item
-        where item ->> 'membership_id' =
-          '71000000-0000-0000-0000-000000000001'
-          and item ->> 'organization_subject_id' =
-            '64000000-0000-0000-0000-000000000001'
-          and item ->> 'status' = 'active'
+        select scope_id
+        from teacher_scope_test_state
       ),
       1,
       'ended'
@@ -433,15 +457,8 @@ select throws_ok(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select (item ->> 'scope_id')::uuid
-        from public.list_organization_teacher_subject_scopes(
-          '00000000-0000-0000-0000-000000000001'
-        ) as item
-        where item ->> 'membership_id' =
-          '71000000-0000-0000-0000-000000000001'
-          and item ->> 'organization_subject_id' =
-            '64000000-0000-0000-0000-000000000001'
-          and item ->> 'status' = 'active'
+        select scope_id
+        from teacher_scope_test_state
       ),
       1,
       'ended'
@@ -479,15 +496,8 @@ select is(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select (item ->> 'scope_id')::uuid
-        from public.list_organization_teacher_subject_scopes(
-          '00000000-0000-0000-0000-000000000001'
-        ) as item
-        where item ->> 'membership_id' =
-          '71000000-0000-0000-0000-000000000001'
-          and item ->> 'organization_subject_id' =
-            '64000000-0000-0000-0000-000000000001'
-          and item ->> 'status' = 'active'
+        select scope_id
+        from teacher_scope_test_state
       ),
       1,
       'ended'
@@ -505,17 +515,8 @@ select is(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select (item ->> 'scope_id')::uuid
-        from public.list_organization_teacher_subject_scopes(
-          '00000000-0000-0000-0000-000000000001'
-        ) as item
-        where item ->> 'membership_id' =
-          '71000000-0000-0000-0000-000000000001'
-          and item ->> 'organization_subject_id' =
-            '64000000-0000-0000-0000-000000000001'
-          and item ->> 'status' = 'ended'
-        order by item ->> 'scope_id'
-        limit 1
+        select scope_id
+        from teacher_scope_test_state
       ),
       1,
       'ended'
@@ -524,6 +525,26 @@ select is(
   '2',
   'repeating scope ending returns the committed result'
 );
+
+with command as (
+  select public.update_organization_teacher_subject_scope(
+    '80000000-0000-0000-0000-000000000006',
+    '00000000-0000-0000-0000-000000000001',
+    '71000000-0000-0000-0000-000000000001',
+    '64000000-0000-0000-0000-000000000001',
+    (
+        select scope_id
+        from teacher_scope_test_state
+      ),
+    1,
+    'ended'
+  ) as result
+)
+update teacher_scope_test_state as state
+set status = command.result ->> 'status',
+    version = (command.result ->> 'version')::int
+from command
+where state.scope_id = (command.result ->> 'scope_id')::uuid;
 
 reset role;
 
@@ -587,6 +608,29 @@ select is(
   'reactivated scope starts a new versioned interval'
 );
 
+delete from teacher_scope_test_state;
+
+insert into teacher_scope_test_state (
+  scope_id,
+  status,
+  version
+)
+select
+  (command.result ->> 'scope_id')::uuid,
+  command.result ->> 'status',
+  (command.result ->> 'version')::int
+from (
+  select public.update_organization_teacher_subject_scope(
+    '80000000-0000-0000-0000-000000000007',
+    '00000000-0000-0000-0000-000000000001',
+    '71000000-0000-0000-0000-000000000001',
+    '64000000-0000-0000-0000-000000000001',
+    null,
+    null,
+    'active'
+  ) as result
+) as command;
+
 reset role;
 
 select is(
@@ -622,15 +666,8 @@ select throws_ok(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select (item ->> 'scope_id')::uuid
-        from public.list_organization_teacher_subject_scopes(
-          '00000000-0000-0000-0000-000000000001'
-        ) as item
-        where item ->> 'membership_id' =
-          '71000000-0000-0000-0000-000000000001'
-          and item ->> 'organization_subject_id' =
-            '64000000-0000-0000-0000-000000000001'
-          and item ->> 'status' = 'active'
+        select scope_id
+        from teacher_scope_test_state
       ),
       1,
       'ended'
@@ -669,15 +706,8 @@ select is(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select (item ->> 'scope_id')::uuid
-        from public.list_organization_teacher_subject_scopes(
-          '00000000-0000-0000-0000-000000000001'
-        ) as item
-        where item ->> 'membership_id' =
-          '71000000-0000-0000-0000-000000000001'
-          and item ->> 'organization_subject_id' =
-            '64000000-0000-0000-0000-000000000001'
-          and item ->> 'status' = 'active'
+        select scope_id
+        from teacher_scope_test_state
       ),
       2,
       'ended'
@@ -695,15 +725,8 @@ select is(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select (item ->> 'scope_id')::uuid
-        from public.list_organization_teacher_subject_scopes(
-          '00000000-0000-0000-0000-000000000001'
-        ) as item
-        where item ->> 'membership_id' =
-          '71000000-0000-0000-0000-000000000001'
-          and item ->> 'organization_subject_id' =
-            '64000000-0000-0000-0000-000000000001'
-          and item ->> 'status' = 'active'
+        select scope_id
+        from teacher_scope_test_state
       ),
       2,
       'ended'
