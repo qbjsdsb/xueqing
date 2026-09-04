@@ -801,6 +801,29 @@ class SupabaseLearningRepository implements LearningRepository {
     final assessmentRows = rows[9];
     final eventRows = rows[10];
 
+    // Index each child collection once. This keeps a large institution's
+    // client-side assembly proportional to the rows returned instead of
+    // rescanning every child row for every profile and case.
+    final casesByProfileId = _groupRowsByKey(
+      caseRows,
+      'student_subject_profile_id',
+    );
+    final actionsByCaseId = _groupRowsByKey(actionRows, 'learning_case_id');
+    final evidenceByCaseId = _groupRowsByKey(evidenceRows, 'learning_case_id');
+    final interventionsByCaseId = _groupRowsByKey(
+      interventionRows,
+      'learning_case_id',
+    );
+    final assessmentsByCaseId = _groupRowsByKey(
+      assessmentRows,
+      'learning_case_id',
+    );
+    final eventsByCaseId = _groupRowsByKey(eventRows, 'learning_case_id');
+    final enrollmentsByStudentId = _groupRowsByKey(
+      enrollmentRows,
+      'student_id',
+    );
+
     final subjectsById = <String, String>{
       for (final row in subjectRows)
         _requiredString(row['id'], 'subject_id'):
@@ -830,27 +853,27 @@ class SupabaseLearningRepository implements LearningRepository {
         'organization_subject_id',
       );
       final cases = <WorkspaceCase>[];
-      for (final caseRow in caseRows) {
-        if (caseRow['student_subject_profile_id'] != profileId) {
-          continue;
-        }
+      for (final caseRow
+          in casesByProfileId[profileId] ?? const <Map<String, dynamic>>[]) {
         cases.add(
           _buildCase(
             profileId: profileId,
             row: caseRow,
-            actionRows: actionRows,
+            actionRows: actionsByCaseId,
             bucketByActionId: bucketByActionId,
-            evidenceRows: evidenceRows,
-            interventionRows: interventionRows,
-            assessmentRows: assessmentRows,
-            eventRows: eventRows,
+            evidenceRows: evidenceByCaseId,
+            interventionRows: interventionsByCaseId,
+            assessmentRows: assessmentsByCaseId,
+            eventRows: eventsByCaseId,
           ),
         );
       }
       final facts = <WorkspaceTimelineEvent>[
         for (final learningCase in cases) ...learningCase.timeline,
       ]..sort((left, right) => right.occurredAt.compareTo(left.occurredAt));
-      final enrollment = _currentEnrollment(enrollmentRows, studentId);
+      final enrollment = _currentEnrollment(
+        enrollmentsByStudentId[studentId] ?? const <Map<String, dynamic>>[],
+      );
       final grade = _stringValue(enrollment?['grade']) ?? '年级未设置';
       final context =
           _stringValue(profile['positioning']) ??
@@ -1073,19 +1096,17 @@ class SupabaseLearningRepository implements LearningRepository {
   WorkspaceCase _buildCase({
     required String profileId,
     required Map<String, dynamic> row,
-    required List<Map<String, dynamic>> actionRows,
+    required Map<String, List<Map<String, dynamic>>> actionRows,
     required Map<String, WorkspaceActionBucket> bucketByActionId,
-    required List<Map<String, dynamic>> evidenceRows,
-    required List<Map<String, dynamic>> interventionRows,
-    required List<Map<String, dynamic>> assessmentRows,
-    required List<Map<String, dynamic>> eventRows,
+    required Map<String, List<Map<String, dynamic>>> evidenceRows,
+    required Map<String, List<Map<String, dynamic>>> interventionRows,
+    required Map<String, List<Map<String, dynamic>>> assessmentRows,
+    required Map<String, List<Map<String, dynamic>>> eventRows,
   }) {
     final caseId = _requiredString(row['id'], 'case_id');
     final actions = <WorkspaceAction>[];
-    for (final actionRow in actionRows) {
-      if (actionRow['learning_case_id'] != caseId) {
-        continue;
-      }
+    for (final actionRow
+        in actionRows[caseId] ?? const <Map<String, dynamic>>[]) {
       final actionId = _requiredString(actionRow['id'], 'action_id');
       final dueAt = _dateTimeValue(actionRow['due_at']);
       actions.add(
@@ -1111,10 +1132,8 @@ class SupabaseLearningRepository implements LearningRepository {
     });
 
     final evidence = <WorkspaceEvidence>[];
-    for (final evidenceRow in evidenceRows) {
-      if (evidenceRow['learning_case_id'] != caseId) {
-        continue;
-      }
+    for (final evidenceRow
+        in evidenceRows[caseId] ?? const <Map<String, dynamic>>[]) {
       evidence.add(
         WorkspaceEvidence(
           id: _requiredString(evidenceRow['id'], 'evidence_id'),
@@ -1132,10 +1151,8 @@ class SupabaseLearningRepository implements LearningRepository {
     evidence.sort((left, right) => right.observedAt.compareTo(left.observedAt));
 
     final interventions = <WorkspaceIntervention>[];
-    for (final interventionRow in interventionRows) {
-      if (interventionRow['learning_case_id'] != caseId) {
-        continue;
-      }
+    for (final interventionRow
+        in interventionRows[caseId] ?? const <Map<String, dynamic>>[]) {
       interventions.add(
         WorkspaceIntervention(
           id: _requiredString(interventionRow['id'], 'intervention_id'),
@@ -1156,10 +1173,8 @@ class SupabaseLearningRepository implements LearningRepository {
     );
 
     final assessments = <WorkspaceAssessment>[];
-    for (final assessmentRow in assessmentRows) {
-      if (assessmentRow['learning_case_id'] != caseId) {
-        continue;
-      }
+    for (final assessmentRow
+        in assessmentRows[caseId] ?? const <Map<String, dynamic>>[]) {
       assessments.add(
         WorkspaceAssessment(
           id: _requiredString(assessmentRow['id'], 'assessment_id'),
@@ -1181,10 +1196,8 @@ class SupabaseLearningRepository implements LearningRepository {
     );
 
     final timeline = <WorkspaceTimelineEvent>[];
-    for (final eventRow in eventRows) {
-      if (eventRow['learning_case_id'] != caseId) {
-        continue;
-      }
+    for (final eventRow
+        in eventRows[caseId] ?? const <Map<String, dynamic>>[]) {
       final eventType = _stringValue(eventRow['event_type']) ?? 'event';
       timeline.add(
         WorkspaceTimelineEvent(
@@ -1254,15 +1267,24 @@ class SupabaseLearningRepository implements LearningRepository {
     );
   }
 
-  Map<String, dynamic>? _currentEnrollment(
+  Map<String, List<Map<String, dynamic>>> _groupRowsByKey(
     List<Map<String, dynamic>> rows,
-    String studentId,
+    String key,
   ) {
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final row in rows) {
+      final value = row[key];
+      if (value is! String || value.isEmpty) {
+        continue;
+      }
+      grouped.putIfAbsent(value, () => <Map<String, dynamic>>[]).add(row);
+    }
+    return grouped;
+  }
+
+  Map<String, dynamic>? _currentEnrollment(List<Map<String, dynamic>> rows) {
     final today = DateTime.now().toUtc();
     final candidates = rows.where((row) {
-      if (row['student_id'] != studentId) {
-        return false;
-      }
       final startsOn = _dateOnlyValue(row['starts_on']);
       final endsOn = _dateOnlyValue(row['ends_on']);
       return startsOn == null ||
