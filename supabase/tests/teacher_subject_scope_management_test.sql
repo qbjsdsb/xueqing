@@ -322,6 +322,8 @@ select throws_ok(
   'cross organization membership cannot receive a scope'
 );
 
+reset role;
+
 insert into public.student_teacher_assignments (
   id,
   organization_id,
