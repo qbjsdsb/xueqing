@@ -180,6 +180,15 @@ String? organizationInvitationErrorMessage(Object error) {
     return null;
   }
   return switch (detail.toLowerCase()) {
+    'invalid_invitation_input' => '邀请信息不完整，请检查邮箱和角色。',
+    'invalid_live_session' => '登录状态已失效，请重新登录。',
+    'organization_manager_required' => '当前账号没有本机构管理权限。',
+    'organization_owner_required' => '这项操作需要负责人确认。',
+    'role_not_allowed' => '当前账号不能邀请这个角色。',
+    'invitee_already_member' => '这个账号已经是本机构成员。',
+    'invitation_already_exists' => '这个邮箱已有相同角色的待处理邀请。',
+    'invitation_not_awaiting_approval' => '这条邀请已经变化，请刷新后再试。',
+    'invitation_not_revocable' => '这条邀请已经不能撤销。',
     'invitation_not_found' => '邀请代码无效，请确认代码完整且仍在有效期内。',
     'invitation_not_approved' => '该负责人邀请还在等待现有负责人的审批。',
     'invitation_not_available' => '该邀请已被使用或撤销。',
