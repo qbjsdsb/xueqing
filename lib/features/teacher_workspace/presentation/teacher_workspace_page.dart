@@ -551,8 +551,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         }
 
         final workspace = snapshot.data!;
-        if (!workspace.hasTeachingAccess &&
-            !workspace.canManageOrganization) {
+        if (!workspace.hasTeachingAccess && !workspace.canManageOrganization) {
           if (workspace.canManageCaseTypes &&
               workspace.organizationId != null) {
             return _WorkspaceStatusScaffold(
@@ -608,8 +607,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       return _buildStudentDetail(_selectedStudent!, sizeClass);
     }
     final managementIndex = workspace.hasTeachingAccess ? 2 : 0;
-    if (workspace.canManageOrganization &&
-        _selectedIndex == managementIndex) {
+    if (workspace.canManageOrganization && _selectedIndex == managementIndex) {
       return _buildManagement(workspace);
     }
     if (!workspace.hasTeachingAccess) {
