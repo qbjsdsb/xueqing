@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-**Phase 0B.0 release hardening｜邀请安全与生产配置边界验证**
+**Phase 0B.0 release hardening｜学生任课关系交接与生产运行边界验证**
 
 Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、本地存储、零成本云端开发、恢复与运行风险已完成正式开发前审计。
 
-`main` 当前停在 `cd6f78e`（Phase 0B.0-C）。当前开发线是 `phase0b0f/production-config-hardening`（Draft PR #29），串接 `phase0b0f/invitation-live-session-guard`（Draft PR #28）和 `phase0b0f/release-hardening`；它们都要经过审阅、CI 和人工验收后再合并。本阶段继续使用虚构数据，不承载真实学生、家长或教师隐私材料。
+`main` 当前停在 `cd6f78e`（Phase 0B.0-C）。当前验证线是 `phase0b0f/runtime-boundary-hardening`（Draft PR #41），建立在学生任课关系交接 PR #40 及其前置管理能力之上；串联 Draft PR 必须按依赖顺序审阅、通过 CI 和人工验收后再合并。本阶段继续使用虚构数据，不承载真实学生、家长或教师隐私材料。
 
 当前开发线已经包含：
 
@@ -23,22 +23,22 @@ Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、
 
 以当前仓库和远端开发项目的实时状态为准：
 
-- `main` HEAD 为 `cd6f78e`，已合并到 Phase 0B.0-C；最新开发验证线继续在 `phase0b0f/release-hardening` 及其串联 Draft PR 上推进。
-- [PR #28](https://github.com/qbjsdsb/xueqing/pull/28)：邀请接受前检查 JWT `session_id` 是否仍存在于 `auth.sessions`；Supabase 冷重建、RLS、旧 token 和新增 pgTAP 回归均通过。它的 K migration 尚未应用到远端。
-- [PR #29](https://github.com/qbjsdsb/xueqing/pull/29)：生产配置要求 Supabase endpoint 且必须 HTTPS；生产环境隐藏虚构数据预览、云端探针和路由自检；Flutter lockfile、Dart format、`flutter analyze`、`flutter test` 全部通过（run `33851361604`）。
-- Supabase `xueqing-dev`（`ap-southeast-1`）当前已应用到 `20260904065220 phase_0b_0_j_invitation_expiry_reinvite_fix`；表结构仍是开发验证数据，未作为 Production schema 授权。
-- 当前 Remote Advisor 快照为 security 21（3 条 RLS 无 policy INFO、17 条 authenticated SECURITY DEFINER WARN、1 条 leaked password protection WARN），performance 55（38 条未索引外键、17 条 unused index，均为 INFO）。这些是待审计和治理信号，不能机械地全部关闭或全部加索引。
-- 本轮没有改动 `main`、没有应用远端 migration、没有写入任何真实学生、家长或教师数据。
+- main HEAD 为 cd6f78e，仍是 Phase 0B.0-C；当前验证线为 PR #41，HEAD 为 4dbfd6，仍是 Draft。
+- PR #40 已完成学生任课关系的原子交接：迁移、管理员权限、版本并发、幂等、跨机构 / 跨学科负面测试，以及 Flutter 管理界面均已加入；Flutter run 33885955988、Supabase run 33885956023 均通过。
+- PR #41 已加入 release 环境显式声明、Production HTTPS、精确 host allowlist、禁止凭据 / 路径 / query / fragment 的 endpoint 校验，以及开发 release 的显式 opt-in。最近一次 Flutter run 33887891047 已通过；Android / Windows 平台 smoke run 33887891051 在本记录生成时仍在运行，完成后还需检查 artifact。
+- Supabase xueqing-dev（ap-southeast-1）当前仍应用到 20260904065220 phase_0b_0_j_invitation_expiry_reinvite_fix；PR #40 的学生任课交接 migration 尚未应用到远端，PR #41 也没有远端 migration。
+- 当前所有数据仍为虚构开发数据；本轮没有改动 main、没有应用远端 migration、没有写入任何真实学生、家长或教师数据。
 
 当前 Android / Windows 包只连接虚构的 Remote Development；它们不是 Production 包，也不代表真实数据上线许可。
 ### Production 边界仍未开放
 
 P0 Gate A / B 的身份可移植性与撤销 Session / 旧 token spike 证据已经存在，但这只证明开发验证范围内的风险被测试过，不等于 Production provider、业务 migration 或真实数据上线获批。
 
-- Production provider、region、identity/session strategy 仍未最终冻结。
-- PR #28 / #29 仍是 Draft，必须先审阅、按顺序合并，再分别完成远端 migration 与人工设备验收。
-- `xueqing-dev` 仍只允许虚构或严格脱敏数据；K migration、leaked password protection、security definer 逐函数复核和完整 Advisor 处置仍待完成。
-- Production signing、正式发布渠道、升级兼容窗口、真实机构网络 / 真机验收、备份恢复演练和 Go / No-Go 仍未完成。
+- 当前串联开发线为 PR #39 → PR #40 → PR #41；它们都是 Draft，必须先按依赖顺序审阅并合并，不能把分支上的功能当成 main 已交付。
+- PR #40 的数据库 migration 尚未部署到 xueqing-dev；PR #41 只是客户端运行边界，不包含 Production schema、Auth 用户开通或真实数据授权。
+- Release 构建必须显式声明 XUEQING_ENV；Production 还必须使用 HTTPS，并把 URL host 放进精确的 XUEQING_SUPABASE_ALLOWED_HOSTS，不接受通配符。开发 release 必须显式设置 XUEQING_ALLOW_DEVELOPMENT_RELEASE=true。
+- leaked password protection、SECURITY DEFINER 逐函数复核、intentional no-policy 表说明、迁移 drift、真实设备 / 网络、备份恢复和 Go / No-Go 仍待完成。
+- Production provider、region、identity/session strategy、signing、正式发布渠道和升级兼容窗口仍未最终冻结。
 - Realtime、家校端、报告、AI 正式诊断、复杂 offline-first / CRDT 等不属于当前迭代。
 
 > 在 Phase 0 的权限、安全、恢复、网络与合规 Go / No-Go 通过前，只允许使用虚构或严格脱敏数据，不录入真实学生、家长或教师隐私材料。
@@ -336,10 +336,10 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 
 ## 当前推进顺序
 
-1. 先审阅并按顺序合并 PR #28 → PR #29；保留 migration 冷重建、RLS、旧 token 和 Flutter CI 证据。
-2. 合并后只在虚构的 `xueqing-dev` 走受控 migration，应用 K、重新跑安全 / 性能 Advisor 和 Remote smoke，并记录 migration drift。
-3. 完成 Android / Windows 的真实点击验收：登录、重启恢复、退出、账号切换、双教师隔离、邀请边界、时区跨午夜、网络失败和草稿恢复。
-4. 补齐 Case 真正闭环：Action 完成 / 改期 / 取消，以及 `stabilize`、`close`、`reopen`；保持“问题 → 证据 → 干预 → 验证 → 下一行动”的教学逻辑。
+1. 先完成 PR #41 当前 CI 与平台 artifact 核查，再按依赖顺序审阅并合并 PR #39 → PR #40 → PR #41；不跳过 Draft、测试或人工验收。
+2. 合并后只在虚构的 xueqing-dev 走受控 migration，核对 migration history、schema、RLS、RPC、Advisor 和 Remote smoke；记录本地 / 远端 drift。
+3. 完成 Android / Windows 真实点击验收：登录、重启恢复、退出、账号切换、双教师隔离、任课交接、邀请边界、时区跨午夜、网络失败和草稿恢复。
+4. 补齐 Case 真正闭环：Action 完成 / 改期 / 取消，以及 stabilize、close、reopen；保持“问题 → 证据 → 干预 → 验证 → 下一行动”的教学逻辑。
 5. 再补机构初始化能力：学生 / 学科 / 教师范围 / 学生分配、正式 onboarding、重置、停用和账号交接。
 6. 完成 DB / Auth / Storage recovery drill 与 Production Go / No-Go；在此之前不接入真实未成年人数据，也不扩展到 AI、家校和大型报表。
 

@@ -91,21 +91,23 @@
 
 ### 当前 Gate 证据
 
-以下 `[x]` 表示当前开发线或 CI 已有可复核证据，不表示 Production 已获批：
+以下 [x] 表示当前开发线或 CI 已有可复核证据，不表示 Production 已获批：
 
 - [x] P0 Gate A — Auth Identity Portability（PR #17，18/18 identity contract assertions）
 - [x] P0 Gate B — Revoked Session / Old Token（PR #15 remote harness + device evidence）
 - [x] 业务身份解耦契约已由 ADR-046 冻结
-- [x] `supabase/`、migrations、fictional seed、DB / RLS / function tests 已在开发线建立并通过冷重建
+- [x] supabase/、migrations、fictional seed、DB / RLS / function tests 已在开发线建立并通过冷重建
 - [x] workspace read model、custom case types、organization leadership / invites、invitation expiry / re-invite 已在开发线建立；远端当前应用到 migration J
 - [x] 普通业务的 live-session / membership / role / assignment 授权回归已存在
-- [x] PR #28 增加 invitation acceptance 的 live-session guard；SQL 冷重建和 pgTAP 已通过，K migration 仍待审阅、合并和远端应用
-- [x] PR #29 增加 production endpoint 配置 / HTTPS fail-closed 和开发入口隔离；Flutter CI 已通过
-- [ ] PR #28 → PR #29 审阅、合并和远端 migration drift 复核
+- [x] PR #39 已形成教师学科范围与成员管理能力（仍待串联审阅 / 合并）
+- [x] PR #40 已形成学生任课关系原子交接：数据库命令、版本并发、幂等、权限负面测试和 Flutter 管理入口（Flutter / Supabase CI 通过；仍待合并和远端 migration）
+- [x] PR #41 已形成 release 环境显式声明、Production HTTPS + exact host allowlist、开发 release 显式 opt-in 和配置 / bootstrap 回归测试（Flutter CI 通过；平台 smoke 待 artifact 核验）
+- [ ] PR #39 → PR #40 → PR #41 审阅、合并和远端 migration drift 复核
 - [ ] 逐函数复核 SECURITY DEFINER、开启 leaked password protection、解释 3 个 intentional no-policy 表
 - [ ] 根据真实规模虚构数据和执行计划决定是否补外键索引；不机械处理 38 个 Advisor INFO
 - [ ] Production provider / region / session strategy 最终冻结
 - [ ] 无代理机构网络、Storage、backup/restore 与 Go/No-Go
+
 ### 第一批基础 schema（以当前 migrations / 实际 schema 名称为准）
 - [x] `app_users` + `identity_links` provider-neutral identity
 - [x] `organizations` + `organizations.time_zone`（IANA timezone）
@@ -356,7 +358,7 @@
 - [ ] active lead 唯一性
 - [ ] 学生搜索 / 重复提示
 - [ ] 当前 / 历史负责人
-- [ ] 教师交接
+- [x] 教师交接（开发线 PR #40；待审阅、合并、远端 migration 和设备验收）
 - [ ] student merge record
 
 验收：同一真实学生只有一个 student_id；升年级 / 换老师不丢历史；学管不伪装成学科教师。

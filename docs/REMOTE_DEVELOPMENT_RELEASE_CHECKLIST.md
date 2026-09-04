@@ -2,6 +2,16 @@
 
 这份清单用于把客户端代码、Supabase migration 和远程开发库保持在同一个可验证状态。当前 Remote Development 只允许使用虚构数据；它不是 Production 发布流程。
 
+## 客户端运行边界（当前已实现）
+
+PR #41 把运行环境边界做成了可验证的启动 / 连接约束。它不是 Production provider 或业务上线授权，但所有后续 release 构建都必须遵守：
+
+- Development debug：显式使用 XUEQING_ENV=development 和虚构开发 endpoint。
+- Development release：除开发 endpoint 外，还必须显式传入 XUEQING_ALLOW_DEVELOPMENT_RELEASE=true；没有这个 opt-in，release build fail closed。
+- Production：必须显式传入 XUEQING_ENV=production、HTTPS endpoint、publishable key 和 XUEQING_SUPABASE_ALLOWED_HOSTS；allowlist 只接受精确 host，不接受通配符、凭据、路径、query 或 fragment。
+- Production 不允许依赖默认 development；缺少环境声明、host allowlist 或 HTTPS 时，启动 / 连接校验直接失败。
+- 当前 CI 的 Android / Windows smoke 只验证虚构开发构建能够打包；它不证明 Production provider、签名、真实网络、迁移或数据安全已经通过。
+
 ## 什么时候使用
 
 在以下任一情况后使用一次：
