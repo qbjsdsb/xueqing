@@ -115,6 +115,7 @@ class _OrganizationTeacherSubjectScopeDialogState
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedMembershipId,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: '老师'),
                   items: [
                     for (final teacher in widget.teachers)
@@ -124,6 +125,8 @@ class _OrganizationTeacherSubjectScopeDialogState
                           teacher.email.isEmpty
                               ? teacher.displayName
                               : '${teacher.displayName} · ${teacher.email}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                   ],
@@ -132,12 +135,17 @@ class _OrganizationTeacherSubjectScopeDialogState
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedSubjectId,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: '学科'),
                   items: [
                     for (final subject in availableSubjects)
                       DropdownMenuItem<String>(
                         value: subject.id,
-                        child: Text(subject.displayName),
+                        child: Text(
+                          subject.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                   ],
                   validator: (value) => value == null ? '当前老师没有可配置的学科。' : null,

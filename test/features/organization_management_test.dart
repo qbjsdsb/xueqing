@@ -544,7 +544,9 @@ void main() {
     await _pumpManagement(tester, repository);
 
     expect(find.text('原学生'), findsOneWidget);
-    await tester.tap(find.text('编辑'));
+    final editButton = find.text('编辑');
+    await tester.ensureVisible(editButton);
+    await tester.tap(editButton);
     await tester.pumpAndSettle();
 
     expect(find.text('编辑学生'), findsOneWidget);
