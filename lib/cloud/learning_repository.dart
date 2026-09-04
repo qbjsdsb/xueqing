@@ -126,6 +126,7 @@ class WorkspaceAction {
     required this.status,
     required this.isPrimary,
     required this.bucket,
+    required this.version,
     this.dueAt,
   });
 
@@ -136,6 +137,7 @@ class WorkspaceAction {
   final WorkspaceActionStatus status;
   final bool isPrimary;
   final WorkspaceActionBucket bucket;
+  final int version;
   final DateTime? dueAt;
 }
 
@@ -589,6 +591,34 @@ class CloseCaseCommand {
   }
 }
 
+class RescheduleCaseActionCommand {
+  const RescheduleCaseActionCommand({
+    required this.operationId,
+    required this.actionId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.expectedActionVersion,
+    required this.dueOn,
+  });
+
+  final String operationId;
+  final String actionId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final int expectedActionVersion;
+  final DateTime? dueOn;
+
+  void validate() {
+    _validateActionCommandIdentity(
+      operationId: operationId,
+      actionId: actionId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+      expectedActionVersion: expectedActionVersion,
+    );
+  }
+}
+
 abstract interface class LearningRepository {
   Future<TeacherWorkspace> loadWorkspace();
 
@@ -622,6 +652,10 @@ abstract interface class LearningRepository {
   Future<CaseCommandReceipt> stabilizeCase(StabilizeCaseCommand command);
 
   Future<CaseCommandReceipt> closeCase(CloseCaseCommand command);
+
+  Future<CaseCommandReceipt> rescheduleCaseAction(
+    RescheduleCaseActionCommand command,
+  );
 }
 
 class SupabaseLearningRepository implements LearningRepository {
@@ -799,7 +833,8 @@ class SupabaseLearningRepository implements LearningRepository {
         _client
             .from('case_actions')
             .select(
-              'id,learning_case_id,action_type,title,due_at,is_primary,status',
+              'id,learning_case_id,action_type,title,due_at,is_primary,'
+              'status,version',
             )
             .eq('organization_id', organizationId),
         expectedUserId,
@@ -1151,6 +1186,24 @@ class SupabaseLearningRepository implements LearningRepository {
     );
   }
 
+  @override
+  Future<CaseCommandReceipt> rescheduleCaseAction(
+    RescheduleCaseActionCommand command,
+  ) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'reschedule_case_action',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_action_id': command.actionId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_expected_action_version': command.expectedActionVersion,
+        'p_due_on': _dateOnlyString(command.dueOn),
+      },
+    );
+  }
+
   Future<CaseCommandReceipt> _invokeCaseCommand({
     required String functionName,
     required Map<String, dynamic> params,
@@ -1202,6 +1255,7 @@ class SupabaseLearningRepository implements LearningRepository {
           actionType: _stringValue(actionRow['action_type']) ?? 'other',
           status: _actionStatusFromWire(actionRow['status']),
           isPrimary: actionRow['is_primary'] == true,
+          version: _requiredInt(actionRow['version'], 'action_version'),
           bucket: bucketByActionId[actionId] ?? _fallbackBucketForDueAt(dueAt),
           dueAt: dueAt,
         ),
@@ -1419,10 +1473,40 @@ void _validateCaseCommandIdentity({
   }
 }
 
+void _validateActionCommandIdentity({
+  required String operationId,
+  required String actionId,
+  required String caseId,
+  required int expectedCaseVersion,
+  required int expectedActionVersion,
+}) {
+  _validateCaseCommandIdentity(
+    operationId: operationId,
+    caseId: caseId,
+    expectedCaseVersion: expectedCaseVersion,
+  );
+  if (actionId.trim().isEmpty) {
+    throw ArgumentError('actionId cannot be empty.');
+  }
+  if (expectedActionVersion <= 0) {
+    throw ArgumentError('expectedActionVersion must be positive.');
+  }
+}
+
 void _validateNextActionTitle(String value) {
   if (value.trim().isEmpty) {
     throw ArgumentError('nextActionTitle cannot be empty.');
   }
+}
+
+String? _dateOnlyString(DateTime? value) {
+  if (value == null) {
+    return null;
+  }
+  final year = value.year.toString().padLeft(4, '0');
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
 }
 
 String? _utcIso8601(DateTime? value) => value?.toUtc().toIso8601String();
