@@ -2,8 +2,6 @@ name: Package Windows app
 
 on:
   workflow_dispatch:
-windows.yml"
-  workflow_dispatch:
     inputs:
       supabase_url:
         description: "Optional Supabase URL"

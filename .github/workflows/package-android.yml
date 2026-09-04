@@ -2,8 +2,6 @@ name: Package Android APK
 
 on:
   workflow_dispatch:
-android.yml"
-  workflow_dispatch:
     inputs:
       supabase_url:
         description: "Optional Supabase URL"
