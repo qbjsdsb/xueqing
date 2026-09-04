@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:xueqing/cloud/organization_management_repository.dart';
 
 void main() {
@@ -45,4 +46,17 @@ void main() {
       );
     },
   );
+
+  test('maps invitation authorization errors to actionable copy', () {
+    expect(
+      organizationInvitationErrorMessage(
+        const AuthException('invitation_email_mismatch'),
+      ),
+      '当前登录邮箱与邀请邮箱不一致。',
+    );
+    expect(
+      organizationInvitationErrorMessage(const FormatException('other')),
+      isNull,
+    );
+  });
 }
