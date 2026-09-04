@@ -288,11 +288,13 @@ select lives_ok(
 
 select is(
   (
-    select status
-    from public.organization_invitations
-    where id = (
+    select invitation ->> 'status'
+    from public.list_organization_invitations(
+      '00000000-0000-0000-0000-000000000002'
+    ) as invitation
+    where invitation ->> 'id' = (
       current_setting('xueqing.owner_invite')::jsonb ->> 'id'
-    )::uuid
+    )
   ),
   'pending',
   'approved nominations become available for acceptance'
