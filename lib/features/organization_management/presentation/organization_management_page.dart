@@ -9,6 +9,7 @@ import '../../../cloud/organization_management_repository.dart';
 import 'organization_student_edit_dialog.dart';
 import 'organization_student_setup_dialog.dart';
 import 'organization_subject_setup_dialog.dart';
+import 'organization_teacher_subject_scope_dialog.dart';
 
 class OrganizationManagementPage extends StatefulWidget {
   const OrganizationManagementPage({
@@ -72,6 +73,9 @@ class _OrganizationManagementPageState
       widget.repository.listSubjectCatalog(
         organizationId: widget.organizationId,
       ),
+      widget.repository.listTeacherSubjectScopes(
+        organizationId: widget.organizationId,
+      ),
     ]);
     return _OrganizationManagementSnapshot(
       members: result[0] as List<OrganizationMember>,
@@ -79,6 +83,8 @@ class _OrganizationManagementPageState
       students: result[2] as List<OrganizationStudentRecord>,
       setupOptions: result[3] as OrganizationSetupOptions,
       subjectCatalog: result[4] as List<OrganizationSubjectCatalogItem>,
+      teacherSubjectScopes:
+          result[5] as List<OrganizationTeacherSubjectScope>,
     );
   }
 
@@ -142,6 +148,109 @@ class _OrganizationManagementPageState
         setState(() => _busy = false);
       }
     }
+  }
+
+  Future<void> _addTeacherScope() async {
+    if (_busy) {
+      return;
+    }
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) {
+        return;
+      }
+      final teachers = snapshot.setupOptions.teachers;
+      final subjects = snapshot.setupOptions.subjects;
+      if (teachers.isEmpty || subjects.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先配置至少一个在岗老师和一个活跃学科。')),
+        );
+        return;
+      }
+      final activeScopeKeys = <String>{
+        for (final scope in snapshot.teacherSubjectScopes)
+          if (scope.isActive)
+            _teacherScopeKey(scope.membershipId, scope.organizationSubjectId),
+      };
+      final hasAvailablePair = teachers.any(
+        (teacher) => subjects.any(
+          (subject) => !activeScopeKeys.contains(
+            _teacherScopeKey(teacher.membershipId, subject.id),
+          ),
+        ),
+      );
+      if (!hasAvailablePair) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('目前所有老师与学科组合都已配置教学范围。')),
+        );
+        return;
+      }
+      final draft =
+          await showDialog<OrganizationTeacherSubjectScopeDraft>(
+            context: context,
+            builder: (context) => OrganizationTeacherSubjectScopeDialog(
+              teachers: teachers,
+              subjects: subjects,
+              activeScopeKeys: activeScopeKeys,
+            ),
+          );
+      if (!mounted || draft == null) {
+        return;
+      }
+      await _runMutation(
+        () => widget.repository.updateTeacherSubjectScope(
+          operationId: draft.operationId,
+          organizationId: widget.organizationId,
+          membershipId: draft.membershipId,
+          organizationSubjectId: draft.organizationSubjectId,
+          status: 'active',
+        ),
+        '已为 ${draft.teacherName} 配置 ${draft.subjectName} 教学范围。',
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = _describeError(error));
+      }
+    }
+  }
+
+  Future<void> _toggleTeacherScope(
+    OrganizationTeacherSubjectScope scope,
+  ) async {
+    if (_busy) {
+      return;
+    }
+    final ending = scope.isActive;
+    if (!ending && scope.membershipStatus != 'active') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('成员恢复后才能重新启用教学范围。')),
+      );
+      return;
+    }
+    final confirmed = await _confirm(
+      title: ending ? '停用教学范围？' : '重新启用教学范围？',
+      message: ending
+          ? '停用后不会自动转交学生任课、开放案件或待办行动；如果仍有这些事项，系统会拒绝操作并保留当前范围。'
+          : '重新启用会创建新的教学范围区间，不会自动恢复历史学生任课关系；请按需重新配置学生分配。',
+      confirmLabel: ending ? '停用教学范围' : '重新启用',
+    );
+    if (!mounted || !confirmed) {
+      return;
+    }
+    await _runMutation(
+      () => widget.repository.updateTeacherSubjectScope(
+        operationId: createOperationId(),
+        organizationId: widget.organizationId,
+        membershipId: scope.membershipId,
+        organizationSubjectId: scope.organizationSubjectId,
+        scopeId: ending ? scope.scopeId : null,
+        expectedScopeVersion: ending ? scope.version : null,
+        status: ending ? 'ended' : 'active',
+      ),
+      ending
+          ? '已结束 ${scope.teacherName} 的 ${scope.subjectName} 教学范围。'
+          : '已重新启用 ${scope.teacherName} 的 ${scope.subjectName} 教学范围。',
+    );
   }
 
   Future<void> _addStudent() async {
@@ -484,6 +593,10 @@ class _OrganizationManagementPageState
   }
 
   String _describeError(Object error) {
+    final teacherScopeError = organizationTeacherSubjectScopeErrorMessage(error);
+    if (teacherScopeError != null) {
+      return teacherScopeError;
+    }
     final subjectSetupError = organizationSubjectSetupErrorMessage(error);
     if (subjectSetupError != null) {
       return subjectSetupError;
@@ -543,6 +656,11 @@ class _OrganizationManagementPageState
                       label: const Text('问题类型'),
                     ),
                   OutlinedButton.icon(
+                    onPressed: _busy ? null : _addTeacherScope,
+                    icon: const Icon(Icons.rule_outlined),
+                    label: const Text('配置教学范围'),
+                  ),
+                  OutlinedButton.icon(
                     onPressed: _busy ? null : _addSubject,
                     icon: const Icon(Icons.menu_book_outlined),
                     label: const Text('添加学科'),
@@ -592,6 +710,8 @@ class _OrganizationManagementPageState
                     onRevoke: _revokeInvitation,
                     onEditStudent: _editStudent,
                     onToggleMemberStatus: _toggleMemberStatus,
+                    onAddTeacherScope: _addTeacherScope,
+                    onToggleTeacherScope: _toggleTeacherScope,
                   );
                 },
               ),
@@ -610,6 +730,7 @@ class _OrganizationManagementSnapshot {
     required this.students,
     required this.setupOptions,
     required this.subjectCatalog,
+    required this.teacherSubjectScopes,
   });
 
   final List<OrganizationMember> members;
@@ -617,6 +738,7 @@ class _OrganizationManagementSnapshot {
   final List<OrganizationStudentRecord> students;
   final OrganizationSetupOptions setupOptions;
   final List<OrganizationSubjectCatalogItem> subjectCatalog;
+  final List<OrganizationTeacherSubjectScope> teacherSubjectScopes;
 }
 
 class _ManagementContent extends StatelessWidget {
@@ -628,6 +750,8 @@ class _ManagementContent extends StatelessWidget {
     required this.onRevoke,
     required this.onEditStudent,
     required this.onToggleMemberStatus,
+    required this.onAddTeacherScope,
+    required this.onToggleTeacherScope,
   });
 
   final _OrganizationManagementSnapshot snapshot;
@@ -637,12 +761,20 @@ class _ManagementContent extends StatelessWidget {
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
   final Future<void> Function(OrganizationStudentRecord student) onEditStudent;
   final Future<void> Function(OrganizationMember member) onToggleMemberStatus;
+  final VoidCallback onAddTeacherScope;
+  final Future<void> Function(OrganizationTeacherSubjectScope scope)
+      onToggleTeacherScope;
 
   @override
   Widget build(BuildContext context) {
     final pendingApprovals = snapshot.invitations
         .where((invitation) => invitation.isAwaitingOwnerApproval)
         .length;
+    final activeTeacherScopeCount = snapshot.teacherSubjectScopes
+        .where((scope) => scope.isActive)
+        .length;
+    final latestEndedScopeIds =
+        _latestEndedTeacherScopeIds(snapshot.teacherSubjectScopes);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -687,6 +819,34 @@ class _ManagementContent extends StatelessWidget {
         _ManagementSetupHint(
           options: snapshot.setupOptions,
           subjectCatalog: snapshot.subjectCatalog,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _ManagementSection(
+          title: '教师教学范围',
+          count: '${activeTeacherScopeCount} 条有效',
+          child: snapshot.teacherSubjectScopes.isEmpty
+              ? _ManagementEmptyState(
+                  title: '还没有教师教学范围',
+                  message: '给在岗老师配置可教学科；停用范围前必须先完成现有关系交接。',
+                  icon: Icons.rule_outlined,
+                  action: TextButton.icon(
+                    onPressed: busy ? null : onAddTeacherScope,
+                    icon: const Icon(Icons.add),
+                    label: const Text('配置第一条'),
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (final scope in snapshot.teacherSubjectScopes)
+                      _TeacherSubjectScopeTile(
+                        scope: scope,
+                        busy: busy,
+                        showReactivate:
+                            latestEndedScopeIds.contains(scope.scopeId),
+                        onToggle: () => onToggleTeacherScope(scope),
+                      ),
+                  ],
+                ),
         ),
         const SizedBox(height: AppSpacing.lg),
         _ManagementSection(
@@ -777,6 +937,125 @@ class _ManagementContent extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _TeacherSubjectScopeTile extends StatelessWidget {
+  const _TeacherSubjectScopeTile({
+    required this.scope,
+    required this.busy,
+    required this.showReactivate,
+    required this.onToggle,
+  });
+
+  final OrganizationTeacherSubjectScope scope;
+  final bool busy;
+  final bool showReactivate;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final action = scope.isActive
+        ? TextButton.icon(
+            onPressed: busy ? null : onToggle,
+            icon: const Icon(Icons.pause_circle_outline, size: 18),
+            label: const Text('停用教学范围'),
+          )
+        : showReactivate && scope.membershipStatus == 'active'
+        ? TextButton.icon(
+            onPressed: busy ? null : onToggle,
+            icon: const Icon(Icons.play_circle_outline, size: 18),
+            label: const Text('重新启用'),
+          )
+        : null;
+    final period = scope.isActive
+        ? '生效于 ${_formatDateOnly(scope.activeFrom)}'
+        : '结束于 ${_formatDateOnly(scope.activeTo)}';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(AppRadii.medium),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: scope.isActive
+                ? colorScheme.primaryContainer
+                : colorScheme.surfaceContainerHighest,
+            foregroundColor: scope.isActive
+                ? colorScheme.onPrimaryContainer
+                : colorScheme.onSurfaceVariant,
+            child: Icon(
+              scope.isActive
+                  ? Icons.rule_outlined
+                  : Icons.history_outlined,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${scope.teacherName} · ${scope.subjectName}',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  scope.teacherEmail.isEmpty
+                      ? '学科代码：${scope.subjectCode}'
+                      : '${scope.teacherEmail} · 学科代码：${scope.subjectCode}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xxs,
+                  children: [
+                    _ManagementStatusChip(
+                      label: _teacherScopeStatusLabel(scope.status),
+                      isPositive: scope.isActive,
+                    ),
+                    _ManagementStatusChip(
+                      label: _membershipStatusLabel(scope.membershipStatus),
+                      isPositive: scope.membershipStatus == 'active',
+                    ),
+                    _ManagementRoleChip(label: '版本 ${scope.version}'),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(period, style: Theme.of(context).textTheme.bodySmall),
+                if (!scope.isActive &&
+                    scope.membershipStatus != 'active') ...[
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    '成员已停用；恢复成员后才能重新配置教学范围。',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                if (action != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: action,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1538,6 +1817,50 @@ class _ManagementErrorText extends StatelessWidget {
       ),
     );
   }
+}
+
+String _teacherScopeKey(String membershipId, String subjectId) =>
+    '$membershipId|$subjectId';
+
+Set<String> _latestEndedTeacherScopeIds(
+  List<OrganizationTeacherSubjectScope> scopes,
+) {
+  final latestByKey = <String, OrganizationTeacherSubjectScope>{};
+  for (final scope in scopes) {
+    if (!scope.isEnded || scope.membershipStatus != 'active') {
+      continue;
+    }
+    final key = _teacherScopeKey(
+      scope.membershipId,
+      scope.organizationSubjectId,
+    );
+    final current = latestByKey[key];
+    if (current == null ||
+        (scope.activeTo != null &&
+            (current.activeTo == null ||
+                !scope.activeTo!.isBefore(current.activeTo!))) ||
+        (scope.activeTo == current.activeTo &&
+            scope.scopeId.compareTo(current.scopeId) > 0)) {
+      latestByKey[key] = scope;
+    }
+  }
+  return latestByKey.values.map((scope) => scope.scopeId).toSet();
+}
+
+String _teacherScopeStatusLabel(String status) {
+  return switch (status) {
+    'active' => '有效',
+    'ended' => '已结束',
+    _ => '状态未知',
+  };
+}
+
+String _formatDateOnly(DateTime? value) {
+  if (value == null) {
+    return '—';
+  }
+  return '${value.year}-${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
 }
 
 String _roleSummary(List<String> roles) {
