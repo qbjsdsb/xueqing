@@ -189,6 +189,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('负责人'), findsAtLeastNWidgets(1));
+      await tester.tap(
+        find.byType(DropdownButtonFormField<OrganizationInvitationRole>()),
+      );
+      await tester.pumpAndSettle();
       expect(find.text('老师'), findsOneWidget);
       expect(find.text('管理员'), findsNothing);
     },
