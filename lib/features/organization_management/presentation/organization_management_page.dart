@@ -10,6 +10,7 @@ import 'organization_student_edit_dialog.dart';
 import 'organization_student_setup_dialog.dart';
 import 'organization_subject_setup_dialog.dart';
 import 'organization_teacher_subject_scope_dialog.dart';
+import 'organization_student_teacher_assignment_transfer_dialog.dart';
 
 class OrganizationManagementPage extends StatefulWidget {
   const OrganizationManagementPage({
@@ -76,6 +77,9 @@ class _OrganizationManagementPageState
       widget.repository.listTeacherSubjectScopes(
         organizationId: widget.organizationId,
       ),
+      widget.repository.listStudentTeacherAssignments(
+        organizationId: widget.organizationId,
+      ),
     ]);
     return _OrganizationManagementSnapshot(
       members: result[0] as List<OrganizationMember>,
@@ -84,6 +88,8 @@ class _OrganizationManagementPageState
       setupOptions: result[3] as OrganizationSetupOptions,
       subjectCatalog: result[4] as List<OrganizationSubjectCatalogItem>,
       teacherSubjectScopes: result[5] as List<OrganizationTeacherSubjectScope>,
+      studentTeacherAssignments:
+          result[6] as List<OrganizationStudentTeacherAssignment>,
     );
   }
 
@@ -248,6 +254,73 @@ class _OrganizationManagementPageState
           ? '已结束 ${scope.teacherName} 的 ${scope.subjectName} 教学范围。'
           : '已重新启用 ${scope.teacherName} 的 ${scope.subjectName} 教学范围。',
     );
+  }
+
+
+  Future<void> _transferStudentTeacherAssignment(
+    OrganizationStudentTeacherAssignment assignment,
+  ) async {
+    if (_busy) {
+      return;
+    }
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) {
+        return;
+      }
+      final activeScopeKeys = <String>{
+        for (final scope in snapshot.teacherSubjectScopes)
+          if (scope.isActive && scope.membershipStatus == 'active')
+            _teacherScopeKey(scope.membershipId, scope.organizationSubjectId),
+      };
+      final candidates = <OrganizationSetupTeacher>[
+        for (final teacher in snapshot.setupOptions.teachers)
+          if (teacher.membershipId != assignment.membershipId &&
+              activeScopeKeys.contains(
+                _teacherScopeKey(
+                  teacher.membershipId,
+                  assignment.organizationSubjectId,
+                ),
+              ))
+            teacher,
+      ];
+      if (candidates.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('当前没有具备该学科有效教学范围的在岗接收老师。'),
+          ),
+        );
+        return;
+      }
+      final draft =
+          await showDialog<OrganizationStudentTeacherAssignmentTransferDraft>(
+            context: context,
+            builder: (context) =>
+                OrganizationStudentTeacherAssignmentTransferDialog(
+                  assignment: assignment,
+                  candidates: candidates,
+                ),
+          );
+      if (!mounted || draft == null) {
+        return;
+      }
+      await _runMutation(
+        () => widget.repository.transferStudentTeacherAssignment(
+          operationId: draft.operationId,
+          organizationId: widget.organizationId,
+          assignmentId: assignment.assignmentId,
+          expectedAssignmentVersion: assignment.version,
+          replacementMembershipId: draft.replacementMembershipId,
+        ),
+        '已将 \${assignment.studentName} 的 \${assignment.subjectName} '
+        '\${_studentAssignmentRoleLabel(assignment.assignmentRole)}任课关系交接给 '
+        '\${draft.replacementTeacherName}。',
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = _describeError(error));
+      }
+    }
   }
 
   Future<void> _addStudent() async {
@@ -711,6 +784,8 @@ class _OrganizationManagementPageState
                     onToggleMemberStatus: _toggleMemberStatus,
                     onAddTeacherScope: _addTeacherScope,
                     onToggleTeacherScope: _toggleTeacherScope,
+                     onTransferStudentTeacherAssignment:
+                         _transferStudentTeacherAssignment,
                   );
                 },
               ),
@@ -730,6 +805,7 @@ class _OrganizationManagementSnapshot {
     required this.setupOptions,
     required this.subjectCatalog,
     required this.teacherSubjectScopes,
+    required this.studentTeacherAssignments,
   });
 
   final List<OrganizationMember> members;
@@ -738,6 +814,7 @@ class _OrganizationManagementSnapshot {
   final OrganizationSetupOptions setupOptions;
   final List<OrganizationSubjectCatalogItem> subjectCatalog;
   final List<OrganizationTeacherSubjectScope> teacherSubjectScopes;
+  final List<OrganizationStudentTeacherAssignment> studentTeacherAssignments;
 }
 
 class _ManagementContent extends StatelessWidget {
@@ -751,6 +828,7 @@ class _ManagementContent extends StatelessWidget {
     required this.onToggleMemberStatus,
     required this.onAddTeacherScope,
     required this.onToggleTeacherScope,
+    required this.onTransferStudentTeacherAssignment,
   });
 
   final _OrganizationManagementSnapshot snapshot;
@@ -763,6 +841,9 @@ class _ManagementContent extends StatelessWidget {
   final VoidCallback onAddTeacherScope;
   final Future<void> Function(OrganizationTeacherSubjectScope scope)
   onToggleTeacherScope;
+  final Future<void> Function(
+    OrganizationStudentTeacherAssignment assignment,
+  ) onTransferStudentTeacherAssignment;
 
   @override
   Widget build(BuildContext context) {
@@ -771,6 +852,9 @@ class _ManagementContent extends StatelessWidget {
         .length;
     final activeTeacherScopeCount = snapshot.teacherSubjectScopes
         .where((scope) => scope.isActive)
+        .length;
+    final activeAssignmentCount = snapshot.studentTeacherAssignments
+        .where((assignment) => assignment.isActive)
         .length;
     final latestEndedScopeIds = _latestEndedTeacherScopeIds(
       snapshot.teacherSubjectScopes,
@@ -845,6 +929,30 @@ class _ManagementContent extends StatelessWidget {
                           scope.scopeId,
                         ),
                         onToggle: () => onToggleTeacherScope(scope),
+                      ),
+                  ],
+                ),
+        ),
+        _ManagementSection(
+          title: '学生任课关系',
+          count: '$activeAssignmentCount 条有效',
+          child: snapshot.studentTeacherAssignments.isEmpty
+              ? const _ManagementEmptyState(
+                  title: '还没有学生任课关系',
+                  message: '添加学生后，管理员可以在这里完成主责或协作老师交接；开放案件和待办行动需要单独处理。',
+                  icon: Icons.swap_horiz_outlined,
+                )
+              : Column(
+                  children: [
+                    for (final assignment in snapshot.studentTeacherAssignments)
+                      _StudentTeacherAssignmentTile(
+                        assignment: assignment,
+                        busy: busy,
+                        onTransfer: assignment.isActive
+                            ? () => onTransferStudentTeacherAssignment(
+                                assignment,
+                              )
+                            : null,
                       ),
                   ],
                 ),
@@ -1129,6 +1237,115 @@ class _OrganizationStudentTile extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+
+class _StudentTeacherAssignmentTile extends StatelessWidget {
+  const _StudentTeacherAssignmentTile({
+    required this.assignment,
+    required this.busy,
+    required this.onTransfer,
+  });
+
+  final OrganizationStudentTeacherAssignment assignment;
+  final bool busy;
+  final VoidCallback? onTransfer;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final action = onTransfer == null
+        ? null
+        : TextButton.icon(
+            onPressed: busy ? null : onTransfer,
+            icon: const Icon(Icons.swap_horiz_outlined, size: 18),
+            label: const Text('交接老师'),
+          );
+    final period = assignment.isActive
+        ? '生效于 \${_formatDateOnly(assignment.activeFrom)}'
+        : '结束于 \${_formatDateOnly(assignment.activeTo)}';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(AppRadii.medium),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: assignment.isActive
+                ? colorScheme.primaryContainer
+                : colorScheme.surfaceContainerHighest,
+            foregroundColor: assignment.isActive
+                ? colorScheme.onPrimaryContainer
+                : colorScheme.onSurfaceVariant,
+            child: Icon(
+              assignment.isActive
+                  ? Icons.swap_horiz_outlined
+                  : Icons.history_outlined,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '\${assignment.studentName} · \${assignment.subjectName}',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  '\${_studentAssignmentRoleLabel(assignment.assignmentRole)}：'
+                  '\${assignment.teacherName}'
+                  '\${assignment.teacherEmail.isEmpty ? '' : ' · \${assignment.teacherEmail}'}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xxs,
+                  children: [
+                    _ManagementStatusChip(
+                      label: _studentAssignmentStatusLabel(assignment.status),
+                      isPositive: assignment.isActive,
+                    ),
+                    _ManagementRoleChip(
+                      label: _studentAssignmentRoleLabel(
+                        assignment.assignmentRole,
+                      ),
+                    ),
+                    _ManagementRoleChip(label: '版本 \${assignment.version}'),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(period, style: Theme.of(context).textTheme.bodySmall),
+                if (!assignment.isActive) ...[
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    '历史任课关系仅用于追溯，不会恢复教学权限。',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                if (action != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(alignment: Alignment.centerLeft, child: action),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1845,6 +2062,23 @@ Set<String> _latestEndedTeacherScopeIds(
     }
   }
   return latestByKey.values.map((scope) => scope.scopeId).toSet();
+}
+
+
+String _studentAssignmentRoleLabel(String role) {
+  return switch (role) {
+    'lead' => '主责',
+    'collaborator' => '协作',
+    _ => '任课',
+  };
+}
+
+String _studentAssignmentStatusLabel(String status) {
+  return switch (status) {
+    'active' => '有效',
+    'ended' => '已结束',
+    _ => '状态未知',
+  };
 }
 
 String _teacherScopeStatusLabel(String status) {

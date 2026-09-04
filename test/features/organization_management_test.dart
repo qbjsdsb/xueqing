@@ -12,6 +12,7 @@ class _FakeOrganizationManagementRepository
     required this.invitations,
     this.students = const [],
     this.teacherSubjectScopes = const [],
+    this.studentTeacherAssignments = const [],
     this.setupOptions = const OrganizationSetupOptions(
       subjects: [OrganizationSetupSubject(id: 'subject-1', displayName: '数学')],
       teachers: [
@@ -28,6 +29,7 @@ class _FakeOrganizationManagementRepository
   final List<OrganizationInvitation> invitations;
   final List<OrganizationStudentRecord> students;
   final List<OrganizationTeacherSubjectScope> teacherSubjectScopes;
+  final List<OrganizationStudentTeacherAssignment> studentTeacherAssignments;
   final OrganizationSetupOptions setupOptions;
   final List<OrganizationSubjectCatalogItem> subjectCatalog = const [
     OrganizationSubjectCatalogItem(
@@ -44,10 +46,13 @@ class _FakeOrganizationManagementRepository
   int memberStatusUpdateCount = 0;
   int studentUpdateCount = 0;
   int teacherScopeUpdateCount = 0;
+  int assignmentTransferCount = 0;
   OrganizationStudentSetupResult? createdStudent;
   OrganizationStudentUpdateResult? updatedStudent;
   OrganizationMemberStatusUpdateResult? updatedMember;
   OrganizationTeacherSubjectScopeUpdateResult? updatedTeacherScope;
+  OrganizationStudentTeacherAssignmentTransferResult?
+  updatedTeacherAssignment;
 
   @override
   Future<List<OrganizationMember>> listMembers({
@@ -193,6 +198,103 @@ class _FakeOrganizationManagementRepository
       activeTo: scope.activeTo,
     );
     return updatedTeacherScope!;
+  }
+
+
+  @override
+  Future<List<OrganizationStudentTeacherAssignment>>
+  listStudentTeacherAssignments({
+    required String organizationId,
+  }) async {
+    return studentTeacherAssignments;
+  }
+
+  @override
+  Future<OrganizationStudentTeacherAssignmentTransferResult>
+  transferStudentTeacherAssignment({
+    required String operationId,
+    required String organizationId,
+    required String assignmentId,
+    required int expectedAssignmentVersion,
+    required String replacementMembershipId,
+  }) async {
+    assignmentTransferCount++;
+    final index = studentTeacherAssignments.indexWhere(
+      (assignment) => assignment.assignmentId == assignmentId,
+    );
+    if (index < 0) {
+      throw StateError('Student teacher assignment was not found in the fake.');
+    }
+    final previous = studentTeacherAssignments[index];
+    final replacement = setupOptions.teachers.firstWhere(
+      (teacher) => teacher.membershipId == replacementMembershipId,
+    );
+    final ended = OrganizationStudentTeacherAssignment(
+      assignmentId: previous.assignmentId,
+      organizationId: previous.organizationId,
+      studentSubjectProfileId: previous.studentSubjectProfileId,
+      studentId: previous.studentId,
+      studentName: previous.studentName,
+      organizationSubjectId: previous.organizationSubjectId,
+      subjectName: previous.subjectName,
+      subjectCode: previous.subjectCode,
+      membershipId: previous.membershipId,
+      teacherName: previous.teacherName,
+      teacherEmail: previous.teacherEmail,
+      assignmentRole: previous.assignmentRole,
+      status: 'ended',
+      version: expectedAssignmentVersion + 1,
+      activeFrom: previous.activeFrom,
+      activeTo: DateTime(2026, 9, 4),
+      endedAt: DateTime(2026, 9, 4),
+    );
+    final active = OrganizationStudentTeacherAssignment(
+      assignmentId: 'assignment-transfer-$assignmentTransferCount',
+      organizationId: previous.organizationId,
+      studentSubjectProfileId: previous.studentSubjectProfileId,
+      studentId: previous.studentId,
+      studentName: previous.studentName,
+      organizationSubjectId: previous.organizationSubjectId,
+      subjectName: previous.subjectName,
+      subjectCode: previous.subjectCode,
+      membershipId: replacement.membershipId,
+      teacherName: replacement.displayName,
+      teacherEmail: replacement.email,
+      assignmentRole: previous.assignmentRole,
+      status: 'active',
+      version: 1,
+      activeFrom: DateTime(2026, 9, 4),
+      activeTo: null,
+      endedAt: null,
+    );
+    studentTeacherAssignments[index] = ended;
+    studentTeacherAssignments.add(active);
+    updatedTeacherAssignment =
+        OrganizationStudentTeacherAssignmentTransferResult(
+          operationId: operationId,
+          organizationId: organizationId,
+          studentSubjectProfileId: previous.studentSubjectProfileId,
+          studentId: previous.studentId,
+          studentName: previous.studentName,
+          organizationSubjectId: previous.organizationSubjectId,
+          subjectName: previous.subjectName,
+          subjectCode: previous.subjectCode,
+          assignmentRole: previous.assignmentRole,
+          previousAssignmentId: previous.assignmentId,
+          previousMembershipId: previous.membershipId,
+          previousTeacherName: previous.teacherName,
+          previousTeacherEmail: previous.teacherEmail,
+          previousAssignmentVersion: expectedAssignmentVersion + 1,
+          replacementAssignmentId: active.assignmentId,
+          replacementMembershipId: active.membershipId,
+          replacementTeacherName: active.teacherName,
+          replacementTeacherEmail: active.teacherEmail,
+          replacementScopeId: 'scope-transfer-$assignmentTransferCount',
+          replacementAssignmentVersion: active.version,
+          status: 'transferred',
+          activeFrom: active.activeFrom,
+        );
+    return updatedTeacherAssignment!;
   }
 
   @override
@@ -377,6 +479,29 @@ OrganizationStudentRecord _studentRecord() {
     startsOn: DateTime(2026, 9, 1),
     endsOn: null,
     subjectNames: ['数学'],
+  );
+}
+
+
+OrganizationStudentTeacherAssignment _studentTeacherAssignment() {
+  return OrganizationStudentTeacherAssignment(
+    assignmentId: 'assignment-1',
+    organizationId: 'org-1',
+    studentSubjectProfileId: 'profile-1',
+    studentId: 'student-1',
+    studentName: '原学生',
+    organizationSubjectId: 'subject-1',
+    subjectName: '数学',
+    subjectCode: 'math',
+    membershipId: 'membership-1',
+    teacherName: '原老师',
+    teacherEmail: 'old-teacher@example.com',
+    assignmentRole: 'lead',
+    status: 'active',
+    version: 1,
+    activeFrom: DateTime(2026, 9, 1),
+    activeTo: null,
+    endedAt: null,
   );
 }
 
@@ -621,4 +746,82 @@ void main() {
       expect(repository.updatedTeacherScope?.status, 'active');
     },
   );
+
+  testWidgets('admin can hand off a student teacher assignment', (
+    tester,
+  ) async {
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+      students: [_studentRecord()],
+      studentTeacherAssignments: [_studentTeacherAssignment()],
+      setupOptions: const OrganizationSetupOptions(
+        subjects: [
+          OrganizationSetupSubject(id: 'subject-1', displayName: '数学'),
+        ],
+        teachers: [
+          OrganizationSetupTeacher(
+            membershipId: 'membership-1',
+            displayName: '原老师',
+            email: 'old-teacher@example.com',
+          ),
+          OrganizationSetupTeacher(
+            membershipId: 'membership-2',
+            displayName: '新老师',
+            email: 'new-teacher@example.com',
+          ),
+        ],
+      ),
+      teacherSubjectScopes: [
+        OrganizationTeacherSubjectScope(
+          scopeId: 'scope-1',
+          membershipId: 'membership-1',
+          organizationSubjectId: 'subject-1',
+          teacherName: '原老师',
+          teacherEmail: 'old-teacher@example.com',
+          membershipStatus: 'active',
+          subjectName: '数学',
+          subjectCode: 'math',
+          scopeKind: 'teaching',
+          status: 'active',
+          version: 1,
+          activeFrom: DateTime(2026, 9, 1),
+          activeTo: null,
+        ),
+        OrganizationTeacherSubjectScope(
+          scopeId: 'scope-2',
+          membershipId: 'membership-2',
+          organizationSubjectId: 'subject-1',
+          teacherName: '新老师',
+          teacherEmail: 'new-teacher@example.com',
+          membershipStatus: 'active',
+          subjectName: '数学',
+          subjectCode: 'math',
+          scopeKind: 'teaching',
+          status: 'active',
+          version: 1,
+          activeFrom: DateTime(2026, 9, 1),
+          activeTo: null,
+        ),
+      ],
+    );
+    await _pumpManagement(tester, repository);
+
+    expect(find.text('学生任课关系'), findsOneWidget);
+    final transferButton = find.text('交接老师');
+    await tester.ensureVisible(transferButton);
+    await tester.tap(transferButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('交接学生任课老师'), findsOneWidget);
+    expect(find.text('原学生 · 数学'), findsOneWidget);
+    await tester.tap(find.text('确认交接'));
+    await tester.pumpAndSettle();
+
+    expect(repository.assignmentTransferCount, 1);
+    expect(repository.updatedTeacherAssignment?.status, 'transferred');
+    expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');
+    expect(find.text('新老师'), findsAtLeastNWidgets(1));
+  });
+
 }
