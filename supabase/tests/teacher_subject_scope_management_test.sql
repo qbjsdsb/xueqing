@@ -220,10 +220,12 @@ select is(
 select is(
   (
     select count(*)::int
-    from public.membership_subject_scopes as scope
-    where scope.membership_id =
+    from public.list_organization_teacher_subject_scopes(
+      '00000000-0000-0000-0000-000000000001'
+    ) as item
+    where item ->> 'membership_id' =
       '71000000-0000-0000-0000-000000000001'
-      and scope.status = 'active'
+      and item ->> 'status' = 'active'
   ),
   1,
   'new teacher has one active scope'
@@ -346,13 +348,15 @@ select throws_ok(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select scope.id
-        from public.membership_subject_scopes as scope
-        where scope.membership_id =
+        select (item ->> 'scope_id')::uuid
+        from public.list_organization_teacher_subject_scopes(
+          '00000000-0000-0000-0000-000000000001'
+        ) as item
+        where item ->> 'membership_id' =
           '71000000-0000-0000-0000-000000000001'
-          and scope.organization_subject_id =
+          and item ->> 'organization_subject_id' =
             '64000000-0000-0000-0000-000000000001'
-          and scope.status = 'active'
+          and item ->> 'status' = 'active'
       ),
       1,
       'ended'
@@ -429,13 +433,15 @@ select throws_ok(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select scope.id
-        from public.membership_subject_scopes as scope
-        where scope.membership_id =
+        select (item ->> 'scope_id')::uuid
+        from public.list_organization_teacher_subject_scopes(
+          '00000000-0000-0000-0000-000000000001'
+        ) as item
+        where item ->> 'membership_id' =
           '71000000-0000-0000-0000-000000000001'
-          and scope.organization_subject_id =
+          and item ->> 'organization_subject_id' =
             '64000000-0000-0000-0000-000000000001'
-          and scope.status = 'active'
+          and item ->> 'status' = 'active'
       ),
       1,
       'ended'
@@ -473,13 +479,15 @@ select is(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select scope.id
-        from public.membership_subject_scopes as scope
-        where scope.membership_id =
+        select (item ->> 'scope_id')::uuid
+        from public.list_organization_teacher_subject_scopes(
+          '00000000-0000-0000-0000-000000000001'
+        ) as item
+        where item ->> 'membership_id' =
           '71000000-0000-0000-0000-000000000001'
-          and scope.organization_subject_id =
+          and item ->> 'organization_subject_id' =
             '64000000-0000-0000-0000-000000000001'
-          and scope.status = 'active'
+          and item ->> 'status' = 'active'
       ),
       1,
       'ended'
@@ -497,14 +505,16 @@ select is(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        select scope.id
-        from public.membership_subject_scopes as scope
-        where scope.membership_id =
+        select (item ->> 'scope_id')::uuid
+        from public.list_organization_teacher_subject_scopes(
+          '00000000-0000-0000-0000-000000000001'
+        ) as item
+        where item ->> 'membership_id' =
           '71000000-0000-0000-0000-000000000001'
-          and scope.organization_subject_id =
+          and item ->> 'organization_subject_id' =
             '64000000-0000-0000-0000-000000000001'
-          and scope.status = 'ended'
-        order by scope.id
+          and item ->> 'status' = 'ended'
+        order by item ->> 'scope_id'
         limit 1
       ),
       1,
@@ -594,9 +604,13 @@ select is(
 
 update public.membership_subject_scopes
 set active_from = active_from
-where id = (
-  current_setting('xueqing.member_restore')::jsonb ->> 'scope_id'
-)::uuid;
+where organization_id =
+    '00000000-0000-0000-0000-000000000001'
+  and membership_id =
+    '71000000-0000-0000-0000-000000000001'
+  and organization_subject_id =
+    '64000000-0000-0000-0000-000000000001'
+  and status = 'active';
 
 set local role authenticated;
 
@@ -608,8 +622,16 @@ select throws_ok(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        current_setting('xueqing.member_restore')::jsonb ->> 'scope_id'
-      )::uuid,
+        select (item ->> 'scope_id')::uuid
+        from public.list_organization_teacher_subject_scopes(
+          '00000000-0000-0000-0000-000000000001'
+        ) as item
+        where item ->> 'membership_id' =
+          '71000000-0000-0000-0000-000000000001'
+          and item ->> 'organization_subject_id' =
+            '64000000-0000-0000-0000-000000000001'
+          and item ->> 'status' = 'active'
+      ),
       1,
       'ended'
     )
@@ -625,9 +647,13 @@ select is(
   (
     select scope.status || '|' || scope.version::text
     from public.membership_subject_scopes as scope
-    where scope.id = (
-      current_setting('xueqing.member_restore')::jsonb ->> 'scope_id'
-    )::uuid
+    where scope.organization_id =
+      '00000000-0000-0000-0000-000000000001'
+      and scope.membership_id =
+        '71000000-0000-0000-0000-000000000001'
+      and scope.organization_subject_id =
+        '64000000-0000-0000-0000-000000000001'
+      and scope.status = 'active'
   ),
   'active|2',
   'stale scope request leaves the current scope unchanged'
@@ -643,8 +669,16 @@ select is(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        current_setting('xueqing.member_restore')::jsonb ->> 'scope_id'
-      )::uuid,
+        select (item ->> 'scope_id')::uuid
+        from public.list_organization_teacher_subject_scopes(
+          '00000000-0000-0000-0000-000000000001'
+        ) as item
+        where item ->> 'membership_id' =
+          '71000000-0000-0000-0000-000000000001'
+          and item ->> 'organization_subject_id' =
+            '64000000-0000-0000-0000-000000000001'
+          and item ->> 'status' = 'active'
+      ),
       2,
       'ended'
     )
@@ -661,8 +695,16 @@ select is(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        current_setting('xueqing.member_restore')::jsonb ->> 'scope_id'
-      )::uuid,
+        select (item ->> 'scope_id')::uuid
+        from public.list_organization_teacher_subject_scopes(
+          '00000000-0000-0000-0000-000000000001'
+        ) as item
+        where item ->> 'membership_id' =
+          '71000000-0000-0000-0000-000000000001'
+          and item ->> 'organization_subject_id' =
+            '64000000-0000-0000-0000-000000000001'
+          and item ->> 'status' = 'active'
+      ),
       2,
       'ended'
     )
