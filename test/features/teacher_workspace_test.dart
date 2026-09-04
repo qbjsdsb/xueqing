@@ -206,6 +206,8 @@ TeacherWorkspace _fixtureWorkspace({
   List<WorkspaceCaseType>? caseTypes,
   bool canManageCaseTypes = false,
   String? assessmentResult,
+  DateTime? businessDate,
+  DateTime? businessDueDate,
 }) {
   final action = WorkspaceAction(
     id: 'action-1',
@@ -217,6 +219,7 @@ TeacherWorkspace _fixtureWorkspace({
     bucket: WorkspaceActionBucket.today,
     version: 1,
     dueAt: DateTime(2026, 9, 3),
+    businessDueDate: businessDueDate,
   );
   final learningCase = WorkspaceCase(
     id: 'case-1',
@@ -269,6 +272,7 @@ TeacherWorkspace _fixtureWorkspace({
       ),
     ],
     loadedAt: DateTime(2026, 9, 3),
+    businessDate: businessDate,
   );
 }
 
@@ -335,6 +339,21 @@ void main() {
     expect(repository.rescheduleCommands.single.expectedActionVersion, 1);
     expect(repository.rescheduleCommands.single.dueOn, isNotNull);
     expect(find.textContaining('行动已安排在'), findsOneWidget);
+  });
+
+  testWidgets('uses the organization business date for action display', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        businessDate: DateTime(2026, 9, 4),
+        businessDueDate: DateTime(2026, 9, 4),
+      ),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    expect(find.textContaining('9 月 4 日'), findsOneWidget);
+    expect(find.textContaining('9 月 3 日'), findsNothing);
   });
 
   testWidgets('explains schema drift and lets the user retry', (tester) async {

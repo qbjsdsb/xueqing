@@ -686,15 +686,22 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
   }
 
-  Future<void> _rescheduleAction(WorkspaceActionWithContext item) async {
+  Future<void> _rescheduleAction(
+    TeacherWorkspace workspace,
+    WorkspaceActionWithContext item,
+  ) async {
     if (_reschedulingActionId != null) {
       return;
     }
 
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final businessNow = workspace.businessDate ?? DateTime.now();
+    final today = DateTime(
+      businessNow.year,
+      businessNow.month,
+      businessNow.day,
+    );
     final lastDate = DateTime(today.year + 2, today.month, today.day);
-    final existing = item.action.dueAt?.toLocal();
+    final existing = item.action.businessDueDate ?? item.action.dueAt?.toLocal();
     final existingDate = existing == null
         ? null
         : DateTime(existing.year, existing.month, existing.day);
@@ -959,7 +966,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     color: Theme.of(context).colorScheme.error,
                     icon: Icons.warning_amber_outlined,
                   ),
-                  ..._buildActionRows(overdue),
+                  ..._buildActionRows(overdue, workspace),
                 ],
                 if (today.isNotEmpty) ...[
                   if (overdue.isNotEmpty) const Divider(height: AppSpacing.lg),
@@ -968,7 +975,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     color: Theme.of(context).colorScheme.secondary,
                     icon: Icons.today_outlined,
                   ),
-                  ..._buildActionRows(today),
+                  ..._buildActionRows(today, workspace),
                 ],
               ],
             ),
@@ -1004,7 +1011,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             title: '未来',
             count: '${future.length} 项',
             showTopDivider: true,
-            child: Column(children: _buildActionRows(future)),
+            child: Column(children: _buildActionRows(future, workspace)),
           ),
         ],
         const SizedBox(height: AppSpacing.lg),
@@ -1019,7 +1026,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                   message: '需要跟进但尚未设定日期的行动会一直保留在这里。',
                   icon: Icons.event_available_outlined,
                 )
-              : Column(children: _buildActionRows(undated)),
+              : Column(children: _buildActionRows(undated, workspace)),
         ),
         const SizedBox(height: AppSpacing.lg),
         _WorkspaceSection(
@@ -1050,7 +1057,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     return actions.where((item) => item.action.bucket == bucket).toList();
   }
 
-  List<Widget> _buildActionRows(List<WorkspaceActionWithContext> items) {
+  List<Widget> _buildActionRows(
+    List<WorkspaceActionWithContext> items,
+    TeacherWorkspace workspace,
+  ) {
     final grouped = <String, List<WorkspaceActionWithContext>>{};
     for (final item in items) {
       grouped.putIfAbsent(item.student.profileId, () => []).add(item);
@@ -1062,7 +1072,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           items: group,
           onOpenCase: (learningCase) =>
               _openCase(group.first.student, learningCase),
-          onReschedule: _rescheduleAction,
+          onReschedule: (item) => _rescheduleAction(workspace, item),
           reschedulingActionId: _reschedulingActionId,
         ),
     ];
@@ -4311,8 +4321,9 @@ String _assessmentLabel(String value) {
 String _formatDate(DateTime value) => '${value.month} 月 ${value.day} 日';
 
 String _formatActionDate(WorkspaceAction action) {
-  if (action.dueAt == null) {
+  final dueDate = action.businessDueDate ?? action.dueAt;
+  if (dueDate == null) {
     return action.bucket.label;
   }
-  return '${action.bucket.label} · ${_formatDate(action.dueAt!)}';
+  return '${action.bucket.label} · ${_formatDate(dueDate)}';
 }
