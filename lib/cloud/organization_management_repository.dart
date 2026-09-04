@@ -179,6 +179,94 @@ class OrganizationStudentSetupResult {
   }
 }
 
+class OrganizationStudentRecord {
+  const OrganizationStudentRecord({
+    required this.studentId,
+    required this.studentName,
+    required this.studentCode,
+    required this.status,
+    required this.version,
+    required this.grade,
+    required this.className,
+    required this.campus,
+    required this.startsOn,
+    required this.endsOn,
+    required this.subjectNames,
+  });
+
+  final String studentId;
+  final String studentName;
+  final String? studentCode;
+  final String status;
+  final int version;
+  final String? grade;
+  final String? className;
+  final String? campus;
+  final DateTime? startsOn;
+  final DateTime? endsOn;
+  final List<String> subjectNames;
+
+  bool get isActive => status == 'active';
+  bool get isMerged => status == 'merged';
+
+  factory OrganizationStudentRecord.fromJson(Map<String, dynamic> json) {
+    final rawSubjects = json['subjects'];
+    final subjectNames = <String>[];
+    if (rawSubjects is List) {
+      for (final item in rawSubjects) {
+        if (item is Map) {
+          final name = _stringValue(item['display_name']);
+          if (name != null) {
+            subjectNames.add(name);
+          }
+        }
+      }
+    }
+    return OrganizationStudentRecord(
+      studentId: _requiredString(json['student_id'], 'student_id'),
+      studentName: _stringValue(json['student_name']) ?? '未命名学生',
+      studentCode: _stringValue(json['student_code']),
+      status: _stringValue(json['status']) ?? 'unknown',
+      version: _intValue(json['version']) ?? 1,
+      grade: _stringValue(json['grade']),
+      className: _stringValue(json['class_name']),
+      campus: _stringValue(json['campus']),
+      startsOn: _dateTimeValue(json['starts_on']),
+      endsOn: _dateTimeValue(json['ends_on']),
+      subjectNames: List<String>.unmodifiable(subjectNames),
+    );
+  }
+}
+
+class OrganizationStudentUpdateResult {
+  const OrganizationStudentUpdateResult({
+    required this.operationId,
+    required this.studentId,
+    required this.studentName,
+    required this.studentCode,
+    required this.status,
+    required this.version,
+  });
+
+  final String operationId;
+  final String studentId;
+  final String studentName;
+  final String? studentCode;
+  final String status;
+  final int version;
+
+  factory OrganizationStudentUpdateResult.fromJson(Map<String, dynamic> json) {
+    return OrganizationStudentUpdateResult(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      studentId: _requiredString(json['student_id'], 'student_id'),
+      studentName: _stringValue(json['student_name']) ?? '未命名学生',
+      studentCode: _stringValue(json['student_code']),
+      status: _stringValue(json['status']) ?? 'unknown',
+      version: _intValue(json['version']) ?? 1,
+    );
+  }
+}
+
 class OrganizationSubjectCatalogItem {
   const OrganizationSubjectCatalogItem({
     required this.id,
@@ -275,6 +363,9 @@ abstract interface class OrganizationManagementRepository {
     required String organizationId,
   });
 
+  Future<List<OrganizationStudentRecord>> listStudents({
+    required String organizationId,
+  });
   Future<OrganizationSetupOptions> listSetupOptions({
     required String organizationId,
   });
@@ -305,6 +396,15 @@ abstract interface class OrganizationManagementRepository {
     String? cadenceNote,
   });
 
+  Future<OrganizationStudentUpdateResult> updateStudent({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+    required String name,
+    String? studentCode,
+    required String status,
+  });
   Future<OrganizationInvitation> createInvitation({
     required String organizationId,
     required String email,
@@ -417,6 +517,29 @@ String? organizationStudentSetupErrorMessage(Object error) {
   };
 }
 
+String? organizationStudentLifecycleErrorMessage(Object error) {
+  final detail = switch (error) {
+    AuthException(:final message) => message.trim(),
+    PostgrestException(:final message) => message.trim(),
+    _ => null,
+  };
+  if (detail == null) {
+    return null;
+  }
+  return switch (detail.toLowerCase()) {
+    'invalid_student_update_input' => '学生姓名、编号或状态不符合要求。',
+    'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
+    'student_not_found' => '学生档案已变化，请刷新后重试。',
+    'student_merged_immutable' => '已合并的学生档案不能直接修改。',
+    'version_conflict' => '这条学生档案刚刚被别人修改，请刷新后重试。',
+    'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开表单后再试。',
+    'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
+    'invalid_live_session' => '登录状态已失效，请重新登录。',
+    'organization_manager_required' => '当前账号没有本机构管理权限。',
+    _ => null,
+  };
+}
+
 String? organizationInvitationErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),
@@ -473,6 +596,17 @@ class SupabaseOrganizationManagementRepository
       <String, dynamic>{'p_organization_id': organizationId},
     );
     return _mapList(response, OrganizationInvitation.fromJson);
+  }
+
+  @override
+  Future<List<OrganizationStudentRecord>> listStudents({
+    required String organizationId,
+  }) async {
+    final response = await _call(
+      'list_organization_students',
+      <String, dynamic>{'p_organization_id': organizationId},
+    );
+    return _mapList(response, OrganizationStudentRecord.fromJson);
   }
 
   @override
@@ -557,6 +691,37 @@ class SupabaseOrganizationManagementRepository
       },
     );
     return OrganizationStudentSetupResult.fromJson(_mapResponse(response));
+  }
+
+  @override
+  Future<OrganizationStudentUpdateResult> updateStudent({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+    required String name,
+    String? studentCode,
+    required String status,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        studentId.trim().isEmpty ||
+        name.trim().isEmpty ||
+        status.trim().isEmpty) {
+      throw ArgumentError('Student update identity cannot be empty.');
+    }
+    final response = await _call(
+      'update_organization_student',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_id': studentId,
+        'p_expected_student_version': expectedStudentVersion,
+        'p_name': name.trim(),
+        'p_student_code': _nullableText(studentCode),
+        'p_status': status.trim(),
+      },
+    );
+    return OrganizationStudentUpdateResult.fromJson(_mapResponse(response));
   }
 
   @override
@@ -675,6 +840,13 @@ String? _stringValue(Object? value) {
   }
   final normalized = value.trim();
   return normalized.isEmpty ? null : normalized;
+}
+
+int? _intValue(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  return int.tryParse(value?.toString() ?? '');
 }
 
 String _requiredString(Object? value, String field) {

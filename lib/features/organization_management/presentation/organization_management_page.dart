@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../app/layout/responsive.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/organization_management_repository.dart';
+import 'organization_student_edit_dialog.dart';
 import 'organization_student_setup_dialog.dart';
 import 'organization_subject_setup_dialog.dart';
 
@@ -65,6 +66,7 @@ class _OrganizationManagementPageState
     final result = await Future.wait<dynamic>([
       widget.repository.listMembers(organizationId: widget.organizationId),
       widget.repository.listInvitations(organizationId: widget.organizationId),
+      widget.repository.listStudents(organizationId: widget.organizationId),
       widget.repository.listSetupOptions(organizationId: widget.organizationId),
       widget.repository.listSubjectCatalog(
         organizationId: widget.organizationId,
@@ -73,8 +75,9 @@ class _OrganizationManagementPageState
     return _OrganizationManagementSnapshot(
       members: result[0] as List<OrganizationMember>,
       invitations: result[1] as List<OrganizationInvitation>,
-      setupOptions: result[2] as OrganizationSetupOptions,
-      subjectCatalog: result[3] as List<OrganizationSubjectCatalogItem>,
+      students: result[2] as List<OrganizationStudentRecord>,
+      setupOptions: result[3] as OrganizationSetupOptions,
+      subjectCatalog: result[4] as List<OrganizationSubjectCatalogItem>,
     );
   }
 
@@ -193,6 +196,56 @@ class _OrganizationManagementPageState
     } catch (error) {
       if (mounted) {
         setState(() => _errorMessage = _describeError(error));
+      }
+    }
+  }
+
+  Future<void> _editStudent(OrganizationStudentRecord student) async {
+    if (_busy) {
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
+    try {
+      final result = await showDialog<OrganizationStudentUpdateResult>(
+        context: context,
+        builder: (context) => OrganizationStudentEditDialog(
+          student: student,
+          onSubmit: (draft) => widget.repository.updateStudent(
+            operationId: draft.operationId,
+            organizationId: widget.organizationId,
+            studentId: draft.studentId,
+            expectedStudentVersion: draft.expectedStudentVersion,
+            name: draft.name,
+            studentCode: draft.studentCode,
+            status: draft.status,
+          ),
+        ),
+      );
+      if (!mounted || result == null) {
+        return;
+      }
+      await _refresh();
+      if (!mounted) {
+        return;
+      }
+      widget.onChanged?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '已更新 ${result.studentName} · ${_studentStatusLabel(result.status)}。',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = _describeError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
       }
     }
   }
@@ -389,6 +442,10 @@ class _OrganizationManagementPageState
     if (setupError != null) {
       return setupError;
     }
+    final lifecycleError = organizationStudentLifecycleErrorMessage(error);
+    if (lifecycleError != null) {
+      return lifecycleError;
+    }
     final invitationError = organizationInvitationErrorMessage(error);
     if (invitationError != null) {
       return invitationError;
@@ -479,6 +536,7 @@ class _OrganizationManagementPageState
                     busy: _busy,
                     onApprove: _approveInvitation,
                     onRevoke: _revokeInvitation,
+                    onEditStudent: _editStudent,
                   );
                 },
               ),
@@ -494,12 +552,14 @@ class _OrganizationManagementSnapshot {
   const _OrganizationManagementSnapshot({
     required this.members,
     required this.invitations,
+    required this.students,
     required this.setupOptions,
     required this.subjectCatalog,
   });
 
   final List<OrganizationMember> members;
   final List<OrganizationInvitation> invitations;
+  final List<OrganizationStudentRecord> students;
   final OrganizationSetupOptions setupOptions;
   final List<OrganizationSubjectCatalogItem> subjectCatalog;
 }
@@ -511,6 +571,7 @@ class _ManagementContent extends StatelessWidget {
     required this.busy,
     required this.onApprove,
     required this.onRevoke,
+    required this.onEditStudent,
   });
 
   final _OrganizationManagementSnapshot snapshot;
@@ -518,6 +579,7 @@ class _ManagementContent extends StatelessWidget {
   final bool busy;
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
+  final Future<void> Function(OrganizationStudentRecord student) onEditStudent;
 
   @override
   Widget build(BuildContext context) {
@@ -568,6 +630,29 @@ class _ManagementContent extends StatelessWidget {
         _ManagementSetupHint(
           options: snapshot.setupOptions,
           subjectCatalog: snapshot.subjectCatalog,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _ManagementSection(
+          title: '学生',
+          count: '${snapshot.students.length} 人',
+          child: snapshot.students.isEmpty
+              ? const _ManagementEmptyState(
+                  title: '还没有学生档案',
+                  message: '添加第一位学生后，管理员可以在这里维护身份和教学可见状态。',
+                  icon: Icons.school_outlined,
+                )
+              : Column(
+                  children: [
+                    for (final student in snapshot.students)
+                      _OrganizationStudentTile(
+                        student: student,
+                        busy: busy,
+                        onEdit: student.isMerged
+                            ? null
+                            : () => onEditStudent(student),
+                      ),
+                  ],
+                ),
         ),
         const SizedBox(height: AppSpacing.lg),
         _ManagementSection(
@@ -631,6 +716,87 @@ class _ManagementContent extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _OrganizationStudentTile extends StatelessWidget {
+  const _OrganizationStudentTile({
+    required this.student,
+    required this.busy,
+    required this.onEdit,
+  });
+
+  final OrganizationStudentRecord student;
+  final bool busy;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final details = <String>[
+      if (student.studentCode != null) '编号 ${student.studentCode}',
+      if (student.grade != null) student.grade!,
+      if (student.className != null) student.className!,
+      if (student.campus != null) student.campus!,
+    ];
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(AppRadii.medium),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: colorScheme.primaryContainer,
+                foregroundColor: colorScheme.onPrimaryContainer,
+                child: const Icon(Icons.school_outlined, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  student.studentName,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              if (onEdit != null)
+                TextButton.icon(
+                  onPressed: busy ? null : onEdit,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('编辑'),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xxs,
+            children: [
+              _ManagementStatusChip(
+                label: _studentStatusLabel(student.status),
+                isPositive: student.isActive,
+              ),
+              for (final detail in details) _ManagementRoleChip(label: detail),
+            ],
+          ),
+          if (student.subjectNames.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '学科：${student.subjectNames.join('、')}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -1301,6 +1467,16 @@ String _roleLabel(String role) {
     'teacher' => '老师',
     'student_advisor' => '学生导师',
     _ => role,
+  };
+}
+
+String _studentStatusLabel(String status) {
+  return switch (status) {
+    'active' => '正常教学',
+    'inactive' => '暂不教学',
+    'archived' => '已归档',
+    'merged' => '已合并',
+    _ => '状态未知',
   };
 }
 
