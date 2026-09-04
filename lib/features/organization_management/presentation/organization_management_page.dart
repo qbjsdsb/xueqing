@@ -343,9 +343,9 @@ class _OrganizationManagementPageState
         return;
       }
       if (!snapshot.setupOptions.canCreateStudent) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先为在岗老师配置至少一个有效教学范围。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('请先为在岗老师配置至少一个有效教学范围。')));
         return;
       }
       final result = await showDialog<OrganizationStudentSetupResult>(
