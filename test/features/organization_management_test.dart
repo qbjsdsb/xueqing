@@ -10,6 +10,7 @@ class _FakeOrganizationManagementRepository
   _FakeOrganizationManagementRepository({
     required this.members,
     required this.invitations,
+    this.students = const [],
     this.setupOptions = const OrganizationSetupOptions(
       subjects: [OrganizationSetupSubject(id: 'subject-1', displayName: '数学')],
       teachers: [
@@ -24,6 +25,7 @@ class _FakeOrganizationManagementRepository
 
   final List<OrganizationMember> members;
   final List<OrganizationInvitation> invitations;
+  final List<OrganizationStudentRecord> students;
   final OrganizationSetupOptions setupOptions;
   final List<OrganizationSubjectCatalogItem> subjectCatalog = const [
     OrganizationSubjectCatalogItem(
@@ -37,7 +39,9 @@ class _FakeOrganizationManagementRepository
   int revokeCount = 0;
   int createCount = 0;
   int studentCreateCount = 0;
+  int studentUpdateCount = 0;
   OrganizationStudentSetupResult? createdStudent;
+  OrganizationStudentUpdateResult? updatedStudent;
 
   @override
   Future<List<OrganizationMember>> listMembers({
@@ -53,6 +57,12 @@ class _FakeOrganizationManagementRepository
     return invitations;
   }
 
+  @override
+  Future<List<OrganizationStudentRecord>> listStudents({
+    required String organizationId,
+  }) async {
+    return students;
+  }
   @override
   Future<OrganizationSetupOptions> listSetupOptions({
     required String organizationId,
@@ -114,6 +124,27 @@ class _FakeOrganizationManagementRepository
     return createdStudent!;
   }
 
+  @override
+  Future<OrganizationStudentUpdateResult> updateStudent({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+    required String name,
+    String? studentCode,
+    required String status,
+  }) async {
+    studentUpdateCount++;
+    updatedStudent = OrganizationStudentUpdateResult(
+      operationId: operationId,
+      studentId: studentId,
+      studentName: name,
+      studentCode: studentCode,
+      status: status,
+      version: expectedStudentVersion + 1,
+    );
+    return updatedStudent!;
+  }
   @override
   Future<OrganizationInvitation> createInvitation({
     required String organizationId,
@@ -193,6 +224,21 @@ OrganizationInvitation _ownerNomination() {
   );
 }
 
+OrganizationStudentRecord _studentRecord() {
+  return const OrganizationStudentRecord(
+    studentId: 'student-1',
+    studentName: '原学生',
+    studentCode: 'S-001',
+    status: 'active',
+    version: 3,
+    grade: '初二',
+    className: '一班',
+    campus: '本部',
+    startsOn: DateTime(2026, 9, 1),
+    endsOn: null,
+    subjectNames: ['数学'],
+  );
+}
 Future<void> _pumpManagement(
   WidgetTester tester,
   _FakeOrganizationManagementRepository repository, {
@@ -317,6 +363,29 @@ void main() {
     expect(find.text('学生姓名 *'), findsNothing);
   });
 
+  testWidgets('admin can edit a student lifecycle record', (tester) async {
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+      students: [_studentRecord()],
+    );
+    await _pumpManagement(tester, repository);
+
+    expect(find.text('原学生'), findsOneWidget);
+    await tester.tap(find.text('编辑'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('编辑学生'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).first, '更新学生');
+    await tester.tap(find.text('保存学生'));
+    await tester.pumpAndSettle();
+
+    expect(repository.studentUpdateCount, 1);
+    expect(repository.updatedStudent?.studentName, '更新学生');
+    expect(repository.updatedStudent?.version, 4);
+    expect(find.text('编辑学生'), findsNothing);
+    expect(find.text('已更新 更新学生 · 正常教学。'), findsOneWidget);
+  });
   testWidgets('admin can add an organization subject from the catalog', (
     tester,
   ) async {
