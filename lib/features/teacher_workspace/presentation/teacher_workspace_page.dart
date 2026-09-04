@@ -85,6 +85,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       widget.config.cloudConfig.validate(
         requireConfigured: widget.config.environment.isProduction,
         requireHttps: widget.config.environment.isProduction,
+        requireAllowedHost: widget.config.environment.isProduction,
       );
       if (!widget.config.cloudConfig.isConfigured) {
         return;

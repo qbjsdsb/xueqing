@@ -1,11 +1,6 @@
 name: Package Windows app
 
 on:
-  push:
-    branches:
-      - "phase0b0f/custom-case-types"
-    paths:
-      - ".github/workflows/package-windows.yml"
   workflow_dispatch:
     inputs:
       supabase_url:
@@ -53,7 +48,8 @@ jobs:
           flutter build windows --release `
             --dart-define="XUEQING_ENV=$env:XUEQING_ENV" `
             --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
-            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=true"
 
       - name: Bundle Visual C++ release runtime
         shell: pwsh
@@ -113,7 +109,7 @@ jobs:
             throw "The Windows executable was not found."
           }
           $dependencies = (& $dumpbin.FullName /DEPENDENTS $exePath 2>&1) -join "`n"
-          if ($dependencies -match "(?i)MSVCP140D\\.dll|VCRUNTIME140D\\.dll|VCRUNTIME140_1D\\.dll|ucrtbased\\.dll") {
+          if ($dependencies -match "(?i)MSVCP140D\.dll|VCRUNTIME140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
             throw "Release binary still depends on a Debug Visual C++ runtime."
           }
 
