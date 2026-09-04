@@ -173,6 +173,7 @@ declare
   v_business_date date;
   v_status text;
   v_subject_id uuid;
+  v_organization_subject_id uuid;
   v_scope_id uuid;
   v_scope_version integer;
   operation_target_id uuid;
@@ -279,7 +280,7 @@ begin
   end if;
 
   select organization_subject.id, organization_subject.subject_id
-  into v_organization_id, v_subject_id
+  into v_organization_subject_id, v_subject_id
   from public.organization_subjects as organization_subject
   join public.subjects as subject
     on subject.id = organization_subject.subject_id
@@ -295,7 +296,7 @@ begin
     )
   for update of organization_subject;
 
-  if v_subject_id is null then
+  if v_organization_subject_id is null or v_subject_id is null then
     raise exception using
       errcode = 'P0001',
       message = 'organization_subject_not_found';
