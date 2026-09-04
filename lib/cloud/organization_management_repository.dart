@@ -198,7 +198,6 @@ class OrganizationTeacherSubjectScopeUpdateResult {
   }
 }
 
-
 class OrganizationStudentTeacherAssignment {
   const OrganizationStudentTeacherAssignment({
     required this.assignmentId,
@@ -915,7 +914,6 @@ String? organizationTeacherSubjectScopeErrorMessage(Object error) {
   };
 }
 
-
 String? organizationStudentTeacherAssignmentErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),
@@ -1150,7 +1148,6 @@ class SupabaseOrganizationManagementRepository
       _mapResponse(response),
     );
   }
-
 
   @override
   Future<List<OrganizationStudentTeacherAssignment>>

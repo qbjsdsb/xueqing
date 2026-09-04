@@ -340,6 +340,8 @@ begin
       message = 'student_teacher_assignment_not_found';
   end if;
 
+  source_assignment_role := target_assignment.assignment_role;
+
   select
     student.name,
     student.status

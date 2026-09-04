@@ -84,14 +84,14 @@ class _OrganizationStudentTeacherAssignmentTransferDialogState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '\${assignment.studentName} · \${assignment.subjectName}',
+                '${assignment.studentName} · ${assignment.subjectName}',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '当前\${_assignmentRoleLabel(assignment.assignmentRole)}：'
-                '\${assignment.teacherName}'
-                '\${assignment.teacherEmail.isEmpty ? '' : ' · \${assignment.teacherEmail}'}',
+                '当前${_assignmentRoleLabel(assignment.assignmentRole)}：'
+                '${assignment.teacherName}'
+                '${assignment.teacherEmail.isEmpty ? '' : ' · ${assignment.teacherEmail}'}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -111,7 +111,7 @@ class _OrganizationStudentTeacherAssignmentTransferDialogState
                       child: Text(
                         teacher.email.isEmpty
                             ? teacher.displayName
-                            : '\${teacher.displayName} · \${teacher.email}',
+                            : '${teacher.displayName} · ${teacher.email}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -132,7 +132,7 @@ class _OrganizationStudentTeacherAssignmentTransferDialogState
               ] else if (selectedTeacher != null) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '接收老师：\${selectedTeacher.displayName}；仅改变这条\${_assignmentRoleLabel(assignment.assignmentRole)}任课关系。',
+                  '接收老师：${selectedTeacher.displayName}；仅改变这条${_assignmentRoleLabel(assignment.assignmentRole)}任课关系。',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],

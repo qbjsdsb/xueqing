@@ -256,7 +256,6 @@ class _OrganizationManagementPageState
     );
   }
 
-
   Future<void> _transferStudentTeacherAssignment(
     OrganizationStudentTeacherAssignment assignment,
   ) async {
@@ -312,9 +311,9 @@ class _OrganizationManagementPageState
           expectedAssignmentVersion: assignment.version,
           replacementMembershipId: draft.replacementMembershipId,
         ),
-        '已将 \${assignment.studentName} 的 \${assignment.subjectName} '
-        '\${_studentAssignmentRoleLabel(assignment.assignmentRole)}任课关系交接给 '
-        '\${draft.replacementTeacherName}。',
+        '已将 ${assignment.studentName} 的 ${assignment.subjectName} '
+        '${_studentAssignmentRoleLabel(assignment.assignmentRole)}任课关系交接给 '
+        '${draft.replacementTeacherName}。',
       );
     } catch (error) {
       if (mounted) {
@@ -663,6 +662,11 @@ class _OrganizationManagementPageState
   }
 
   String _describeError(Object error) {
+    final assignmentError =
+        organizationStudentTeacherAssignmentErrorMessage(error);
+    if (assignmentError != null) {
+      return assignmentError;
+    }
     final teacherScopeError = organizationTeacherSubjectScopeErrorMessage(
       error,
     );
@@ -1243,7 +1247,6 @@ class _OrganizationStudentTile extends StatelessWidget {
   }
 }
 
-
 class _StudentTeacherAssignmentTile extends StatelessWidget {
   const _StudentTeacherAssignmentTile({
     required this.assignment,
@@ -1266,8 +1269,8 @@ class _StudentTeacherAssignmentTile extends StatelessWidget {
             label: const Text('交接老师'),
           );
     final period = assignment.isActive
-        ? '生效于 \${_formatDateOnly(assignment.activeFrom)}'
-        : '结束于 \${_formatDateOnly(assignment.activeTo)}';
+        ? '生效于 ${_formatDateOnly(assignment.activeFrom)}'
+        : '结束于 ${_formatDateOnly(assignment.activeTo)}';
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -1301,14 +1304,14 @@ class _StudentTeacherAssignmentTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '\${assignment.studentName} · \${assignment.subjectName}',
+                  '${assignment.studentName} · ${assignment.subjectName}',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
-                  '\${_studentAssignmentRoleLabel(assignment.assignmentRole)}：'
-                  '\${assignment.teacherName}'
-                  '\${assignment.teacherEmail.isEmpty ? '' : ' · \${assignment.teacherEmail}'}',
+                  '${_studentAssignmentRoleLabel(assignment.assignmentRole)}：'
+                  '${assignment.teacherName}'
+                  '${assignment.teacherEmail.isEmpty ? '' : ' · ${assignment.teacherEmail}'}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -1325,7 +1328,7 @@ class _StudentTeacherAssignmentTile extends StatelessWidget {
                         assignment.assignmentRole,
                       ),
                     ),
-                    _ManagementRoleChip(label: '版本 \${assignment.version}'),
+                    _ManagementRoleChip(label: '版本 ${assignment.version}'),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -2063,7 +2066,6 @@ Set<String> _latestEndedTeacherScopeIds(
   }
   return latestByKey.values.map((scope) => scope.scopeId).toSet();
 }
-
 
 String _studentAssignmentRoleLabel(String role) {
   return switch (role) {

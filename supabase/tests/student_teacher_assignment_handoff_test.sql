@@ -356,7 +356,7 @@ select is(
 );
 
 select is(
-  (current_setting('xueqing.assignment_transfer')::jsonb ->
+  (current_setting('xueqing.assignment_transfer')::jsonb ->>
     'replacement_assignment_version')::int,
   1,
   'replacement assignment starts at version one'
@@ -378,7 +378,7 @@ reset role;
 
 update assignment_handoff_test_state
 set replacement_assignment_id = (
-  current_setting('xueqing.assignment_transfer')::jsonb ->
+  current_setting('xueqing.assignment_transfer')::jsonb ->>
     'replacement_assignment_id'
 )::uuid;
 
