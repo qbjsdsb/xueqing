@@ -123,7 +123,7 @@ class _OrganizationTeacherSubjectScopeDialogState
                         child: Text(
                           teacher.email.isEmpty
                               ? teacher.displayName
-                              : teacher.displayName + ' · ' + teacher.email,
+                              : '${teacher.displayName} · ${teacher.email}',
                         ),
                       ),
                   ],
@@ -172,4 +172,4 @@ class _OrganizationTeacherSubjectScopeDialogState
 }
 
 String _scopeKey(String membershipId, String subjectId) =>
-    membershipId + '|' + subjectId;
+    '$membershipId|$subjectId';

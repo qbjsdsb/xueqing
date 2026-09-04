@@ -823,7 +823,7 @@ class _ManagementContent extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         _ManagementSection(
           title: '教师教学范围',
-          count: '${activeTeacherScopeCount} 条有效',
+          count: '$activeTeacherScopeCount 条有效',
           child: snapshot.teacherSubjectScopes.isEmpty
               ? _ManagementEmptyState(
                   title: '还没有教师教学范围',
@@ -1714,11 +1714,13 @@ class _ManagementEmptyState extends StatelessWidget {
     required this.title,
     required this.message,
     required this.icon,
+    this.action,
   });
 
   final String title;
   final String message;
   final IconData icon;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -1742,6 +1744,13 @@ class _ManagementEmptyState extends StatelessWidget {
                 Text(title, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(message, style: Theme.of(context).textTheme.bodyMedium),
+                if (action != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: action!,
+                  ),
+                ],
               ],
             ),
           ),
