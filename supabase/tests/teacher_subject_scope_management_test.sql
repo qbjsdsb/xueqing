@@ -1,0 +1,768 @@
+begin;
+
+select plan(35);
+
+create temp table teacher_scope_test_state (
+  scope_id uuid primary key,
+  status text not null,
+  version integer not null
+);
+
+grant all on table teacher_scope_test_state to authenticated;
+
+select is(
+  (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'membership_subject_scopes'
+      and column_name = 'version'
+  ),
+  1,
+  'subject scopes have an optimistic version'
+);
+
+select is(
+  to_regprocedure('public.list_organization_teacher_subject_scopes(uuid)')
+    is not null,
+  true,
+  'teacher scope roster function exists'
+);
+
+select is(
+  (
+    select prosecdef
+    from pg_proc
+    where oid = to_regprocedure(
+      'public.list_organization_teacher_subject_scopes(uuid)'
+    )
+  ),
+  true,
+  'teacher scope roster is security definer'
+);
+
+select is(
+  has_function_privilege(
+    'anon',
+    'public.list_organization_teacher_subject_scopes(uuid)',
+    'execute'
+  ),
+  false,
+  'anon cannot list teacher scopes'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'public.list_organization_teacher_subject_scopes(uuid)',
+    'execute'
+  ),
+  true,
+  'authenticated can list teacher scopes through the guarded command'
+);
+
+select is(
+  to_regprocedure(
+    'public.update_organization_teacher_subject_scope(uuid,uuid,uuid,uuid,uuid,integer,text)'
+  ) is not null,
+  true,
+  'teacher scope command exists'
+);
+
+select is(
+  has_table_privilege(
+    'authenticated',
+    'public.membership_subject_scopes',
+    'update'
+  ),
+  false,
+  'authenticated cannot update scopes directly'
+);
+
+set local role authenticated;
+
+select set_config(
+  'request.jwt.claim.sub',
+  '20000000-0000-0000-0000-000000000001',
+  true
+);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.list_organization_teacher_subject_scopes(
+      '00000000-0000-0000-0000-000000000001'
+    ) as item
+  ),
+  1,
+  'an organization manager can load teacher scopes'
+);
+
+select is(
+  (
+    select (item ->> 'version')::int
+    from public.list_organization_teacher_subject_scopes(
+      '00000000-0000-0000-0000-000000000001'
+    ) as item
+    limit 1
+  ),
+  1,
+  'teacher scope roster exposes the initial version'
+);
+
+select set_config(
+  'request.jwt.claim.sub',
+  '20000000-0000-0000-0000-000000000003',
+  true
+);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000003',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000003'
+  )::text,
+  true
+);
+
+select throws_ok(
+  $scope_teacher$
+    select public.list_organization_teacher_subject_scopes(
+      '00000000-0000-0000-0000-000000000001'
+    )
+  $scope_teacher$,
+  'P0001',
+  null,
+  'a non-manager cannot list organization teacher scopes'
+);
+
+reset role;
+
+insert into public.organization_memberships (
+  id,
+  organization_id,
+  app_user_id,
+  status
+)
+values (
+  '71000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000003',
+  'active'
+);
+
+insert into public.membership_roles (
+  id,
+  organization_id,
+  membership_id,
+  role
+)
+values (
+  '72000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '71000000-0000-0000-0000-000000000001',
+  'teacher'
+);
+
+set local role authenticated;
+
+select set_config(
+  'request.jwt.claim.sub',
+  '20000000-0000-0000-0000-000000000001',
+  true
+);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+
+select is(
+  (
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000001',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      null,
+      null,
+      'active'
+    )
+  ) ->> 'status',
+  'active',
+  'a manager can add a teacher teaching scope'
+);
+
+select is(
+  (
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000001',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      null,
+      null,
+      'active'
+    )
+  ) ->> 'version',
+  '1',
+  'new scope starts at version one'
+);
+
+insert into teacher_scope_test_state (
+  scope_id,
+  status,
+  version
+)
+select
+  (command.result ->> 'scope_id')::uuid,
+  command.result ->> 'status',
+  (command.result ->> 'version')::int
+from (
+  select public.update_organization_teacher_subject_scope(
+    '80000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    '71000000-0000-0000-0000-000000000001',
+    '64000000-0000-0000-0000-000000000001',
+    null,
+    null,
+    'active'
+  ) as result
+) as command;
+
+reset role;
+
+select is(
+  (
+    select count(*)::int
+    from public.membership_subject_scopes as scope
+    where scope.membership_id =
+      '71000000-0000-0000-0000-000000000001'
+      and scope.status = 'active'
+  ),
+  1,
+  'new teacher has one active scope'
+);
+
+set local role authenticated;
+
+select is(
+  (
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000001',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      null,
+      null,
+      'active'
+    )
+  ) ->> 'status',
+  'active',
+  'repeating scope activation returns the committed result'
+);
+
+reset role;
+
+select is(
+  (
+    select count(*)::int
+    from public.operation_receipts
+    where organization_id =
+      '00000000-0000-0000-0000-000000000001'
+      and operation_id =
+        '80000000-0000-0000-0000-000000000001'
+      and command_type = 'update_organization_teacher_subject_scope'
+      and target_type = 'membership_subject_scope'
+      and committed_at is not null
+  ),
+  1,
+  'scope activation retry keeps one receipt'
+);
+
+set local role authenticated;
+
+select set_config(
+  'request.jwt.claim.sub',
+  '20000000-0000-0000-0000-000000000001',
+  true
+);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+
+select throws_ok(
+  $scope_duplicate$
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000002',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      null,
+      null,
+      'active'
+    )
+  $scope_duplicate$,
+  'P0001',
+  null,
+  'duplicate active scope is rejected'
+);
+
+select throws_ok(
+  $scope_cross_org$
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000003',
+      '00000000-0000-0000-0000-000000000001',
+      '61000000-0000-0000-0000-000000000002',
+      '64000000-0000-0000-0000-000000000001',
+      null,
+      null,
+      'active'
+    )
+  $scope_cross_org$,
+  'P0001',
+  null,
+  'cross organization membership cannot receive a scope'
+);
+
+reset role;
+
+insert into public.student_teacher_assignments (
+  id,
+  organization_id,
+  student_subject_profile_id,
+  membership_id,
+  assignment_role,
+  status,
+  active_from
+)
+values (
+  '77000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '67000000-0000-0000-0000-000000000001',
+  '71000000-0000-0000-0000-000000000001',
+  'collaborator',
+  'active',
+  '2026-01-01'
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $scope_assignment_guard$
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000004',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      (
+        select scope_id
+        from teacher_scope_test_state
+      ),
+      1,
+      'ended'
+    )
+  $scope_assignment_guard$,
+  'P0001',
+  null,
+  'scope cannot end while an active student assignment remains'
+);
+
+reset role;
+
+select is(
+  (
+    select count(*)::int
+    from public.membership_subject_scopes as scope
+    where scope.membership_id =
+      '71000000-0000-0000-0000-000000000001'
+      and scope.status = 'active'
+  ),
+  1,
+  'assignment handoff refusal leaves scope active'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.student_teacher_assignments as assignment
+    where assignment.membership_id =
+      '71000000-0000-0000-0000-000000000001'
+      and assignment.status = 'active'
+  ),
+  1,
+  'assignment handoff refusal leaves assignment active'
+);
+
+delete from public.student_teacher_assignments
+where id = '77000000-0000-0000-0000-000000000001';
+
+insert into public.learning_cases (
+  id,
+  organization_id,
+  student_subject_profile_id,
+  owner_membership_id,
+  case_type,
+  title,
+  status,
+  first_observed_at,
+  version,
+  created_by_app_user_id,
+  created_by_membership_id
+)
+values (
+  '78000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '67000000-0000-0000-0000-000000000001',
+  '71000000-0000-0000-0000-000000000001',
+  'knowledge',
+  '待交接的虚构案件',
+  'confirmed',
+  '2026-09-04T08:00:00Z',
+  1,
+  '10000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001'
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $scope_case_guard$
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000005',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      (
+        select scope_id
+        from teacher_scope_test_state
+      ),
+      1,
+      'ended'
+    )
+  $scope_case_guard$,
+  'P0001',
+  null,
+  'scope cannot end while an open Case remains owned by the teacher'
+);
+
+reset role;
+
+select is(
+  (
+    select count(*)::int
+    from public.membership_subject_scopes as scope
+    where scope.membership_id =
+      '71000000-0000-0000-0000-000000000001'
+      and scope.status = 'active'
+  ),
+  1,
+  'Case handoff refusal leaves scope active'
+);
+
+delete from public.learning_cases
+where id = '78000000-0000-0000-0000-000000000001';
+
+set local role authenticated;
+
+select is(
+  (
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000006',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      (
+        select scope_id
+        from teacher_scope_test_state
+      ),
+      1,
+      'ended'
+    )
+  ) ->> 'status',
+  'ended',
+  'a manager can end a teacher subject scope after handoff'
+);
+
+select is(
+  (
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000006',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      (
+        select scope_id
+        from teacher_scope_test_state
+      ),
+      1,
+      'ended'
+    )
+  ) ->> 'version',
+  '2',
+  'repeating scope ending returns the committed result'
+);
+
+with command as (
+  select public.update_organization_teacher_subject_scope(
+    '80000000-0000-0000-0000-000000000006',
+    '00000000-0000-0000-0000-000000000001',
+    '71000000-0000-0000-0000-000000000001',
+    '64000000-0000-0000-0000-000000000001',
+    (
+        select scope_id
+        from teacher_scope_test_state
+      ),
+    1,
+    'ended'
+  ) as result
+)
+update teacher_scope_test_state as state
+set status = command.result ->> 'status',
+    version = (command.result ->> 'version')::int
+from command
+where state.scope_id = (command.result ->> 'scope_id')::uuid;
+
+reset role;
+
+select is(
+  (
+    select count(*)::int
+    from public.membership_subject_scopes as scope
+    where scope.membership_id =
+      '71000000-0000-0000-0000-000000000001'
+      and scope.status = 'active'
+  ),
+  0,
+  'ended scope is no longer active'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.operation_receipts
+    where operation_id =
+      '80000000-0000-0000-0000-000000000006'
+      and command_type = 'update_organization_teacher_subject_scope'
+      and result ->> 'status' = 'ended'
+      and committed_at is not null
+  ),
+  1,
+  'scope ending retry keeps one receipt'
+);
+
+set local role authenticated;
+
+select is(
+  (
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000007',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      null,
+      null,
+      'active'
+    )
+  ) ->> 'status',
+  'active',
+  'a manager can reactivate a scope as a new interval'
+);
+
+select is(
+  (
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000007',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      null,
+      null,
+      'active'
+    )
+  ) ->> 'version',
+  '1',
+  'reactivated scope starts a new versioned interval'
+);
+
+delete from teacher_scope_test_state;
+
+insert into teacher_scope_test_state (
+  scope_id,
+  status,
+  version
+)
+select
+  (command.result ->> 'scope_id')::uuid,
+  command.result ->> 'status',
+  (command.result ->> 'version')::int
+from (
+  select public.update_organization_teacher_subject_scope(
+    '80000000-0000-0000-0000-000000000007',
+    '00000000-0000-0000-0000-000000000001',
+    '71000000-0000-0000-0000-000000000001',
+    '64000000-0000-0000-0000-000000000001',
+    null,
+    null,
+    'active'
+  ) as result
+) as command;
+
+reset role;
+
+select is(
+  (
+    select count(*)::int
+    from public.membership_subject_scopes as scope
+    where scope.membership_id =
+      '71000000-0000-0000-0000-000000000001'
+      and scope.organization_subject_id =
+        '64000000-0000-0000-0000-000000000001'
+  ),
+  2,
+  'scope history keeps the ended interval and new active interval'
+);
+
+update public.membership_subject_scopes
+set active_from = active_from
+where organization_id =
+    '00000000-0000-0000-0000-000000000001'
+  and membership_id =
+    '71000000-0000-0000-0000-000000000001'
+  and organization_subject_id =
+    '64000000-0000-0000-0000-000000000001'
+  and status = 'active';
+
+set local role authenticated;
+
+select throws_ok(
+  $scope_stale$
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000008',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      (
+        select scope_id
+        from teacher_scope_test_state
+      ),
+      1,
+      'ended'
+    )
+  $scope_stale$,
+  'P0001',
+  null,
+  'stale scope version is rejected'
+);
+
+reset role;
+
+select is(
+  (
+    select scope.status || '|' || scope.version::text
+    from public.membership_subject_scopes as scope
+    where scope.organization_id =
+      '00000000-0000-0000-0000-000000000001'
+      and scope.membership_id =
+        '71000000-0000-0000-0000-000000000001'
+      and scope.organization_subject_id =
+        '64000000-0000-0000-0000-000000000001'
+      and scope.status = 'active'
+  ),
+  'active|2',
+  'stale scope request leaves the current scope unchanged'
+);
+
+set local role authenticated;
+
+select is(
+  (
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000009',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      (
+        select scope_id
+        from teacher_scope_test_state
+      ),
+      2,
+      'ended'
+    )
+  ) ->> 'status',
+  'ended',
+  'a manager can end the reactivated scope with the current version'
+);
+
+select is(
+  (
+    select public.update_organization_teacher_subject_scope(
+      '80000000-0000-0000-0000-000000000009',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      '64000000-0000-0000-0000-000000000001',
+      (
+        select scope_id
+        from teacher_scope_test_state
+      ),
+      2,
+      'ended'
+    )
+  ) ->> 'version',
+  '3',
+  'final scope ending increments the version exactly once'
+);
+
+reset role;
+
+select is(
+  (
+    select count(*)::int
+    from public.membership_subject_scopes as scope
+    where scope.membership_id =
+      '71000000-0000-0000-0000-000000000001'
+      and scope.status = 'active'
+  ),
+  0,
+  'all test teacher scopes are ended after final handoff'
+);
+
+set local role authenticated;
+
+select is(
+  (
+    select count(*)::int
+    from public.list_organization_teacher_subject_scopes(
+      '00000000-0000-0000-0000-000000000001'
+    ) as item
+  ),
+  3,
+  'scope roster includes active and historical teaching intervals'
+);
+
+select * from finish();
+
+rollback;

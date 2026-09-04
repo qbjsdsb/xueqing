@@ -70,4 +70,58 @@ void main() {
       isNull,
     );
   });
+  test('parses teacher subject scope history and command results', () {
+    final scope = OrganizationTeacherSubjectScope.fromJson({
+      'scope_id': 'scope-1',
+      'membership_id': 'membership-1',
+      'organization_subject_id': 'organization-subject-1',
+      'teacher_name': '示例老师',
+      'teacher_email': 'teacher@example.com',
+      'membership_status': 'active',
+      'subject_name': '数学',
+      'subject_code': 'math',
+      'scope_kind': 'teaching',
+      'status': 'ended',
+      'version': 2,
+      'active_from': '2026-09-01',
+      'active_to': '2026-09-04',
+    });
+    final result = OrganizationTeacherSubjectScopeUpdateResult.fromJson({
+      'operation_id': 'operation-1',
+      'organization_id': 'org-1',
+      'membership_id': 'membership-1',
+      'organization_subject_id': 'organization-subject-1',
+      'scope_id': 'scope-1',
+      'status': 'ended',
+      'version': 2,
+      'active_from': '2026-09-01',
+      'active_to': '2026-09-04',
+    });
+
+    expect(scope.isEnded, isTrue);
+    expect(scope.version, 2);
+    expect(scope.activeTo, isNotNull);
+    expect(result.status, 'ended');
+    expect(result.scopeId, 'scope-1');
+  });
+
+  test('maps teacher scope handoff and concurrency errors', () {
+    expect(
+      organizationTeacherSubjectScopeErrorMessage(
+        PostgrestException(
+          message: 'teacher_scope_handoff_required',
+          code: 'P0001',
+          details: '',
+          hint: '',
+        ),
+      ),
+      '仍有学生任课、开放案件或待办行动未交接，请先完成交接。',
+    );
+    expect(
+      organizationTeacherSubjectScopeErrorMessage(
+        const AuthException('teacher_subject_scope_version_conflict'),
+      ),
+      '这条教学范围刚刚被别人修改，请刷新后重试。',
+    );
+  });
 }

@@ -96,6 +96,108 @@ class OrganizationMemberStatusUpdateResult {
   }
 }
 
+class OrganizationTeacherSubjectScope {
+  const OrganizationTeacherSubjectScope({
+    required this.scopeId,
+    required this.membershipId,
+    required this.organizationSubjectId,
+    required this.teacherName,
+    required this.teacherEmail,
+    required this.membershipStatus,
+    required this.subjectName,
+    required this.subjectCode,
+    required this.scopeKind,
+    required this.status,
+    required this.version,
+    required this.activeFrom,
+    required this.activeTo,
+  });
+
+  final String scopeId;
+  final String membershipId;
+  final String organizationSubjectId;
+  final String teacherName;
+  final String teacherEmail;
+  final String membershipStatus;
+  final String subjectName;
+  final String subjectCode;
+  final String scopeKind;
+  final String status;
+  final int version;
+  final DateTime? activeFrom;
+  final DateTime? activeTo;
+
+  bool get isActive => status == 'active';
+  bool get isEnded => status == 'ended';
+
+  factory OrganizationTeacherSubjectScope.fromJson(Map<String, dynamic> json) {
+    return OrganizationTeacherSubjectScope(
+      scopeId: _requiredString(json['scope_id'], 'scope_id'),
+      membershipId: _requiredString(json['membership_id'], 'membership_id'),
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      teacherName: _stringValue(json['teacher_name']) ?? '未命名老师',
+      teacherEmail: _stringValue(json['teacher_email']) ?? '',
+      membershipStatus: _stringValue(json['membership_status']) ?? 'unknown',
+      subjectName: _stringValue(json['subject_name']) ?? '未命名学科',
+      subjectCode: _stringValue(json['subject_code']) ?? '—',
+      scopeKind: _stringValue(json['scope_kind']) ?? 'teaching',
+      status: _stringValue(json['status']) ?? 'unknown',
+      version: _intValue(json['version']) ?? 1,
+      activeFrom: _dateTimeValue(json['active_from']),
+      activeTo: _dateTimeValue(json['active_to']),
+    );
+  }
+}
+
+class OrganizationTeacherSubjectScopeUpdateResult {
+  const OrganizationTeacherSubjectScopeUpdateResult({
+    required this.operationId,
+    required this.organizationId,
+    required this.membershipId,
+    required this.organizationSubjectId,
+    required this.scopeId,
+    required this.status,
+    required this.version,
+    required this.activeFrom,
+    required this.activeTo,
+  });
+
+  final String operationId;
+  final String organizationId;
+  final String membershipId;
+  final String organizationSubjectId;
+  final String scopeId;
+  final String status;
+  final int version;
+  final DateTime? activeFrom;
+  final DateTime? activeTo;
+
+  factory OrganizationTeacherSubjectScopeUpdateResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationTeacherSubjectScopeUpdateResult(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      organizationId: _requiredString(
+        json['organization_id'],
+        'organization_id',
+      ),
+      membershipId: _requiredString(json['membership_id'], 'membership_id'),
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      scopeId: _requiredString(json['scope_id'], 'scope_id'),
+      status: _stringValue(json['status']) ?? 'unknown',
+      version: _intValue(json['version']) ?? 1,
+      activeFrom: _dateTimeValue(json['active_from']),
+      activeTo: _dateTimeValue(json['active_to']),
+    );
+  }
+}
+
 class OrganizationSetupSubject {
   const OrganizationSetupSubject({required this.id, required this.displayName});
 
@@ -411,6 +513,21 @@ abstract interface class OrganizationManagementRepository {
     required String status,
   });
 
+  Future<List<OrganizationTeacherSubjectScope>> listTeacherSubjectScopes({
+    required String organizationId,
+  });
+
+  Future<OrganizationTeacherSubjectScopeUpdateResult>
+  updateTeacherSubjectScope({
+    required String operationId,
+    required String organizationId,
+    required String membershipId,
+    required String organizationSubjectId,
+    String? scopeId,
+    int? expectedScopeVersion,
+    required String status,
+  });
+
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   });
@@ -570,6 +687,35 @@ String? organizationMemberLifecycleErrorMessage(Object error) {
   };
 }
 
+String? organizationTeacherSubjectScopeErrorMessage(Object error) {
+  final detail = switch (error) {
+    AuthException(:final message) => message.trim(),
+    PostgrestException(:final message) => message.trim(),
+    _ => null,
+  };
+  if (detail == null) {
+    return null;
+  }
+  return switch (detail.toLowerCase()) {
+    'invalid_teacher_subject_scope_input' => '教学范围信息不完整，请刷新后重试。',
+    'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
+    'membership_not_found' => '这位老师已不在本机构，请刷新后重试。',
+    'teacher_membership_not_active' => '这位老师当前不是在岗状态，请刷新后重试。',
+    'teacher_role_required' => '该成员还没有老师角色，请先调整成员角色。',
+    'organization_subject_not_found' => '所选学科已变化，请刷新后重新选择。',
+    'teacher_subject_scope_already_active' => '这位老师已经拥有该学科的有效范围。',
+    'teacher_subject_scope_not_found' => '这条教学范围已变化，请刷新后重试。',
+    'teacher_subject_scope_not_active' => '这条教学范围已经结束，请刷新后刷新列表。',
+    'teacher_subject_scope_version_conflict' => '这条教学范围刚刚被别人修改，请刷新后重试。',
+    'teacher_scope_handoff_required' => '仍有学生任课、开放案件或待办行动未交接，请先完成交接。',
+    'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
+    'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
+    'invalid_live_session' => '登录状态已失效，请重新登录。',
+    'organization_manager_required' => '当前账号没有本机构管理权限。',
+    _ => null,
+  };
+}
+
 String? organizationStudentSetupErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),
@@ -700,6 +846,62 @@ class SupabaseOrganizationManagementRepository
       <String, dynamic>{'p_organization_id': organizationId},
     );
     return _mapList(response, OrganizationInvitation.fromJson);
+  }
+
+  @override
+  Future<List<OrganizationTeacherSubjectScope>> listTeacherSubjectScopes({
+    required String organizationId,
+  }) async {
+    final response = await _call(
+      'list_organization_teacher_subject_scopes',
+      <String, dynamic>{'p_organization_id': organizationId},
+    );
+    return _mapList(response, OrganizationTeacherSubjectScope.fromJson);
+  }
+
+  @override
+  Future<OrganizationTeacherSubjectScopeUpdateResult>
+  updateTeacherSubjectScope({
+    required String operationId,
+    required String organizationId,
+    required String membershipId,
+    required String organizationSubjectId,
+    String? scopeId,
+    int? expectedScopeVersion,
+    required String status,
+  }) async {
+    final normalizedStatus = status.trim();
+    final normalizedScopeId = scopeId?.trim();
+    if (operationId.trim().isEmpty ||
+        organizationId.trim().isEmpty ||
+        membershipId.trim().isEmpty ||
+        organizationSubjectId.trim().isEmpty ||
+        normalizedStatus.isEmpty ||
+        normalizedStatus != 'active' && normalizedStatus != 'ended' ||
+        normalizedScopeId != null && normalizedScopeId.isEmpty ||
+        normalizedStatus == 'active' &&
+            (normalizedScopeId != null || expectedScopeVersion != null) ||
+        normalizedStatus == 'ended' &&
+            (normalizedScopeId == null ||
+                expectedScopeVersion == null ||
+                expectedScopeVersion <= 0)) {
+      throw ArgumentError('Teacher subject scope identity is invalid.');
+    }
+    final response = await _call(
+      'update_organization_teacher_subject_scope',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_membership_id': membershipId,
+        'p_organization_subject_id': organizationSubjectId,
+        'p_scope_id': normalizedScopeId,
+        'p_expected_scope_version': expectedScopeVersion,
+        'p_status': normalizedStatus,
+      },
+    );
+    return OrganizationTeacherSubjectScopeUpdateResult.fromJson(
+      _mapResponse(response),
+    );
   }
 
   @override

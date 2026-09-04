@@ -11,6 +11,7 @@ class _FakeOrganizationManagementRepository
     required this.members,
     required this.invitations,
     this.students = const [],
+    this.teacherSubjectScopes = const [],
     this.setupOptions = const OrganizationSetupOptions(
       subjects: [OrganizationSetupSubject(id: 'subject-1', displayName: '数学')],
       teachers: [
@@ -26,6 +27,7 @@ class _FakeOrganizationManagementRepository
   final List<OrganizationMember> members;
   final List<OrganizationInvitation> invitations;
   final List<OrganizationStudentRecord> students;
+  final List<OrganizationTeacherSubjectScope> teacherSubjectScopes;
   final OrganizationSetupOptions setupOptions;
   final List<OrganizationSubjectCatalogItem> subjectCatalog = const [
     OrganizationSubjectCatalogItem(
@@ -41,9 +43,11 @@ class _FakeOrganizationManagementRepository
   int studentCreateCount = 0;
   int memberStatusUpdateCount = 0;
   int studentUpdateCount = 0;
+  int teacherScopeUpdateCount = 0;
   OrganizationStudentSetupResult? createdStudent;
   OrganizationStudentUpdateResult? updatedStudent;
   OrganizationMemberStatusUpdateResult? updatedMember;
+  OrganizationTeacherSubjectScopeUpdateResult? updatedTeacherScope;
 
   @override
   Future<List<OrganizationMember>> listMembers({
@@ -97,6 +101,98 @@ class _FakeOrganizationManagementRepository
     required String organizationId,
   }) async {
     return invitations;
+  }
+
+  @override
+  Future<List<OrganizationTeacherSubjectScope>> listTeacherSubjectScopes({
+    required String organizationId,
+  }) async {
+    return teacherSubjectScopes;
+  }
+
+  @override
+  Future<OrganizationTeacherSubjectScopeUpdateResult>
+  updateTeacherSubjectScope({
+    required String operationId,
+    required String organizationId,
+    required String membershipId,
+    required String organizationSubjectId,
+    String? scopeId,
+    int? expectedScopeVersion,
+    required String status,
+  }) async {
+    teacherScopeUpdateCount++;
+    if (status == 'ended') {
+      final index = teacherSubjectScopes.indexWhere(
+        (scope) => scope.scopeId == scopeId,
+      );
+      if (index < 0) {
+        throw StateError('Teacher scope was not found in the fake repository.');
+      }
+      final previous = teacherSubjectScopes[index];
+      final updated = OrganizationTeacherSubjectScope(
+        scopeId: previous.scopeId,
+        membershipId: previous.membershipId,
+        organizationSubjectId: previous.organizationSubjectId,
+        teacherName: previous.teacherName,
+        teacherEmail: previous.teacherEmail,
+        membershipStatus: previous.membershipStatus,
+        subjectName: previous.subjectName,
+        subjectCode: previous.subjectCode,
+        scopeKind: previous.scopeKind,
+        status: 'ended',
+        version: previous.version + 1,
+        activeFrom: previous.activeFrom,
+        activeTo: DateTime(2026, 9, 4),
+      );
+      teacherSubjectScopes[index] = updated;
+      updatedTeacherScope = OrganizationTeacherSubjectScopeUpdateResult(
+        operationId: operationId,
+        organizationId: organizationId,
+        membershipId: membershipId,
+        organizationSubjectId: organizationSubjectId,
+        scopeId: updated.scopeId,
+        status: updated.status,
+        version: updated.version,
+        activeFrom: updated.activeFrom,
+        activeTo: updated.activeTo,
+      );
+      return updatedTeacherScope!;
+    }
+    final teacher = setupOptions.teachers.firstWhere(
+      (item) => item.membershipId == membershipId,
+    );
+    final subject = setupOptions.subjects.firstWhere(
+      (item) => item.id == organizationSubjectId,
+    );
+    final scope = OrganizationTeacherSubjectScope(
+      scopeId: 'scope-$teacherScopeUpdateCount',
+      membershipId: membershipId,
+      organizationSubjectId: organizationSubjectId,
+      teacherName: teacher.displayName,
+      teacherEmail: teacher.email,
+      membershipStatus: 'active',
+      subjectName: subject.displayName,
+      subjectCode: subject.displayName.toLowerCase(),
+      scopeKind: 'teaching',
+      status: 'active',
+      version: 1,
+      activeFrom: DateTime(2026, 9, 4),
+      activeTo: null,
+    );
+    teacherSubjectScopes.add(scope);
+    updatedTeacherScope = OrganizationTeacherSubjectScopeUpdateResult(
+      operationId: operationId,
+      organizationId: organizationId,
+      membershipId: membershipId,
+      organizationSubjectId: organizationSubjectId,
+      scopeId: scope.scopeId,
+      status: scope.status,
+      version: scope.version,
+      activeFrom: scope.activeFrom,
+      activeTo: scope.activeTo,
+    );
+    return updatedTeacherScope!;
   }
 
   @override
@@ -448,7 +544,9 @@ void main() {
     await _pumpManagement(tester, repository);
 
     expect(find.text('原学生'), findsOneWidget);
-    await tester.tap(find.text('编辑'));
+    final editButton = find.text('编辑');
+    await tester.ensureVisible(editButton);
+    await tester.tap(editButton);
     await tester.pumpAndSettle();
 
     expect(find.text('编辑学生'), findsOneWidget);
@@ -482,4 +580,45 @@ void main() {
     expect(find.text('从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。'), findsNothing);
     expect(find.text('已添加学科：英语。'), findsOneWidget);
   });
+
+  testWidgets(
+    'admin can configure, end, and re-enable a teacher subject scope',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        teacherSubjectScopes: <OrganizationTeacherSubjectScope>[],
+      );
+      await _pumpManagement(tester, repository);
+
+      await tester.tap(find.text('配置教学范围'));
+      await tester.pumpAndSettle();
+      expect(find.text('配置教师教学范围'), findsOneWidget);
+      await tester.tap(find.text('保存教学范围'));
+      await tester.pumpAndSettle();
+
+      expect(repository.teacherScopeUpdateCount, 1);
+      expect(find.text('示例老师 · 数学'), findsOneWidget);
+      final stop = find.text('停用教学范围');
+      await tester.ensureVisible(stop);
+      await tester.tap(stop);
+      await tester.pumpAndSettle();
+      expect(find.text('停用教学范围？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '停用教学范围'));
+      await tester.pumpAndSettle();
+
+      expect(repository.teacherScopeUpdateCount, 2);
+      expect(repository.updatedTeacherScope?.status, 'ended');
+      final restart = find.text('重新启用');
+      await tester.ensureVisible(restart);
+      await tester.tap(restart);
+      await tester.pumpAndSettle();
+      expect(find.text('重新启用教学范围？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '重新启用'));
+      await tester.pumpAndSettle();
+
+      expect(repository.teacherScopeUpdateCount, 3);
+      expect(repository.updatedTeacherScope?.status, 'active');
+    },
+  );
 }
