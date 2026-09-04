@@ -464,7 +464,7 @@ select throws_ok(
   'an invitation is bound to its email address'
 );
 
-set_config(
+select set_config(
   'request.jwt.claim.sub',
   '20000000-0000-0000-0000-000000000003',
   true
