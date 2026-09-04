@@ -130,9 +130,7 @@ class OrganizationTeacherSubjectScope {
   bool get isActive => status == 'active';
   bool get isEnded => status == 'ended';
 
-  factory OrganizationTeacherSubjectScope.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory OrganizationTeacherSubjectScope.fromJson(Map<String, dynamic> json) {
     return OrganizationTeacherSubjectScope(
       scopeId: _requiredString(json['scope_id'], 'scope_id'),
       membershipId: _requiredString(json['membership_id'], 'membership_id'),
@@ -520,7 +518,7 @@ abstract interface class OrganizationManagementRepository {
   });
 
   Future<OrganizationTeacherSubjectScopeUpdateResult>
-      updateTeacherSubjectScope({
+  updateTeacherSubjectScope({
     required String operationId,
     required String organizationId,
     required String membershipId,
@@ -863,7 +861,7 @@ class SupabaseOrganizationManagementRepository
 
   @override
   Future<OrganizationTeacherSubjectScopeUpdateResult>
-      updateTeacherSubjectScope({
+  updateTeacherSubjectScope({
     required String operationId,
     required String organizationId,
     required String membershipId,

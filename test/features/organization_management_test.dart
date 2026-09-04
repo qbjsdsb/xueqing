@@ -577,43 +577,46 @@ void main() {
     expect(repository.subjectCreateCount, 1);
     expect(find.text('从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。'), findsNothing);
     expect(find.text('已添加学科：英语。'), findsOneWidget);
-  testWidgets('admin can configure, end, and re-enable a teacher subject scope', (
-    tester,
-  ) async {
-    final repository = _FakeOrganizationManagementRepository(
-      members: const [],
-      invitations: const [],
-    );
-    await _pumpManagement(tester, repository);
-
-    await tester.tap(find.text('配置教学范围'));
-    await tester.pumpAndSettle();
-    expect(find.text('配置教师教学范围'), findsOneWidget);
-    await tester.tap(find.text('保存教学范围'));
-    await tester.pumpAndSettle();
-
-    expect(repository.teacherScopeUpdateCount, 1);
-    expect(find.text('示例老师 · 数学'), findsOneWidget);
-    final stop = find.text('停用教学范围');
-    await tester.ensureVisible(stop);
-    await tester.tap(stop);
-    await tester.pumpAndSettle();
-    expect(find.text('停用教学范围？'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '停用教学范围'));
-    await tester.pumpAndSettle();
-
-    expect(repository.teacherScopeUpdateCount, 2);
-    expect(repository.updatedTeacherScope?.status, 'ended');
-    final restart = find.text('重新启用');
-    await tester.ensureVisible(restart);
-    await tester.tap(restart);
-    await tester.pumpAndSettle();
-    expect(find.text('重新启用教学范围？'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '重新启用'));
-    await tester.pumpAndSettle();
-
-    expect(repository.teacherScopeUpdateCount, 3);
-    expect(repository.updatedTeacherScope?.status, 'active');
   });
-  });
+
+  testWidgets(
+    'admin can configure, end, and re-enable a teacher subject scope',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        teacherSubjectScopes: <OrganizationTeacherSubjectScope>[],
+      );
+      await _pumpManagement(tester, repository);
+
+      await tester.tap(find.text('配置教学范围'));
+      await tester.pumpAndSettle();
+      expect(find.text('配置教师教学范围'), findsOneWidget);
+      await tester.tap(find.text('保存教学范围'));
+      await tester.pumpAndSettle();
+
+      expect(repository.teacherScopeUpdateCount, 1);
+      expect(find.text('示例老师 · 数学'), findsOneWidget);
+      final stop = find.text('停用教学范围');
+      await tester.ensureVisible(stop);
+      await tester.tap(stop);
+      await tester.pumpAndSettle();
+      expect(find.text('停用教学范围？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '停用教学范围'));
+      await tester.pumpAndSettle();
+
+      expect(repository.teacherScopeUpdateCount, 2);
+      expect(repository.updatedTeacherScope?.status, 'ended');
+      final restart = find.text('重新启用');
+      await tester.ensureVisible(restart);
+      await tester.tap(restart);
+      await tester.pumpAndSettle();
+      expect(find.text('重新启用教学范围？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '重新启用'));
+      await tester.pumpAndSettle();
+
+      expect(repository.teacherScopeUpdateCount, 3);
+      expect(repository.updatedTeacherScope?.status, 'active');
+    },
+  );
 }

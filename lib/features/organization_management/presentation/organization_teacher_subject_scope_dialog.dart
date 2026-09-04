@@ -140,8 +140,7 @@ class _OrganizationTeacherSubjectScopeDialogState
                         child: Text(subject.displayName),
                       ),
                   ],
-                  validator: (value) =>
-                      value == null ? '当前老师没有可配置的学科。' : null,
+                  validator: (value) => value == null ? '当前老师没有可配置的学科。' : null,
                   onChanged: (subjectId) {
                     setState(() => _selectedSubjectId = subjectId);
                   },

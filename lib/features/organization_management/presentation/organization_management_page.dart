@@ -83,8 +83,7 @@ class _OrganizationManagementPageState
       students: result[2] as List<OrganizationStudentRecord>,
       setupOptions: result[3] as OrganizationSetupOptions,
       subjectCatalog: result[4] as List<OrganizationSubjectCatalogItem>,
-      teacherSubjectScopes:
-          result[5] as List<OrganizationTeacherSubjectScope>,
+      teacherSubjectScopes: result[5] as List<OrganizationTeacherSubjectScope>,
     );
   }
 
@@ -162,9 +161,9 @@ class _OrganizationManagementPageState
       final teachers = snapshot.setupOptions.teachers;
       final subjects = snapshot.setupOptions.subjects;
       if (teachers.isEmpty || subjects.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先配置至少一个在岗老师和一个活跃学科。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('请先配置至少一个在岗老师和一个活跃学科。')));
         return;
       }
       final activeScopeKeys = <String>{
@@ -180,13 +179,12 @@ class _OrganizationManagementPageState
         ),
       );
       if (!hasAvailablePair) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('目前所有老师与学科组合都已配置教学范围。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('目前所有老师与学科组合都已配置教学范围。')));
         return;
       }
-      final draft =
-          await showDialog<OrganizationTeacherSubjectScopeDraft>(
+      final draft = await showDialog<OrganizationTeacherSubjectScopeDraft>(
             context: context,
             builder: (context) => OrganizationTeacherSubjectScopeDialog(
               teachers: teachers,
@@ -222,9 +220,8 @@ class _OrganizationManagementPageState
     }
     final ending = scope.isActive;
     if (!ending && scope.membershipStatus != 'active') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('成员恢复后才能重新启用教学范围。')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('成员恢复后才能重新启用教学范围。')));
       return;
     }
     final confirmed = await _confirm(
@@ -593,7 +590,9 @@ class _OrganizationManagementPageState
   }
 
   String _describeError(Object error) {
-    final teacherScopeError = organizationTeacherSubjectScopeErrorMessage(error);
+    final teacherScopeError = organizationTeacherSubjectScopeErrorMessage(
+      error,
+    );
     if (teacherScopeError != null) {
       return teacherScopeError;
     }
@@ -773,8 +772,9 @@ class _ManagementContent extends StatelessWidget {
     final activeTeacherScopeCount = snapshot.teacherSubjectScopes
         .where((scope) => scope.isActive)
         .length;
-    final latestEndedScopeIds =
-        _latestEndedTeacherScopeIds(snapshot.teacherSubjectScopes);
+    final latestEndedScopeIds = _latestEndedTeacherScopeIds(
+      snapshot.teacherSubjectScopes,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -841,8 +841,9 @@ class _ManagementContent extends StatelessWidget {
                       _TeacherSubjectScopeTile(
                         scope: scope,
                         busy: busy,
-                        showReactivate:
-                            latestEndedScopeIds.contains(scope.scopeId),
+                        showReactivate: latestEndedScopeIds.contains(
+                          scope.scopeId,
+                        ),
                         onToggle: () => onToggleTeacherScope(scope),
                       ),
                   ],
@@ -994,9 +995,7 @@ class _TeacherSubjectScopeTile extends StatelessWidget {
                 ? colorScheme.onPrimaryContainer
                 : colorScheme.onSurfaceVariant,
             child: Icon(
-              scope.isActive
-                  ? Icons.rule_outlined
-                  : Icons.history_outlined,
+              scope.isActive ? Icons.rule_outlined : Icons.history_outlined,
               size: 20,
             ),
           ),
@@ -1034,22 +1033,17 @@ class _TeacherSubjectScopeTile extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(period, style: Theme.of(context).textTheme.bodySmall),
-                if (!scope.isActive &&
-                    scope.membershipStatus != 'active') ...[
+                if (!scope.isActive && scope.membershipStatus != 'active') ...[
                   const SizedBox(height: AppSpacing.xxs),
                   Text(
                     '成员已停用；恢复成员后才能重新配置教学范围。',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                 ],
                 if (action != null) ...[
                   const SizedBox(height: AppSpacing.xs),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: action,
-                  ),
+                  Align(alignment: Alignment.centerLeft, child: action),
                 ],
               ],
             ),
