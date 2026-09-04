@@ -142,9 +142,7 @@ class _FakeLearningRepository implements LearningRepository {
   }
 
   @override
-  Future<CaseCommandReceipt> stabilizeCase(
-    StabilizeCaseCommand command,
-  ) async {
+  Future<CaseCommandReceipt> stabilizeCase(StabilizeCaseCommand command) async {
     stabilizeCount++;
     return _caseReceipt(
       command.operationId,
@@ -719,10 +717,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.stabilizeCount, 1);
-    expect(
-      find.textContaining('Case 进入稳定'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Case 进入稳定'), findsOneWidget);
   });
 
   testWidgets('closes a stable Case after confirmation', (tester) async {
@@ -750,10 +745,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.closeCount, 1);
-    expect(
-      find.textContaining('Case 进入已关闭'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Case 进入已关闭'), findsOneWidget);
   });
 
   testWidgets('does not expose student data without teaching access', (
