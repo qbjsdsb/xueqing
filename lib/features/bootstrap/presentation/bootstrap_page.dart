@@ -57,34 +57,38 @@ class BootstrapPage extends StatelessWidget {
                       icon: const Icon(Icons.people_alt_outlined),
                       label: const Text('进入教师工作台'),
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context)
-                            .pushNamed(AppRoutes.designPreview);
-                      },
-                      icon: const Icon(Icons.design_services_outlined),
-                      label: const Text('打开虚构数据预览'),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pushNamed(AppRoutes.cloudSpike);
-                      },
-                      icon: const Icon(Icons.cloud_outlined),
-                      label: const Text('打开云端连接测试'),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pushNamed(AppRoutes.routeCheck);
-                      },
-                      icon: const Icon(Icons.route_outlined),
-                      label: const Text('路由自检'),
-                    ),
+                    if (!config.environment.isProduction) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context)
+                              .pushNamed(AppRoutes.designPreview);
+                        },
+                        icon: const Icon(Icons.design_services_outlined),
+                        label: const Text('打开虚构数据预览'),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pushNamed(AppRoutes.cloudSpike);
+                        },
+                        icon: const Icon(Icons.cloud_outlined),
+                        label: const Text('打开云端连接测试'),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pushNamed(AppRoutes.routeCheck);
+                        },
+                        icon: const Icon(Icons.route_outlined),
+                        label: const Text('路由自检'),
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(
-                      '当前只连接开发环境虚构资料；正式 provider、真实学生数据和生产配置尚未启用。',
+                      config.environment.isProduction
+                          ? '当前已加载生产配置；在完成发布检查、备份恢复和机构授权前，不应录入真实学生资料。'
+                          : '当前只连接开发环境虚构资料；正式 provider、真实学生数据和生产配置尚未启用。',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -105,6 +109,8 @@ class _StatusPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isProduction = config.environment.isProduction;
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -113,13 +119,16 @@ class _StatusPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const _StatusRow(label: '当前状态', value: '开发验证'),
+          _StatusRow(label: '当前状态', value: isProduction ? '生产配置' : '开发验证'),
           const Divider(height: 1),
           _StatusRow(label: '运行环境', value: config.environmentLabel),
           const Divider(height: 1),
           const _StatusRow(label: '目标平台', value: 'Android / Windows'),
           const Divider(height: 1),
-          const _StatusRow(label: '工作范围', value: '0B.0-D 数据接入验证'),
+          _StatusRow(
+            label: '工作范围',
+            value: isProduction ? '生产发布前置检查' : '0B.0-D 数据接入验证',
+          ),
         ],
       ),
     );

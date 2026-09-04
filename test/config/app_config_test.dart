@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xueqing/cloud/cloud_config.dart';
 import 'package:xueqing/config/app_config.dart';
 
 void main() {
@@ -23,11 +24,39 @@ void main() {
       final config = AppConfig.fromValues(
         environmentValue: 'production',
         appVersion: '1.2.3+4',
+        cloudConfig: const CloudConfig(
+          url: 'https://example.supabase.co',
+          publishableKey: 'fictional-production-key',
+        ),
       );
 
       expect(config.environment, AppEnvironment.production);
       expect(config.environmentLabel, 'Production');
       expect(config.appVersion, '1.2.3+4');
+    });
+
+    test('rejects a production config without a cloud endpoint', () {
+      expect(
+        () => AppConfig.fromValues(
+          environmentValue: 'production',
+          appVersion: '1.2.3+4',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects an HTTP production endpoint', () {
+      expect(
+        () => AppConfig.fromValues(
+          environmentValue: 'production',
+          appVersion: '1.2.3+4',
+          cloudConfig: const CloudConfig(
+            url: 'http://127.0.0.1:54321',
+            publishableKey: 'fictional-production-key',
+          ),
+        ),
+        throwsA(isA<FormatException>()),
+      );
     });
 
     test('rejects an empty app version', () {

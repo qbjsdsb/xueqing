@@ -82,11 +82,17 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           widget.organizationManagementRepository;
       _invitationAcceptanceRepository = widget.invitationAcceptanceRepository;
     } else {
-      widget.config.cloudConfig.validate();
+      widget.config.cloudConfig.validate(
+        requireConfigured: widget.config.environment.isProduction,
+        requireHttps: widget.config.environment.isProduction,
+      );
       if (!widget.config.cloudConfig.isConfigured) {
         return;
       }
-      await CloudClient.initialize(widget.config.cloudConfig);
+      await CloudClient.initialize(
+        widget.config.cloudConfig,
+        requireSecureEndpoint: widget.config.environment.isProduction,
+      );
       _authRepository = SupabaseAuthRepository(CloudClient.client);
       _learningRepository = SupabaseLearningRepository(CloudClient.client);
       _organizationManagementRepository =
