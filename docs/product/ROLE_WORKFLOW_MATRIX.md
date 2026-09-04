@@ -176,3 +176,15 @@ Advisor 的非专业观察只能走 Observation/Parent Communication/综合协�
 - closed Case + inactive Profile → reopen 拒绝；
 - collaborator 非 owner → 关键 command 按 policy 拒绝；
 - revoked/disabled/cross-org 全拒绝。
+
+## Phase 0B 组织治理扩展
+
+负责人和管理员是 organization-scoped 的治理角色，不是 Supabase 项目角色，也不能替代教学事实权限。
+
+- org_owner（负责人）：管理本机构成员、邀请管理员/老师、审批负责人提名、管理机构问题类型。
+- org_admin（管理员）：管理本机构成员、邀请老师、提名负责人、管理机构问题类型。
+- 管理员提名负责人只能进入 pending_owner_approval；必须由现有负责人审批后，受邀账号才能接受。
+- academic_admin 只承担已授权的教务配置能力；不能仅凭管理身份读取学生教学详情或创建教学事实。
+- 负责人/管理员如需授课，应同时拥有 teacher 角色，并继续通过学科范围与学生分配的 Teaching Fact Gate。
+- 任何 organization 公开 RPC 都必须同时禁止 anon 直接执行；成员和邀请表只能通过受保护的 RPC 访问。
+- 首位负责人不通过公开自助接口产生。开发环境使用虚构 seed；未来正式环境采用一次性可信运维 bootstrap。
