@@ -68,7 +68,7 @@ class _FakeOrganizationManagementRepository
       throw StateError('Member was not found in the fake repository.');
     }
     final member = members[index];
-      members[index] = OrganizationMember(
+    members[index] = OrganizationMember(
         appUserId: member.appUserId,
         membershipId: member.membershipId,
         email: member.email,
@@ -80,7 +80,6 @@ class _FakeOrganizationManagementRepository
             ? null
             : member.onboardingExpiresAt,
       );
-    }
     updatedMember = OrganizationMemberStatusUpdateResult(
       operationId: operationId,
       membershipId: membershipId,
