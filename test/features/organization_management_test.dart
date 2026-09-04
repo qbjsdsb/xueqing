@@ -407,6 +407,7 @@ void main() {
     expect(repository.updatedMember?.status, 'disabled');
     expect(find.text('恢复成员'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('恢复成员'));
     await tester.tap(find.text('恢复成员'));
     await tester.pumpAndSettle();
     expect(find.text('恢复成员？'), findsOneWidget);
