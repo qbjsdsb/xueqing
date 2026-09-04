@@ -198,6 +198,190 @@ class OrganizationTeacherSubjectScopeUpdateResult {
   }
 }
 
+class OrganizationStudentTeacherAssignment {
+  const OrganizationStudentTeacherAssignment({
+    required this.assignmentId,
+    required this.organizationId,
+    required this.studentSubjectProfileId,
+    required this.studentId,
+    required this.studentName,
+    required this.organizationSubjectId,
+    required this.subjectName,
+    required this.subjectCode,
+    required this.membershipId,
+    required this.teacherName,
+    required this.teacherEmail,
+    required this.assignmentRole,
+    required this.status,
+    required this.version,
+    required this.activeFrom,
+    required this.activeTo,
+    required this.endedAt,
+  });
+
+  final String assignmentId;
+  final String organizationId;
+  final String studentSubjectProfileId;
+  final String studentId;
+  final String studentName;
+  final String organizationSubjectId;
+  final String subjectName;
+  final String subjectCode;
+  final String membershipId;
+  final String teacherName;
+  final String teacherEmail;
+  final String assignmentRole;
+  final String status;
+  final int version;
+  final DateTime? activeFrom;
+  final DateTime? activeTo;
+  final DateTime? endedAt;
+
+  bool get isActive => status == 'active';
+  bool get isLead => assignmentRole == 'lead';
+
+  factory OrganizationStudentTeacherAssignment.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationStudentTeacherAssignment(
+      assignmentId: _requiredString(json['assignment_id'], 'assignment_id'),
+      organizationId: _requiredString(
+        json['organization_id'],
+        'organization_id',
+      ),
+      studentSubjectProfileId: _requiredString(
+        json['student_subject_profile_id'],
+        'student_subject_profile_id',
+      ),
+      studentId: _requiredString(json['student_id'], 'student_id'),
+      studentName: _stringValue(json['student_name']) ?? '未命名学生',
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      subjectName: _stringValue(json['subject_name']) ?? '未命名学科',
+      subjectCode: _stringValue(json['subject_code']) ?? '—',
+      membershipId: _requiredString(json['membership_id'], 'membership_id'),
+      teacherName: _stringValue(json['teacher_name']) ?? '未命名老师',
+      teacherEmail: _stringValue(json['teacher_email']) ?? '',
+      assignmentRole: _stringValue(json['assignment_role']) ?? 'collaborator',
+      status: _stringValue(json['status']) ?? 'unknown',
+      version: _intValue(json['version']) ?? 1,
+      activeFrom: _dateTimeValue(json['active_from']),
+      activeTo: _dateTimeValue(json['active_to']),
+      endedAt: _dateTimeValue(json['ended_at']),
+    );
+  }
+}
+
+class OrganizationStudentTeacherAssignmentTransferResult {
+  const OrganizationStudentTeacherAssignmentTransferResult({
+    required this.operationId,
+    required this.organizationId,
+    required this.studentSubjectProfileId,
+    required this.studentId,
+    required this.studentName,
+    required this.organizationSubjectId,
+    required this.subjectName,
+    required this.subjectCode,
+    required this.assignmentRole,
+    required this.previousAssignmentId,
+    required this.previousMembershipId,
+    required this.previousTeacherName,
+    required this.previousTeacherEmail,
+    required this.previousAssignmentVersion,
+    required this.replacementAssignmentId,
+    required this.replacementMembershipId,
+    required this.replacementTeacherName,
+    required this.replacementTeacherEmail,
+    required this.replacementScopeId,
+    required this.replacementAssignmentVersion,
+    required this.status,
+    required this.activeFrom,
+  });
+
+  final String operationId;
+  final String organizationId;
+  final String studentSubjectProfileId;
+  final String studentId;
+  final String studentName;
+  final String organizationSubjectId;
+  final String subjectName;
+  final String subjectCode;
+  final String assignmentRole;
+  final String previousAssignmentId;
+  final String previousMembershipId;
+  final String previousTeacherName;
+  final String previousTeacherEmail;
+  final int previousAssignmentVersion;
+  final String replacementAssignmentId;
+  final String replacementMembershipId;
+  final String replacementTeacherName;
+  final String replacementTeacherEmail;
+  final String replacementScopeId;
+  final int replacementAssignmentVersion;
+  final String status;
+  final DateTime? activeFrom;
+
+  factory OrganizationStudentTeacherAssignmentTransferResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationStudentTeacherAssignmentTransferResult(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      organizationId: _requiredString(
+        json['organization_id'],
+        'organization_id',
+      ),
+      studentSubjectProfileId: _requiredString(
+        json['student_subject_profile_id'],
+        'student_subject_profile_id',
+      ),
+      studentId: _requiredString(json['student_id'], 'student_id'),
+      studentName: _stringValue(json['student_name']) ?? '未命名学生',
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      subjectName: _stringValue(json['subject_name']) ?? '未命名学科',
+      subjectCode: _stringValue(json['subject_code']) ?? '—',
+      assignmentRole: _stringValue(json['assignment_role']) ?? 'collaborator',
+      previousAssignmentId: _requiredString(
+        json['previous_assignment_id'],
+        'previous_assignment_id',
+      ),
+      previousMembershipId: _requiredString(
+        json['previous_membership_id'],
+        'previous_membership_id',
+      ),
+      previousTeacherName:
+          _stringValue(json['previous_teacher_name']) ?? '未命名老师',
+      previousTeacherEmail: _stringValue(json['previous_teacher_email']) ?? '',
+      previousAssignmentVersion:
+          _intValue(json['previous_assignment_version']) ?? 1,
+      replacementAssignmentId: _requiredString(
+        json['replacement_assignment_id'],
+        'replacement_assignment_id',
+      ),
+      replacementMembershipId: _requiredString(
+        json['replacement_membership_id'],
+        'replacement_membership_id',
+      ),
+      replacementTeacherName:
+          _stringValue(json['replacement_teacher_name']) ?? '未命名老师',
+      replacementTeacherEmail:
+          _stringValue(json['replacement_teacher_email']) ?? '',
+      replacementScopeId: _requiredString(
+        json['replacement_scope_id'],
+        'replacement_scope_id',
+      ),
+      replacementAssignmentVersion:
+          _intValue(json['replacement_assignment_version']) ?? 1,
+      status: _stringValue(json['status']) ?? 'unknown',
+      activeFrom: _dateTimeValue(json['active_from']),
+    );
+  }
+}
+
 class OrganizationSetupSubject {
   const OrganizationSetupSubject({required this.id, required this.displayName});
 
@@ -528,6 +712,18 @@ abstract interface class OrganizationManagementRepository {
     required String status,
   });
 
+  Future<List<OrganizationStudentTeacherAssignment>>
+  listStudentTeacherAssignments({required String organizationId});
+
+  Future<OrganizationStudentTeacherAssignmentTransferResult>
+  transferStudentTeacherAssignment({
+    required String operationId,
+    required String organizationId,
+    required String assignmentId,
+    required int expectedAssignmentVersion,
+    required String replacementMembershipId,
+  });
+
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   });
@@ -708,6 +904,44 @@ String? organizationTeacherSubjectScopeErrorMessage(Object error) {
     'teacher_subject_scope_not_active' => '这条教学范围已经结束，请刷新后刷新列表。',
     'teacher_subject_scope_version_conflict' => '这条教学范围刚刚被别人修改，请刷新后重试。',
     'teacher_scope_handoff_required' => '仍有学生任课、开放案件或待办行动未交接，请先完成交接。',
+    'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
+    'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
+    'invalid_live_session' => '登录状态已失效，请重新登录。',
+    'organization_manager_required' => '当前账号没有本机构管理权限。',
+    _ => null,
+  };
+}
+
+String? organizationStudentTeacherAssignmentErrorMessage(Object error) {
+  final detail = switch (error) {
+    AuthException(:final message) => message.trim(),
+    PostgrestException(:final message) => message.trim(),
+    _ => null,
+  };
+  if (detail == null) {
+    return null;
+  }
+  return switch (detail.toLowerCase()) {
+    'invalid_student_teacher_assignment_transfer_input' => '任课交接信息不完整，请刷新后重试。',
+    'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
+    'membership_not_found' => '原任课老师已不在本机构，请刷新后重试。',
+    'replacement_teacher_membership_not_found' => '接收老师已不在本机构，请刷新后重试。',
+    'student_teacher_assignment_not_found' => '这条任课关系已变化，请刷新后重试。',
+    'student_teacher_assignment_version_conflict' => '这条任课关系刚刚被别人修改，请刷新后重试。',
+    'student_teacher_assignment_not_active' => '这条任课关系已经结束，请刷新后刷新列表。',
+    'student_teacher_assignment_not_current' => '这条任课关系当前不在生效日期内，请刷新后重试。',
+    'student_subject_profile_not_found' => '学生学科档案已变化，请刷新后重试。',
+    'student_subject_profile_not_active' => '该学生学科档案当前不能交接。',
+    'student_not_found' => '学生档案已变化，请刷新后重试。',
+    'student_not_active' => '学生当前不是正常教学状态，请先恢复学生状态。',
+    'organization_subject_not_found' => '学科档案已变化，请刷新后重试。',
+    'organization_subject_not_active' => '该学科已停用，不能建立新的任课关系。',
+    'teacher_membership_not_active' => '接收老师当前不是在岗状态，请刷新后重试。',
+    'teacher_app_user_not_active' => '接收老师账号当前不可用，请刷新后重试。',
+    'teacher_role_required' => '接收成员还没有老师角色，请先调整成员角色。',
+    'teacher_subject_scope_required' => '接收老师还没有该学科的有效教学范围，请先配置教学范围。',
+    'teacher_assignment_same_teacher' => '接收老师不能与原任课老师相同。',
+    'teacher_assignment_already_active' => '接收老师已经拥有同类型的有效任课关系，请刷新后重试。',
     'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
     'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
     'invalid_live_session' => '登录状态已失效，请重新登录。',
@@ -900,6 +1134,49 @@ class SupabaseOrganizationManagementRepository
       },
     );
     return OrganizationTeacherSubjectScopeUpdateResult.fromJson(
+      _mapResponse(response),
+    );
+  }
+
+  @override
+  Future<List<OrganizationStudentTeacherAssignment>>
+  listStudentTeacherAssignments({required String organizationId}) async {
+    final response = await _call(
+      'list_organization_student_teacher_assignments',
+      <String, dynamic>{'p_organization_id': organizationId},
+    );
+    return _mapList(response, OrganizationStudentTeacherAssignment.fromJson);
+  }
+
+  @override
+  Future<OrganizationStudentTeacherAssignmentTransferResult>
+  transferStudentTeacherAssignment({
+    required String operationId,
+    required String organizationId,
+    required String assignmentId,
+    required int expectedAssignmentVersion,
+    required String replacementMembershipId,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        organizationId.trim().isEmpty ||
+        assignmentId.trim().isEmpty ||
+        expectedAssignmentVersion <= 0 ||
+        replacementMembershipId.trim().isEmpty) {
+      throw ArgumentError(
+        'Student teacher assignment transfer identity is invalid.',
+      );
+    }
+    final response = await _call(
+      'transfer_organization_student_teacher_assignment',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_assignment_id': assignmentId,
+        'p_expected_assignment_version': expectedAssignmentVersion,
+        'p_replacement_membership_id': replacementMembershipId,
+      },
+    );
+    return OrganizationStudentTeacherAssignmentTransferResult.fromJson(
       _mapResponse(response),
     );
   }
