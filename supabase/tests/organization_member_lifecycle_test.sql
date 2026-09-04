@@ -363,7 +363,7 @@ values (
 set local role authenticated;
 
 select throws_ok(
-  $
+  $member_handoff$
     select public.update_organization_membership_status(
       '75000000-0000-0000-0000-000000000008',
       '00000000-0000-0000-0000-000000000001',
@@ -371,7 +371,7 @@ select throws_ok(
       1,
       'disabled'
     )
-  $,
+  $member_handoff$,
   'P0001',
   null,
   'member disable refuses to orphan open cases or pending actions'
