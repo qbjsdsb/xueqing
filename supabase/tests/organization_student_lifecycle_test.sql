@@ -354,6 +354,8 @@ select lives_ok(
   'repeating the lifecycle operation returns its committed result'
 );
 
+reset role;
+
 select is(
   (
     select count(*)::int
@@ -368,6 +370,8 @@ select is(
   1,
   'lifecycle retry keeps one committed operation receipt'
 );
+
+set local role authenticated;
 
 select lives_ok(
   $$
