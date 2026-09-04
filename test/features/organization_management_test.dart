@@ -269,7 +269,7 @@ OrganizationInvitation _ownerNomination() {
 }
 
 OrganizationStudentRecord _studentRecord() {
-  return const OrganizationStudentRecord(
+  return OrganizationStudentRecord(
     studentId: 'student-1',
     studentName: '原学生',
     studentCode: 'S-001',
