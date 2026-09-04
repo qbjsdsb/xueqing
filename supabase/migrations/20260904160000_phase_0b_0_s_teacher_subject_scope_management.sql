@@ -144,9 +144,13 @@ begin
         and membership_role.role = 'teacher'
     )
   order by
-    teacher_name,
+    coalesce(
+      nullif(btrim(app_user.display_name), ''),
+      nullif(auth_user.email, ''),
+      '未命名老师'
+    ),
     subject.code,
-    scope.status desc,
+    case when scope.status = 'active' then 0 else 1 end,
     scope.active_from,
     scope.id;
 end
