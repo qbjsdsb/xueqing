@@ -414,7 +414,7 @@ class CaseCommandReceipt {
   const CaseCommandReceipt({
     required this.operationId,
     required this.caseId,
-    required this.actionId,
+    this.actionId,
     required this.eventId,
     required this.status,
     required this.caseVersion,
@@ -423,7 +423,7 @@ class CaseCommandReceipt {
 
   final String operationId;
   final String caseId;
-  final String actionId;
+  final String? actionId;
   final String eventId;
   final String status;
   final int caseVersion;
@@ -433,7 +433,7 @@ class CaseCommandReceipt {
     return CaseCommandReceipt(
       operationId: _requiredString(json['operation_id'], 'operation_id'),
       caseId: _requiredString(json['case_id'], 'case_id'),
-      actionId: _requiredString(json['action_id'], 'action_id'),
+      actionId: _stringValue(json['action_id']),
       eventId: _requiredString(json['event_id'], 'event_id'),
       status: _requiredString(json['status'], 'status'),
       caseVersion: _requiredInt(json['case_version'], 'case_version'),
@@ -540,6 +540,55 @@ class RecordAssessmentCommand {
   }
 }
 
+class StabilizeCaseCommand {
+  const StabilizeCaseCommand({
+    required this.operationId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.stabilizedAt,
+    required this.nextActionTitle,
+    required this.nextActionDueAt,
+  });
+
+  final String operationId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final DateTime? stabilizedAt;
+  final String nextActionTitle;
+  final DateTime? nextActionDueAt;
+
+  void validate() {
+    _validateCaseCommandIdentity(
+      operationId: operationId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+    );
+    _validateNextActionTitle(nextActionTitle);
+  }
+}
+
+class CloseCaseCommand {
+  const CloseCaseCommand({
+    required this.operationId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.closedAt,
+  });
+
+  final String operationId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final DateTime? closedAt;
+
+  void validate() {
+    _validateCaseCommandIdentity(
+      operationId: operationId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+    );
+  }
+}
+
 abstract interface class LearningRepository {
   Future<TeacherWorkspace> loadWorkspace();
 
@@ -569,6 +618,10 @@ abstract interface class LearningRepository {
   );
 
   Future<CaseCommandReceipt> recordAssessment(RecordAssessmentCommand command);
+
+  Future<CaseCommandReceipt> stabilizeCase(StabilizeCaseCommand command);
+
+  Future<CaseCommandReceipt> closeCase(CloseCaseCommand command);
 }
 
 class SupabaseLearningRepository implements LearningRepository {
@@ -1062,6 +1115,36 @@ class SupabaseLearningRepository implements LearningRepository {
         'p_assessed_at': _utcIso8601(command.assessedAt),
         'p_next_action_title': command.nextActionTitle.trim(),
         'p_next_action_due_at': _utcIso8601(command.nextActionDueAt),
+      },
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> stabilizeCase(StabilizeCaseCommand command) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'stabilize_case',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_stabilized_at': _utcIso8601(command.stabilizedAt),
+        'p_next_action_title': command.nextActionTitle.trim(),
+        'p_next_action_due_at': _utcIso8601(command.nextActionDueAt),
+      },
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> closeCase(CloseCaseCommand command) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'close_case',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_closed_at': _utcIso8601(command.closedAt),
       },
     );
   }

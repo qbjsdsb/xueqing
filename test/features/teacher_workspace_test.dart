@@ -17,6 +17,8 @@ class _FakeLearningRepository implements LearningRepository {
   int confirmCount = 0;
   int interventionCount = 0;
   int assessmentCount = 0;
+  int stabilizeCount = 0;
+  int closeCount = 0;
   final List<ConfirmCaseCommand> confirmCommands = <ConfirmCaseCommand>[];
   final List<RecordInterventionCommand> interventionCommands =
       <RecordInterventionCommand>[];
@@ -139,6 +141,30 @@ class _FakeLearningRepository implements LearningRepository {
     );
   }
 
+  @override
+  Future<CaseCommandReceipt> stabilizeCase(StabilizeCaseCommand command) async {
+    stabilizeCount++;
+    return _caseReceipt(
+      command.operationId,
+      command.caseId,
+      'stable',
+      command.expectedCaseVersion + 1,
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> closeCase(CloseCaseCommand command) async {
+    closeCount++;
+    return CaseCommandReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      actionId: null,
+      eventId: 'event-closed',
+      status: 'closed',
+      caseVersion: command.expectedCaseVersion + 1,
+    );
+  }
+
   CaseCommandReceipt _caseReceipt(
     String operationId,
     String caseId,
@@ -162,6 +188,7 @@ TeacherWorkspace _fixtureWorkspace({
   String actionType = 'practice',
   List<WorkspaceCaseType>? caseTypes,
   bool canManageCaseTypes = false,
+  String? assessmentResult,
 }) {
   final action = WorkspaceAction(
     id: 'action-1',
@@ -185,7 +212,17 @@ TeacherWorkspace _fixtureWorkspace({
     version: 1,
     evidence: const <WorkspaceEvidence>[],
     interventions: const <WorkspaceIntervention>[],
-    assessments: const <WorkspaceAssessment>[],
+    assessments: assessmentResult == null
+        ? const <WorkspaceAssessment>[]
+        : [
+            WorkspaceAssessment(
+              id: 'assessment-1',
+              result: assessmentResult,
+              evidenceSummary: '学生已能独立完成。',
+              notes: null,
+              assessedAt: DateTime(2026, 9, 3),
+            ),
+          ],
     actions: <WorkspaceAction>[action],
     timeline: const <WorkspaceTimelineEvent>[],
   );
@@ -639,6 +676,75 @@ void main() {
     });
     expect(receipt.recordId, 'assessment-1');
     expect(receipt.caseVersion, 2);
+
+    final closeReceipt = CaseCommandReceipt.fromJson(<String, dynamic>{
+      'operation_id': 'op-close',
+      'case_id': 'case-1',
+      'event_id': 'event-close',
+      'status': 'closed',
+      'case_version': 3,
+    });
+    expect(closeReceipt.actionId, isNull);
+  });
+
+  testWidgets('stabilizes a Case after a passed verification', (tester) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        status: LearningCaseStatus.pendingVerification,
+        assessmentResult: CaseAssessmentResult.passed.wireValue,
+      ),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
+    await tester.pumpAndSettle();
+
+    final stabilizeButton = find.widgetWithText(FilledButton, '标记为稳定');
+    await tester.ensureVisible(stabilizeButton);
+    await tester.tap(stabilizeButton);
+    await tester.pumpAndSettle();
+
+    final saveButton = find.widgetWithText(FilledButton, '保存并进入下一步');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.stabilizeCount, 1);
+    expect(find.textContaining('Case 进入稳定'), findsOneWidget);
+  });
+
+  testWidgets('closes a stable Case after confirmation', (tester) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.stable),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
+    await tester.pumpAndSettle();
+
+    final closeButton = find.widgetWithText(FilledButton, '关闭 Case');
+    await tester.ensureVisible(closeButton);
+    await tester.tap(closeButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('关闭 Case？'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '关闭').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.closeCount, 1);
+    expect(find.textContaining('Case 进入已关闭'), findsOneWidget);
   });
 
   testWidgets('does not expose student data without teaching access', (
