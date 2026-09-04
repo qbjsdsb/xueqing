@@ -48,9 +48,7 @@ void main() {
   testWidgets('hides development-only controls and routes in production', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      AppBootstrap(loader: () async => productionConfig),
-    );
+    await tester.pumpWidget(AppBootstrap(loader: () async => productionConfig));
     await tester.pumpAndSettle();
 
     expect(find.text('生产配置'), findsOneWidget);

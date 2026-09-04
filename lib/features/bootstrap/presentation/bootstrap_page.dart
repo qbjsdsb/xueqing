@@ -119,10 +119,7 @@ class _StatusPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _StatusRow(
-            label: '当前状态',
-            value: isProduction ? '生产配置' : '开发验证',
-          ),
+          _StatusRow(label: '当前状态', value: isProduction ? '生产配置' : '开发验证'),
           const Divider(height: 1),
           _StatusRow(label: '运行环境', value: config.environmentLabel),
           const Divider(height: 1),
