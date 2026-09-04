@@ -572,7 +572,7 @@ class _ManagementContent extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         _ManagementSection(
           title: '学科',
-          count: snapshot.setupOptions.subjects.length.toString() + ' 门',
+          count: '${snapshot.setupOptions.subjects.length} 门',
           child: snapshot.setupOptions.subjects.isEmpty
               ? _ManagementEmptyState(
                   title: '还没有机构学科',
