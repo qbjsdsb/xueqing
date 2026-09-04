@@ -103,6 +103,72 @@ select is(
 );
 
 reset role;
+
+-- Add a second fictional teacher to org 1 only for this transactional handoff test.
+insert into public.organization_memberships (
+  id,
+  organization_id,
+  app_user_id,
+  status
+)
+values (
+  '71000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000003',
+  'active'
+);
+
+insert into public.membership_roles (
+  id,
+  organization_id,
+  membership_id,
+  role
+)
+values (
+  '72000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '71000000-0000-0000-0000-000000000001',
+  'teacher'
+);
+
+insert into public.membership_subject_scopes (
+  id,
+  organization_id,
+  membership_id,
+  organization_subject_id,
+  scope_kind,
+  status,
+  active_from
+)
+values (
+  '76000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '71000000-0000-0000-0000-000000000001',
+  '64000000-0000-0000-0000-000000000001',
+  'teaching',
+  'active',
+  '2026-01-01'
+);
+
+insert into public.student_teacher_assignments (
+  id,
+  organization_id,
+  student_subject_profile_id,
+  membership_id,
+  assignment_role,
+  status,
+  active_from
+)
+values (
+  '77000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '67000000-0000-0000-0000-000000000001',
+  '71000000-0000-0000-0000-000000000001',
+  'collaborator',
+  'active',
+  '2026-01-01'
+);
+
 set local role authenticated;
 
 select set_config(
@@ -148,7 +214,7 @@ select is(
     select (item ->> 'version')::int
     from jsonb_array_elements(current_setting('xueqing.member_list')::jsonb) as item
     where item ->> 'membership_id' =
-      '61000000-0000-0000-0000-000000000002'
+      '71000000-0000-0000-0000-000000000001'
   ),
   1,
   'member roster exposes the initial optimistic version'
@@ -156,16 +222,16 @@ select is(
 
 select set_config(
   'request.jwt.claim.sub',
-  '20000000-0000-0000-0000-000000000002',
+  '20000000-0000-0000-0000-000000000003',
   true
 );
 select set_config(
   'request.jwt.claims',
   json_build_object(
     'role', 'authenticated',
-    'sub', '20000000-0000-0000-0000-000000000002',
+    'sub', '20000000-0000-0000-0000-000000000003',
     'iss', 'http://127.0.0.1:54321/auth/v1',
-    'session_id', '50000000-0000-0000-0000-000000000002'
+    'session_id', '50000000-0000-0000-0000-000000000003'
   )::text,
   true
 );
@@ -186,7 +252,7 @@ select throws_ok(
     select public.update_organization_membership_status(
       '75000000-0000-0000-0000-000000000001',
       '00000000-0000-0000-0000-000000000001',
-      '61000000-0000-0000-0000-000000000002',
+      '71000000-0000-0000-0000-000000000001',
       1,
       'disabled'
     )
@@ -249,7 +315,7 @@ select lives_ok(
       public.update_organization_membership_status(
         '75000000-0000-0000-0000-000000000004',
         '00000000-0000-0000-0000-000000000001',
-        '61000000-0000-0000-0000-000000000002',
+        '71000000-0000-0000-0000-000000000001',
         1,
         'disabled'
       )::text,
@@ -290,7 +356,7 @@ select is(
     select membership.status || '|' || membership.version::text
     from public.organization_memberships as membership
     where membership.id =
-      '61000000-0000-0000-0000-000000000002'
+      '71000000-0000-0000-0000-000000000001'
   ),
   'disabled|2',
   'membership stores disabled status and new version'
@@ -301,7 +367,7 @@ select is(
     select count(*)::int
     from public.membership_subject_scopes as scope
     where scope.membership_id =
-      '61000000-0000-0000-0000-000000000002'
+      '71000000-0000-0000-0000-000000000001'
       and scope.status = 'active'
   ),
   0,
@@ -313,7 +379,7 @@ select is(
     select count(*)::int
     from public.student_teacher_assignments as assignment
     where assignment.membership_id =
-      '61000000-0000-0000-0000-000000000002'
+      '71000000-0000-0000-0000-000000000001'
       and assignment.status = 'active'
   ),
   0,
@@ -323,16 +389,16 @@ select is(
 set local role authenticated;
 select set_config(
   'request.jwt.claim.sub',
-  '20000000-0000-0000-0000-000000000002',
+  '20000000-0000-0000-0000-000000000003',
   true
 );
 select set_config(
   'request.jwt.claims',
   json_build_object(
     'role', 'authenticated',
-    'sub', '20000000-0000-0000-0000-000000000002',
+    'sub', '20000000-0000-0000-0000-000000000003',
     'iss', 'http://127.0.0.1:54321/auth/v1',
-    'session_id', '50000000-0000-0000-0000-000000000002'
+    'session_id', '50000000-0000-0000-0000-000000000003'
   )::text,
   true
 );
@@ -341,7 +407,7 @@ select is(
   (
     select count(*)::int
     from public.organizations
-    where id = '00000000-0000-0000-0000-000000000002'
+    where id = '00000000-0000-0000-0000-000000000001'
   ),
   0,
   'disabled members lose organization business reads immediately'
@@ -351,8 +417,8 @@ select throws_ok(
   $$
     select public.update_organization_membership_status(
       '75000000-0000-0000-0000-000000000005',
-      '00000000-0000-0000-0000-000000000002',
-      '61000000-0000-0000-0000-000000000002',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
       2,
       'active'
     )
@@ -383,7 +449,7 @@ select lives_ok(
     select public.update_organization_membership_status(
       '75000000-0000-0000-0000-000000000004',
       '00000000-0000-0000-0000-000000000001',
-      '61000000-0000-0000-0000-000000000002',
+      '71000000-0000-0000-0000-000000000001',
       1,
       'active'
     )
@@ -432,7 +498,7 @@ select lives_ok(
       public.update_organization_membership_status(
         '75000000-0000-0000-0000-000000000006',
         '00000000-0000-0000-0000-000000000001',
-        '61000000-0000-0000-0000-000000000002',
+        '71000000-0000-0000-0000-000000000001',
         2,
         'active'
       )::text,
@@ -461,7 +527,7 @@ select is(
     select count(*)::int
     from public.membership_subject_scopes as scope
     where scope.membership_id =
-      '61000000-0000-0000-0000-000000000002'
+      '71000000-0000-0000-0000-000000000001'
       and scope.status = 'active'
   ),
   0,
@@ -473,7 +539,7 @@ select throws_ok(
     select public.update_organization_membership_status(
       '75000000-0000-0000-0000-000000000007',
       '00000000-0000-0000-0000-000000000001',
-      '61000000-0000-0000-0000-000000000002',
+      '71000000-0000-0000-0000-000000000001',
       2,
       'disabled'
     )

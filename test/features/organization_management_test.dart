@@ -64,8 +64,10 @@ class _FakeOrganizationManagementRepository
     final index = members.indexWhere(
       (member) => member.membershipId == membershipId,
     );
-    if (index >= 0) {
-      final member = members[index];
+    if (index < 0) {
+      throw StateError('Member was not found in the fake repository.');
+    }
+    final member = members[index];
       members[index] = OrganizationMember(
         appUserId: member.appUserId,
         membershipId: member.membershipId,
