@@ -147,11 +147,7 @@ void main() {
           email: 'owner@example.com',
           roles: ['org_owner'],
         ),
-        _member(
-          name: '示例老师',
-          email: 'teacher@example.com',
-          roles: ['teacher'],
-        ),
+        _member(name: '示例老师', email: 'teacher@example.com', roles: ['teacher']),
       ],
       invitations: [_ownerNomination()],
     );
@@ -165,29 +161,34 @@ void main() {
     expect(find.text('问题类型'), findsOneWidget);
   });
 
-  testWidgets('owner can approve a nomination and admin gets constrained roles', (
-    tester,
-  ) async {
-    final repository = _FakeOrganizationManagementRepository(
-      members: const [],
-      invitations: [_ownerNomination()],
-    );
-    await _pumpManagement(tester, repository);
+  testWidgets(
+    'owner can approve a nomination and admin gets constrained roles',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: [_ownerNomination()],
+      );
+      await _pumpManagement(tester, repository);
 
-    await tester.tap(find.text('通过负责人提名'));
-    await tester.pumpAndSettle();
-    expect(repository.approveCount, 1);
+      await tester.tap(find.text('通过负责人提名'));
+      await tester.pumpAndSettle();
+      expect(repository.approveCount, 1);
 
-    final adminRepository = _FakeOrganizationManagementRepository(
-      members: const [],
-      invitations: const [],
-    );
-    await _pumpManagement(tester, adminRepository, roles: const ['org_admin']);
-    await tester.tap(find.text('邀请成员'));
-    await tester.pumpAndSettle();
+      final adminRepository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+      );
+      await _pumpManagement(
+        tester,
+        adminRepository,
+        roles: const ['org_admin'],
+      );
+      await tester.tap(find.text('邀请成员'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('负责人'), findsOneWidget);
-    expect(find.text('老师'), findsOneWidget);
-    expect(find.text('管理员'), findsNothing);
-  });
+      expect(find.text('负责人'), findsOneWidget);
+      expect(find.text('老师'), findsOneWidget);
+      expect(find.text('管理员'), findsNothing);
+    },
+  );
 }
