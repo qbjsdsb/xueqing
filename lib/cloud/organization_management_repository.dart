@@ -401,17 +401,32 @@ class OrganizationSetupTeacher {
     required this.membershipId,
     required this.displayName,
     required this.email,
+    required this.organizationSubjectIds,
   });
 
   final String membershipId;
   final String displayName;
   final String email;
+  final List<String> organizationSubjectIds;
+
+  bool supportsSubject(String organizationSubjectId) =>
+      organizationSubjectIds.contains(organizationSubjectId);
 
   factory OrganizationSetupTeacher.fromJson(Map<String, dynamic> json) {
+    final rawOrganizationSubjectIds = json['organization_subject_ids'];
+    if (rawOrganizationSubjectIds is! List) {
+      throw const FormatException(
+        'Organization setup teacher returned invalid subject ids.',
+      );
+    }
     return OrganizationSetupTeacher(
       membershipId: _requiredString(json['membership_id'], 'membership_id'),
       displayName: _stringValue(json['display_name']) ?? '未命名老师',
       email: _stringValue(json['email']) ?? '',
+      organizationSubjectIds: List<String>.unmodifiable([
+        for (final item in rawOrganizationSubjectIds)
+          _requiredString(item, 'organization_subject_id'),
+      ]),
     );
   }
 }
@@ -425,7 +440,27 @@ class OrganizationSetupOptions {
   final List<OrganizationSetupSubject> subjects;
   final List<OrganizationSetupTeacher> teachers;
 
-  bool get canCreateStudent => subjects.isNotEmpty && teachers.isNotEmpty;
+  List<OrganizationSetupSubject> get subjectsWithAvailableTeachers {
+    return List<OrganizationSetupSubject>.unmodifiable(
+      subjects.where(
+        (subject) => teachers.any(
+          (teacher) => teacher.supportsSubject(subject.id),
+        ),
+      ),
+    );
+  }
+
+  List<OrganizationSetupTeacher> teachersForSubject(
+    String organizationSubjectId,
+  ) {
+    return List<OrganizationSetupTeacher>.unmodifiable(
+      teachers.where(
+        (teacher) => teacher.supportsSubject(organizationSubjectId),
+      ),
+    );
+  }
+
+  bool get canCreateStudent => subjectsWithAvailableTeachers.isNotEmpty;
 
   factory OrganizationSetupOptions.fromJson(Map<String, dynamic> json) {
     final rawSubjects = json['subjects'];
@@ -965,6 +1000,7 @@ String? organizationStudentSetupErrorMessage(Object error) {
     'organization_subject_not_found' => '所选学科已变化，请刷新后重新选择。',
     'teacher_membership_not_found' => '所选老师已不是本机构的在岗老师，请刷新后重新选择。',
     'teacher_role_required' => '所选成员还没有老师角色，暂不能分配学生。',
+    'teacher_subject_scope_required' => '所选老师没有该学科的有效教学范围，请先配置教学范围。',
     'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开表单后再试。',
     'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
     'invalid_live_session' => '登录状态已失效，请重新登录。',

@@ -70,6 +70,50 @@ void main() {
       isNull,
     );
   });
+
+  test('parses and filters effective teacher subject setup options', () {
+    final options = OrganizationSetupOptions.fromJson({
+      'subjects': [
+        {'id': 'subject-1', 'display_name': '数学'},
+        {'id': 'subject-2', 'display_name': '英语'},
+      ],
+      'teachers': [
+        {
+          'membership_id': 'teacher-1',
+          'display_name': '数学老师',
+          'email': 'math@example.com',
+          'organization_subject_ids': ['subject-1'],
+        },
+        {
+          'membership_id': 'teacher-2',
+          'display_name': '待配置老师',
+          'email': 'pending@example.com',
+          'organization_subject_ids': <String>[],
+        },
+      ],
+    });
+
+    expect(options.canCreateStudent, isTrue);
+    expect(
+      options.subjectsWithAvailableTeachers.map((subject) => subject.id),
+      ['subject-1'],
+    );
+    expect(
+      options.teachersForSubject('subject-1').single.membershipId,
+      'teacher-1',
+    );
+    expect(options.teachersForSubject('subject-2'), isEmpty);
+  });
+
+  test('maps missing teaching scope to an actionable student setup error', () {
+    expect(
+      organizationStudentSetupErrorMessage(
+        const AuthException('teacher_subject_scope_required'),
+      ),
+      '所选老师没有该学科的有效教学范围，请先配置教学范围。',
+    );
+  });
+
   test('parses teacher subject scope history and command results', () {
     final scope = OrganizationTeacherSubjectScope.fromJson({
       'scope_id': 'scope-1',

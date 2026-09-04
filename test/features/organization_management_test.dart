@@ -20,6 +20,7 @@ class _FakeOrganizationManagementRepository
           membershipId: 'membership-1',
           displayName: '示例老师',
           email: 'teacher@example.com',
+          organizationSubjectIds: ['subject-1'],
         ),
       ],
     ),
@@ -548,6 +549,7 @@ void main() {
             membershipId: 'membership-1',
             displayName: '示例老师',
             email: 'teacher@example.com',
+            organizationSubjectIds: ['subject-1'],
           ),
         ],
       ),
@@ -655,6 +657,36 @@ void main() {
     expect(find.text('学生姓名 *'), findsNothing);
   });
 
+  testWidgets('rapid taps open only one add flow at a time', (tester) async {
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+    );
+    await _pumpManagement(tester, repository);
+
+    await tester.tap(find.text('添加学生'));
+    await tester.tap(find.text('添加学生'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('学生姓名 *'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('添加学科'));
+    await tester.tap(find.text('添加学科'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('保存学科'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('配置教学范围'));
+    await tester.tap(find.text('配置教学范围'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('保存教学范围'), findsOneWidget);
+  });
+
   testWidgets('admin can edit a student lifecycle record', (tester) async {
     final repository = _FakeOrganizationManagementRepository(
       members: const [],
@@ -759,11 +791,13 @@ void main() {
             membershipId: 'membership-1',
             displayName: '原老师',
             email: 'old-teacher@example.com',
+            organizationSubjectIds: ['subject-1'],
           ),
           OrganizationSetupTeacher(
             membershipId: 'membership-2',
             displayName: '新老师',
             email: 'new-teacher@example.com',
+            organizationSubjectIds: ['subject-1'],
           ),
         ],
       ),

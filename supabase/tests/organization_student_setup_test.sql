@@ -1,6 +1,6 @@
 begin;
 
-select plan(38);
+select plan(43);
 
 select is(
   to_regprocedure(
@@ -163,6 +163,13 @@ select is(
   'setup options contain the active teacher membership'
 );
 
+select is(
+  current_setting('xueqing.setup_options')::jsonb
+    -> 'teachers' -> 0 -> 'organization_subject_ids' ->> 0,
+  '64000000-0000-0000-0000-000000000001',
+  'setup options expose only the teacher effective subject scopes'
+);
+
 select lives_ok(
   $$
     select set_config(
@@ -286,6 +293,16 @@ select is(
   'student setup reuses one active teaching scope'
 );
 
+select is(
+  (
+    select version
+    from public.membership_subject_scopes
+    where id = '65000000-0000-0000-0000-000000000001'
+  ),
+  1,
+  'student setup does not rewrite the existing teaching scope'
+);
+
 reset role;
 
 select is(
@@ -355,7 +372,64 @@ select is(
   'retrying student setup keeps one operation receipt'
 );
 
+update public.membership_subject_scopes
+set status = 'ended',
+    active_to = greatest(active_from, current_date)
+where id = '65000000-0000-0000-0000-000000000001';
+
 set local role authenticated;
+
+select set_config(
+  'xueqing.setup_options_without_scope',
+  public.list_organization_setup_options(
+    '00000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+
+select is(
+  jsonb_array_length(
+    current_setting('xueqing.setup_options_without_scope')::jsonb
+      -> 'teachers' -> 0 -> 'organization_subject_ids'
+  ),
+  0,
+  'an ended teaching scope is not offered for student setup'
+);
+
+select throws_ok(
+  $$
+    select public.create_organization_student(
+      '73000000-0000-0000-0000-000000000005',
+      '00000000-0000-0000-0000-000000000001',
+      '教学范围已结束',
+      null,
+      null,
+      null,
+      null,
+      '64000000-0000-0000-0000-000000000001',
+      '61000000-0000-0000-0000-000000000001',
+      null,
+      null,
+      null,
+      null
+    )
+  $$,
+  'P0001',
+  'teacher_subject_scope_required',
+  'student setup rejects a teacher whose teaching scope has ended'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.students
+    where organization_id =
+        '00000000-0000-0000-0000-000000000001'
+      and name = '教学范围已结束'
+  ),
+  0,
+  'a rejected teaching scope creates no student data'
+);
 
 select throws_ok(
   $$

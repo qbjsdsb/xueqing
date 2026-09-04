@@ -71,8 +71,11 @@ class _OrganizationStudentSetupDialogState
   @override
   void initState() {
     super.initState();
-    _selectedSubject = widget.options.subjects.first;
-    _selectedTeacher = widget.options.teachers.first;
+    _selectedSubject = widget.options.subjectsWithAvailableTeachers.first;
+    final availableTeachers = widget.options.teachersForSubject(
+      _selectedSubject.id,
+    );
+    _selectedTeacher = availableTeachers.first;
   }
 
   @override
@@ -140,6 +143,10 @@ class _OrganizationStudentSetupDialogState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final availableSubjects = widget.options.subjectsWithAvailableTeachers;
+    final availableTeachers = widget.options.teachersForSubject(
+      _selectedSubject.id,
+    );
     return AlertDialog(
       title: const Text('添加学生'),
       content: ConstrainedBox(
@@ -155,7 +162,7 @@ class _OrganizationStudentSetupDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '保存后会一次性创建学生档案、学科画像，并把负责老师的教学范围和主负责关系配置好。',
+                  '保存后会一次性创建学生档案、学科画像和主负责关系。请先为老师配置对应学科的有效教学范围。',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -242,7 +249,7 @@ class _OrganizationStudentSetupDialogState
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: '服务学科 *'),
                   items: [
-                    for (final subject in widget.options.subjects)
+                    for (final subject in availableSubjects)
                       DropdownMenuItem(
                         value: subject,
                         child: Text(
@@ -255,17 +262,23 @@ class _OrganizationStudentSetupDialogState
                       ? null
                       : (subject) {
                           if (subject != null) {
-                            setState(() => _selectedSubject = subject);
+                            setState(() {
+                              _selectedSubject = subject;
+                              final availableTeachers = widget.options
+                                  .teachersForSubject(subject.id);
+                              _selectedTeacher = availableTeachers.first;
+                            });
                           }
                         },
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 DropdownButtonFormField<OrganizationSetupTeacher>(
+                  key: ValueKey(_selectedSubject.id),
                   initialValue: _selectedTeacher,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: '负责老师 *'),
                   items: [
-                    for (final teacher in widget.options.teachers)
+                    for (final teacher in availableTeachers)
                       DropdownMenuItem(
                         value: teacher,
                         child: Text(

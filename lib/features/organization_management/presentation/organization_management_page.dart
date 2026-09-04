@@ -108,6 +108,10 @@ class _OrganizationManagementPageState
     if (_busy) {
       return;
     }
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
     try {
       final snapshot = await _snapshotFuture;
       if (!mounted) {
@@ -118,10 +122,6 @@ class _OrganizationManagementPageState
             .showSnackBar(const SnackBar(content: Text('当前没有可添加的活跃学科。')));
         return;
       }
-      setState(() {
-        _busy = true;
-        _errorMessage = null;
-      });
       final result = await showDialog<OrganizationSubjectSetupResult>(
         context: context,
         builder: (context) => OrganizationSubjectSetupDialog(
@@ -159,6 +159,10 @@ class _OrganizationManagementPageState
     if (_busy) {
       return;
     }
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
     try {
       final snapshot = await _snapshotFuture;
       if (!mounted) {
@@ -210,10 +214,15 @@ class _OrganizationManagementPageState
           status: 'active',
         ),
         '已为 ${draft.teacherName} 配置 ${draft.subjectName} 教学范围。',
+        busyAlreadySet: true,
       );
     } catch (error) {
       if (mounted) {
         setState(() => _errorMessage = _describeError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
       }
     }
   }
@@ -324,6 +333,10 @@ class _OrganizationManagementPageState
     if (_busy) {
       return;
     }
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
     try {
       final snapshot = await _snapshotFuture;
       if (!mounted) {
@@ -331,7 +344,7 @@ class _OrganizationManagementPageState
       }
       if (!snapshot.setupOptions.canCreateStudent) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('请先配置至少一个活跃学科和在岗老师。')));
+            .showSnackBar(const SnackBar(content: Text('请先为在岗老师配置至少一个有效教学范围。')));
         return;
       }
       final result = await showDialog<OrganizationStudentSetupResult>(
@@ -373,6 +386,10 @@ class _OrganizationManagementPageState
     } catch (error) {
       if (mounted) {
         setState(() => _errorMessage = _describeError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
       }
     }
   }
@@ -607,15 +624,18 @@ class _OrganizationManagementPageState
 
   Future<void> _runMutation(
     Future<Object> Function() mutation,
-    String successMessage,
-  ) async {
-    if (_busy) {
+    String successMessage, {
+    bool busyAlreadySet = false,
+  }) async {
+    if (_busy && !busyAlreadySet) {
       return;
     }
-    setState(() {
-      _busy = true;
-      _errorMessage = null;
-    });
+    if (!busyAlreadySet) {
+      setState(() {
+        _busy = true;
+        _errorMessage = null;
+      });
+    }
     try {
       await mutation();
       await _refresh();
@@ -628,7 +648,7 @@ class _OrganizationManagementPageState
         setState(() => _errorMessage = _describeError(error));
       }
     } finally {
-      if (mounted) {
+      if (!busyAlreadySet && mounted) {
         setState(() => _busy = false);
       }
     }
