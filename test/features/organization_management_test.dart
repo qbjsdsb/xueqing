@@ -190,7 +190,10 @@ void main() {
 
       expect(find.text('负责人'), findsAtLeastNWidgets(1));
       await tester.tap(
-        find.byType(DropdownButtonFormField<OrganizationInvitationRole>()),
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DropdownButtonFormField<OrganizationInvitationRole>,
+        ),
       );
       await tester.pumpAndSettle();
       expect(find.text('老师'), findsOneWidget);
