@@ -456,5 +456,21 @@ begin
     'org_admin'
   );
 
+  -- Teacher A is also the fictional responsible person for Organization A.
+  -- This role exists only so local tests and the development UI can exercise
+  -- the owner path without creating a real account.
+  insert into public.membership_roles (
+    id,
+    organization_id,
+    membership_id,
+    role
+  )
+  values (
+    '62000000-0000-0000-0000-000000000011',
+    '00000000-0000-0000-0000-000000000001',
+    '61000000-0000-0000-0000-000000000001',
+    'org_owner'
+  );
+
 end;
 $seed$;
