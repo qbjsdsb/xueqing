@@ -51,8 +51,7 @@ class _FakeOrganizationManagementRepository
   OrganizationStudentUpdateResult? updatedStudent;
   OrganizationMemberStatusUpdateResult? updatedMember;
   OrganizationTeacherSubjectScopeUpdateResult? updatedTeacherScope;
-  OrganizationStudentTeacherAssignmentTransferResult?
-  updatedTeacherAssignment;
+  OrganizationStudentTeacherAssignmentTransferResult? updatedTeacherAssignment;
 
   @override
   Future<List<OrganizationMember>> listMembers({
@@ -200,12 +199,9 @@ class _FakeOrganizationManagementRepository
     return updatedTeacherScope!;
   }
 
-
   @override
   Future<List<OrganizationStudentTeacherAssignment>>
-  listStudentTeacherAssignments({
-    required String organizationId,
-  }) async {
+  listStudentTeacherAssignments({required String organizationId}) async {
     return studentTeacherAssignments;
   }
 
@@ -481,7 +477,6 @@ OrganizationStudentRecord _studentRecord() {
     subjectNames: ['数学'],
   );
 }
-
 
 OrganizationStudentTeacherAssignment _studentTeacherAssignment() {
   return OrganizationStudentTeacherAssignment(
@@ -823,5 +818,4 @@ void main() {
     expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');
     expect(find.text('新老师'), findsAtLeastNWidgets(1));
   });
-
 }

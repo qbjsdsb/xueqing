@@ -285,9 +285,7 @@ class _OrganizationManagementPageState
       ];
       if (candidates.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('当前没有具备该学科有效教学范围的在岗接收老师。'),
-          ),
+          const SnackBar(content: Text('当前没有具备该学科有效教学范围的在岗接收老师。')),
         );
         return;
       }
@@ -662,8 +660,9 @@ class _OrganizationManagementPageState
   }
 
   String _describeError(Object error) {
-    final assignmentError =
-        organizationStudentTeacherAssignmentErrorMessage(error);
+    final assignmentError = organizationStudentTeacherAssignmentErrorMessage(
+      error,
+    );
     if (assignmentError != null) {
       return assignmentError;
     }
@@ -788,8 +787,8 @@ class _OrganizationManagementPageState
                     onToggleMemberStatus: _toggleMemberStatus,
                     onAddTeacherScope: _addTeacherScope,
                     onToggleTeacherScope: _toggleTeacherScope,
-                     onTransferStudentTeacherAssignment:
-                         _transferStudentTeacherAssignment,
+                    onTransferStudentTeacherAssignment:
+                        _transferStudentTeacherAssignment,
                   );
                 },
               ),
@@ -845,9 +844,8 @@ class _ManagementContent extends StatelessWidget {
   final VoidCallback onAddTeacherScope;
   final Future<void> Function(OrganizationTeacherSubjectScope scope)
   onToggleTeacherScope;
-  final Future<void> Function(
-    OrganizationStudentTeacherAssignment assignment,
-  ) onTransferStudentTeacherAssignment;
+  final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
+  onTransferStudentTeacherAssignment;
 
   @override
   Widget build(BuildContext context) {
@@ -953,9 +951,8 @@ class _ManagementContent extends StatelessWidget {
                         assignment: assignment,
                         busy: busy,
                         onTransfer: assignment.isActive
-                            ? () => onTransferStudentTeacherAssignment(
-                                assignment,
-                              )
+                            ? () =>
+                                  onTransferStudentTeacherAssignment(assignment)
                             : null,
                       ),
                   ],
@@ -1337,9 +1334,8 @@ class _StudentTeacherAssignmentTile extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xxs),
                   Text(
                     '历史任课关系仅用于追溯，不会恢复教学权限。',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                 ],
                 if (action != null) ...[

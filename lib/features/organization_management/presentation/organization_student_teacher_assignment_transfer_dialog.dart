@@ -16,7 +16,8 @@ class OrganizationStudentTeacherAssignmentTransferDraft {
   final String replacementTeacherName;
 }
 
-class OrganizationStudentTeacherAssignmentTransferDialog extends StatefulWidget {
+class OrganizationStudentTeacherAssignmentTransferDialog
+    extends StatefulWidget {
   const OrganizationStudentTeacherAssignmentTransferDialog({
     required this.assignment,
     required this.candidates,

@@ -713,9 +713,7 @@ abstract interface class OrganizationManagementRepository {
   });
 
   Future<List<OrganizationStudentTeacherAssignment>>
-  listStudentTeacherAssignments({
-    required String organizationId,
-  });
+  listStudentTeacherAssignments({required String organizationId});
 
   Future<OrganizationStudentTeacherAssignmentTransferResult>
   transferStudentTeacherAssignment({
@@ -924,23 +922,16 @@ String? organizationStudentTeacherAssignmentErrorMessage(Object error) {
     return null;
   }
   return switch (detail.toLowerCase()) {
-    'invalid_student_teacher_assignment_transfer_input' =>
-      '任课交接信息不完整，请刷新后重试。',
+    'invalid_student_teacher_assignment_transfer_input' => '任课交接信息不完整，请刷新后重试。',
     'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
     'membership_not_found' => '原任课老师已不在本机构，请刷新后重试。',
-    'replacement_teacher_membership_not_found' =>
-      '接收老师已不在本机构，请刷新后重试。',
-    'student_teacher_assignment_not_found' =>
-      '这条任课关系已变化，请刷新后重试。',
-    'student_teacher_assignment_version_conflict' =>
-      '这条任课关系刚刚被别人修改，请刷新后重试。',
-    'student_teacher_assignment_not_active' =>
-      '这条任课关系已经结束，请刷新后刷新列表。',
-    'student_teacher_assignment_not_current' =>
-      '这条任课关系当前不在生效日期内，请刷新后重试。',
+    'replacement_teacher_membership_not_found' => '接收老师已不在本机构，请刷新后重试。',
+    'student_teacher_assignment_not_found' => '这条任课关系已变化，请刷新后重试。',
+    'student_teacher_assignment_version_conflict' => '这条任课关系刚刚被别人修改，请刷新后重试。',
+    'student_teacher_assignment_not_active' => '这条任课关系已经结束，请刷新后刷新列表。',
+    'student_teacher_assignment_not_current' => '这条任课关系当前不在生效日期内，请刷新后重试。',
     'student_subject_profile_not_found' => '学生学科档案已变化，请刷新后重试。',
-    'student_subject_profile_not_active' =>
-      '该学生学科档案当前不能交接。',
+    'student_subject_profile_not_active' => '该学生学科档案当前不能交接。',
     'student_not_found' => '学生档案已变化，请刷新后重试。',
     'student_not_active' => '学生当前不是正常教学状态，请先恢复学生状态。',
     'organization_subject_not_found' => '学科档案已变化，请刷新后重试。',
@@ -948,11 +939,9 @@ String? organizationStudentTeacherAssignmentErrorMessage(Object error) {
     'teacher_membership_not_active' => '接收老师当前不是在岗状态，请刷新后重试。',
     'teacher_app_user_not_active' => '接收老师账号当前不可用，请刷新后重试。',
     'teacher_role_required' => '接收成员还没有老师角色，请先调整成员角色。',
-    'teacher_subject_scope_required' =>
-      '接收老师还没有该学科的有效教学范围，请先配置教学范围。',
+    'teacher_subject_scope_required' => '接收老师还没有该学科的有效教学范围，请先配置教学范围。',
     'teacher_assignment_same_teacher' => '接收老师不能与原任课老师相同。',
-    'teacher_assignment_already_active' =>
-      '接收老师已经拥有同类型的有效任课关系，请刷新后重试。',
+    'teacher_assignment_already_active' => '接收老师已经拥有同类型的有效任课关系，请刷新后重试。',
     'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
     'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
     'invalid_live_session' => '登录状态已失效，请重新登录。',
@@ -1151,17 +1140,12 @@ class SupabaseOrganizationManagementRepository
 
   @override
   Future<List<OrganizationStudentTeacherAssignment>>
-  listStudentTeacherAssignments({
-    required String organizationId,
-  }) async {
+  listStudentTeacherAssignments({required String organizationId}) async {
     final response = await _call(
       'list_organization_student_teacher_assignments',
       <String, dynamic>{'p_organization_id': organizationId},
     );
-    return _mapList(
-      response,
-      OrganizationStudentTeacherAssignment.fromJson,
-    );
+    return _mapList(response, OrganizationStudentTeacherAssignment.fromJson);
   }
 
   @override
