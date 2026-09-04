@@ -4085,6 +4085,7 @@ String? _caseCommandLabel(WorkspaceCase learningCase) {
     _CaseCommandMode.confirm => '确认 Case',
     _CaseCommandMode.intervention => '记录教学动作',
     _CaseCommandMode.assessment => '记录验证结果',
+    _CaseCommandMode.stabilize => '确认 Case 已稳定',
     null => null,
   };
 }
