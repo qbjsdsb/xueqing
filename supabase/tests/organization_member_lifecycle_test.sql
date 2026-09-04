@@ -423,7 +423,7 @@ where id = '78000000-0000-0000-0000-000000000001';
 set local role authenticated;
 
 select lives_ok(
-  $
+  $member_update$
     select set_config(
       'xueqing.member_update',
       public.update_organization_membership_status(
@@ -435,7 +435,7 @@ select lives_ok(
       )::text,
       true
     )
-  $$,
+  $member_update$,
   'a manager can disable a member with a teaching handoff'
 );
 
