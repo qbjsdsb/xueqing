@@ -94,10 +94,9 @@ void main() {
     });
 
     expect(options.canCreateStudent, isTrue);
-    expect(
-      options.subjectsWithAvailableTeachers.map((subject) => subject.id),
-      ['subject-1'],
-    );
+    final availableSubjects = options.subjectsWithAvailableTeachers;
+    expect(availableSubjects, hasLength(1));
+    expect(availableSubjects.single.id, 'subject-1');
     expect(
       options.teachersForSubject('subject-1').single.membershipId,
       'teacher-1',
@@ -105,7 +104,7 @@ void main() {
     expect(options.teachersForSubject('subject-2'), isEmpty);
   });
 
-  test('maps missing teaching scope to an actionable student setup error', () {
+  test('maps missing scope for student setup', () {
     expect(
       organizationStudentSetupErrorMessage(
         const AuthException('teacher_subject_scope_required'),
