@@ -31,15 +31,18 @@ void main() {
     expect(invitation.expiresAt, isNotNull);
   });
 
-  test('rejects an unknown invitation role instead of silently changing it', () {
-    expect(
-      () => OrganizationInvitation.fromJson({
-        'id': 'invitation-1',
-        'email': 'unknown@example.com',
-        'role': 'unknown_role',
-        'status': 'pending',
-      }),
-      throwsA(isA<FormatException>()),
-    );
-  });
+  test(
+    'rejects an unknown invitation role instead of silently changing it',
+    () {
+      expect(
+        () => OrganizationInvitation.fromJson({
+          'id': 'invitation-1',
+          'email': 'unknown@example.com',
+          'role': 'unknown_role',
+          'status': 'pending',
+        }),
+        throwsA(isA<FormatException>()),
+      );
+    },
+  );
 }
