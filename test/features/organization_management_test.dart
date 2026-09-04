@@ -39,9 +39,11 @@ class _FakeOrganizationManagementRepository
   int revokeCount = 0;
   int createCount = 0;
   int studentCreateCount = 0;
+  int memberStatusUpdateCount = 0;
   int studentUpdateCount = 0;
   OrganizationStudentSetupResult? createdStudent;
   OrganizationStudentUpdateResult? updatedStudent;
+  OrganizationMemberStatusUpdateResult? updatedMember;
 
   @override
   Future<List<OrganizationMember>> listMembers({
@@ -50,6 +52,44 @@ class _FakeOrganizationManagementRepository
     return members;
   }
 
+  @override
+  Future<OrganizationMemberStatusUpdateResult> updateMemberStatus({
+    required String operationId,
+    required String organizationId,
+    required String membershipId,
+    required int expectedMembershipVersion,
+    required String status,
+  }) async {
+    memberStatusUpdateCount++;
+    final index = members.indexWhere(
+      (member) => member.membershipId == membershipId,
+    );
+    if (index >= 0) {
+      final member = members[index];
+      members[index] = OrganizationMember(
+        appUserId: member.appUserId,
+        membershipId: member.membershipId,
+        email: member.email,
+        displayName: member.displayName,
+        status: status,
+        roles: member.roles,
+        version: expectedMembershipVersion + 1,
+        onboardingExpiresAt: status == 'active'
+            ? null
+            : member.onboardingExpiresAt,
+      );
+    }
+    updatedMember = OrganizationMemberStatusUpdateResult(
+      operationId: operationId,
+      membershipId: membershipId,
+      appUserId: members[index].appUserId,
+      status: status,
+      version: expectedMembershipVersion + 1,
+      endedScopeCount: 0,
+      endedAssignmentCount: 0,
+    );
+    return updatedMember!;
+  }
   @override
   Future<List<OrganizationInvitation>> listInvitations({
     required String organizationId,
@@ -227,7 +267,7 @@ OrganizationInvitation _ownerNomination() {
 }
 
 OrganizationStudentRecord _studentRecord() {
-  return OrganizationStudentRecord(
+  return const OrganizationStudentRecord(
     studentId: 'student-1',
     studentName: '原学生',
     studentCode: 'S-001',
@@ -344,6 +384,40 @@ void main() {
     },
   );
 
+  testWidgets('admin can disable and restore a member safely', (tester) async {
+    final repository = _FakeOrganizationManagementRepository(
+      members: [
+        _member(
+          name: '示例老师',
+          email: 'teacher@example.com',
+          roles: ['teacher'],
+        ),
+      ],
+      invitations: const [],
+    );
+    await _pumpManagement(tester, repository, roles: const ['org_admin']);
+
+    final disableButton = find.text('停用成员');
+    await tester.ensureVisible(disableButton);
+    await tester.tap(disableButton);
+    await tester.pumpAndSettle();
+    expect(find.text('停用成员？'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '停用成员'));
+    await tester.pumpAndSettle();
+
+    expect(repository.memberStatusUpdateCount, 1);
+    expect(repository.updatedMember?.status, 'disabled');
+    expect(find.text('恢复成员'), findsOneWidget);
+
+    await tester.tap(find.text('恢复成员'));
+    await tester.pumpAndSettle();
+    expect(find.text('恢复成员？'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '恢复成员'));
+    await tester.pumpAndSettle();
+
+    expect(repository.memberStatusUpdateCount, 2);
+    expect(repository.updatedMember?.status, 'active');
+  });
   testWidgets('admin can add a student with atomic setup fields', (
     tester,
   ) async {

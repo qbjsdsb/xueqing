@@ -26,6 +26,8 @@ class OrganizationMember {
     required this.displayName,
     required this.status,
     required this.roles,
+    this.version = 1,
+    this.onboardingExpiresAt,
   });
 
   final String appUserId;
@@ -34,6 +36,8 @@ class OrganizationMember {
   final String? displayName;
   final String status;
   final List<String> roles;
+  final int version;
+  final DateTime? onboardingExpiresAt;
 
   bool get isActive => status == 'active';
 
@@ -52,6 +56,42 @@ class OrganizationMember {
       displayName: _stringValue(json['display_name']),
       status: _stringValue(json['status']) ?? 'unknown',
       roles: List<String>.unmodifiable(roles),
+      version: _intValue(json['version']) ?? 1,
+      onboardingExpiresAt: _dateTimeValue(json['onboarding_expires_at']),
+    );
+  }
+}
+
+class OrganizationMemberStatusUpdateResult {
+  const OrganizationMemberStatusUpdateResult({
+    required this.operationId,
+    required this.membershipId,
+    required this.appUserId,
+    required this.status,
+    required this.version,
+    required this.endedScopeCount,
+    required this.endedAssignmentCount,
+  });
+
+  final String operationId;
+  final String membershipId;
+  final String appUserId;
+  final String status;
+  final int version;
+  final int endedScopeCount;
+  final int endedAssignmentCount;
+
+  factory OrganizationMemberStatusUpdateResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationMemberStatusUpdateResult(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      membershipId: _requiredString(json['membership_id'], 'membership_id'),
+      appUserId: _requiredString(json['app_user_id'], 'app_user_id'),
+      status: _stringValue(json['status']) ?? 'unknown',
+      version: _intValue(json['version']) ?? 1,
+      endedScopeCount: _intValue(json['ended_scope_count']) ?? 0,
+      endedAssignmentCount: _intValue(json['ended_assignment_count']) ?? 0,
     );
   }
 }
@@ -363,6 +403,15 @@ abstract interface class OrganizationManagementRepository {
     required String organizationId,
   });
 
+  Future<OrganizationMemberStatusUpdateResult> updateMemberStatus({
+    required String operationId,
+    required String organizationId,
+    required String membershipId,
+    required int expectedMembershipVersion,
+    required String status,
+  });
+
+
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   });
@@ -494,6 +543,32 @@ String? organizationSubjectSetupErrorMessage(Object error) {
   };
 }
 
+String? organizationMemberLifecycleErrorMessage(Object error) {
+  final detail = switch (error) {
+    AuthException(:final message) => message.trim(),
+    PostgrestException(:final message) => message.trim(),
+    _ => null,
+  };
+  if (detail == null) {
+    return null;
+  }
+  return switch (detail.toLowerCase()) {
+    'invalid_membership_status_input' => '成员状态信息不完整，请刷新后重试。',
+    'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
+    'membership_not_found' => '成员档案已变化，请刷新后重试。',
+    'membership_version_conflict' => '这位成员刚刚被别人修改，请刷新后重试。',
+    'membership_status_unchanged' => '成员状态没有变化，请刷新后重试。',
+    'membership_status_transition_invalid' => '当前成员状态不能执行这项转换。',
+    'current_membership_immutable' => '不能停用或恢复当前正在使用的账号。',
+    'organization_owner_required' => '负责人状态只能由另一位负责人调整。',
+    'last_owner_immutable' => '机构至少要保留一位正常负责人的账号。',
+    'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
+    'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
+    'invalid_live_session' => '登录状态已失效，请重新登录。',
+    'organization_manager_required' => '当前账号没有本机构管理权限。',
+    _ => null,
+  };
+}
 String? organizationStudentSetupErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),
@@ -587,6 +662,33 @@ class SupabaseOrganizationManagementRepository
     return _mapList(response, OrganizationMember.fromJson);
   }
 
+  @override
+  Future<OrganizationMemberStatusUpdateResult> updateMemberStatus({
+    required String operationId,
+    required String organizationId,
+    required String membershipId,
+    required int expectedMembershipVersion,
+    required String status,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        membershipId.trim().isEmpty ||
+        status.trim().isEmpty) {
+      throw ArgumentError('Member status identity cannot be empty.');
+    }
+    final response = await _call(
+      'update_organization_membership_status',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_membership_id': membershipId,
+        'p_expected_membership_version': expectedMembershipVersion,
+        'p_status': status.trim(),
+      },
+    );
+    return OrganizationMemberStatusUpdateResult.fromJson(
+      _mapResponse(response),
+    );
+  }
   @override
   Future<List<OrganizationInvitation>> listInvitations({
     required String organizationId,

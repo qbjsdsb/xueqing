@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/layout/responsive.dart';
 import '../../../app/theme/app_spacing.dart';
+import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
 import 'organization_student_edit_dialog.dart';
 import 'organization_student_setup_dialog.dart';
@@ -250,6 +251,55 @@ class _OrganizationManagementPageState
     }
   }
 
+  Future<void> _toggleMemberStatus(OrganizationMember member) async {
+    if (_busy) {
+      return;
+    }
+    final disabling = member.status != 'disabled';
+    final confirmed = await _confirm(
+      title: disabling ? '停用成员？' : '恢复成员？',
+      message: disabling
+          ? '停用后会立即结束当前教学范围和任课关系，但历史记录会保留；以后恢复访问时不会自动恢复这些关系。'
+          : '恢复后只恢复机构访问，不会自动恢复已经结束的教学范围和任课关系。',
+      confirmLabel: disabling ? '停用成员' : '恢复成员',
+    );
+    if (!mounted || !confirmed) {
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
+    try {
+      final result = await widget.repository.updateMemberStatus(
+        operationId: createOperationId(),
+        organizationId: widget.organizationId,
+        membershipId: member.membershipId,
+        expectedMembershipVersion: member.version,
+        status: disabling ? 'disabled' : 'active',
+      );
+      await _refresh();
+      if (!mounted) {
+        return;
+      }
+      widget.onChanged?.call();
+      final displayName = member.displayName ?? member.email;
+      final message = result.status == 'disabled'
+          ? '已停用 $displayName；已结束 ${result.endedScopeCount + result.endedAssignmentCount} 条教学关系。'
+          : '已恢复 $displayName 的机构访问；历史教学关系未自动恢复，请重新配置。';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = _describeError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
   Future<void> _inviteMember() async {
     if (_busy) {
       return;
@@ -446,6 +496,10 @@ class _OrganizationManagementPageState
     if (lifecycleError != null) {
       return lifecycleError;
     }
+    final memberLifecycleError = organizationMemberLifecycleErrorMessage(error);
+    if (memberLifecycleError != null) {
+      return memberLifecycleError;
+    }
     final invitationError = organizationInvitationErrorMessage(error);
     if (invitationError != null) {
       return invitationError;
@@ -537,6 +591,7 @@ class _OrganizationManagementPageState
                     onApprove: _approveInvitation,
                     onRevoke: _revokeInvitation,
                     onEditStudent: _editStudent,
+                    onToggleMemberStatus: _toggleMemberStatus,
                   );
                 },
               ),
@@ -572,6 +627,7 @@ class _ManagementContent extends StatelessWidget {
     required this.onApprove,
     required this.onRevoke,
     required this.onEditStudent,
+    required this.onToggleMemberStatus,
   });
 
   final _OrganizationManagementSnapshot snapshot;
@@ -580,6 +636,7 @@ class _ManagementContent extends StatelessWidget {
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
   final Future<void> Function(OrganizationStudentRecord student) onEditStudent;
+  final Future<void> Function(OrganizationMember member) onToggleMemberStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -688,7 +745,11 @@ class _ManagementContent extends StatelessWidget {
               : Column(
                   children: [
                     for (final member in snapshot.members)
-                      _MemberTile(member: member),
+                      _MemberTile(
+                        member: member,
+                        busy: busy,
+                        onToggleStatus: () => onToggleMemberStatus(member),
+                      ),
                   ],
                 ),
         ),
@@ -802,9 +863,15 @@ class _OrganizationStudentTile extends StatelessWidget {
 }
 
 class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.member});
+  const _MemberTile({
+    required this.member,
+    required this.busy,
+    required this.onToggleStatus,
+  });
 
   final OrganizationMember member;
+  final bool busy;
+  final VoidCallback onToggleStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -813,6 +880,7 @@ class _MemberTile extends StatelessWidget {
     final initials = displayName.trim().isEmpty
         ? '·'
         : String.fromCharCode(displayName.trim().runes.first).toUpperCase();
+    final statusAction = member.status == 'disabled' ? '恢复成员' : '停用成员';
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -858,6 +926,28 @@ class _MemberTile extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (member.onboardingExpiresAt != null &&
+                    member.status == 'onboarding') ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '接管有效期至 ${_formatDateTime(member.onboardingExpiresAt)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.xs),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: busy ? null : onToggleStatus,
+                    icon: Icon(
+                      member.status == 'disabled'
+                          ? Icons.restore_outlined
+                          : Icons.person_off_outlined,
+                      size: 18,
+                    ),
+                    label: Text(statusAction),
+                  ),
+                ),
               ],
             ),
           ),
@@ -866,7 +956,6 @@ class _MemberTile extends StatelessWidget {
     );
   }
 }
-
 class _InvitationTile extends StatelessWidget {
   const _InvitationTile({
     required this.invitation,
