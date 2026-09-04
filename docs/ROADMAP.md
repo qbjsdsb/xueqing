@@ -6,11 +6,10 @@
 
 > **Phase 0B.0 provider / production hard boundary**
 >
-> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
-> 1. **P0 Gate A — Auth Identity Portability Spike**；
-> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+> P0 Gate A / B 的 compatibility/security spike 已完成开发验证，但不等于 Production provider、正式业务 migration 或真实数据授权。
 >
-> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
+> 在 provider、region、identity 与 session strategy 最终冻结，并完成安全处置、备份恢复、真实设备 / 网络验收和 Go / No-Go 之前，只允许使用虚构或严格脱敏数据。
+
 
 不按页面数量衡量进度。V1 内部 Pilot 默认不额外购买服务器、数据库套餐、SMTP、域名、短信、AI API、CI 或 Work / Codex credits。
 
@@ -92,30 +91,31 @@
 
 ### 当前 Gate 证据
 
+以下 `[x]` 表示当前开发线或 CI 已有可复核证据，不表示 Production 已获批：
+
 - [x] P0 Gate A — Auth Identity Portability（PR #17，18/18 identity contract assertions）
 - [x] P0 Gate B — Revoked Session / Old Token（PR #15 remote harness + device evidence）
 - [x] 业务身份解耦契约已由 ADR-046 冻结
+- [x] `supabase/`、migrations、fictional seed、DB / RLS / function tests 已在开发线建立并通过冷重建
+- [x] workspace read model、custom case types、organization leadership / invites、invitation expiry / re-invite 已在开发线建立；远端当前应用到 migration J
+- [x] 普通业务的 live-session / membership / role / assignment 授权回归已存在
+- [x] PR #28 增加 invitation acceptance 的 live-session guard；SQL 冷重建和 pgTAP 已通过，K migration 仍待审阅、合并和远端应用
+- [x] PR #29 增加 production endpoint 配置 / HTTPS fail-closed 和开发入口隔离；Flutter CI 已通过
+- [ ] PR #28 → PR #29 审阅、合并和远端 migration drift 复核
+- [ ] 逐函数复核 SECURITY DEFINER、开启 leaked password protection、解释 3 个 intentional no-policy 表
+- [ ] 根据真实规模虚构数据和执行计划决定是否补外键索引；不机械处理 38 个 Advisor INFO
 - [ ] Production provider / region / session strategy 最终冻结
 - [ ] 无代理机构网络、Storage、backup/restore 与 Go/No-Go
-
-> 本节只允许用虚构数据执行 compatibility/security Spike，不等于 production migration/Auth/RLS/CRUD 授权。P0 Gate A/B 的身份与旧 token spike 已完成；在 provider/region/session strategy 和 Go/No-Go 最终冻结前，仍不授权 Production 业务数据。
-
-
-- [ ] 初始化 `supabase/`
-- [ ] migrations
-- [ ] fake seed
-- [ ] DB / RLS / Function tests
-- [ ] `supabase db reset` 从空库重建
-- [ ] 评估 `supabase_testing` 用于 Flutter Service / Repository 测试
-- [ ] live-session helper Spike：JWT `session_id` ↔ `auth.sessions`
-
-### 第一批基础 schema
-- [ ] profiles
-- [ ] organizations
-- [ ] `organizations.time_zone`（IANA timezone）
-- [ ] roles
-- [ ] organization_memberships
-- [ ] membership_roles
+### 第一批基础 schema（以当前 migrations / 实际 schema 名称为准）
+- [x] `app_users` + `identity_links` provider-neutral identity
+- [x] `organizations` + `organizations.time_zone`（IANA timezone）
+- [x] `organization_memberships` + `membership_roles`
+- [x] `subjects` + `organization_subjects`
+- [x] `membership_subject_scopes`
+- [x] `student_enrollments`
+- [x] `student_subject_profiles`
+- [x] `student_teacher_assignments`
+- [ ] Production schema completeness、迁移冻结和正式数据授权
 
 ### 时间语义必测
 - [ ] system timestamps 保存 UTC
@@ -252,7 +252,7 @@
 - [x] `pubspec.lock` consistency
 - [x] Flutter analyze
 - [x] Flutter unit / widget tests
-- [ ] Local DB / migration / RLS tests（Phase 0B 后加入）
+- [x] Local DB / migration / RLS tests（开发线 CI 已执行；Production 仍未授权）
 - [ ] basic secret / static checks
 
 ### Milestone / Release / 手动
@@ -303,7 +303,7 @@
 
 - [ ] 新环境可从 GitHub 启动
 - [x] Flutter Windows / Android 可真实 build
-- [ ] Local DB 可从空库重建
+- [x] Local DB 可从空库重建（开发线 CI）
 - [ ] organization timezone 行为正确
 - [ ] revoked Session 业务访问立即拒绝
 - [ ] live-session guard 性能可接受

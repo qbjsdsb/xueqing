@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-**Phase 0B.0 compatibility/security spike｜教师工作台与学情 Case 闭环持续推进**
+**Phase 0B.0 release hardening｜邀请安全与生产配置边界验证**
 
 Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、本地存储、零成本云端开发、恢复与运行风险已完成正式开发前审计。
 
-当前工作线是 `phase0b0f/custom-case-types`（Draft PR #22）。本分支继续使用虚构数据推进 Supabase compatibility/security spike，不承载真实学生、家长或教师隐私材料；`main` 不接收本阶段直接 push。
+`main` 当前停在 `cd6f78e`（Phase 0B.0-C）。当前开发线是 `phase0b0f/production-config-hardening`（Draft PR #29），串接 `phase0b0f/invitation-live-session-guard`（Draft PR #28）和 `phase0b0f/release-hardening`；它们都要经过审阅、CI 和人工验收后再合并。本阶段继续使用虚构数据，不承载真实学生、家长或教师隐私材料。
 
-当前仓库已经包含：
+当前开发线已经包含：
 
 - Flutter Windows + Android 工程、typed environment config、App bootstrap、Material 3 theme、响应式布局和系统暗色模式；
 - Supabase Auth、OS secure storage session、live-session / membership / role / 学科与学生分配边界；
@@ -19,34 +19,35 @@ Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、
 - 加载、空状态、网络失败、重试、账号切换隔离和错误日志兜底；
 - Local migration / RLS 测试、轻量 CI，以及 Remote Development 的真实 Data API smoke evidence。
 
-### 当前执行证据
+### 当前执行证据（2026-09-04）
 
-最近一次包含应用实现与发布配置改动的 commit 为 `3a208523597825145b7416a8050491a4823cec60`；随后仅同步了 README。已执行并通过：
+以当前仓库和远端开发项目的实时状态为准：
 
-- Flutter checks run `33816121891`：lockfile、Dart format、`flutter analyze`、`flutter test`；
-- Supabase checks run `33816121863`：migration 冷重建、本地 RLS 测试和旧 token 安全测试；
-- Android run `33816117220`：`flutter build apk --debug`，并上传带 commit 标识的 APK；
-- Windows run `33816117207`：`flutter build windows --release`、Visual C++ release runtime 依赖检查和 bundle 校验；
-- Remote Development：migration history 已包含自定义问题类型与 workspace query indexes；新增表的 RLS / grants / RPC 安全属性已复核，migration 后工作台请求全部返回 200。
+- `main` HEAD 为 `cd6f78e`，已合并到 Phase 0B.0-C；最新开发验证线继续在 `phase0b0f/release-hardening` 及其串联 Draft PR 上推进。
+- [PR #28](https://github.com/qbjsdsb/xueqing/pull/28)：邀请接受前检查 JWT `session_id` 是否仍存在于 `auth.sessions`；Supabase 冷重建、RLS、旧 token 和新增 pgTAP 回归均通过。它的 K migration 尚未应用到远端。
+- [PR #29](https://github.com/qbjsdsb/xueqing/pull/29)：生产配置要求 Supabase endpoint 且必须 HTTPS；生产环境隐藏虚构数据预览、云端探针和路由自检；Flutter lockfile、Dart format、`flutter analyze`、`flutter test` 全部通过（run `33851361604`）。
+- Supabase `xueqing-dev`（`ap-southeast-1`）当前已应用到 `20260904065220 phase_0b_0_j_invitation_expiry_reinvite_fix`；表结构仍是开发验证数据，未作为 Production schema 授权。
+- 当前 Remote Advisor 快照为 security 21（3 条 RLS 无 policy INFO、17 条 authenticated SECURITY DEFINER WARN、1 条 leaked password protection WARN），performance 55（38 条未索引外键、17 条 unused index，均为 INFO）。这些是待审计和治理信号，不能机械地全部关闭或全部加索引。
+- 本轮没有改动 `main`、没有应用远端 migration、没有写入任何真实学生、家长或教师数据。
 
 当前 Android / Windows 包只连接虚构的 Remote Development；它们不是 Production 包，也不代表真实数据上线许可。
-
 ### Production 边界仍未开放
 
-- Supabase provider、region、identity/session strategy 仍须通过 P0 Gate A/B 后才能冻结；
-- 尚未承载真实学生、家长或教师数据，也未完成正式数据驻留、合规、备份恢复和 Go / No-Go；
-- Production signing、正式发布渠道、升级兼容窗口和真实机构网络 / 真机验收仍未完成；
+P0 Gate A / B 的身份可移植性与撤销 Session / 旧 token spike 证据已经存在，但这只证明开发验证范围内的风险被测试过，不等于 Production provider、业务 migration 或真实数据上线获批。
+
+- Production provider、region、identity/session strategy 仍未最终冻结。
+- PR #28 / #29 仍是 Draft，必须先审阅、按顺序合并，再分别完成远端 migration 与人工设备验收。
+- `xueqing-dev` 仍只允许虚构或严格脱敏数据；K migration、leaked password protection、security definer 逐函数复核和完整 Advisor 处置仍待完成。
+- Production signing、正式发布渠道、升级兼容窗口、真实机构网络 / 真机验收、备份恢复演练和 Go / No-Go 仍未完成。
 - Realtime、家校端、报告、AI 正式诊断、复杂 offline-first / CRDT 等不属于当前迭代。
 
 > 在 Phase 0 的权限、安全、恢复、网络与合规 Go / No-Go 通过前，只允许使用虚构或严格脱敏数据，不录入真实学生、家长或教师隐私材料。
 
 > **Phase 0B.0 provider / production hard boundary**
 >
-> 当前仅将 Supabase 视为 V1 reference / preferred implementation candidate；尚未无条件冻结为 production provider。正式 production business migrations、Production Auth/RLS/CRUD 与真实学生/教师/家长数据之前，必须先完成并通过：
-> 1. **P0 Gate A — Auth Identity Portability Spike**；
-> 2. **P0 Gate B — Revoked Session / Old Token Security Spike**。
+> P0 Gate A / B 的 compatibility/security spike 已在虚构开发数据上完成，并已形成身份、旧 token 和 live-session 回归证据；它们不是无条件的 Production migration 授权。
 >
-> 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
+> 在 provider、region、identity 与 session strategy 最终冻结，并完成远端安全处置、备份恢复、真实设备 / 网络验收和 Go / No-Go 之前，仍不得承载真实学生、教师或家长数据。
 ---
 
 ## 一句话定位
@@ -335,11 +336,13 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 
 ## 当前推进顺序
 
-1. 完成 PR #22 的人工审阅与合并前复核；保留 Flutter / Supabase checks 和 native package 证据。
-2. 每次客户端与 schema 一起变化时，按 `docs/REMOTE_DEVELOPMENT_RELEASE_CHECKLIST.md` 先部署并核对 Remote Development，再打包。
-3. 继续完成 P0 Gate A（身份可移植性）与 P0 Gate B（撤销 Session / 旧 token），并冻结 provider、region、identity 与 session strategy。
-4. 完成 secure Session、Startup Gate、encrypted draft、网络切换和双账号隔离的真实设备验证。
-5. 完成 DB / Auth / Storage recovery drill、备份与恢复证据，再做真实数据 Go / No-Go。
-6. 只有全部边界通过后，才评估 gated Production Pilot；真实数据上线前不扩张到 AI、家校、复杂报表或大型 ERP 功能。
+1. 先审阅并按顺序合并 PR #28 → PR #29；保留 migration 冷重建、RLS、旧 token 和 Flutter CI 证据。
+2. 合并后只在虚构的 `xueqing-dev` 走受控 migration，应用 K、重新跑安全 / 性能 Advisor 和 Remote smoke，并记录 migration drift。
+3. 完成 Android / Windows 的真实点击验收：登录、重启恢复、退出、账号切换、双教师隔离、邀请边界、时区跨午夜、网络失败和草稿恢复。
+4. 补齐 Case 真正闭环：Action 完成 / 改期 / 取消，以及 `stabilize`、`close`、`reopen`；保持“问题 → 证据 → 干预 → 验证 → 下一行动”的教学逻辑。
+5. 再补机构初始化能力：学生 / 学科 / 教师范围 / 学生分配、正式 onboarding、重置、停用和账号交接。
+6. 完成 DB / Auth / Storage recovery drill 与 Production Go / No-Go；在此之前不接入真实未成年人数据，也不扩展到 AI、家校和大型报表。
 
-当前阶段提高质量的主要方式是补充真实执行证据、持续回归和小范围可验证迭代，而不是继续无限增加 Foundation 文档。
+当前阶段的主要质量增量是可复核执行证据和完整人工闭环，而不是继续堆叠页面或复杂后台。
+
+---
