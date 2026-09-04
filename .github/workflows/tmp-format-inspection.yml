@@ -1,0 +1,17 @@
+name: Temporary format inspection
+
+on:
+  push:
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+      - run: flutter pub get
+      - run: dart format .
+      - run: git diff -- lib/cloud/organization_management_repository.dart lib/features/organization_management/presentation/organization_management_page.dart test/features/organization_management_test.dart
