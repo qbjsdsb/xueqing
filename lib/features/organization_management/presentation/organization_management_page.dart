@@ -1746,10 +1746,7 @@ class _ManagementEmptyState extends StatelessWidget {
                 Text(message, style: Theme.of(context).textTheme.bodyMedium),
                 if (action != null) ...[
                   const SizedBox(height: AppSpacing.sm),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: action!,
-                  ),
+                  Align(alignment: Alignment.centerLeft, child: action!),
                 ],
               ],
             ),
