@@ -263,16 +263,14 @@ class _OrganizationManagementPageState
   }
 
   String _describeError(Object error) {
-    if (error is AuthException) {
-      return switch (error.message) {
-        'organization_owner_required' => '这项操作需要负责人确认。',
-        'organization_manager_required' => '当前账号没有本机构管理权限。',
-        'invitation_already_exists' => '这个邮箱已有相同角色的待处理邀请。',
-        'invitation_not_awaiting_approval' => '这条邀请已经变化，请刷新后再试。',
-        _ => '操作未完成，请检查网络和账号状态后重试。',
-      };
+    final invitationError = organizationInvitationErrorMessage(error);
+    if (invitationError != null) {
+      return invitationError;
     }
-    return '操作未完成，请检查网络后重试。';
+    if (error is AuthException && error.message.trim().isNotEmpty) {
+      return '操作未完成：' + error.message.trim();
+    }
+    return '操作未完成，请检查网络和账号状态后重试。';
   }
 
   @override
