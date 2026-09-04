@@ -76,8 +76,7 @@ class _FakeOrganizationManagementRepository
     subjectCreateCount++;
     return OrganizationSubjectSetupResult(
       operationId: operationId,
-      organizationSubjectId:
-          'organization-subject-$subjectCreateCount',
+      organizationSubjectId: 'organization-subject-$subjectCreateCount',
       subjectId: subjectId,
       subjectCode: 'english',
       subjectName: '英语',

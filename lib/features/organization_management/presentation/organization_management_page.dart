@@ -126,9 +126,9 @@ class _OrganizationManagementPageState
         return;
       }
       widget.onChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已添加学科：${result.subjectName}。')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已添加学科：${result.subjectName}。')));
     } catch (error) {
       if (mounted) {
         setState(() => _errorMessage = _describeError(error));
