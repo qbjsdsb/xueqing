@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(35);
 
 create temp table teacher_scope_test_state (
   scope_id uuid primary key,
