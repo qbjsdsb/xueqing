@@ -22,6 +22,12 @@ class OrganizationInvitationAcceptanceCard extends StatelessWidget {
   final VoidCallback onAccept;
   final String? errorMessage;
 
+  void _submit() {
+    if (formKey.currentState?.validate() ?? false) {
+      onAccept();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -80,7 +86,7 @@ class OrganizationInvitationAcceptanceCard extends StatelessWidget {
                     ),
                     onFieldSubmitted: (_) {
                       if (!busy) {
-                        onAccept();
+                        _submit();
                       }
                     },
                   ),
@@ -97,7 +103,7 @@ class OrganizationInvitationAcceptanceCard extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: busy ? null : onAccept,
+                      onPressed: busy ? null : _submit,
                       icon: const Icon(Icons.how_to_reg_outlined),
                       label: Text(busy ? '正在接受…' : '接受邀请'),
                     ),
