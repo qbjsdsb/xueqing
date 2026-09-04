@@ -1,0 +1,31 @@
+name: Case closure formatter diagnostic
+
+on:
+  push:
+    branches:
+      - phase0b0f/case-closure-ui
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Apply formatter and print diff
+        run: |
+          dart format .
+          git diff -- lib/cloud/learning_repository.dart lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart
