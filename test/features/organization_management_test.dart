@@ -69,17 +69,17 @@ class _FakeOrganizationManagementRepository
     }
     final member = members[index];
     members[index] = OrganizationMember(
-        appUserId: member.appUserId,
-        membershipId: member.membershipId,
-        email: member.email,
-        displayName: member.displayName,
-        status: status,
-        roles: member.roles,
-        version: expectedMembershipVersion + 1,
-        onboardingExpiresAt: status == 'active'
-            ? null
-            : member.onboardingExpiresAt,
-      );
+      appUserId: member.appUserId,
+      membershipId: member.membershipId,
+      email: member.email,
+      displayName: member.displayName,
+      status: status,
+      roles: member.roles,
+      version: expectedMembershipVersion + 1,
+      onboardingExpiresAt: status == 'active'
+          ? null
+          : member.onboardingExpiresAt,
+    );
     updatedMember = OrganizationMemberStatusUpdateResult(
       operationId: operationId,
       membershipId: membershipId,
