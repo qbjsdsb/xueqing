@@ -200,7 +200,6 @@ class _OrganizationManagementPageState
     }
   }
 
-
   Future<void> _editStudent(OrganizationStudentRecord student) async {
     if (_busy) {
       return;
@@ -250,6 +249,7 @@ class _OrganizationManagementPageState
       }
     }
   }
+
   Future<void> _inviteMember() async {
     if (_busy) {
       return;
@@ -784,8 +784,7 @@ class _OrganizationStudentTile extends StatelessWidget {
                 label: _studentStatusLabel(student.status),
                 isPositive: student.isActive,
               ),
-              for (final detail in details)
-                _ManagementRoleChip(label: detail),
+              for (final detail in details) _ManagementRoleChip(label: detail),
             ],
           ),
           if (student.subjectNames.isNotEmpty) ...[
@@ -800,6 +799,7 @@ class _OrganizationStudentTile extends StatelessWidget {
     );
   }
 }
+
 class _MemberTile extends StatelessWidget {
   const _MemberTile({required this.member});
 
@@ -1478,6 +1478,7 @@ String _studentStatusLabel(String status) {
     _ => '状态未知',
   };
 }
+
 String _membershipStatusLabel(String status) {
   return switch (status) {
     'active' => '正常',

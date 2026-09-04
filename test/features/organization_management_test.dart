@@ -63,6 +63,7 @@ class _FakeOrganizationManagementRepository
   }) async {
     return students;
   }
+
   @override
   Future<OrganizationSetupOptions> listSetupOptions({
     required String organizationId,
@@ -145,6 +146,7 @@ class _FakeOrganizationManagementRepository
     );
     return updatedStudent!;
   }
+
   @override
   Future<OrganizationInvitation> createInvitation({
     required String organizationId,
@@ -239,6 +241,7 @@ OrganizationStudentRecord _studentRecord() {
     subjectNames: ['数学'],
   );
 }
+
 Future<void> _pumpManagement(
   WidgetTester tester,
   _FakeOrganizationManagementRepository repository, {

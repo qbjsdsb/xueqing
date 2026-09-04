@@ -179,7 +179,6 @@ class OrganizationStudentSetupResult {
   }
 }
 
-
 class OrganizationStudentRecord {
   const OrganizationStudentRecord({
     required this.studentId,
@@ -267,6 +266,7 @@ class OrganizationStudentUpdateResult {
     );
   }
 }
+
 class OrganizationSubjectCatalogItem {
   const OrganizationSubjectCatalogItem({
     required this.id,
@@ -539,6 +539,7 @@ String? organizationStudentLifecycleErrorMessage(Object error) {
     _ => null,
   };
 }
+
 String? organizationInvitationErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),
@@ -607,6 +608,7 @@ class SupabaseOrganizationManagementRepository
     );
     return _mapList(response, OrganizationStudentRecord.fromJson);
   }
+
   @override
   Future<OrganizationSetupOptions> listSetupOptions({
     required String organizationId,
@@ -721,6 +723,7 @@ class SupabaseOrganizationManagementRepository
     );
     return OrganizationStudentUpdateResult.fromJson(_mapResponse(response));
   }
+
   @override
   Future<OrganizationInvitation> createInvitation({
     required String organizationId,
@@ -845,6 +848,7 @@ int? _intValue(Object? value) {
   }
   return int.tryParse(value?.toString() ?? '');
 }
+
 String _requiredString(Object? value, String field) {
   final normalized = _stringValue(value);
   if (normalized == null) {

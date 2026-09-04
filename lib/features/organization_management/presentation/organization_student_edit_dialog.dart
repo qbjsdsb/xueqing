@@ -33,7 +33,8 @@ class OrganizationStudentEditDialog extends StatefulWidget {
   final OrganizationStudentRecord student;
   final Future<OrganizationStudentUpdateResult> Function(
     OrganizationStudentEditDraft draft,
-  ) onSubmit;
+  )
+  onSubmit;
 
   @override
   State<OrganizationStudentEditDialog> createState() =>
@@ -190,9 +191,8 @@ class _OrganizationStudentEditDialogState
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   '正常教学会出现在老师的学生和今日工作台；暂不教学与已归档学生仍保留在机构管理中。',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: AppSpacing.sm),
