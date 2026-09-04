@@ -578,6 +578,7 @@ class _ManagementContent extends StatelessWidget {
   final bool isOwner;
   final bool busy;
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
+  final Future<void> Function(OrganizationInvitation invitation) onRevoke;
   final Future<void> Function(OrganizationStudentRecord student) onEditStudent;
 
   @override
