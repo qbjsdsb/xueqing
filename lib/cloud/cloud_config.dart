@@ -19,8 +19,14 @@ class CloudConfig {
   bool get isPartiallyConfigured =>
       url.trim().isNotEmpty != publishableKey.trim().isNotEmpty;
 
-  void validate() {
+  void validate({bool requireConfigured = false, bool requireHttps = false}) {
     if (!isConfigured && !isPartiallyConfigured) {
+      if (requireConfigured) {
+        throw const FormatException(
+          'XUEQING_SUPABASE_URL and '
+          'XUEQING_SUPABASE_PUBLISHABLE_KEY must be configured.',
+        );
+      }
       return;
     }
 
@@ -38,6 +44,12 @@ class CloudConfig {
     if (parsedUrl == null || parsedUrl.host.isEmpty || !hasSupportedScheme) {
       throw const FormatException(
         'XUEQING_SUPABASE_URL must be an absolute HTTP(S) URL.',
+      );
+    }
+
+    if (requireHttps && parsedUrl.scheme != 'https') {
+      throw const FormatException(
+        'XUEQING_SUPABASE_URL must use HTTPS for this environment.',
       );
     }
   }

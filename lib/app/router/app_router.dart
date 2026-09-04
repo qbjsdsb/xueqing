@@ -21,6 +21,11 @@ class XueqingRouter {
   final AppConfig config;
 
   Route<void> onGenerateRoute(RouteSettings settings) {
+    if (config.environment.isProduction &&
+        _isDevelopmentOnlyRoute(settings.name)) {
+      return _notFoundRoute(settings);
+    }
+
     switch (settings.name) {
       case AppRoutes.bootstrap:
         return MaterialPageRoute<void>(
@@ -48,11 +53,26 @@ class XueqingRouter {
           builder: (_) => const _RouteCheckPage(),
         );
       default:
-        return MaterialPageRoute<void>(
-          settings: settings,
-          builder: (_) => const _NotFoundPage(),
-        );
+        return _notFoundRoute(settings);
     }
+  }
+
+  bool _isDevelopmentOnlyRoute(String? routeName) {
+    switch (routeName) {
+      case AppRoutes.cloudSpike:
+      case AppRoutes.designPreview:
+      case AppRoutes.routeCheck:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  Route<void> _notFoundRoute(RouteSettings settings) {
+    return MaterialPageRoute<void>(
+      settings: settings,
+      builder: (_) => const _NotFoundPage(),
+    );
   }
 }
 

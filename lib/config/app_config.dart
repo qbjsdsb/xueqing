@@ -53,14 +53,18 @@ class AppConfig {
     String appVersion = '0.1.0+1',
     CloudConfig cloudConfig = const CloudConfig(),
   }) {
+    final environment = AppEnvironment.parse(environmentValue);
     final normalizedVersion = appVersion.trim();
     if (normalizedVersion.isEmpty) {
       throw const FormatException('XUEQING_APP_VERSION cannot be empty.');
     }
-    cloudConfig.validate();
+    cloudConfig.validate(
+      requireConfigured: environment.isProduction,
+      requireHttps: environment.isProduction,
+    );
 
     return AppConfig(
-      environment: AppEnvironment.parse(environmentValue),
+      environment: environment,
       appVersion: normalizedVersion,
       cloudConfig: cloudConfig,
     );
