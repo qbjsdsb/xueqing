@@ -4124,7 +4124,8 @@ String _caseStatusLabelFromWire(String value) {
 
 String _describeWorkspaceLoadError(Object? error) {
   final detail = error?.toString().toLowerCase() ?? '';
-  if (detail.contains('organization_case_types') &&
+  if ((detail.contains('organization_case_types') ||
+          detail.contains('teacher_workspace_student_enrollments')) &&
       (detail.contains('404') ||
           detail.contains('pgrst205') ||
           detail.contains('relation'))) {

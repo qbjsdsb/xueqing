@@ -777,8 +777,10 @@ class SupabaseLearningRepository implements LearningRepository {
       ),
       _rows(
         _client
-            .from('student_enrollments')
-            .select('student_id,grade,class_name,campus,starts_on,ends_on')
+            .from('teacher_workspace_student_enrollments')
+            .select(
+              'student_id,grade,class_name,campus,starts_on,ends_on,is_current',
+            )
             .eq('organization_id', organizationId),
         expectedUserId,
       ),
@@ -1366,14 +1368,9 @@ class SupabaseLearningRepository implements LearningRepository {
   }
 
   Map<String, dynamic>? _currentEnrollment(List<Map<String, dynamic>> rows) {
-    final today = DateTime.now().toUtc();
-    final candidates = rows.where((row) {
-      final startsOn = _dateOnlyValue(row['starts_on']);
-      final endsOn = _dateOnlyValue(row['ends_on']);
-      return startsOn == null ||
-          (!today.isBefore(startsOn) &&
-              (endsOn == null || !today.isAfter(endsOn)));
-    }).toList();
+    // The read model evaluates is_current using the organization's IANA
+    // timezone. Do not re-derive this business fact from the device clock.
+    final candidates = rows.where((row) => row['is_current'] == true).toList();
     candidates.sort((left, right) {
       final leftDate = _dateOnlyValue(left['starts_on']);
       final rightDate = _dateOnlyValue(right['starts_on']);
