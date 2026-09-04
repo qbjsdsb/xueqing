@@ -92,7 +92,7 @@ select set_config(
 select lives_ok(
   $scope_list$
     select set_config(
-      'xueqing.scope_list',
+      'xueqing.member_list',
       (
         select coalesce(jsonb_agg(item), '[]'::jsonb)::text
         from public.list_organization_teacher_subject_scopes(
@@ -106,7 +106,7 @@ select lives_ok(
 );
 
 select is(
-  jsonb_array_length(current_setting('xueqing.scope_list')::jsonb),
+  jsonb_array_length(current_setting('xueqing.member_list')::jsonb),
   1,
   'teacher scope roster contains the organization scope'
 );
@@ -114,7 +114,7 @@ select is(
 select is(
   (
     select (item ->> 'version')::int
-    from jsonb_array_elements(current_setting('xueqing.scope_list')::jsonb) as item
+    from jsonb_array_elements(current_setting('xueqing.member_list')::jsonb) as item
     limit 1
   ),
   1,
@@ -197,7 +197,7 @@ select set_config(
 select lives_ok(
   $scope_add$
     select set_config(
-      'xueqing.scope_add',
+      'xueqing.member_update',
       public.update_organization_teacher_subject_scope(
         '80000000-0000-0000-0000-000000000001',
         '00000000-0000-0000-0000-000000000001',
@@ -214,13 +214,13 @@ select lives_ok(
 );
 
 select is(
-  current_setting('xueqing.scope_add')::jsonb ->> 'status',
+  current_setting('xueqing.member_update')::jsonb ->> 'status',
   'active',
   'scope activation returns active status'
 );
 
 select is(
-  (current_setting('xueqing.scope_add')::jsonb ->> 'version')::int,
+  (current_setting('xueqing.member_update')::jsonb ->> 'version')::int,
   1,
   'new scope starts at version one'
 );
@@ -473,7 +473,7 @@ set local role authenticated;
 select lives_ok(
   $scope_end$
     select set_config(
-      'xueqing.scope_end',
+      'xueqing.member_update',
       public.update_organization_teacher_subject_scope(
         '80000000-0000-0000-0000-000000000006',
         '00000000-0000-0000-0000-000000000001',
@@ -498,13 +498,13 @@ select lives_ok(
 );
 
 select is(
-  current_setting('xueqing.scope_end')::jsonb ->> 'status',
+  current_setting('xueqing.member_update')::jsonb ->> 'status',
   'ended',
   'scope ending returns ended status'
 );
 
 select is(
-  (current_setting('xueqing.scope_end')::jsonb ->> 'version')::int,
+  (current_setting('xueqing.member_update')::jsonb ->> 'version')::int,
   2,
   'ending a scope increments its version'
 );
@@ -571,7 +571,7 @@ set local role authenticated;
 select lives_ok(
   $scope_readd$
     select set_config(
-      'xueqing.scope_readd',
+      'xueqing.member_restore',
       public.update_organization_teacher_subject_scope(
         '80000000-0000-0000-0000-000000000007',
         '00000000-0000-0000-0000-000000000001',
@@ -588,13 +588,13 @@ select lives_ok(
 );
 
 select is(
-  current_setting('xueqing.scope_readd')::jsonb ->> 'status',
+  current_setting('xueqing.member_restore')::jsonb ->> 'status',
   'active',
   'scope reactivation returns active status'
 );
 
 select is(
-  (current_setting('xueqing.scope_readd')::jsonb ->> 'version')::int,
+  (current_setting('xueqing.member_restore')::jsonb ->> 'version')::int,
   1,
   'reactivated scope starts a new versioned interval'
 );
@@ -617,7 +617,7 @@ select is(
 update public.membership_subject_scopes
 set active_from = active_from
 where id = (
-  current_setting('xueqing.scope_readd')::jsonb ->> 'scope_id'
+  current_setting('xueqing.member_restore')::jsonb ->> 'scope_id'
 )::uuid;
 
 set local role authenticated;
@@ -630,7 +630,7 @@ select throws_ok(
       '71000000-0000-0000-0000-000000000001',
       '64000000-0000-0000-0000-000000000001',
       (
-        current_setting('xueqing.scope_readd')::jsonb ->> 'scope_id'
+        current_setting('xueqing.member_restore')::jsonb ->> 'scope_id'
       )::uuid,
       1,
       'ended'
@@ -648,7 +648,7 @@ select is(
     select scope.status || '|' || scope.version::text
     from public.membership_subject_scopes as scope
     where scope.id = (
-      current_setting('xueqing.scope_readd')::jsonb ->> 'scope_id'
+      current_setting('xueqing.member_restore')::jsonb ->> 'scope_id'
     )::uuid
   ),
   'active|2',
@@ -660,14 +660,14 @@ set local role authenticated;
 select lives_ok(
   $scope_final_end$
     select set_config(
-      'xueqing.scope_final_end',
+      'xueqing.member_update',
       public.update_organization_teacher_subject_scope(
         '80000000-0000-0000-0000-000000000009',
         '00000000-0000-0000-0000-000000000001',
         '71000000-0000-0000-0000-000000000001',
         '64000000-0000-0000-0000-000000000001',
         (
-          current_setting('xueqing.scope_readd')::jsonb ->> 'scope_id'
+          current_setting('xueqing.member_restore')::jsonb ->> 'scope_id'
         )::uuid,
         2,
         'ended'
@@ -679,13 +679,13 @@ select lives_ok(
 );
 
 select is(
-  current_setting('xueqing.scope_final_end')::jsonb ->> 'status',
+  current_setting('xueqing.member_update')::jsonb ->> 'status',
   'ended',
   'final scope ending returns ended status'
 );
 
 select is(
-  (current_setting('xueqing.scope_final_end')::jsonb ->> 'version')::int,
+  (current_setting('xueqing.member_update')::jsonb ->> 'version')::int,
   3,
   'final scope ending increments the version exactly once'
 );
