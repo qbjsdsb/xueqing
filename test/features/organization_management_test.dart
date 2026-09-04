@@ -822,9 +822,6 @@ void main() {
     expect(repository.assignmentTransferCount, 1);
     expect(repository.updatedTeacherAssignment?.status, 'transferred');
     expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');
-    expect(
-      find.text('主责：新老师 · new-teacher@example.com'),
-      findsOneWidget,
-    );
+    expect(find.text('主责：新老师 · new-teacher@example.com'), findsOneWidget);
   });
 }
