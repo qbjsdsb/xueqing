@@ -1,11 +1,8 @@
 name: Package Android APK
 
 on:
-  push:
-    branches:
-      - "phase0b0f/custom-case-types"
-    paths:
-      - ".github/workflows/package-android.yml"
+  workflow_dispatch:
+android.yml"
   workflow_dispatch:
     inputs:
       supabase_url:
