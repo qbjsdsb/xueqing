@@ -14,7 +14,6 @@ class OrganizationManagementPage extends StatefulWidget {
     required this.roles,
     this.canManageCaseTypes = false,
     this.onOpenCaseTypes,
-    this.onWorkspaceChanged,
     super.key,
   });
 
@@ -24,7 +23,6 @@ class OrganizationManagementPage extends StatefulWidget {
   final List<String> roles;
   final bool canManageCaseTypes;
   final VoidCallback? onOpenCaseTypes;
-  final Future<void> Function()? onWorkspaceChanged;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -228,9 +226,6 @@ class _OrganizationManagementPageState
     try {
       await mutation();
       await _refresh();
-      if (widget.onWorkspaceChanged != null) {
-        await widget.onWorkspaceChanged!();
-      }
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -1019,10 +1014,35 @@ class _ManagementErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _ManagementEmptyState(
-      title: '机构管理暂时无法加载',
-      message: '请检查网络和开发环境同步状态后重试。',
-      icon: Icons.cloud_off_outlined,
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 40,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              '机构管理暂时无法加载',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '请检查网络和开发环境同步状态后重试。',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton(onPressed: onRetry, child: const Text('重试')),
+          ],
+        ),
+      ),
     );
   }
 }
