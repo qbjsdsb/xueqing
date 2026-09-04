@@ -558,6 +558,7 @@ String? organizationMemberLifecycleErrorMessage(Object error) {
     'membership_version_conflict' => '这位成员刚刚被别人修改，请刷新后重试。',
     'membership_status_unchanged' => '成员状态没有变化，请刷新后重试。',
     'membership_status_transition_invalid' => '当前成员状态不能执行这项转换。',
+    'membership_handoff_required' => '这位成员还有未交接的进行中事项，请先完成案件和行动交接。',
     'current_membership_immutable' => '不能停用或恢复当前正在使用的账号。',
     'organization_owner_required' => '负责人状态只能由另一位负责人调整。',
     'last_owner_immutable' => '机构至少要保留一位正常负责人的账号。',

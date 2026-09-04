@@ -280,6 +280,32 @@ begin
     end if;
   end if;
 
+  if v_status = 'disabled'
+    and (
+      exists (
+        select 1
+        from public.learning_cases as learning_case
+        where learning_case.organization_id = v_organization_id
+          and learning_case.owner_membership_id = target_membership.id
+          and learning_case.status <> 'closed'
+      )
+      or exists (
+        select 1
+        from public.case_actions as action
+        join public.learning_cases as learning_case
+          on learning_case.id = action.learning_case_id
+         and learning_case.organization_id = action.organization_id
+        where action.organization_id = v_organization_id
+          and action.assigned_membership_id = target_membership.id
+          and action.status = 'pending'
+          and learning_case.status <> 'closed'
+      )
+    ) then
+    raise exception using
+      errcode = 'P0001',
+      message = 'membership_handoff_required';
+  end if;
+
   if v_status = 'disabled' then
     update public.membership_subject_scopes as scope
     set status = 'ended',

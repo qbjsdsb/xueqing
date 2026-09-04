@@ -1,6 +1,6 @@
 begin;
 
-select plan(35);
+select plan(39);
 
 select is(
   (
@@ -308,8 +308,122 @@ select throws_ok(
   'the current manager cannot disable their own membership'
 );
 
+reset role;
+
+insert into public.learning_cases (
+  id,
+  organization_id,
+  student_subject_profile_id,
+  owner_membership_id,
+  case_type,
+  title,
+  status,
+  first_observed_at,
+  version,
+  created_by_app_user_id,
+  created_by_membership_id
+)
+values (
+  '78000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '67000000-0000-0000-0000-000000000001',
+  '71000000-0000-0000-0000-000000000001',
+  'knowledge',
+  '待交接的虚构案件',
+  'confirmed',
+  '2026-09-04T08:00:00Z',
+  1,
+  '10000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001'
+);
+
+insert into public.case_actions (
+  id,
+  organization_id,
+  learning_case_id,
+  assigned_membership_id,
+  action_type,
+  title,
+  is_primary,
+  status,
+  version
+)
+values (
+  '79000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '78000000-0000-0000-0000-000000000001',
+  '71000000-0000-0000-0000-000000000001',
+  'review',
+  '待交接的虚构行动',
+  true,
+  'pending',
+  1
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $
+    select public.update_organization_membership_status(
+      '75000000-0000-0000-0000-000000000008',
+      '00000000-0000-0000-0000-000000000001',
+      '71000000-0000-0000-0000-000000000001',
+      1,
+      'disabled'
+    )
+  $,
+  'P0001',
+  null,
+  'member disable refuses to orphan open cases or pending actions'
+);
+
+reset role;
+
+select is(
+  (
+    select membership.status || '|' || membership.version::text
+    from public.organization_memberships as membership
+    where membership.id =
+      '71000000-0000-0000-0000-000000000001'
+  ),
+  'active|1',
+  'handoff refusal leaves membership unchanged'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.membership_subject_scopes as scope
+    where scope.membership_id =
+      '71000000-0000-0000-0000-000000000001'
+      and scope.status = 'active'
+  ),
+  1,
+  'handoff refusal leaves active subject scopes unchanged'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.student_teacher_assignments as assignment
+    where assignment.membership_id =
+      '71000000-0000-0000-0000-000000000001'
+      and assignment.status = 'active'
+  ),
+  1,
+  'handoff refusal leaves active student assignments unchanged'
+);
+
+delete from public.case_actions
+where id = '79000000-0000-0000-0000-000000000001';
+
+delete from public.learning_cases
+where id = '78000000-0000-0000-0000-000000000001';
+
+set local role authenticated;
+
 select lives_ok(
-  $$
+  $
     select set_config(
       'xueqing.member_update',
       public.update_organization_membership_status(
