@@ -55,6 +55,17 @@ void main() {
       '当前登录邮箱与邀请邮箱不一致。',
     );
     expect(
+      organizationInvitationErrorMessage(
+        PostgrestException(
+          message: 'organization_manager_required',
+          code: 'P0001',
+          details: '',
+          hint: '',
+        ),
+      ),
+      '当前账号没有本机构管理权限。',
+    );
+    expect(
       organizationInvitationErrorMessage(const FormatException('other')),
       isNull,
     );
