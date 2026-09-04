@@ -19,11 +19,14 @@ class _FakeLearningRepository implements LearningRepository {
   int assessmentCount = 0;
   int stabilizeCount = 0;
   int closeCount = 0;
+  int rescheduleCount = 0;
   final List<ConfirmCaseCommand> confirmCommands = <ConfirmCaseCommand>[];
   final List<RecordInterventionCommand> interventionCommands =
       <RecordInterventionCommand>[];
   final List<RecordAssessmentCommand> assessmentCommands =
       <RecordAssessmentCommand>[];
+  final List<RescheduleCaseActionCommand> rescheduleCommands =
+      <RescheduleCaseActionCommand>[];
 
   @override
   Future<TeacherWorkspace> loadWorkspace() async {
@@ -165,6 +168,20 @@ class _FakeLearningRepository implements LearningRepository {
     );
   }
 
+  @override
+  Future<CaseCommandReceipt> rescheduleCaseAction(
+    RescheduleCaseActionCommand command,
+  ) async {
+    rescheduleCount++;
+    rescheduleCommands.add(command);
+    return _caseReceipt(
+      command.operationId,
+      command.caseId,
+      'confirmed',
+      command.expectedCaseVersion + 1,
+    );
+  }
+
   CaseCommandReceipt _caseReceipt(
     String operationId,
     String caseId,
@@ -198,6 +215,7 @@ TeacherWorkspace _fixtureWorkspace({
     status: WorkspaceActionStatus.pending,
     isPrimary: true,
     bucket: WorkspaceActionBucket.today,
+    version: 1,
     dueAt: DateTime(2026, 9, 3),
   );
   final learningCase = WorkspaceCase(
@@ -294,6 +312,29 @@ void main() {
     expect(find.text('待整理 Case'), findsOneWidget);
     expect(find.text('待整理'), findsOneWidget);
     expect(find.text('尚未记录教学动作。'), findsOneWidget);
+  });
+
+  testWidgets('reschedules an action from Today', (tester) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    await _pumpWorkspace(tester, repository);
+
+    final rescheduleButton = find.widgetWithText(TextButton, '改期');
+    expect(rescheduleButton, findsOneWidget);
+    await tester.tap(rescheduleButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('改期行动'), findsOneWidget);
+    final saveButton = find.widgetWithText(TextButton, '保存');
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.rescheduleCount, 1);
+    expect(repository.rescheduleCommands.single.actionId, 'action-1');
+    expect(repository.rescheduleCommands.single.caseId, 'case-1');
+    expect(repository.rescheduleCommands.single.expectedCaseVersion, 1);
+    expect(repository.rescheduleCommands.single.expectedActionVersion, 1);
+    expect(repository.rescheduleCommands.single.dueOn, isNotNull);
+    expect(find.textContaining('行动已安排在'), findsOneWidget);
   });
 
   testWidgets('explains schema drift and lets the user retry', (tester) async {
@@ -661,6 +702,29 @@ void main() {
         assessedAt: null,
         nextActionTitle: '下一步',
         nextActionDueAt: null,
+      ).validate(),
+      throwsArgumentError,
+    );
+
+    expect(
+      () => RescheduleCaseActionCommand(
+        operationId: 'op-1',
+        actionId: '',
+        caseId: 'case-1',
+        expectedCaseVersion: 1,
+        expectedActionVersion: 1,
+        dueOn: null,
+      ).validate(),
+      throwsArgumentError,
+    );
+    expect(
+      () => RescheduleCaseActionCommand(
+        operationId: 'op-1',
+        actionId: 'action-1',
+        caseId: 'case-1',
+        expectedCaseVersion: 1,
+        expectedActionVersion: 0,
+        dueOn: null,
       ).validate(),
       throwsArgumentError,
     );

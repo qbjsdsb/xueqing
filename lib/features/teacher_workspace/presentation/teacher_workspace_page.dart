@@ -307,6 +307,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   late Future<TeacherWorkspace> _workspaceFuture;
   String? _invitationErrorMessage;
   bool _invitationBusy = false;
+  String? _reschedulingActionId;
 
   @override
   void initState() {
@@ -685,6 +686,75 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
   }
 
+  Future<void> _rescheduleAction(WorkspaceActionWithContext item) async {
+    if (_reschedulingActionId != null) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final lastDate = DateTime(today.year + 2, today.month, today.day);
+    final existing = item.action.dueAt?.toLocal();
+    final existingDate = existing == null
+        ? null
+        : DateTime(existing.year, existing.month, existing.day);
+    final initialDate = existingDate == null || existingDate.isBefore(today)
+        ? today
+        : existingDate.isAfter(lastDate)
+        ? lastDate
+        : existingDate;
+    final picked = await showDatePicker(
+      context: context,
+      firstDate: today,
+      lastDate: lastDate,
+      initialDate: initialDate,
+      helpText: item.action.dueAt == null ? '安排行动日期' : '改期行动',
+      confirmText: '保存',
+    );
+    if (!mounted || picked == null) {
+      return;
+    }
+
+    setState(() {
+      _reschedulingActionId = item.action.id;
+    });
+    try {
+      await widget.repository.rescheduleCaseAction(
+        RescheduleCaseActionCommand(
+          operationId: createOperationId(),
+          actionId: item.action.id,
+          caseId: item.learningCase.id,
+          expectedCaseVersion: item.learningCase.version,
+          expectedActionVersion: item.action.version,
+          dueOn: DateTime(picked.year, picked.month, picked.day),
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+      await _reload();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('行动已安排在${_formatDateOnly(picked)}。')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_describeCaseCommandError(error))));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _reschedulingActionId = null;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<TeacherWorkspace>(
@@ -991,6 +1061,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           items: group,
           onOpenCase: (learningCase) =>
               _openCase(group.first.student, learningCase),
+          onReschedule: _rescheduleAction,
+          reschedulingActionId: _reschedulingActionId,
         ),
     ];
   }
@@ -3397,11 +3469,15 @@ class _WorkspaceActionGroup extends StatelessWidget {
     required this.student,
     required this.items,
     required this.onOpenCase,
+    required this.onReschedule,
+    this.reschedulingActionId,
   });
 
   final WorkspaceStudent student;
   final List<WorkspaceActionWithContext> items;
   final ValueChanged<WorkspaceCase> onOpenCase;
+  final Future<void> Function(WorkspaceActionWithContext item) onReschedule;
+  final String? reschedulingActionId;
 
   @override
   Widget build(BuildContext context) {
@@ -3456,9 +3532,24 @@ class _WorkspaceActionGroup extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   Padding(
                     padding: const EdgeInsets.only(left: 33),
-                    child: OutlinedButton(
-                      onPressed: () => onOpenCase(item.learningCase),
-                      child: const Text('查看 Case'),
+                    child: Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => onOpenCase(item.learningCase),
+                          child: const Text('查看 Case'),
+                        ),
+                        TextButton.icon(
+                          onPressed: reschedulingActionId == item.action.id
+                              ? null
+                              : () => onReschedule(item),
+                          icon: const Icon(Icons.event_repeat_outlined),
+                          label: Text(
+                            item.action.dueAt == null ? '安排日期' : '改期',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -4160,6 +4251,15 @@ String _describeCaseCommandError(Object error) {
   }
   if (detail.contains('case_transition_not_allowed')) {
     return 'Case 状态已经变化，请刷新后再试。';
+  }
+  if (detail.contains('action_not_pending')) {
+    return '这条行动已经被处理，请刷新工作台后查看最新状态。';
+  }
+  if (detail.contains('action_not_found')) {
+    return '这条行动已不存在，请刷新工作台后再试。';
+  }
+  if (detail.contains('action_version_conflict')) {
+    return '这条行动已经被更新，请刷新工作台后再试。';
   }
   if (detail.contains('case_version_conflict') ||
       detail.contains('version_conflict')) {
