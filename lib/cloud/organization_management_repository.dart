@@ -179,6 +179,55 @@ class OrganizationStudentSetupResult {
   }
 }
 
+class OrganizationSubjectCatalogItem {
+  const OrganizationSubjectCatalogItem({
+    required this.id,
+    required this.code,
+    required this.displayName,
+  });
+
+  final String id;
+  final String code;
+  final String displayName;
+
+  factory OrganizationSubjectCatalogItem.fromJson(Map<String, dynamic> json) {
+    return OrganizationSubjectCatalogItem(
+      id: _requiredString(json['id'], 'id'),
+      code: _requiredString(json['code'], 'code'),
+      displayName: _stringValue(json['display_name']) ?? '未命名学科',
+    );
+  }
+}
+
+class OrganizationSubjectSetupResult {
+  const OrganizationSubjectSetupResult({
+    required this.operationId,
+    required this.organizationSubjectId,
+    required this.subjectId,
+    required this.subjectCode,
+    required this.subjectName,
+  });
+
+  final String operationId;
+  final String organizationSubjectId;
+  final String subjectId;
+  final String subjectCode;
+  final String subjectName;
+
+  factory OrganizationSubjectSetupResult.fromJson(Map<String, dynamic> json) {
+    return OrganizationSubjectSetupResult(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      subjectId: _requiredString(json['subject_id'], 'subject_id'),
+      subjectCode: _requiredString(json['subject_code'], 'subject_code'),
+      subjectName: _stringValue(json['subject_name']) ?? '未命名学科',
+    );
+  }
+}
+
 class OrganizationInvitation {
   const OrganizationInvitation({
     required this.id,
@@ -228,6 +277,16 @@ abstract interface class OrganizationManagementRepository {
 
   Future<OrganizationSetupOptions> listSetupOptions({
     required String organizationId,
+  });
+
+  Future<List<OrganizationSubjectCatalogItem>> listSubjectCatalog({
+    required String organizationId,
+  });
+
+  Future<OrganizationSubjectSetupResult> createSubject({
+    required String operationId,
+    required String organizationId,
+    required String subjectId,
   });
 
   Future<OrganizationStudentSetupResult> createStudent({
@@ -311,6 +370,28 @@ class SupabaseOrganizationInvitationAcceptanceRepository
       );
     }
   }
+}
+
+String? organizationSubjectSetupErrorMessage(Object error) {
+  final detail = switch (error) {
+    AuthException(:final message) => message.trim(),
+    PostgrestException(:final message) => message.trim(),
+    _ => null,
+  };
+  if (detail == null) {
+    return null;
+  }
+  return switch (detail.toLowerCase()) {
+    'invalid_organization_subject_input' => '学科信息不完整，请刷新后重试。',
+    'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
+    'subject_not_found' => '这个全局学科已下线，请刷新后重新选择。',
+    'organization_subject_already_enabled' => '这个学科已经在本机构启用，请刷新后继续。',
+    'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
+    'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
+    'invalid_live_session' => '登录状态已失效，请重新登录。',
+    'organization_manager_required' => '当前账号没有本机构管理权限。',
+    _ => null,
+  };
 }
 
 String? organizationStudentSetupErrorMessage(Object error) {
@@ -403,6 +484,39 @@ class SupabaseOrganizationManagementRepository
       <String, dynamic>{'p_organization_id': organizationId},
     );
     return OrganizationSetupOptions.fromJson(_mapResponse(response));
+  }
+
+  @override
+  Future<List<OrganizationSubjectCatalogItem>> listSubjectCatalog({
+    required String organizationId,
+  }) async {
+    final response = await _call(
+      'list_organization_subject_catalog',
+      <String, dynamic>{'p_organization_id': organizationId},
+    );
+    return _mapList(response, OrganizationSubjectCatalogItem.fromJson);
+  }
+
+  @override
+  Future<OrganizationSubjectSetupResult> createSubject({
+    required String operationId,
+    required String organizationId,
+    required String subjectId,
+  }) async {
+    if (operationId.trim().isEmpty || subjectId.trim().isEmpty) {
+      throw ArgumentError(
+        'Organization subject setup identity cannot be empty.',
+      );
+    }
+    final response = await _call(
+      'create_organization_subject',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_subject_id': subjectId,
+      },
+    );
+    return OrganizationSubjectSetupResult.fromJson(_mapResponse(response));
   }
 
   @override

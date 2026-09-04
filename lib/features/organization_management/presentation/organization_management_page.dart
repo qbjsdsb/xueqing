@@ -6,6 +6,7 @@ import '../../../app/layout/responsive.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/organization_management_repository.dart';
 import 'organization_student_setup_dialog.dart';
+import 'organization_subject_setup_dialog.dart';
 
 class OrganizationManagementPage extends StatefulWidget {
   const OrganizationManagementPage({
@@ -65,11 +66,15 @@ class _OrganizationManagementPageState
       widget.repository.listMembers(organizationId: widget.organizationId),
       widget.repository.listInvitations(organizationId: widget.organizationId),
       widget.repository.listSetupOptions(organizationId: widget.organizationId),
+      widget.repository.listSubjectCatalog(
+        organizationId: widget.organizationId,
+      ),
     ]);
     return _OrganizationManagementSnapshot(
       members: result[0] as List<OrganizationMember>,
       invitations: result[1] as List<OrganizationInvitation>,
       setupOptions: result[2] as OrganizationSetupOptions,
+      subjectCatalog: result[3] as List<OrganizationSubjectCatalogItem>,
     );
   }
 
@@ -82,6 +87,57 @@ class _OrganizationManagementPageState
       _snapshotFuture = next;
     });
     await next;
+  }
+
+  Future<void> _addSubject() async {
+    if (_busy) {
+      return;
+    }
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) {
+        return;
+      }
+      if (snapshot.subjectCatalog.isEmpty) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('当前没有可添加的活跃学科。')));
+        return;
+      }
+      setState(() {
+        _busy = true;
+        _errorMessage = null;
+      });
+      final result = await showDialog<OrganizationSubjectSetupResult>(
+        context: context,
+        builder: (context) => OrganizationSubjectSetupDialog(
+          subjects: snapshot.subjectCatalog,
+          onSubmit: (draft) => widget.repository.createSubject(
+            operationId: draft.operationId,
+            organizationId: widget.organizationId,
+            subjectId: draft.subjectId,
+          ),
+        ),
+      );
+      if (!mounted || result == null) {
+        return;
+      }
+      await _refresh();
+      if (!mounted) {
+        return;
+      }
+      widget.onChanged?.call();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已添加学科：${result.subjectName}。')));
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = _describeError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
   }
 
   Future<void> _addStudent() async {
@@ -325,6 +381,10 @@ class _OrganizationManagementPageState
   }
 
   String _describeError(Object error) {
+    final subjectSetupError = organizationSubjectSetupErrorMessage(error);
+    if (subjectSetupError != null) {
+      return subjectSetupError;
+    }
     final setupError = organizationStudentSetupErrorMessage(error);
     if (setupError != null) {
       return setupError;
@@ -371,6 +431,11 @@ class _OrganizationManagementPageState
                       icon: const Icon(Icons.category_outlined),
                       label: const Text('问题类型'),
                     ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _addSubject,
+                    icon: const Icon(Icons.menu_book_outlined),
+                    label: const Text('添加学科'),
+                  ),
                   FilledButton.icon(
                     onPressed: _busy ? null : _addStudent,
                     icon: const Icon(Icons.person_add_alt_1_outlined),
@@ -430,11 +495,13 @@ class _OrganizationManagementSnapshot {
     required this.members,
     required this.invitations,
     required this.setupOptions,
+    required this.subjectCatalog,
   });
 
   final List<OrganizationMember> members;
   final List<OrganizationInvitation> invitations;
   final OrganizationSetupOptions setupOptions;
+  final List<OrganizationSubjectCatalogItem> subjectCatalog;
 }
 
 class _ManagementContent extends StatelessWidget {
@@ -477,7 +544,12 @@ class _ManagementContent extends StatelessWidget {
             _ManagementSummaryCard(
               icon: Icons.menu_book_outlined,
               label: '可用学科',
-              value: '${snapshot.setupOptions.subjects.length}',
+              value: snapshot.setupOptions.subjects.length.toString(),
+            ),
+            _ManagementSummaryCard(
+              icon: Icons.add_circle_outline,
+              label: '可添加学科',
+              value: snapshot.subjectCatalog.length.toString(),
             ),
             _ManagementSummaryCard(
               icon: Icons.assignment_ind_outlined,
@@ -493,7 +565,31 @@ class _ManagementContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        _ManagementSetupHint(options: snapshot.setupOptions),
+        _ManagementSetupHint(
+          options: snapshot.setupOptions,
+          subjectCatalog: snapshot.subjectCatalog,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _ManagementSection(
+          title: '学科',
+          count: '${snapshot.setupOptions.subjects.length} 门',
+          child: snapshot.setupOptions.subjects.isEmpty
+              ? _ManagementEmptyState(
+                  title: '还没有机构学科',
+                  message: snapshot.subjectCatalog.isEmpty
+                      ? '当前没有可添加的全局活跃学科。'
+                      : '使用“添加学科”把全局活跃学科加入本机构。',
+                  icon: Icons.menu_book_outlined,
+                )
+              : Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    for (final subject in snapshot.setupOptions.subjects)
+                      Chip(label: Text(subject.displayName)),
+                  ],
+                ),
+        ),
         const SizedBox(height: AppSpacing.lg),
         _ManagementSection(
           title: '成员',
@@ -952,14 +1048,23 @@ class _ManagementSection extends StatelessWidget {
 }
 
 class _ManagementSetupHint extends StatelessWidget {
-  const _ManagementSetupHint({required this.options});
+  const _ManagementSetupHint({
+    required this.options,
+    required this.subjectCatalog,
+  });
 
   final OrganizationSetupOptions options;
+  final List<OrganizationSubjectCatalogItem> subjectCatalog;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final ready = options.canCreateStudent;
+    final message = ready
+        ? '学科和负责老师已就绪；添加学生时会一次性完成最小教学关系配置。'
+        : options.subjects.isEmpty && subjectCatalog.isNotEmpty
+        ? '请先添加至少一个机构学科；当前有 ${subjectCatalog.length} 个全局活跃学科可选。'
+        : '添加学生前，请先确保机构至少有一个活跃学科和一个在岗老师角色。';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -987,12 +1092,7 @@ class _ManagementSetupHint extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(
-              ready
-                  ? '学科和负责老师已就绪；添加学生时会一次性完成最小教学关系配置。'
-                  : '添加学生前，请先确保机构至少有一个活跃学科和一个在岗老师角色。',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            child: Text(message, style: Theme.of(context).textTheme.bodySmall),
           ),
         ],
       ),

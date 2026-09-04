@@ -25,7 +25,15 @@ class _FakeOrganizationManagementRepository
   final List<OrganizationMember> members;
   final List<OrganizationInvitation> invitations;
   final OrganizationSetupOptions setupOptions;
+  final List<OrganizationSubjectCatalogItem> subjectCatalog = const [
+    OrganizationSubjectCatalogItem(
+      id: 'subject-2',
+      code: 'english',
+      displayName: '英语',
+    ),
+  ];
   int approveCount = 0;
+  int subjectCreateCount = 0;
   int revokeCount = 0;
   int createCount = 0;
   int studentCreateCount = 0;
@@ -50,6 +58,29 @@ class _FakeOrganizationManagementRepository
     required String organizationId,
   }) async {
     return setupOptions;
+  }
+
+  @override
+  Future<List<OrganizationSubjectCatalogItem>> listSubjectCatalog({
+    required String organizationId,
+  }) async {
+    return subjectCatalog;
+  }
+
+  @override
+  Future<OrganizationSubjectSetupResult> createSubject({
+    required String operationId,
+    required String organizationId,
+    required String subjectId,
+  }) async {
+    subjectCreateCount++;
+    return OrganizationSubjectSetupResult(
+      operationId: operationId,
+      organizationSubjectId: 'organization-subject-$subjectCreateCount',
+      subjectId: subjectId,
+      subjectCode: 'english',
+      subjectName: '英语',
+    );
   }
 
   @override
@@ -284,5 +315,26 @@ void main() {
     expect(repository.studentCreateCount, 1);
     expect(repository.createdStudent?.studentName, '新学生');
     expect(find.text('学生姓名 *'), findsNothing);
+  });
+
+  testWidgets('admin can add an organization subject from the catalog', (
+    tester,
+  ) async {
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+    );
+    await _pumpManagement(tester, repository);
+
+    await tester.tap(find.text('添加学科'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。'), findsOneWidget);
+    await tester.tap(find.text('保存学科'));
+    await tester.pumpAndSettle();
+
+    expect(repository.subjectCreateCount, 1);
+    expect(find.text('从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。'), findsNothing);
+    expect(find.text('已添加学科：英语。'), findsOneWidget);
   });
 }
