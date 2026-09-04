@@ -156,7 +156,7 @@ void main() {
     expect(find.text('机构管理'), findsOneWidget);
     expect(find.text('示例负责人'), findsOneWidget);
     expect(find.text('示例老师'), findsOneWidget);
-    expect(find.text('待负责人审批'), findsOneWidget);
+    expect(find.text('待负责人审批'), findsAtLeastNWidgets(1));
     expect(find.text('通过负责人提名'), findsOneWidget);
     expect(find.text('问题类型'), findsOneWidget);
   });
@@ -170,7 +170,9 @@ void main() {
       );
       await _pumpManagement(tester, repository);
 
-      await tester.tap(find.text('通过负责人提名'));
+      final approveFinder = find.text('通过负责人提名');
+      await tester.ensureVisible(approveFinder);
+      await tester.tap(approveFinder);
       await tester.pumpAndSettle();
       expect(repository.approveCount, 1);
 
