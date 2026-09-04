@@ -76,7 +76,8 @@ class _FakeOrganizationManagementRepository
     subjectCreateCount++;
     return OrganizationSubjectSetupResult(
       operationId: operationId,
-      organizationSubjectId: 'organization-subject-' + subjectCreateCount.toString(),
+      organizationSubjectId:
+          'organization-subject-' + subjectCreateCount.toString(),
       subjectId: subjectId,
       subjectCode: 'english',
       subjectName: '英语',
@@ -315,6 +316,7 @@ void main() {
     expect(repository.studentCreateCount, 1);
     expect(repository.createdStudent?.studentName, '新学生');
     expect(find.text('学生姓名 *'), findsNothing);
+  });
 
   testWidgets('admin can add an organization subject from the catalog', (
     tester,
@@ -335,6 +337,5 @@ void main() {
     expect(repository.subjectCreateCount, 1);
     expect(find.text('从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。'), findsNothing);
     expect(find.text('已添加学科：英语。'), findsOneWidget);
-  });
   });
 }

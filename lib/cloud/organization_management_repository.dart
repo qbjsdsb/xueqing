@@ -179,7 +179,6 @@ class OrganizationStudentSetupResult {
   }
 }
 
-
 class OrganizationSubjectCatalogItem {
   const OrganizationSubjectCatalogItem({
     required this.id,
@@ -215,9 +214,7 @@ class OrganizationSubjectSetupResult {
   final String subjectCode;
   final String subjectName;
 
-  factory OrganizationSubjectSetupResult.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory OrganizationSubjectSetupResult.fromJson(Map<String, dynamic> json) {
     return OrganizationSubjectSetupResult(
       operationId: _requiredString(json['operation_id'], 'operation_id'),
       organizationSubjectId: _requiredString(
@@ -507,7 +504,9 @@ class SupabaseOrganizationManagementRepository
     required String subjectId,
   }) async {
     if (operationId.trim().isEmpty || subjectId.trim().isEmpty) {
-      throw ArgumentError('Organization subject setup identity cannot be empty.');
+      throw ArgumentError(
+        'Organization subject setup identity cannot be empty.',
+      );
     }
     final response = await _call(
       'create_organization_subject',

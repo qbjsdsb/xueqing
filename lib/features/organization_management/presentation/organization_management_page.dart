@@ -66,7 +66,9 @@ class _OrganizationManagementPageState
       widget.repository.listMembers(organizationId: widget.organizationId),
       widget.repository.listInvitations(organizationId: widget.organizationId),
       widget.repository.listSetupOptions(organizationId: widget.organizationId),
-      widget.repository.listSubjectCatalog(organizationId: widget.organizationId),
+      widget.repository.listSubjectCatalog(
+        organizationId: widget.organizationId,
+      ),
     ]);
     return _OrganizationManagementSnapshot(
       members: result[0] as List<OrganizationMember>,
@@ -97,9 +99,8 @@ class _OrganizationManagementPageState
         return;
       }
       if (snapshot.subjectCatalog.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前没有可添加的活跃学科。')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('当前没有可添加的活跃学科。')));
         return;
       }
       setState(() {
@@ -126,9 +127,7 @@ class _OrganizationManagementPageState
       }
       widget.onChanged?.call();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已添加学科：' + result.subjectName + '。'),
-        ),
+        SnackBar(content: Text('已添加学科：' + result.subjectName + '。')),
       );
     } catch (error) {
       if (mounted) {
@@ -1064,9 +1063,7 @@ class _ManagementSetupHint extends StatelessWidget {
     final message = ready
         ? '学科和负责老师已就绪；添加学生时会一次性完成最小教学关系配置。'
         : options.subjects.isEmpty && subjectCatalog.isNotEmpty
-        ? '请先添加至少一个机构学科；当前有 ' +
-            subjectCatalog.length.toString() +
-            ' 个全局活跃学科可选。'
+        ? '请先添加至少一个机构学科；当前有 ' + subjectCatalog.length.toString() + ' 个全局活跃学科可选。'
         : '添加学生前，请先确保机构至少有一个活跃学科和一个在岗老师角色。';
     return Container(
       width: double.infinity,
@@ -1095,10 +1092,7 @@ class _ManagementSetupHint extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            child: Text(message, style: Theme.of(context).textTheme.bodySmall),
           ),
         ],
       ),
