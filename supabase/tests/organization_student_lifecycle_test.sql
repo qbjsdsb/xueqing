@@ -272,6 +272,8 @@ select is(
   'student update increments the optimistic version'
 );
 
+reset role;
+
 select is(
   (
     select student.name || '|' || student.student_code || '|' ||
@@ -293,6 +295,8 @@ select isnt(
   null,
   'archiving records an archive timestamp'
 );
+
+set local role authenticated;
 
 select is(
   (

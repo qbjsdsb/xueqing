@@ -218,12 +218,6 @@ begin
       message = 'student_not_found';
   end if;
 
-  if current_status = 'merged' then
-    raise exception using
-      errcode = 'P0001',
-      message = 'student_merged_immutable';
-  end if;
-
   select claimed, result
   into is_claimed, existing_result
   from private.claim_case_operation_v2(
@@ -236,6 +230,12 @@ begin
 
   if not is_claimed then
     return existing_result;
+  end if;
+
+  if current_status = 'merged' then
+    raise exception using
+      errcode = 'P0001',
+      message = 'student_merged_immutable';
   end if;
 
   if current_version <> p_expected_student_version then
