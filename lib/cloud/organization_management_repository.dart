@@ -1,14 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-enum OrganizationInvitationRole {
-  owner,
-  admin,
-  academicAdmin,
-  teacher,
-}
+enum OrganizationInvitationRole { owner, admin, academicAdmin, teacher }
 
-extension OrganizationInvitationRolePresentation
-    on OrganizationInvitationRole {
+extension OrganizationInvitationRolePresentation on OrganizationInvitationRole {
   String get wireValue => switch (this) {
     OrganizationInvitationRole.owner => 'org_owner',
     OrganizationInvitationRole.admin => 'org_admin',
@@ -134,10 +128,9 @@ class SupabaseOrganizationManagementRepository
   Future<List<OrganizationMember>> listMembers({
     required String organizationId,
   }) async {
-    final response = await _call(
-      'list_organization_members',
-      <String, dynamic>{'p_organization_id': organizationId},
-    );
+    final response = await _call('list_organization_members', <String, dynamic>{
+      'p_organization_id': organizationId,
+    });
     return _mapList(response, OrganizationMember.fromJson);
   }
 
