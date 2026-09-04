@@ -118,6 +118,80 @@ abstract interface class OrganizationManagementRepository {
   });
 }
 
+/// Accepts a code after the invitee has authenticated with the invited email.
+///
+/// This is intentionally separate from [OrganizationManagementRepository]:
+/// an invited teacher is allowed to accept their own invitation, but must not
+/// gain access to the organization management list or controls.
+abstract interface class OrganizationInvitationAcceptanceRepository {
+  Future<void> acceptInvitation({
+    required String inviteCode,
+    String? displayName,
+  });
+}
+
+class SupabaseOrganizationInvitationAcceptanceRepository
+    implements OrganizationInvitationAcceptanceRepository {
+  SupabaseOrganizationInvitationAcceptanceRepository(this._client);
+
+  final SupabaseClient _client;
+
+  @override
+  Future<void> acceptInvitation({
+    required String inviteCode,
+    String? displayName,
+  }) async {
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) {
+      throw const AuthException('No active session.');
+    }
+
+    final normalizedDisplayName = displayName?.trim();
+    final response = await _client.rpc(
+      'accept_organization_invitation',
+      params: <String, dynamic>{
+        'p_invite_code': inviteCode.trim(),
+        'p_display_name':
+            normalizedDisplayName == null || normalizedDisplayName.isEmpty
+            ? null
+            : normalizedDisplayName,
+      },
+    );
+    if (_client.auth.currentUser?.id != authUser.id) {
+      throw const AuthException(
+        'The active session changed while accepting the invitation.',
+      );
+    }
+    if (response is! Map) {
+      throw const FormatException(
+        'Invitation acceptance returned an invalid result.',
+      );
+    }
+  }
+}
+
+String? organizationInvitationErrorMessage(Object error) {
+  final detail = switch (error) {
+    AuthException(:final message) => message.trim(),
+    PostgrestException(:final message) => message.trim(),
+    _ => null,
+  };
+  if (detail == null) {
+    return null;
+  }
+  return switch (detail.toLowerCase()) {
+    'invitation_not_found' => '邀请代码无效，请确认代码完整且仍在有效期内。',
+    'invitation_not_approved' => '该负责人邀请还在等待现有负责人的审批。',
+    'invitation_not_available' => '该邀请已被使用或撤销。',
+    'invitation_expired' => '该邀请已过期，请让负责人重新创建邀请。',
+    'invitation_email_mismatch' => '当前登录邮箱与邀请邮箱不一致。',
+    'invitation_already_member' => '当前账号已经拥有该机构的这个身份。',
+    'user_already_member_elsewhere' => '当前账号已经加入其他机构，暂不能跨机构加入。',
+    'app_user_disabled' => '当前账号已被停用，请联系机构负责人。',
+    _ => null,
+  };
+}
+
 class SupabaseOrganizationManagementRepository
     implements OrganizationManagementRepository {
   SupabaseOrganizationManagementRepository(this._client);
