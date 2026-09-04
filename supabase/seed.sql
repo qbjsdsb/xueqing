@@ -6,6 +6,7 @@ declare
   auth_a uuid := '20000000-0000-0000-0000-000000000001';
   auth_b uuid := '20000000-0000-0000-0000-000000000002';
   auth_no_membership uuid := '20000000-0000-0000-0000-000000000003';
+  auth_invited uuid := '20000000-0000-0000-0000-000000000004';
 begin
   insert into auth.users (
     id,
@@ -65,6 +66,23 @@ begin
       'authenticated',
       'authenticated',
       'no.membership@xueqing.test',
+      crypt('XueqingDev-Only-123!', gen_salt('bf')),
+      now(),
+      now(),
+      now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{}'::jsonb,
+      '',
+      '',
+      '',
+      ''
+    ),
+    (
+      auth_invited,
+      '00000000-0000-0000-0000-000000000000',
+      'authenticated',
+      'authenticated',
+      'responsible@xueqing.test',
       crypt('XueqingDev-Only-123!', gen_salt('bf')),
       now(),
       now(),
@@ -240,6 +258,12 @@ begin
     (
       '50000000-0000-0000-0000-000000000003',
       auth_no_membership,
+      now(),
+      now()
+    ),
+    (
+      '60000000-0000-0000-0000-000000000004',
+      auth_invited,
       now(),
       now()
     );
