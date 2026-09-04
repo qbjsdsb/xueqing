@@ -605,6 +605,89 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     );
   }
 
+  Future<void> _showStabilizeCase(
+    WorkspaceStudent student,
+    WorkspaceCase learningCase,
+  ) async {
+    final result = await _showCaseForm(
+      mode: _CaseCommandMode.stabilize,
+      learningCase: learningCase,
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    await _reload(preserveStudent: student, preserveCaseId: learningCase.id);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+      ),
+    );
+  }
+
+  Future<void> _closeCase(
+    WorkspaceStudent student,
+    WorkspaceCase learningCase,
+  ) async {
+    final shouldClose = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('关闭 Case？'),
+        content: const Text('关闭后不再列入当前待跟进事项，但历史记录会保留。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || shouldClose != true) {
+      return;
+    }
+
+    try {
+      final receipt = await widget.repository.closeCase(
+        CloseCaseCommand(
+          operationId: createOperationId(),
+          caseId: learningCase.id,
+          expectedCaseVersion: learningCase.version,
+          closedAt: null,
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+      await _reload(
+        preserveStudent: student,
+        preserveCaseId: learningCase.id,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '已保存，Case 进入${_caseStatusLabelFromWire(receipt.status)}。',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_describeCaseCommandError(error))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<TeacherWorkspace>(
@@ -1113,6 +1196,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   ) {
     final primaryAction = learningCase.primaryAction;
     final commandLabel = _caseCommandLabel(learningCase);
+    final canStabilize = _canStabilizeCase(learningCase);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1165,6 +1249,24 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             message: _caseCommandHint(learningCase),
             buttonLabel: commandLabel,
             onPressed: () => _showCaseCommand(student, learningCase),
+          ),
+        ],
+        if (canStabilize) ...[
+          const SizedBox(height: AppSpacing.md),
+          _WorkspaceCaseCommandSection(
+            title: '确认 Case 已稳定',
+            message: '最新验证结果为通过。确认稳定后会安排一次复查，Case 仍可继续保留历史。',
+            buttonLabel: '标记为稳定',
+            onPressed: () => _showStabilizeCase(student, learningCase),
+          ),
+        ],
+        if (learningCase.status == LearningCaseStatus.stable) ...[
+          const SizedBox(height: AppSpacing.md),
+          _WorkspaceCaseCommandSection(
+            title: '关闭 Case',
+            message: '确认问题已经收口后再关闭；关闭会保留历史，但不再列入当前待跟进事项。',
+            buttonLabel: '关闭 Case',
+            onPressed: () => _closeCase(student, learningCase),
           ),
         ],
         const SizedBox(height: AppSpacing.lg),
@@ -1233,7 +1335,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   }
 }
 
-enum _CaseCommandMode { confirm, intervention, assessment }
+enum _CaseCommandMode {
+  confirm,
+  intervention,
+  assessment,
+  stabilize,
+}
 
 class _WorkspaceCaseCommandForm extends StatefulWidget {
   const _WorkspaceCaseCommandForm({
@@ -1270,18 +1377,21 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
     _CaseCommandMode.confirm => '安排一次针对性练习',
     _CaseCommandMode.intervention => '安排一次检查',
     _CaseCommandMode.assessment => '安排下一次验证',
+    _CaseCommandMode.stabilize => '安排一次复查',
   };
 
   String get _title => switch (widget.mode) {
     _CaseCommandMode.confirm => '确认 Case',
     _CaseCommandMode.intervention => '记录教学动作',
     _CaseCommandMode.assessment => '记录验证结果',
+    _CaseCommandMode.stabilize => '确认 Case 已稳定',
   };
 
   String get _subtitle => switch (widget.mode) {
     _CaseCommandMode.confirm => '把原始观察转成一个可执行的学习问题，并安排下一步。',
     _CaseCommandMode.intervention => '记录这次实际做了什么；保存后系统会生成 verify action。',
     _CaseCommandMode.assessment => '记录本次检查看到的结果；不要用结果直接替代后续教师判断。',
+    _CaseCommandMode.stabilize => '最新验证已经通过；确认稳定后会安排一次复查，不会删除历史记录。',
   };
 
   bool get _isDirty =>
@@ -1427,6 +1537,17 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
             strategy: strategy,
             notes: notes.isEmpty ? null : notes,
             occurredAt: null,
+            nextActionTitle: nextActionTitle,
+            nextActionDueAt: _nextActionDueAt,
+          ),
+        );
+      } else if (widget.mode == _CaseCommandMode.stabilize) {
+        receipt = await widget.repository.stabilizeCase(
+          StabilizeCaseCommand(
+            operationId: _operationId,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            stabilizedAt: null,
             nextActionTitle: nextActionTitle,
             nextActionDueAt: _nextActionDueAt,
           ),
@@ -1592,7 +1713,8 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                       ),
                     ),
                   ],
-                  if (widget.mode != _CaseCommandMode.confirm) ...[
+                  if (widget.mode == _CaseCommandMode.intervention ||
+                      widget.mode == _CaseCommandMode.assessment) ...[
                     const SizedBox(height: AppSpacing.md),
                     TextField(
                       controller: _notesController,
@@ -3981,8 +4103,18 @@ String _caseCommandHint(WorkspaceCase learningCase) {
     _CaseCommandMode.intervention =>
       '把课堂中实际发生的教学动作记下来，系统会把下一步变成 verify action。',
     _CaseCommandMode.assessment => '记录一次可观察的验证结果；通过后仍会停在待确认，不会自动关闭。',
+    _CaseCommandMode.stabilize => '最新验证已经通过；确认稳定后会安排一次复查，不会自动关闭。',
     null => '',
   };
+}
+
+bool _canStabilizeCase(WorkspaceCase learningCase) {
+  if (learningCase.status != LearningCaseStatus.pendingVerification ||
+      learningCase.assessments.isEmpty) {
+    return false;
+  }
+  return learningCase.assessments.first.result ==
+      CaseAssessmentResult.passed.wireValue;
 }
 
 String _caseStatusLabelFromWire(String value) {
@@ -4020,6 +4152,21 @@ String _describeWorkspaceLoadError(Object? error) {
 
 String _describeCaseCommandError(Object error) {
   final detail = error.toString().toLowerCase();
+  if (detail.contains('invalid_live_session') ||
+      detail.contains('no active session') ||
+      detail.contains('not authenticated') ||
+      detail.contains('signed out')) {
+    return '登录状态已失效。请重新登录后再保存，这次输入仍保留在表单中。';
+  }
+  if (detail.contains('latest_assessment_not_passed')) {
+    return '最新验证还没有通过，暂时不能标记为稳定。';
+  }
+  if (detail.contains('owner_permission_required')) {
+    return '只有这条 Case 的负责教师可以关闭它。';
+  }
+  if (detail.contains('case_transition_not_allowed')) {
+    return 'Case 状态已经变化，请刷新后再试。';
+  }
   if (detail.contains('case_version_conflict') ||
       detail.contains('version_conflict')) {
     return '这个 Case 已经被更新。输入仍保留，请先刷新后确认最新状态再重试。';
