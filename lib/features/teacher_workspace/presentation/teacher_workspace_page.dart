@@ -635,7 +635,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       onOpenCaseTypes: workspace.canManageCaseTypes
           ? () => unawaited(_showCaseTypeManager())
           : null,
-      onWorkspaceChanged: _reload,
     );
   }
 
@@ -3685,6 +3684,24 @@ class _WorkspaceNoAccessBody extends StatelessWidget {
           title: '当前账号没有可用的教师教学范围',
           message: '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',
           icon: Icons.lock_outline,
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceManagementUnavailable extends StatelessWidget {
+  const _WorkspaceManagementUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(AppSpacing.lg),
+        child: _WorkspaceStateNotice(
+          title: '机构管理尚未接通',
+          message: '当前账号有机构管理角色，但管理数据服务没有配置。请检查应用初始化和开发环境同步状态。',
+          icon: Icons.admin_panel_settings_outlined,
         ),
       ),
     );
