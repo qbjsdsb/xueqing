@@ -2701,7 +2701,7 @@ class _WorkspaceShell extends StatelessWidget {
         if (sizeClass == WindowSizeClass.compact) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('教师工作台'),
+              title: Text(hasTeachingAccess ? '教师工作台' : '机构管理'),
               actions: [
                 if (onSignOut != null)
                   IconButton(
@@ -2786,7 +2786,7 @@ class _WorkspaceRail extends StatelessWidget {
                       ),
                       const SizedBox(height: AppSpacing.xxs),
                       Text(
-                        '教师工作台',
+                        hasTeachingAccess ? '教师工作台' : '机构管理',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
