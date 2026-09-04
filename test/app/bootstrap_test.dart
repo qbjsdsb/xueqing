@@ -18,6 +18,7 @@ void main() {
     cloudConfig: const CloudConfig(
       url: 'https://example.supabase.co',
       publishableKey: 'fictional-production-key',
+      allowedHosts: ['example.supabase.co'],
     ),
   );
 

@@ -27,6 +27,7 @@ void main() {
         cloudConfig: const CloudConfig(
           url: 'https://example.supabase.co',
           publishableKey: 'fictional-production-key',
+          allowedHosts: ['example.supabase.co'],
         ),
       );
 
@@ -52,6 +53,20 @@ void main() {
           appVersion: '1.2.3+4',
           cloudConfig: const CloudConfig(
             url: 'http://127.0.0.1:54321',
+            publishableKey: 'fictional-production-key',
+          ),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects a production endpoint without a host allowlist', () {
+      expect(
+        () => AppConfig.fromValues(
+          environmentValue: 'production',
+          appVersion: '1.2.3+4',
+          cloudConfig: const CloudConfig(
+            url: 'https://example.supabase.co',
             publishableKey: 'fictional-production-key',
           ),
         ),

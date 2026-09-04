@@ -61,6 +61,86 @@ void main() {
       );
     });
 
+    test('accepts an HTTPS endpoint in its explicit host allowlist', () {
+      const config = CloudConfig(
+        url: 'https://example.supabase.co',
+        publishableKey: 'fictional-production-key',
+        allowedHosts: ['example.supabase.co'],
+      );
+
+      expect(
+        () => config.validate(
+          requireConfigured: true,
+          requireHttps: true,
+          requireAllowedHost: true,
+        ),
+        returnsNormally,
+      );
+    });
+
+    test(
+      'rejects a production endpoint without an explicit host allowlist',
+      () {
+        const config = CloudConfig(
+          url: 'https://example.supabase.co',
+          publishableKey: 'fictional-production-key',
+        );
+
+        expect(
+          () => config.validate(
+            requireConfigured: true,
+            requireHttps: true,
+            requireAllowedHost: true,
+          ),
+          throwsA(isA<FormatException>()),
+        );
+      },
+    );
+
+    test('rejects a host outside the explicit allowlist', () {
+      const config = CloudConfig(
+        url: 'https://other.supabase.co',
+        publishableKey: 'fictional-production-key',
+        allowedHosts: ['example.supabase.co'],
+      );
+
+      expect(
+        () => config.validate(
+          requireConfigured: true,
+          requireHttps: true,
+          requireAllowedHost: true,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects wildcard or URL-shaped allowlist entries', () {
+      const config = CloudConfig(
+        url: 'https://example.supabase.co',
+        publishableKey: 'fictional-production-key',
+        allowedHosts: ['*.supabase.co'],
+      );
+
+      expect(
+        () => config.validate(
+          requireConfigured: true,
+          requireHttps: true,
+          requireAllowedHost: true,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects endpoint credentials, paths, queries, and fragments', () {
+      const config = CloudConfig(
+        url: 'https://user:password@example.supabase.co/api?x=1#fragment',
+        publishableKey: 'fictional-production-key',
+        allowedHosts: ['example.supabase.co'],
+      );
+
+      expect(config.validate, throwsA(isA<FormatException>()));
+    });
+
     test('rejects a non-absolute endpoint', () {
       const config = CloudConfig(
         url: 'localhost:54321',

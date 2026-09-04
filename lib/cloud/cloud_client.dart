@@ -19,6 +19,7 @@ class CloudClient {
     config.validate(
       requireConfigured: requireSecureEndpoint,
       requireHttps: requireSecureEndpoint,
+      requireAllowedHost: requireSecureEndpoint,
     );
     if (_initialized) {
       return;

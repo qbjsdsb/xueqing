@@ -35,17 +35,38 @@ class AppConfig {
   });
 
   factory AppConfig.fromDartDefines() {
-    return AppConfig.fromValues(
-      environmentValue: const String.fromEnvironment(
-        'XUEQING_ENV',
-        defaultValue: 'development',
-      ),
+    const declaredEnvironment = String.fromEnvironment('XUEQING_ENV');
+    const isReleaseBuild = bool.fromEnvironment('dart.vm.product');
+    const allowDevelopmentRelease = bool.fromEnvironment(
+      'XUEQING_ALLOW_DEVELOPMENT_RELEASE',
+      defaultValue: false,
+    );
+    final normalizedEnvironment = declaredEnvironment.trim();
+    if (isReleaseBuild && normalizedEnvironment.isEmpty) {
+      throw const FormatException(
+        'XUEQING_ENV must be explicitly set for release builds.',
+      );
+    }
+
+    final config = AppConfig.fromValues(
+      environmentValue: normalizedEnvironment.isEmpty
+          ? 'development'
+          : normalizedEnvironment,
       appVersion: const String.fromEnvironment(
         'XUEQING_APP_VERSION',
         defaultValue: '0.1.0+1',
       ),
       cloudConfig: CloudConfig.fromDartDefines(),
     );
+    if (isReleaseBuild &&
+        !config.environment.isProduction &&
+        !allowDevelopmentRelease) {
+      throw const FormatException(
+        'Release builds must use production environment unless '
+        'XUEQING_ALLOW_DEVELOPMENT_RELEASE=true is explicitly set.',
+      );
+    }
+    return config;
   }
 
   factory AppConfig.fromValues({
@@ -61,6 +82,7 @@ class AppConfig {
     cloudConfig.validate(
       requireConfigured: environment.isProduction,
       requireHttps: environment.isProduction,
+      requireAllowedHost: environment.isProduction,
     );
 
     return AppConfig(
