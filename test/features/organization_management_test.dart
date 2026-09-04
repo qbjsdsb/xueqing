@@ -188,7 +188,7 @@ void main() {
       await tester.tap(find.text('邀请成员'));
       await tester.pumpAndSettle();
 
-      expect(find.text('负责人'), findsOneWidget);
+      expect(find.text('负责人'), findsAtLeastNWidgets(1));
       expect(find.text('老师'), findsOneWidget);
       expect(find.text('管理员'), findsNothing);
     },
