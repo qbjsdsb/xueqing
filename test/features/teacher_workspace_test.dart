@@ -13,6 +13,8 @@ class _FakeLearningRepository implements LearningRepository {
   int loadCount = 0;
   int saveCount = 0;
   bool failFirstSave = false;
+  bool failFirstClose = false;
+  bool failFirstReschedule = false;
   final List<QuickCaptureCommand> commands = <QuickCaptureCommand>[];
   int confirmCount = 0;
   int interventionCount = 0;
@@ -20,6 +22,7 @@ class _FakeLearningRepository implements LearningRepository {
   int stabilizeCount = 0;
   int closeCount = 0;
   int rescheduleCount = 0;
+  final List<CloseCaseCommand> closeCommands = <CloseCaseCommand>[];
   final List<ConfirmCaseCommand> confirmCommands = <ConfirmCaseCommand>[];
   final List<RecordInterventionCommand> interventionCommands =
       <RecordInterventionCommand>[];
@@ -158,6 +161,10 @@ class _FakeLearningRepository implements LearningRepository {
   @override
   Future<CaseCommandReceipt> closeCase(CloseCaseCommand command) async {
     closeCount++;
+    closeCommands.add(command);
+    if (failFirstClose && closeCount == 1) {
+      throw StateError('network unavailable');
+    }
     return CaseCommandReceipt(
       operationId: command.operationId,
       caseId: command.caseId,
@@ -174,6 +181,9 @@ class _FakeLearningRepository implements LearningRepository {
   ) async {
     rescheduleCount++;
     rescheduleCommands.add(command);
+    if (failFirstReschedule && rescheduleCount == 1) {
+      throw StateError('network unavailable');
+    }
     return _caseReceipt(
       command.operationId,
       command.caseId,
@@ -454,6 +464,33 @@ void main() {
     expect(repository.rescheduleCommands.single.expectedCaseVersion, 1);
     expect(repository.rescheduleCommands.single.expectedActionVersion, 1);
     expect(repository.rescheduleCommands.single.dueOn, isNotNull);
+    expect(find.textContaining('行动已安排在'), findsOneWidget);
+  });
+
+  testWidgets('reuses operation id after a reschedule response is lost', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace())
+      ..failFirstReschedule = true;
+    await _pumpWorkspace(tester, repository);
+
+    final rescheduleButton = find.widgetWithText(TextButton, '改期');
+    await tester.tap(rescheduleButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('网络暂时不可用'), findsOneWidget);
+    expect(repository.rescheduleCount, 1);
+    final firstOperationId = repository.rescheduleCommands.single.operationId;
+
+    await tester.tap(find.widgetWithText(TextButton, '改期'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(repository.rescheduleCount, 2);
+    expect(repository.rescheduleCommands[1].operationId, firstOperationId);
     expect(find.textContaining('行动已安排在'), findsOneWidget);
   });
 
@@ -1070,6 +1107,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.closeCount, 1);
+    expect(find.textContaining('Case 进入已关闭'), findsOneWidget);
+  });
+
+  testWidgets('reuses operation id after closing response is lost', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.stable),
+    )..failFirstClose = true;
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.tap(caseButton);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, '关闭 Case'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '关闭').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('网络暂时不可用'), findsOneWidget);
+    expect(repository.closeCount, 1);
+    final firstOperationId = repository.closeCommands.single.operationId;
+
+    await tester.tap(find.widgetWithText(FilledButton, '关闭 Case'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '关闭').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.closeCount, 2);
+    expect(repository.closeCommands[1].operationId, firstOperationId);
     expect(find.textContaining('Case 进入已关闭'), findsOneWidget);
   });
 
