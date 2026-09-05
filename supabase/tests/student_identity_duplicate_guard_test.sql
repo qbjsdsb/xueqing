@@ -208,6 +208,8 @@ select throws_ok(
   'student lifecycle updates cannot reuse another student code'
 );
 
+reset role;
+
 select is(
   (
     select count(*)::int
@@ -221,8 +223,6 @@ select is(
   0,
   'rejected duplicate commands leave no claimed receipt'
 );
-
-reset role;
 
 select lives_ok(
   $$
