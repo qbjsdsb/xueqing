@@ -70,7 +70,6 @@ void main() {
     expect(find.text('页面不存在'), findsOneWidget);
   });
 
-
   testWidgets('normal builds skip the developer bootstrap', (tester) async {
     final normalTestConfig = AppConfig.fromValues(
       environmentValue: 'development',
