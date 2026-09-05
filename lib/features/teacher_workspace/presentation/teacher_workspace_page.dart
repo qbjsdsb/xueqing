@@ -442,7 +442,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceActionWithContext item,
     DateTime picked,
   ) {
-    final dateKey = '${picked.year.toString().padLeft(4, '0')}-'
+    final dateKey =
+        '${picked.year.toString().padLeft(4, '0')}-'
         '${picked.month.toString().padLeft(2, '0')}-'
         '${picked.day.toString().padLeft(2, '0')}';
     return 'reschedule:${item.learningCase.id}:${item.action.id}:'
