@@ -984,6 +984,7 @@ class SupabaseLearningRepository implements LearningRepository {
           in casesByProfileId[profileId] ?? const <Map<String, dynamic>>[]) {
         cases.add(
           _buildCase(
+            businessDate: businessDate,
             profileId: profileId,
             row: caseRow,
             actionRows: actionsByCaseId,
@@ -1269,6 +1270,7 @@ class SupabaseLearningRepository implements LearningRepository {
   );
 
   WorkspaceCase _buildCase({
+    required DateTime? businessDate,
     required String profileId,
     required Map<String, dynamic> row,
     required Map<String, List<Map<String, dynamic>>> actionRows,
@@ -1294,7 +1296,9 @@ class SupabaseLearningRepository implements LearningRepository {
           status: _actionStatusFromWire(actionRow['status']),
           isPrimary: actionRow['is_primary'] == true,
           version: _requiredInt(actionRow['version'], 'action_version'),
-          bucket: bucketByActionId[actionId] ?? _fallbackBucketForDueAt(dueAt),
+          bucket:
+              bucketByActionId[actionId] ??
+              _fallbackBucketForDueAt(dueAt, businessDate),
           dueAt: dueAt,
           businessDueDate: businessDueDateByActionId[actionId],
         ),
@@ -1615,11 +1619,17 @@ WorkspaceActionBucket _actionBucketFromWire(dynamic value) {
   };
 }
 
-WorkspaceActionBucket _fallbackBucketForDueAt(DateTime? dueAt) {
+WorkspaceActionBucket _fallbackBucketForDueAt(
+  DateTime? dueAt,
+  DateTime? businessDate,
+) {
   if (dueAt == null) {
     return WorkspaceActionBucket.undated;
   }
-  final today = DateTime.now();
+  final today = businessDate;
+  if (today == null) {
+    return WorkspaceActionBucket.undated;
+  }
   final dueDate = DateTime(dueAt.year, dueAt.month, dueAt.day);
   final todayDate = DateTime(today.year, today.month, today.day);
   if (dueDate.isBefore(todayDate)) {
