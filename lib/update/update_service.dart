@@ -28,6 +28,8 @@ class UpdateDownloadedArtifact {
 }
 
 class UpdateService {
+  static const defaultMaxDownloadBytes = 1024 * 1024 * 1024;
+
   UpdateService({
     required String currentVersion,
     this.platform,
@@ -35,6 +37,7 @@ class UpdateService {
     UpdateManifestLoader? manifestLoader,
     this.channel = 'stable',
     this.requestTimeout = const Duration(seconds: 12),
+    this.maxDownloadBytes = defaultMaxDownloadBytes,
   }) : currentVersion = AppVersion.parse(currentVersion),
        manifestUri = manifestUri ?? defaultManifestUri,
        _manifestLoader = manifestLoader ?? _loadManifestFromNetwork;
@@ -49,6 +52,7 @@ class UpdateService {
   final Uri manifestUri;
   final String channel;
   final Duration requestTimeout;
+  final int maxDownloadBytes;
   final UpdateManifestLoader _manifestLoader;
 
   Future<UpdateCheckResult> checkForUpdate() async {
@@ -101,6 +105,9 @@ class UpdateService {
     }
 
     final artifact = result.artifact!;
+    if (artifact.sizeBytes > maxDownloadBytes) {
+      throw const UpdateException('更新包超过允许的最大大小，已停止下载。');
+    }
     final temporaryDirectory = await getTemporaryDirectory();
     final updatesDirectory = Directory(
       '${temporaryDirectory.path}${Platform.pathSeparator}xueqing-updates',

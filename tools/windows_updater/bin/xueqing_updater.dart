@@ -50,6 +50,10 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
     backupReady = true;
 
     try {
+      await _clearInstallDirectory(
+        installDirectory,
+        skipFileName: _helperFileName,
+      );
       await _copyTree(
         stagingDirectory,
         installDirectory,
@@ -162,6 +166,18 @@ void _requireStagedExecutable(Directory stagingDirectory, String launchPath) {
   final stagedExecutable = File(_join(stagingDirectory.path, executableName));
   if (!stagedExecutable.existsSync()) {
     throw StateError('压缩包根目录没有主程序：$executableName');
+  }
+}
+
+Future<void> _clearInstallDirectory(
+  Directory installDirectory, {
+  required String skipFileName,
+}) async {
+  await for (final entity in installDirectory.list(followLinks: false)) {
+    if (_baseName(entity.path) == skipFileName) {
+      continue;
+    }
+    await entity.delete(recursive: true);
   }
 }
 

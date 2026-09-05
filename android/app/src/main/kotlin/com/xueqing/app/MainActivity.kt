@@ -53,7 +53,13 @@ class MainActivity : FlutterActivity() {
             return
         }
 
-        val apk = File(path)
+        val apk = File(path).canonicalFile
+        val updateDirectory = File(cacheDir, "xueqing-updates").canonicalFile
+        val allowedPrefix = updateDirectory.path + File.separator
+        if (!apk.path.startsWith(allowedPrefix)) {
+            result.error("INVALID_PATH", "APK 不在应用更新缓存目录中。", null)
+            return
+        }
         if (!apk.isFile) {
             result.error("MISSING_APK", "APK 文件不存在。", null)
             return

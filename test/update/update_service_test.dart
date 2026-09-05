@@ -65,6 +65,25 @@ void main() {
     );
   });
 
+  test(
+    'rejects an artifact larger than the configured download limit',
+    () async {
+      final service = UpdateService(
+        currentVersion: '0.1.0+1',
+        platform: UpdatePlatform.windows,
+        maxDownloadBytes: 10,
+        manifestLoader: (_) async => jsonEncode(manifest()),
+      );
+
+      final result = await service.checkForUpdate();
+
+      expect(
+        service.download(result),
+        throwsA(isA<UpdateException>()),
+      );
+    },
+  );
+
   test('reports an available mandatory Windows update', () async {
     final service = UpdateService(
       currentVersion: '0.1.0+1',
