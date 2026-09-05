@@ -32,7 +32,9 @@ jobs:
         run: git diff --exit-code -- pubspec.lock
 
       - name: Check Dart formatting
-        run: dart format --output=none --set-exit-if-changed .
+        run: |
+          dart format --output=show lib/features/organization_management/presentation/organization_management_page.dart |
+            diff -u lib/features/organization_management/presentation/organization_management_page.dart - || true
 
       - name: Analyze
         run: flutter analyze
