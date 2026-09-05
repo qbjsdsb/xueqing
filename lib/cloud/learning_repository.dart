@@ -724,16 +724,37 @@ class SupabaseLearningRepository implements LearningRepository {
       'organization_id',
     );
     final membershipId = _requiredString(membership['id'], 'membership_id');
-    final roleRows = await _rows(
-      (from, to) => _client
-          .from('membership_roles')
-          .select('role')
-          .eq('organization_id', organizationId)
-          .eq('membership_id', membershipId)
-          .order('role')
-          .range(from, to),
-      expectedUserId,
-    );
+    final metadata = await Future.wait<dynamic>([
+      _rows(
+        (from, to) => _client
+            .from('membership_roles')
+            .select('role')
+            .eq('organization_id', organizationId)
+            .eq('membership_id', membershipId)
+            .order('role')
+            .range(from, to),
+        expectedUserId,
+      ),
+      _client
+          .from('teacher_workspace_context')
+          .select('id,name,time_zone,business_date')
+          .eq('id', organizationId)
+          .maybeSingle(),
+      _rows(
+        (from, to) => _client
+            .from('organization_case_types')
+            .select('id,display_name,base_case_type,status,sort_order,version')
+            .eq('organization_id', organizationId)
+            .order('sort_order')
+            .order('created_at')
+            .order('id')
+            .range(from, to),
+        expectedUserId,
+      ),
+    ]);
+    _assertSameSession(expectedUserId);
+
+    final roleRows = metadata[0] as List<Map<String, dynamic>>;
     final roles = <String>[
       for (final row in roleRows)
         if (row['role'] is String) row['role'] as String,
@@ -746,28 +767,12 @@ class SupabaseLearningRepository implements LearningRepository {
       (role) => role == 'org_owner' || role == 'org_admin',
     );
 
-    final organization = await _client
-        .from('teacher_workspace_context')
-        .select('id,name,time_zone,business_date')
-        .eq('id', organizationId)
-        .maybeSingle();
-    _assertSameSession(expectedUserId);
+    final organization = metadata[1] as Map<String, dynamic>?;
     if (organization == null) {
       throw const FormatException('Active organization was not found.');
     }
     final businessDate = _dateOnlyValue(organization['business_date']);
-
-    final caseTypeRows = await _rows(
-      (from, to) => _client
-          .from('organization_case_types')
-          .select('id,display_name,base_case_type,status,sort_order,version')
-          .eq('organization_id', organizationId)
-          .order('sort_order')
-          .order('created_at')
-          .order('id')
-          .range(from, to),
-      expectedUserId,
-    );
+    final caseTypeRows = metadata[2] as List<Map<String, dynamic>>;
     final caseTypes = <WorkspaceCaseType>[
       ...WorkspaceCaseType.builtInTypes,
       for (final row in caseTypeRows) WorkspaceCaseType.fromJson(row),

@@ -311,6 +311,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   bool _invitationBusy = false;
   String? _reschedulingActionId;
   final Map<String, String> _retryOperationIds = <String, String>{};
+  TeacherWorkspace? _lastWorkspace;
+  bool _isRefreshing = false;
+  int _loadSequence = 0;
 
   @override
   void initState() {
@@ -319,8 +322,15 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   }
 
   Future<TeacherWorkspace> _loadWorkspace() async {
+    final requestId = ++_loadSequence;
     try {
-      return await widget.repository.loadWorkspace();
+      final workspace = await widget.repository.loadWorkspace();
+      if (mounted && requestId == _loadSequence) {
+        setState(() {
+          _lastWorkspace = workspace;
+        });
+      }
+      return workspace;
     } catch (error, stackTrace) {
       _workspaceLogger.error(
         'Teacher workspace load failed.',
@@ -381,6 +391,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     setState(() {
       _workspaceFuture = nextFuture;
+      _isRefreshing = _lastWorkspace != null;
     });
     try {
       final workspace = await nextFuture;
@@ -412,8 +423,17 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         });
       }
     } catch (_) {
-      // FutureBuilder renders the retained error state. The input form has
-      // already closed only after the command committed successfully.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('刷新失败，当前仍显示上一次数据。')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
     }
   }
 
@@ -811,6 +831,22 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
 
   @override
   Widget build(BuildContext context) {
+    final workspace = _lastWorkspace;
+    if (workspace != null) {
+      return Stack(
+        children: [
+          _buildLoadedWorkspace(workspace),
+          if (_isRefreshing)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
+        ],
+      );
+    }
+
     return FutureBuilder<TeacherWorkspace>(
       future: _workspaceFuture,
       builder: (context, snapshot) {
@@ -830,52 +866,53 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             ),
           );
         }
+        return _buildLoadedWorkspace(snapshot.data!);
+      },
+    );
+  }
 
-        final workspace = snapshot.data!;
-        if (!workspace.hasTeachingAccess && !workspace.canManageOrganization) {
-          if (workspace.canManageCaseTypes &&
-              workspace.organizationId != null) {
-            return _WorkspaceStatusScaffold(
-              title: '机构问题类型',
-              child: _WorkspaceCaseTypeManager(
-                organizationId: workspace.organizationId!,
-                caseTypes: workspace.caseTypes,
-                repository: widget.repository,
-                onChanged: () => _reload(),
-                showCloseButton: false,
-              ),
-            );
-          }
-          return _WorkspaceStatusScaffold(
-            title: '教师工作台',
-            child: _WorkspaceNoAccessBody(
-              invitationAcceptanceCard: _buildInvitationAcceptanceCard(),
-            ),
-          );
-        }
-
-        return PopScope<void>(
-          canPop: _selectedStudent == null && _selectedCase == null,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) {
-              _goBack();
-            }
-          },
-          child: _WorkspaceShell(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: _selectDestination,
-            hasTeachingAccess: workspace.hasTeachingAccess,
-            showManagement: workspace.canManageOrganization,
-            onSignOut: widget.onSignOut,
-            child: ResponsiveLayout(
-              builder: (context, sizeClass) => _WorkspaceFrame(
-                sizeClass: sizeClass,
-                child: _buildCurrentPage(workspace, sizeClass),
-              ),
-            ),
+  Widget _buildLoadedWorkspace(TeacherWorkspace workspace) {
+    if (!workspace.hasTeachingAccess && !workspace.canManageOrganization) {
+      if (workspace.canManageCaseTypes && workspace.organizationId != null) {
+        return _WorkspaceStatusScaffold(
+          title: '机构问题类型',
+          child: _WorkspaceCaseTypeManager(
+            organizationId: workspace.organizationId!,
+            caseTypes: workspace.caseTypes,
+            repository: widget.repository,
+            onChanged: () => _reload(),
+            showCloseButton: false,
           ),
         );
+      }
+      return _WorkspaceStatusScaffold(
+        title: '教师工作台',
+        child: _WorkspaceNoAccessBody(
+          invitationAcceptanceCard: _buildInvitationAcceptanceCard(),
+        ),
+      );
+    }
+
+    return PopScope<void>(
+      canPop: _selectedStudent == null && _selectedCase == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _goBack();
+        }
       },
+      child: _WorkspaceShell(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _selectDestination,
+        hasTeachingAccess: workspace.hasTeachingAccess,
+        showManagement: workspace.canManageOrganization,
+        onSignOut: widget.onSignOut,
+        child: ResponsiveLayout(
+          builder: (context, sizeClass) => _WorkspaceFrame(
+            sizeClass: sizeClass,
+            child: _buildCurrentPage(workspace, sizeClass),
+          ),
+        ),
+      ),
     );
   }
 
