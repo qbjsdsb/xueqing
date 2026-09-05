@@ -1296,7 +1296,8 @@ class SupabaseLearningRepository implements LearningRepository {
           status: _actionStatusFromWire(actionRow['status']),
           isPrimary: actionRow['is_primary'] == true,
           version: _requiredInt(actionRow['version'], 'action_version'),
-          bucket: bucketByActionId[actionId] ??
+          bucket:
+              bucketByActionId[actionId] ??
               _fallbackBucketForDueAt(dueAt, businessDate),
           dueAt: dueAt,
           businessDueDate: businessDueDateByActionId[actionId],
