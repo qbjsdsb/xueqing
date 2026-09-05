@@ -4382,8 +4382,13 @@ String _caseStatusLabelFromWire(String value) {
 
 String _describeWorkspaceLoadError(Object? error) {
   final detail = error?.toString().toLowerCase() ?? '';
-  if ((detail.contains('organization_case_types') ||
-          detail.contains('teacher_workspace_student_enrollments')) &&
+  const schemaRelations = <String>[
+    'organization_case_types',
+    'teacher_workspace_context',
+    'teacher_workspace_student_enrollments',
+    'teacher_workspace_action_queue',
+  ];
+  if (schemaRelations.any(detail.contains) &&
       (detail.contains('404') ||
           detail.contains('pgrst205') ||
           detail.contains('relation'))) {

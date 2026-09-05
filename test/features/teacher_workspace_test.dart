@@ -602,7 +602,7 @@ void main() {
   testWidgets('explains schema drift and lets the user retry', (tester) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace())
       ..loadError = StateError(
-        '404 PGRST205 relation organization_case_types does not exist',
+        '404 PGRST205 relation teacher_workspace_context does not exist',
       );
     await _pumpWorkspace(tester, repository);
 
