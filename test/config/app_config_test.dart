@@ -37,7 +37,6 @@ void main() {
       expect(config.showDeveloperTools, isFalse);
     });
 
-
     test('can explicitly hide developer tools in a development build', () {
       final config = AppConfig.fromValues(
         environmentValue: 'development',
