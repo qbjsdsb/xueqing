@@ -1,0 +1,191 @@
+name: Publish release platform assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing GitHub Release tag to receive the verified platform packages"
+        required: true
+        type: string
+        default: v0.1.0-test.1
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-release-platform-assets-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+env:
+  XUEQING_ENV: development
+  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || 'https://czuctoulgnfytcfonkhc.supabase.co' }}
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}
+
+jobs:
+  android-debug:
+    name: Android debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Android debug APK
+        run: |
+          flutter build apk --debug \
+            --dart-define="XUEQING_ENV=${XUEQING_ENV}" \
+            --dart-define="XUEQING_SUPABASE_URL=${XUEQING_SUPABASE_URL}" \
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=${XUEQING_SUPABASE_PUBLISHABLE_KEY}"
+
+      - name: Upload Android build for release packaging
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-android-debug-${{ github.run_id }}
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  windows-release:
+    name: Windows release bundle
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows release bundle
+        shell: pwsh
+        run: |
+          flutter build windows --release `
+            --dart-define="XUEQING_ENV=$env:XUEQING_ENV" `
+            --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=true"
+
+      - name: Bundle Visual C++ release runtime
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            throw "Visual Studio locator was not found."
+          }
+
+          $vsPath = (& $vswhere `
+            -latest `
+            -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath).Trim()
+          if ([string]::IsNullOrWhiteSpace($vsPath)) {
+            throw "Visual C++ toolset installation was not found."
+          }
+
+          $releaseDir = Join-Path $pwd "build/windows/x64/runner/Release"
+          $redistRoot = Join-Path $vsPath "VC/Redist/MSVC"
+          $runtimeDir = Get-ChildItem -Path $redistRoot -Directory -Recurse |
+            Where-Object {
+              $_.Name -eq "Microsoft.VC143.CRT" -and
+              (Test-Path (Join-Path $_.FullName "msvcp140.dll")) -and
+              (Test-Path (Join-Path $_.FullName "vcruntime140.dll")) -and
+              (Test-Path (Join-Path $_.FullName "vcruntime140_1.dll"))
+            } |
+            Select-Object -First 1
+          if ($null -eq $runtimeDir) {
+            throw "The Visual C++ release runtime directory was not found."
+          }
+
+          foreach ($runtimeName in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            Copy-Item -Path (Join-Path $runtimeDir.FullName $runtimeName) -Destination $releaseDir -Force
+          }
+
+          $dumpbin = Get-ChildItem -Path (Join-Path $vsPath "VC/Tools/MSVC") -Filter "dumpbin.exe" -File -Recurse | Select-Object -First 1
+          if ($null -eq $dumpbin) {
+            throw "dumpbin.exe was not found for dependency verification."
+          }
+
+          $exePath = Join-Path $releaseDir "xueqing.exe"
+          $dependencies = (& $dumpbin.FullName /DEPENDENTS $exePath 2>&1) -join "`n"
+          if ($dependencies -match "(?i)MSVCP140D\.dll|VCRUNTIME140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
+            throw "Release binary still depends on a Debug Visual C++ runtime."
+          }
+
+          foreach ($runtimeName in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            if (-not (Test-Path (Join-Path $releaseDir $runtimeName))) {
+              throw "Missing bundled runtime: $runtimeName"
+            }
+          }
+
+      - name: Upload Windows build for release packaging
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-release-${{ github.run_id }}
+          path: build/windows/x64/runner/Release
+          if-no-files-found: error
+          retention-days: 1
+
+  package-and-publish:
+    name: Package and upload Release assets
+    runs-on: ubuntu-latest
+    needs: [android-debug, windows-release]
+    timeout-minutes: 10
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download Android build
+        uses: actions/download-artifact@v4
+        with:
+          name: release-android-debug-${{ github.run_id }}
+          path: release-input/android
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: release-windows-release-${{ github.run_id }}
+          path: release-input/windows
+
+      - name: Package and checksum release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          test -f release-input/android/app-debug.apk
+          (cd release-input/android && zip -q -j "$GITHUB_WORKSPACE/release-assets/xueqing-${RELEASE_TAG}-android-debug.zip" app-debug.apk)
+          test -f release-input/windows/xueqing.exe
+          (cd release-input/windows && zip -q -r "$GITHUB_WORKSPACE/release-assets/xueqing-${RELEASE_TAG}-windows-release.zip" .)
+          sha256sum release-assets/*.zip | sort > release-assets/SHA256SUMS.txt
+          cat release-assets/SHA256SUMS.txt
+
+      - name: Verify target Release exists
+        run: gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+
+      - name: Upload packages to Release
+        run: |
+          gh release upload "$RELEASE_TAG" release-assets/*.zip release-assets/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+      - name: Verify uploaded assets
+        run: gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,url,assets
