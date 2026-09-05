@@ -95,6 +95,8 @@ V1 不存在以 Lesson participant 替代 Student Teacher Assignment 的授权�
 
 不开放 public self-register；credential 不存 DB/log/GitHub。
 
+接受机构邀请必须在同一事务中锁定并确认目标机构仍为 active；机构已归档时失败关闭，不能创建应用身份、成员关系或角色。
+
 物理 Auth user ID/link strategy留 Phase 0B.0 P0-A。
 
 ## 6. Flutter layer

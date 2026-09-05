@@ -1061,6 +1061,7 @@ String? organizationInvitationErrorMessage(Object error) {
     'invitation_not_available' => '该邀请已被使用或撤销。',
     'invitation_expired' => '该邀请已过期，请让负责人重新创建邀请。',
     'invitation_email_mismatch' => '当前登录邮箱与邀请邮箱不一致。',
+    'organization_not_available' => '机构已归档，不能接受邀请，请联系负责人。',
     'invitation_already_member' => '当前账号已经拥有该机构的这个身份。',
     'user_already_member_elsewhere' => '当前账号已经加入其他机构，暂不能跨机构加入。',
     'app_user_disabled' => '当前账号已被停用，请联系机构负责人。',

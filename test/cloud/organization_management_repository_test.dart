@@ -82,6 +82,17 @@ void main() {
       '当前账号没有本机构管理权限。',
     );
     expect(
+      organizationInvitationErrorMessage(
+        PostgrestException(
+          message: 'organization_not_available',
+          code: 'P0001',
+          details: '',
+          hint: '',
+        ),
+      ),
+      '机构已归档，不能接受邀请，请联系负责人。',
+    );
+    expect(
       organizationInvitationErrorMessage(const FormatException('other')),
       isNull,
     );
