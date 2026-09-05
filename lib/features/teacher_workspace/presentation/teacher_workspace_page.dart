@@ -424,9 +424,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('刷新失败，当前仍显示上一次数据。')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('刷新失败，当前仍显示上一次数据。')));
       }
     } finally {
       if (mounted) {
