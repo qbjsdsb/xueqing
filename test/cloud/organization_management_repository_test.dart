@@ -131,6 +131,15 @@ void main() {
     expect(options.teachersForSubject('subject-2'), isEmpty);
   });
 
+  test('maps blocked teacher handoff to actionable guidance', () {
+    expect(
+      organizationStudentTeacherAssignmentErrorMessage(
+        const AuthException('teacher_scope_handoff_required'),
+      ),
+      '该老师仍负责未关闭学情或待执行行动，请先完成对应交接，再变更任课关系。',
+    );
+  });
+
   test('maps missing scope for student setup', () {
     expect(
       organizationStudentSetupErrorMessage(

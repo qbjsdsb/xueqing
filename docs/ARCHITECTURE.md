@@ -97,6 +97,8 @@ V1 不存在以 Lesson participant 替代 Student Teacher Assignment 的授权�
 
 接受机构邀请必须在同一事务中锁定并确认目标机构仍为 active；机构已归档时失败关闭，不能创建应用身份、成员关系或角色。
 
+任课交接同样不静默改写教学历史：如果源老师仍拥有未关闭 Learning Case 或待执行 Action，交接命令必须失败关闭，先完成显式 Case/Action 责任处理。
+
 机构归档后，Data API 对该机构的成员、角色、教学范围、机构学科和教学数据统一失败关闭；只保留当前用户自身应用身份的最小读取，用于显示账号状态。
 
 物理 Auth user ID/link strategy留 Phase 0B.0 P0-A。

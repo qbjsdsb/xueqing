@@ -979,6 +979,7 @@ String? organizationStudentTeacherAssignmentErrorMessage(Object error) {
     'teacher_subject_scope_required' => '接收老师还没有该学科的有效教学范围，请先配置教学范围。',
     'teacher_assignment_same_teacher' => '接收老师不能与原任课老师相同。',
     'teacher_assignment_already_active' => '接收老师已经拥有同类型的有效任课关系，请刷新后重试。',
+    'teacher_scope_handoff_required' => '该老师仍负责未关闭学情或待执行行动，请先完成对应交接，再变更任课关系。',
     'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
     'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
     'invalid_live_session' => '登录状态已失效，请重新登录。',

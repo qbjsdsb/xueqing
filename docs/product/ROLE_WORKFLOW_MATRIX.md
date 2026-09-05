@@ -52,6 +52,8 @@ live session
 | 学科范围 | G | G | R 本人 |
 | 学生主档案 | G | G | R 已分配学生 |
 | 学生任课分配 / handoff | G | G | — |
+
+任课交接不自动改写 Case owner 或 Action assignee；存在未关闭 Case 或待执行 Action 时拒绝交接，直到完成显式责任处理。
 | 本科学情详情 | 仅另具 Teacher Gate | 仅另具 Teacher Gate | R/E（按 assignment） |
 | Quick Capture / new Case | 仅另具 Teacher Gate | 仅另具 Teacher Gate | A（Gate） |
 | Evidence / Intervention / Assessment | 仅另具 Teacher Gate | 仅另具 Teacher Gate | R/A（Gate） |
