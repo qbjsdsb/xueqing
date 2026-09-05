@@ -32,6 +32,7 @@ class AppConfig {
     required this.environment,
     required this.appVersion,
     this.cloudConfig = const CloudConfig(),
+    this.showDeveloperTools = false,
   });
 
   factory AppConfig.fromDartDefines() {
@@ -39,6 +40,10 @@ class AppConfig {
     const isReleaseBuild = bool.fromEnvironment('dart.vm.product');
     const allowDevelopmentRelease = bool.fromEnvironment(
       'XUEQING_ALLOW_DEVELOPMENT_RELEASE',
+      defaultValue: false,
+    );
+    const showDeveloperTools = bool.fromEnvironment(
+      'XUEQING_SHOW_DEV_TOOLS',
       defaultValue: false,
     );
     final normalizedEnvironment = declaredEnvironment.trim();
@@ -57,6 +62,7 @@ class AppConfig {
         defaultValue: '0.1.0+1',
       ),
       cloudConfig: CloudConfig.fromDartDefines(),
+      showDeveloperTools: showDeveloperTools,
     );
     if (isReleaseBuild &&
         !config.environment.isProduction &&
@@ -73,6 +79,7 @@ class AppConfig {
     String environmentValue = 'development',
     String appVersion = '0.1.0+1',
     CloudConfig cloudConfig = const CloudConfig(),
+    bool? showDeveloperTools,
   }) {
     final environment = AppEnvironment.parse(environmentValue);
     final normalizedVersion = appVersion.trim();
@@ -89,12 +96,15 @@ class AppConfig {
       environment: environment,
       appVersion: normalizedVersion,
       cloudConfig: cloudConfig,
+      showDeveloperTools:
+          showDeveloperTools ?? environment == AppEnvironment.development,
     );
   }
 
   final AppEnvironment environment;
   final String appVersion;
   final CloudConfig cloudConfig;
+  final bool showDeveloperTools;
 
   String get environmentLabel => environment.label;
 }

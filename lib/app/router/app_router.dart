@@ -21,7 +21,7 @@ class XueqingRouter {
   final AppConfig config;
 
   Route<void> onGenerateRoute(RouteSettings settings) {
-    if (config.environment.isProduction &&
+    if ((config.environment.isProduction || !config.showDeveloperTools) &&
         _isDevelopmentOnlyRoute(settings.name)) {
       return _notFoundRoute(settings);
     }
@@ -30,7 +30,9 @@ class XueqingRouter {
       case AppRoutes.bootstrap:
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => BootstrapPage(config: config),
+          builder: (_) => config.showDeveloperTools
+              ? BootstrapPage(config: config)
+              : TeacherWorkspaceEntryPage(config: config),
         );
       case AppRoutes.cloudSpike:
         return MaterialPageRoute<void>(

@@ -19,7 +19,9 @@ class XueqingApp extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
-      initialRoute: AppRoutes.bootstrap,
+      initialRoute: config.showDeveloperTools
+          ? AppRoutes.bootstrap
+          : AppRoutes.teacherWorkspace,
       onGenerateRoute: router.onGenerateRoute,
     );
   }

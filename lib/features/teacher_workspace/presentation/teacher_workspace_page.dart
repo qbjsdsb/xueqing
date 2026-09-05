@@ -259,6 +259,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
             passwordController: _passwordController,
             busy: _busy,
             errorMessage: _errorMessage,
+            isDevelopment: !widget.config.environment.isProduction,
             onSubmit: _signIn,
           );
         }
@@ -4264,6 +4265,7 @@ class _WorkspaceLoginBody extends StatelessWidget {
     required this.passwordController,
     required this.busy,
     required this.errorMessage,
+    required this.isDevelopment,
     required this.onSubmit,
   });
 
@@ -4272,12 +4274,13 @@ class _WorkspaceLoginBody extends StatelessWidget {
   final TextEditingController passwordController;
   final bool busy;
   final String? errorMessage;
+  final bool isDevelopment;
   final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('教师工作台')),
+      appBar: AppBar(title: const Text('学情闭环')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -4290,38 +4293,40 @@ class _WorkspaceLoginBody extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '登录开发环境',
+                      '欢迎回来',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '仅使用虚构测试账号。登录后，服务端仍会按 membership、角色、学科范围和学生分配限制数据。',
+                      isDevelopment
+                          ? '测试版仅使用虚构资料。登录后，系统仍会按机构、角色和教学范围限制数据。'
+                          : '请使用机构分配的账号登录，系统会按你的权限显示内容。',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     TextFormField(
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Email'),
+                      decoration: const InputDecoration(labelText: '邮箱'),
                       validator: (value) =>
                           value == null || value.trim().isEmpty
-                          ? '请输入开发环境账号'
+                          ? '请输入邮箱'
                           : null,
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     TextFormField(
                       controller: passwordController,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Password'),
+                      decoration: const InputDecoration(labelText: '密码'),
                       validator: (value) =>
-                          value == null || value.isEmpty ? '请输入开发环境密码' : null,
+                          value == null || value.isEmpty ? '请输入密码' : null,
                     ),
                     const SizedBox(height: AppSpacing.md),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: busy ? null : onSubmit,
-                        child: Text(busy ? '登录中…' : '登录开发环境'),
+                        child: Text(busy ? '登录中…' : '登录'),
                       ),
                     ),
                     if (errorMessage != null) ...[

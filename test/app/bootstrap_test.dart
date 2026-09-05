@@ -70,6 +70,35 @@ void main() {
     expect(find.text('页面不存在'), findsOneWidget);
   });
 
+
+  testWidgets('normal builds skip the developer bootstrap', (tester) async {
+    final normalTestConfig = AppConfig.fromValues(
+      environmentValue: 'development',
+      appVersion: '0.1.0+1',
+      showDeveloperTools: false,
+    );
+
+    await tester.pumpWidget(
+      AppBootstrap(loader: () async => normalTestConfig),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('教师工作台'), findsOneWidget);
+    expect(find.text('开发云端尚未配置'), findsOneWidget);
+    expect(find.text('打开虚构数据预览'), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        initialRoute: AppRoutes.designPreview,
+        onGenerateRoute: XueqingRouter(config: normalTestConfig)
+            .onGenerateRoute,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('页面不存在'), findsOneWidget);
+  });
+
   testWidgets('shows a safe fallback when bootstrap fails', (tester) async {
     await tester.pumpWidget(
       AppBootstrap(

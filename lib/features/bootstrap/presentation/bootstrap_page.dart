@@ -57,7 +57,7 @@ class BootstrapPage extends StatelessWidget {
                       icon: const Icon(Icons.people_alt_outlined),
                       label: const Text('进入教师工作台'),
                     ),
-                    if (!config.environment.isProduction) ...[
+                    if (config.showDeveloperTools) ...[
                       const SizedBox(height: AppSpacing.sm),
                       OutlinedButton.icon(
                         onPressed: () {
