@@ -66,64 +66,6 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
     _initialization = _initialize();
   }
 
-  Future<void> _checkForUpdates() async {
-    final service = widget.updateService;
-    final installer = widget.updateInstaller;
-    if (service == null || installer == null || _checkingForUpdates) {
-      return;
-    }
-
-    setState(() => _checkingForUpdates = true);
-    try {
-      final result = await service.checkForUpdate();
-      if (!mounted) {
-        return;
-      }
-      final shouldInstall = await showDialog<bool>(
-        context: context,
-        builder: (_) => UpdateDialog(result: result),
-      );
-      if (shouldInstall != true || !mounted) {
-        return;
-      }
-
-      final downloaded = await service.download(result);
-      final installResult = await installer.install(downloaded);
-      if (!mounted) {
-        return;
-      }
-      if (installResult.shouldExit) {
-        await SystemNavigator.pop();
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已打开系统安装界面，请按提示完成更新。')),
-      );
-    } on UpdateException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.userMessage)),
-        );
-      }
-    } on UpdateInstallException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.userMessage)),
-        );
-      }
-    } on Object {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('更新失败，请稍后重试。')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _checkingForUpdates = false);
-      }
-    }
-  }
-
   @override
   void dispose() {
     _authSubscription?.cancel();
@@ -411,6 +353,64 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         stackTrace: stackTrace,
       );
       rethrow;
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    final service = widget.updateService;
+    final installer = widget.updateInstaller;
+    if (service == null || installer == null || _checkingForUpdates) {
+      return;
+    }
+
+    setState(() => _checkingForUpdates = true);
+    try {
+      final result = await service.checkForUpdate();
+      if (!mounted) {
+        return;
+      }
+      final shouldInstall = await showDialog<bool>(
+        context: context,
+        builder: (_) => UpdateDialog(result: result),
+      );
+      if (shouldInstall != true || !mounted) {
+        return;
+      }
+
+      final downloaded = await service.download(result);
+      final installResult = await installer.install(downloaded);
+      if (!mounted) {
+        return;
+      }
+      if (installResult.shouldExit) {
+        await SystemNavigator.pop();
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已打开系统安装界面，请按提示完成更新。')),
+      );
+    } on UpdateException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.userMessage)),
+        );
+      }
+    } on UpdateInstallException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.userMessage)),
+        );
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('更新失败，请稍后重试。')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _checkingForUpdates = false);
+      }
     }
   }
 
