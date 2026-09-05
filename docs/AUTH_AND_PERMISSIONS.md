@@ -45,11 +45,17 @@ Supabase `JWT session_id → auth.sessions` 只是 reference；其他 provider �
 
 ## 6. Role vs Subject Scope
 
-Roles：org_admin / academic_admin / subject_lead / teacher / student_advisor。
+当前试点只保留三种机构角色：org_owner / org_admin / teacher。
+
+- org_owner：机构负责人，管理机构、管理员和老师；
+- org_admin：管理员，管理老师、学生和教学关系；
+- teacher：老师，仅在有效教学范围和学生分配内处理学情事实。
+
+学管、班主任或学科复核等分工先通过人员关系和流程表达，不新增系统角色。
 
 `scope_kind=teaching`：可承担该科 teacher assignment；不自动访问全学科学生。
 
-`scope_kind=leadership`：Subject Lead 本科治理范围；不自动成为教师/owner/teaching actor。
+`scope_kind=leadership` 为早期预留字段，当前试点不据此授予任何能力。
 
 ## 7. Student Assignment
 
@@ -57,7 +63,7 @@ Roles：org_admin / academic_admin / subject_lead / teacher / student_advisor。
 
 Lead：主要责任；Collaborator：协作。Case owner 是责任关系，不是 Role。
 
-Advisor 使用 `student_staff_assignment` 获得综合必要摘要/家校职责，不自动获得学科专业写权限。
+非学科协调职责当前不形成独立角色，也不授予学科专业读写权限。
 
 ## 8. Teaching Fact Gate｜唯一硬定义
 
@@ -93,13 +99,11 @@ V1 所有教学写权限必须依赖 legal active Student Teacher Assignment。L
 `start_lesson` 创建前必须为每个 participant 验证完整 Gate；仅有 teaching scope、把 Student 自己加入 participants、或 Lesson 已经 `in_progress` 都不能形成授权。临时代课统一用 time-bounded collaborator assignment（`active_from`/`active_to`），在有效期间按同一 Gate 工作。
 
 ### 绝对禁止 bypass
-- Advisor-only → 不可 Quick Capture/new teaching Case；
-- pure Subject Lead → 不可 teaching facts/new Case；
-- Academic/Org Admin-only → 不可 teaching facts/new Case；
+- Admin-only → 不可 teaching facts/new Case；
 - inactive/archived Profile → 即使残留旧 assignment 也拒绝；
 - Initial Diagnosis 的“管理员授权”不能替代 legal active Student Teacher Assignment。
 
-如果 Advisor 需要非专业记录：Parent Communication / Observation（该能力上线后），不是 Learning Case。
+非教学专业记录未来走 Parent Communication / Observation，不借 Learning Case 绕过教师权限。
 
 ## 9. Case command permissions
 
@@ -126,8 +130,7 @@ Student merge 的 semantic conflict 不由 admin 超权自动猜测；遵守 `ST
 
 至少：
 - teacher scope but no assignment → no detail/new Case；
-- Advisor-only Quick Capture → deny；
-- pure Subject Lead/Admin teaching fact → deny；
+- Admin-only teaching fact / Quick Capture → deny；
 - inactive/archived Profile old assignment → deny；
 - closed Case + inactive Profile reopen → deny；
 - collaborator non-owner critical command → deny unless explicit policy；

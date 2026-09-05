@@ -1,19 +1,17 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-enum OrganizationInvitationRole { owner, admin, academicAdmin, teacher }
+enum OrganizationInvitationRole { owner, admin, teacher }
 
 extension OrganizationInvitationRolePresentation on OrganizationInvitationRole {
   String get wireValue => switch (this) {
     OrganizationInvitationRole.owner => 'org_owner',
     OrganizationInvitationRole.admin => 'org_admin',
-    OrganizationInvitationRole.academicAdmin => 'academic_admin',
     OrganizationInvitationRole.teacher => 'teacher',
   };
 
   String get label => switch (this) {
     OrganizationInvitationRole.owner => '负责人',
     OrganizationInvitationRole.admin => '管理员',
-    OrganizationInvitationRole.academicAdmin => '教务管理员',
     OrganizationInvitationRole.teacher => '老师',
   };
 }
@@ -1436,7 +1434,7 @@ OrganizationInvitationRole _roleFromWire(Object? value) {
   return switch (wire) {
     'org_owner' => OrganizationInvitationRole.owner,
     'org_admin' => OrganizationInvitationRole.admin,
-    'academic_admin' => OrganizationInvitationRole.academicAdmin,
+    'academic_admin' => OrganizationInvitationRole.admin,
     'teacher' => OrganizationInvitationRole.teacher,
     _ => throw FormatException('Unknown organization invitation role: $wire'),
   };

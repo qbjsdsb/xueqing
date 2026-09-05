@@ -60,7 +60,7 @@ A provider switch retires the old link and activates the new link in one control
 - timestamps / onboarding expiry
 
 ### `membership_roles`
-V1 roles：org_admin / academic_admin / subject_lead / teacher / student_advisor。
+试点角色仅为：org_owner / org_admin / teacher。
 
 ### `membership_subject_scopes`
 - `id`
@@ -157,7 +157,7 @@ inactive/archived：
 Committed active assignment 必须：active membership + teacher capability + active teaching scope + Profile active。
 
 ### `student_staff_assignments`
-Advisor/homeroom/coordinator 等综合职责；不伪装学科教师。
+未来如增加综合协调关系，也不能伪装成学科教师或绕过 Teaching Fact Gate。
 
 ---
 

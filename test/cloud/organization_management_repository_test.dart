@@ -3,6 +3,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:xueqing/cloud/organization_management_repository.dart';
 
 void main() {
+  test('uses the three-role invitation contract', () {
+    expect(OrganizationInvitationRole.values, const [
+      OrganizationInvitationRole.owner,
+      OrganizationInvitationRole.admin,
+      OrganizationInvitationRole.teacher,
+    ]);
+
+    final legacyInvitation = OrganizationInvitation.fromJson({
+      'id': 'legacy-invitation',
+      'email': 'legacy-admin@example.com',
+      'role': 'academic_admin',
+      'status': 'accepted',
+    });
+    expect(legacyInvitation.role, OrganizationInvitationRole.admin);
+  });
+
   test('parses member roles and invitation metadata', () {
     final member = OrganizationMember.fromJson({
       'app_user_id': 'app-user-1',

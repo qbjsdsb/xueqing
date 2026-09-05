@@ -739,10 +739,7 @@ class SupabaseLearningRepository implements LearningRepository {
       (role) => role == 'org_owner' || role == 'org_admin',
     );
     final canManageCaseTypes = roles.any(
-      (role) =>
-          role == 'org_owner' ||
-          role == 'org_admin' ||
-          role == 'academic_admin',
+      (role) => role == 'org_owner' || role == 'org_admin',
     );
 
     final organization = await _client

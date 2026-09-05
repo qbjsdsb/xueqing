@@ -50,7 +50,6 @@ class _OrganizationManagementPageState
       return const <OrganizationInvitationRole>[
         OrganizationInvitationRole.admin,
         OrganizationInvitationRole.teacher,
-        OrganizationInvitationRole.academicAdmin,
       ];
     }
     return const <OrganizationInvitationRole>[
@@ -2128,10 +2127,10 @@ String _roleLabel(String role) {
   return switch (role) {
     'org_owner' => '负责人',
     'org_admin' => '管理员',
-    'academic_admin' => '教务管理员',
-    'subject_lead' => '学科负责人',
+    'academic_admin' => '管理员（旧角色）',
+    'subject_lead' => '学科负责人（旧角色已停用）',
     'teacher' => '老师',
-    'student_advisor' => '学生导师',
+    'student_advisor' => '学生导师（旧角色已停用）',
     _ => role,
   };
 }

@@ -419,8 +419,7 @@ new
 
 - [ ] 本科详细权限
 - [ ] 跨学科有限共享
-- [ ] advisor 综合视角
-- [ ] subject_lead
+- [ ] 管理员必要治理视角（不绕过教学事实权限）
 - [ ] audit_logs
 - [ ] live-session helper 性能 / 安全复审
 - [ ] Storage RLS / signed URL 审计
