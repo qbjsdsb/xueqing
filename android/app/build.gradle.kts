@@ -31,6 +31,10 @@ android {
     }
 }
 
+dependencies {
+    implementation("androidx.core:core:1.15.0")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

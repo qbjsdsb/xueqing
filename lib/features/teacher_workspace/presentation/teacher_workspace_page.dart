@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,6 +15,9 @@ import '../../../config/app_config.dart';
 import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
 import '../../organization_management/presentation/organization_management_page.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../update/update_dialog.dart';
+import '../../../update/update_installer.dart';
+import '../../../update/update_service.dart';
 
 class TeacherWorkspaceEntryPage extends StatefulWidget {
   const TeacherWorkspaceEntryPage({
@@ -51,11 +56,73 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   String? _activeUserId;
   bool _signedIn = false;
   bool _busy = false;
+  late final UpdateService _updateService;
+  late final UpdateInstaller _updateInstaller;
 
   @override
   void initState() {
     super.initState();
+    _updateService = UpdateService(currentVersion: widget.config.appVersion);
+    _updateInstaller = PlatformUpdateInstaller();
     _initialization = _initialize();
+  }
+
+  Future<void> _checkForUpdates() async {
+    final service = widget.updateService;
+    final installer = widget.updateInstaller;
+    if (service == null || installer == null || _checkingForUpdates) {
+      return;
+    }
+
+    setState(() => _checkingForUpdates = true);
+    try {
+      final result = await service.checkForUpdate();
+      if (!mounted) {
+        return;
+      }
+      final shouldInstall = await showDialog<bool>(
+        context: context,
+        builder: (_) => UpdateDialog(result: result),
+      );
+      if (shouldInstall != true || !mounted) {
+        return;
+      }
+
+      final downloaded = await service.download(result);
+      final installResult = await installer.install(downloaded);
+      if (!mounted) {
+        return;
+      }
+      if (installResult.shouldExit) {
+        await SystemNavigator.pop();
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已打开系统安装界面，请按提示完成更新。')),
+      );
+    } on UpdateException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.userMessage)),
+        );
+      }
+    } on UpdateInstallException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.userMessage)),
+        );
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('更新失败，请稍后重试。')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _checkingForUpdates = false);
+      }
+    }
   }
 
   @override
@@ -268,6 +335,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           repository: _learningRepository!,
           managementRepository: _organizationManagementRepository,
           invitationAcceptanceRepository: _invitationAcceptanceRepository,
+          updateService: _updateService,
+          updateInstaller: _updateInstaller,
           onSignOut: _busy ? null : _signOut,
         );
       },
@@ -280,6 +349,8 @@ class TeacherWorkspacePage extends StatefulWidget {
     required this.repository,
     this.managementRepository,
     this.invitationAcceptanceRepository,
+    this.updateService,
+    this.updateInstaller,
     this.onSignOut,
     super.key,
   });
@@ -288,6 +359,8 @@ class TeacherWorkspacePage extends StatefulWidget {
   final OrganizationManagementRepository? managementRepository;
   final OrganizationInvitationAcceptanceRepository?
   invitationAcceptanceRepository;
+  final UpdateService? updateService;
+  final UpdateInstaller? updateInstaller;
   final VoidCallback? onSignOut;
 
   @override
@@ -313,6 +386,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   final Map<String, String> _retryOperationIds = <String, String>{};
   TeacherWorkspace? _lastWorkspace;
   bool _isRefreshing = false;
+  bool _checkingForUpdates = false;
   int _loadSequence = 0;
 
   @override
@@ -905,6 +979,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         hasTeachingAccess: workspace.hasTeachingAccess,
         showManagement: workspace.canManageOrganization,
         onSignOut: widget.onSignOut,
+        onCheckForUpdates: widget.updateService == null ||
+                widget.updateInstaller == null
+            ? null
+            : () => unawaited(_checkForUpdates()),
+        checkingForUpdates: _checkingForUpdates,
         child: ResponsiveLayout(
           builder: (context, sizeClass) => _WorkspaceFrame(
             sizeClass: sizeClass,
@@ -3220,6 +3299,8 @@ class _WorkspaceShell extends StatelessWidget {
     required this.showManagement,
     required this.child,
     this.onSignOut,
+    this.onCheckForUpdates,
+    this.checkingForUpdates = false,
   });
 
   final int selectedIndex;
@@ -3228,6 +3309,8 @@ class _WorkspaceShell extends StatelessWidget {
   final bool showManagement;
   final Widget child;
   final VoidCallback? onSignOut;
+  final VoidCallback? onCheckForUpdates;
+  final bool checkingForUpdates;
 
   @override
   Widget build(BuildContext context) {
@@ -3238,6 +3321,18 @@ class _WorkspaceShell extends StatelessWidget {
             appBar: AppBar(
               title: Text(hasTeachingAccess ? '教师工作台' : '机构管理'),
               actions: [
+                if (onCheckForUpdates != null)
+                  IconButton(
+                    tooltip: '检查更新',
+                    onPressed: checkingForUpdates ? null : onCheckForUpdates,
+                    icon: checkingForUpdates
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.system_update_alt),
+                  ),
                 if (onSignOut != null)
                   IconButton(
                     tooltip: '退出登录',
@@ -3268,6 +3363,8 @@ class _WorkspaceShell extends StatelessWidget {
                   hasTeachingAccess: hasTeachingAccess,
                   showManagement: showManagement,
                   onSignOut: onSignOut,
+                  onCheckForUpdates: onCheckForUpdates,
+                  checkingForUpdates: checkingForUpdates,
                 ),
                 const VerticalDivider(width: 1),
                 Expanded(child: child),
@@ -3288,6 +3385,8 @@ class _WorkspaceRail extends StatelessWidget {
     required this.hasTeachingAccess,
     required this.showManagement,
     this.onSignOut,
+    this.onCheckForUpdates,
+    this.checkingForUpdates = false,
   });
 
   final bool extended;
@@ -3296,6 +3395,8 @@ class _WorkspaceRail extends StatelessWidget {
   final bool hasTeachingAccess;
   final bool showManagement;
   final VoidCallback? onSignOut;
+  final VoidCallback? onCheckForUpdates;
+  final bool checkingForUpdates;
 
   @override
   Widget build(BuildContext context) {
@@ -3366,6 +3467,18 @@ class _WorkspaceRail extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
+                if (onCheckForUpdates != null)
+                  IconButton(
+                    tooltip: '检查更新',
+                    onPressed: checkingForUpdates ? null : onCheckForUpdates,
+                    icon: checkingForUpdates
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.system_update_alt),
+                  ),
                 if (extended && onSignOut != null)
                   IconButton(
                     tooltip: '退出登录',
