@@ -440,7 +440,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         '${item.learningCase.version}:${item.action.version}:$dateKey';
   }
 
-
   Future<void> _acceptInvitation() async {
     if (_invitationBusy ||
         !(_invitationFormKey.currentState?.validate() ?? false)) {
