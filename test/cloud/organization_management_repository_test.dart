@@ -129,6 +129,27 @@ void main() {
     );
   });
 
+  test('maps duplicate student identity errors to actionable guidance', () {
+    expect(
+      organizationStudentSetupErrorMessage(
+        const AuthException('student_code_already_exists'),
+      ),
+      '这个学生编号已被本机构其他学生使用，请核对后修改。',
+    );
+    expect(
+      organizationStudentSetupErrorMessage(
+        const AuthException('possible_duplicate_student'),
+      ),
+      '已存在姓名、年级、班级和校区相同的学生；请先核对，确为不同学生时填写不同学生编号。',
+    );
+    expect(
+      organizationStudentLifecycleErrorMessage(
+        const AuthException('student_code_already_exists'),
+      ),
+      '这个学生编号已被本机构其他学生使用，请核对后修改。',
+    );
+  });
+
   test('parses teacher subject scope history and command results', () {
     final scope = OrganizationTeacherSubjectScope.fromJson({
       'scope_id': 'scope-1',
