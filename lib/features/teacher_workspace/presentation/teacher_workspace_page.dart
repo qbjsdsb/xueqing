@@ -1239,12 +1239,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceStudent student,
     WindowSizeClass sizeClass,
   ) {
-    final importantCases = student.cases
-        .where(
-          (learningCase) => learningCase.status != LearningCaseStatus.closed,
-        )
-        .take(3)
-        .toList();
+    final importantCases = _importantCasesForStudent(student);
     final pendingCases = student.cases
         .where(
           (learningCase) =>
@@ -1348,6 +1343,87 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         _WorkspaceFacts(student: student, sizeClass: sizeClass),
       ],
     );
+  }
+
+  List<WorkspaceCase> _importantCasesForStudent(WorkspaceStudent student) {
+    final cases =
+        student.cases
+            .where(
+              (learningCase) =>
+                  learningCase.status != LearningCaseStatus.closed,
+            )
+            .toList()
+          ..sort(_compareCasesForStudentDetail);
+    return cases.take(3).toList();
+  }
+
+  int _compareCasesForStudentDetail(WorkspaceCase left, WorkspaceCase right) {
+    final attentionComparison = _caseAttentionRank(left)
+        .compareTo(_caseAttentionRank(right));
+    if (attentionComparison != 0) {
+      return attentionComparison;
+    }
+
+    final leftAction = left.primaryAction;
+    final rightAction = right.primaryAction;
+    final leftDueAt = leftAction?.businessDueDate ?? leftAction?.dueAt;
+    final rightDueAt = rightAction?.businessDueDate ?? rightAction?.dueAt;
+    final dueAtComparison = switch ((leftDueAt, rightDueAt)) {
+      (final DateTime leftDate, final DateTime rightDate) => leftDate.compareTo(
+        rightDate,
+      ),
+      (null, final DateTime _) => 1,
+      (final DateTime _, null) => -1,
+      (null, null) => 0,
+    };
+    if (dueAtComparison != 0) {
+      return dueAtComparison;
+    }
+
+    final priorityComparison = _casePriorityRank(left.priority)
+        .compareTo(_casePriorityRank(right.priority));
+    if (priorityComparison != 0) {
+      return priorityComparison;
+    }
+
+    final observedAtComparison = left.firstObservedAt.compareTo(
+      right.firstObservedAt,
+    );
+    if (observedAtComparison != 0) {
+      return observedAtComparison;
+    }
+    final titleComparison = left.title.compareTo(right.title);
+    if (titleComparison != 0) {
+      return titleComparison;
+    }
+    return left.id.compareTo(right.id);
+  }
+
+  int _caseAttentionRank(WorkspaceCase learningCase) {
+    if (learningCase.status == LearningCaseStatus.pendingVerification) {
+      return 2;
+    }
+    final action = learningCase.primaryAction;
+    if (action != null) {
+      return switch (action.bucket) {
+        WorkspaceActionBucket.overdue => 0,
+        WorkspaceActionBucket.today => 1,
+        WorkspaceActionBucket.undated => 4,
+        WorkspaceActionBucket.future => 5,
+      };
+    }
+    if (learningCase.status == LearningCaseStatus.newCase) {
+      return 3;
+    }
+    return 6;
+  }
+
+  int _casePriorityRank(String priority) {
+    return switch (priority) {
+      'high' => 0,
+      'low' => 2,
+      _ => 1,
+    };
   }
 
   Widget _buildCaseDetail(

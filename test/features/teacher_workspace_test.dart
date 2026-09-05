@@ -283,6 +283,7 @@ WorkspaceStudent _studentFixture({
   DateTime? actionDueAt,
   WorkspaceActionBucket actionBucket = WorkspaceActionBucket.overdue,
   String? actionTitle,
+  List<WorkspaceCase>? cases,
 }) {
   final learningCase = actionDueAt == null
       ? null
@@ -326,7 +327,7 @@ WorkspaceStudent _studentFixture({
     positioning: null,
     strengths: null,
     cadenceNote: null,
-    cases: learningCase == null ? const [] : [learningCase],
+    cases: cases ?? (learningCase == null ? const [] : [learningCase]),
     recentFacts: recentActivityAt == null
         ? const []
         : [
@@ -337,6 +338,45 @@ WorkspaceStudent _studentFixture({
               text: '$name 的课堂记录',
             ),
           ],
+  );
+}
+
+WorkspaceCase _caseFixture({
+  required String id,
+  required String title,
+  required LearningCaseStatus status,
+  required WorkspaceActionBucket actionBucket,
+  required DateTime? actionDueAt,
+  String priority = 'normal',
+}) {
+  return WorkspaceCase(
+    id: 'case-$id',
+    profileId: 'profile-detail',
+    title: title,
+    type: LearningCaseType.knowledge,
+    status: status,
+    priority: priority,
+    description: null,
+    firstObservedAt: DateTime(2026, 8, 1),
+    version: 1,
+    evidence: const <WorkspaceEvidence>[],
+    interventions: const <WorkspaceIntervention>[],
+    assessments: const <WorkspaceAssessment>[],
+    actions: [
+      WorkspaceAction(
+        id: 'action-$id',
+        caseId: 'case-$id',
+        title: '$title 的下一步',
+        actionType: 'practice',
+        status: WorkspaceActionStatus.pending,
+        isPrimary: true,
+        bucket: actionBucket,
+        version: 1,
+        dueAt: actionDueAt,
+        businessDueDate: actionDueAt,
+      ),
+    ],
+    timeline: const <WorkspaceTimelineEvent>[],
   );
 }
 
@@ -494,6 +534,69 @@ void main() {
       tester.getTopLeft(find.text('安同学')).dy,
       lessThan(tester.getTopLeft(find.text('白同学')).dy),
     );
+  });
+
+  testWidgets('keeps the three most actionable Cases in the student summary', (
+    tester,
+  ) async {
+    final student = _studentFixture(
+      id: 'detail',
+      name: '许同学',
+      cases: [
+        _caseFixture(
+          id: 'future',
+          title: '未来再处理的问题',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.future,
+          actionDueAt: DateTime(2026, 9, 10),
+          priority: 'high',
+        ),
+        _caseFixture(
+          id: 'undated',
+          title: '尚未安排的问题',
+          status: LearningCaseStatus.intervening,
+          actionBucket: WorkspaceActionBucket.undated,
+          actionDueAt: null,
+        ),
+        _caseFixture(
+          id: 'verification',
+          title: '等待验证的问题',
+          status: LearningCaseStatus.pendingVerification,
+          actionBucket: WorkspaceActionBucket.future,
+          actionDueAt: DateTime(2026, 9, 12),
+        ),
+        _caseFixture(
+          id: 'today',
+          title: '今天要处理的问题',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.today,
+          actionDueAt: DateTime(2026, 9, 5),
+        ),
+        _caseFixture(
+          id: 'overdue',
+          title: '已经逾期的问题',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.overdue,
+          actionDueAt: DateTime(2026, 9, 2),
+          priority: 'low',
+        ),
+      ],
+    );
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents([student]),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('许同学');
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+
+    expect(find.text('已经逾期的问题'), findsNWidgets(2));
+    expect(find.text('今天要处理的问题'), findsNWidgets(2));
+    expect(find.text('等待验证的问题'), findsNWidgets(3));
+    expect(find.text('尚未安排的问题'), findsOneWidget);
+    expect(find.text('未来再处理的问题'), findsOneWidget);
   });
 
   testWidgets('explains schema drift and lets the user retry', (tester) async {
