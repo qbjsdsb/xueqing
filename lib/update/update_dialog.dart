@@ -15,9 +15,9 @@ class UpdateDialog extends StatelessWidget {
       UpdateCheckState.unsupportedPlatform => '发现新版本',
     };
     final content = switch (result.state) {
-      UpdateCheckState.upToDate => '当前版本 \${result.currentVersion} 已是最新版本。',
+      UpdateCheckState.upToDate => '当前版本 ${result.currentVersion} 已是最新版本。',
       UpdateCheckState.unsupportedPlatform =>
-        '服务器已有 \${result.manifest.version}，但当前平台暂未提供可安装的更新包。',
+        '服务器已有 ${result.manifest.version}，但当前平台暂未提供可安装的更新包。',
       UpdateCheckState.available => _availableContent(),
     };
 
@@ -45,8 +45,8 @@ class UpdateDialog extends StatelessWidget {
 
   String _availableContent() {
     final lines = <String>[
-      '当前版本：\${result.currentVersion}',
-      '新版本：\${result.manifest.version}',
+      '当前版本：${result.currentVersion}',
+      '新版本：${result.manifest.version}',
       if (result.isMandatory) '这是必须更新的版本。',
       ...result.manifest.notes.map((note) => '• $note'),
     ];

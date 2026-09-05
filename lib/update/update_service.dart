@@ -72,7 +72,7 @@ class UpdateService {
 
     if (manifest.channel != channel) {
       throw UpdateException(
-        '当前更新通道为“$channel”，服务器清单通道为“\${manifest.channel}”。',
+        '当前更新通道为“$channel”，服务器清单通道为“${manifest.channel}”。',
       );
     }
 
@@ -109,13 +109,13 @@ class UpdateService {
     final artifact = result.artifact!;
     final temporaryDirectory = await getTemporaryDirectory();
     final updatesDirectory = Directory(
-      '\${temporaryDirectory.path}\${Platform.pathSeparator}xueqing-updates',
+      '${temporaryDirectory.path}${Platform.pathSeparator}xueqing-updates',
     );
     await updatesDirectory.create(recursive: true);
 
     final fileName = _safeFileName(artifact);
     final destination = File(
-      '\${updatesDirectory.path}\${Platform.pathSeparator}$fileName',
+      '${updatesDirectory.path}${Platform.pathSeparator}$fileName',
     );
     final client = HttpClient()
       ..connectionTimeout = requestTimeout
@@ -131,7 +131,7 @@ class UpdateService {
       final response = await request.close().timeout(requestTimeout);
       if (response.statusCode != HttpStatus.ok) {
         throw UpdateException(
-          '下载更新失败（HTTP \${response.statusCode}）。',
+          '下载更新失败（HTTP ${response.statusCode}）。',
         );
       }
 
@@ -199,7 +199,7 @@ class UpdateService {
       final response = await request.close();
       final body = await response.transform(utf8.decoder).join();
       if (response.statusCode != HttpStatus.ok) {
-        throw UpdateException('检查更新失败（HTTP \${response.statusCode}）。');
+        throw UpdateException('检查更新失败（HTTP ${response.statusCode}）。');
       }
       if (body.length > 1024 * 1024) {
         throw const UpdateException('更新清单过大，已停止处理。');
@@ -214,7 +214,7 @@ class UpdateService {
     final fileName = artifact.fileName ??
         Uri.parse(artifact.url).pathSegments.lastWhere(
               (segment) => segment.isNotEmpty,
-              orElse: () => 'xueqing-update.\${artifact.format}',
+              orElse: () => 'xueqing-update.${artifact.format}',
             );
     if (fileName.isEmpty ||
         fileName == '.' ||

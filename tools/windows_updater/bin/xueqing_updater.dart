@@ -39,7 +39,7 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
 
     final installDirectory = Directory(options.installDirectory);
     if (!await installDirectory.exists()) {
-      throw StateError('安装目录不存在：\${options.installDirectory}');
+      throw StateError('安装目录不存在：${options.installDirectory}');
     }
 
     await _copyTree(
@@ -57,7 +57,7 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
       );
       final installedExecutable = File(options.launchPath);
       if (!await installedExecutable.exists()) {
-        throw StateError('更新包没有生成主程序：\${options.launchPath}');
+        throw StateError('更新包没有生成主程序：${options.launchPath}');
       }
 
       await Process.start(
@@ -79,7 +79,7 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
       } catch (restoreError) {
         preserveBackup = true;
         throw StateError(
-          '更新失败且回滚失败；请保留备份目录 \${backupDirectory.path}。'
+          '更新失败且回滚失败；请保留备份目录 ${backupDirectory.path}。'
           ' 原始错误：$error；回滚错误：$restoreError',
         );
       }
@@ -101,7 +101,7 @@ Future<void> _waitForProcessToExit(int processId) async {
     }
     await Future<void>.delayed(const Duration(milliseconds: 250));
   }
-  throw StateError('主程序在 \${_waitTimeout.inSeconds} 秒内没有退出。');
+  throw StateError('主程序在 ${_waitTimeout.inSeconds} 秒内没有退出。');
 }
 
 Future<bool> _isProcessRunning(int processId) async {
@@ -110,7 +110,7 @@ Future<bool> _isProcessRunning(int processId) async {
     <String>['/FI', 'PID eq $processId', '/NH'],
   );
   if (result.exitCode != 0) {
-    throw StateError('无法查询 Windows 进程状态：\${result.stderr}');
+    throw StateError('无法查询 Windows 进程状态：${result.stderr}');
   }
   final output = result.stdout.toString();
   return RegExp(r'(^|\s)$processId(\s|$)').hasMatch(output);
@@ -118,7 +118,7 @@ Future<bool> _isProcessRunning(int processId) async {
 
 Future<void> _verifySha256(File file, String expected) async {
   if (!await file.exists()) {
-    throw StateError('更新包不存在：\${file.path}');
+    throw StateError('更新包不存在：${file.path}');
   }
   final digest = await sha256.bind(file.openRead()).first;
   if (digest.toString() != expected) {
@@ -186,7 +186,7 @@ Future<void> _copyTree(
         skipFileName: skipFileName,
       );
     } else if (entity is Link) {
-      throw StateError('安装目录包含不支持的符号链接：\${entity.path}');
+      throw StateError('安装目录包含不支持的符号链接：${entity.path}');
     }
   }
 }
@@ -217,7 +217,7 @@ Future<void> _deleteDirectory(Directory directory) async {
 }
 
 String _join(String parent, String child) {
-  return '$parent\${Platform.pathSeparator}$child';
+  return '$parent${Platform.pathSeparator}$child';
 }
 
 String _baseName(String path) {

@@ -55,7 +55,7 @@ class PlatformUpdateInstaller implements UpdateInstaller {
     final executable = File(Platform.resolvedExecutable);
     final installDirectory = executable.parent;
     final helper = File(
-      '\${installDirectory.path}\${Platform.pathSeparator}xueqing_updater.exe',
+      '${installDirectory.path}${Platform.pathSeparator}xueqing_updater.exe',
     );
     if (!await helper.exists()) {
       throw const UpdateInstallException(
@@ -106,7 +106,7 @@ class PlatformUpdateInstaller implements UpdateInstaller {
       }
       if (status != 'started') {
         throw UpdateInstallException(
-          '系统没有启动 APK 安装器（状态：\${status ?? 'unknown'}）。',
+          '系统没有启动 APK 安装器（状态：${status ?? 'unknown'}）。',
         );
       }
       return const UpdateInstallResult(shouldExit: false);

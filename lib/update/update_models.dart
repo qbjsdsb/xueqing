@@ -149,7 +149,7 @@ class AppVersion implements Comparable<AppVersion> {
 
   @override
   String toString() {
-    final pre = prerelease.isEmpty ? '' : '-\${prerelease.join('.')}';
+    final pre = prerelease.isEmpty ? '' : '-${prerelease.join('.')}';
     return '$major.$minor.$patch$pre+$build';
   }
 
@@ -186,7 +186,7 @@ class UpdateArtifact {
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
       throw FormatException(
-        '\${platform.manifestKey} 更新地址必须是 HTTPS URL。',
+        '${platform.manifestKey} 更新地址必须是 HTTPS URL。',
       );
     }
 
@@ -194,21 +194,21 @@ class UpdateArtifact {
     final sha256 = hashValue is String ? hashValue.trim().toLowerCase() : '';
     if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(sha256)) {
       throw FormatException(
-        '\${platform.manifestKey} 更新包 sha256 必须是 64 位十六进制字符串。',
+        '${platform.manifestKey} 更新包 sha256 必须是 64 位十六进制字符串。',
       );
     }
 
     final sizeValue = json['size_bytes'];
     if (sizeValue is! int || sizeValue <= 0) {
       throw FormatException(
-        '\${platform.manifestKey} 更新包 size_bytes 必须是正整数。',
+        '${platform.manifestKey} 更新包 size_bytes 必须是正整数。',
       );
     }
 
     final formatValue = json['format'];
     final format = formatValue is String ? formatValue.trim().toLowerCase() : '';
     if (format.isEmpty) {
-      throw FormatException('\${platform.manifestKey} 更新包 format 不能为空。');
+      throw FormatException('${platform.manifestKey} 更新包 format 不能为空。');
     }
 
     final fileNameValue = json['file_name'];
@@ -298,7 +298,7 @@ class UpdateManifest {
         continue;
       }
       if (entry.value is! Map) {
-        throw FormatException('\${platform.manifestKey} 更新资产不是对象。');
+        throw FormatException('${platform.manifestKey} 更新资产不是对象。');
       }
       artifacts[platform] = UpdateArtifact.fromJson(
         platform,

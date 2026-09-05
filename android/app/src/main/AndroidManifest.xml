@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="学情闭环"
-        android:name="\${applicationName}"
+        android:name="${applicationName}"
         android:allowBackup="false">
         <activity
             android:name=".MainActivity"
@@ -24,7 +24,7 @@
         </activity>
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="\${applicationId}.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
