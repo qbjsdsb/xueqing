@@ -17,7 +17,7 @@ void main() {
       'schema': 1,
       'channel': 'stable',
       'version': version,
-      if (minimumSupported != null) 'minimum_supported': minimumSupported,
+      if (minimumSupported case final value?) 'minimum_supported': value,
       'notes': <String>['提升稳定性', '修复更新流程'],
       'platforms':
           platforms ??
