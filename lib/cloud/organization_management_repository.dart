@@ -1,19 +1,19 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-enum OrganizationInvitationRole { owner, admin, academicAdmin, teacher }
+import 'paged_rows.dart';
+
+enum OrganizationInvitationRole { owner, admin, teacher }
 
 extension OrganizationInvitationRolePresentation on OrganizationInvitationRole {
   String get wireValue => switch (this) {
     OrganizationInvitationRole.owner => 'org_owner',
     OrganizationInvitationRole.admin => 'org_admin',
-    OrganizationInvitationRole.academicAdmin => 'academic_admin',
     OrganizationInvitationRole.teacher => 'teacher',
   };
 
   String get label => switch (this) {
     OrganizationInvitationRole.owner => '负责人',
     OrganizationInvitationRole.admin => '管理员',
-    OrganizationInvitationRole.academicAdmin => '教务管理员',
     OrganizationInvitationRole.teacher => '老师',
   };
 }
@@ -401,17 +401,32 @@ class OrganizationSetupTeacher {
     required this.membershipId,
     required this.displayName,
     required this.email,
+    required this.organizationSubjectIds,
   });
 
   final String membershipId;
   final String displayName;
   final String email;
+  final List<String> organizationSubjectIds;
+
+  bool supportsSubject(String organizationSubjectId) =>
+      organizationSubjectIds.contains(organizationSubjectId);
 
   factory OrganizationSetupTeacher.fromJson(Map<String, dynamic> json) {
+    final rawOrganizationSubjectIds = json['organization_subject_ids'];
+    if (rawOrganizationSubjectIds is! List) {
+      throw const FormatException(
+        'Organization setup teacher returned invalid subject ids.',
+      );
+    }
     return OrganizationSetupTeacher(
       membershipId: _requiredString(json['membership_id'], 'membership_id'),
       displayName: _stringValue(json['display_name']) ?? '未命名老师',
       email: _stringValue(json['email']) ?? '',
+      organizationSubjectIds: List<String>.unmodifiable([
+        for (final item in rawOrganizationSubjectIds)
+          _requiredString(item, 'organization_subject_id'),
+      ]),
     );
   }
 }
@@ -425,7 +440,29 @@ class OrganizationSetupOptions {
   final List<OrganizationSetupSubject> subjects;
   final List<OrganizationSetupTeacher> teachers;
 
-  bool get canCreateStudent => subjects.isNotEmpty && teachers.isNotEmpty;
+  List<OrganizationSetupSubject> get subjectsWithAvailableTeachers {
+    final availableSubjects = <OrganizationSetupSubject>[];
+    for (final subject in subjects) {
+      if (teachers.any((teacher) => teacher.supportsSubject(subject.id))) {
+        availableSubjects.add(subject);
+      }
+    }
+    return List<OrganizationSetupSubject>.unmodifiable(availableSubjects);
+  }
+
+  List<OrganizationSetupTeacher> teachersForSubject(
+    String organizationSubjectId,
+  ) {
+    final availableTeachers = <OrganizationSetupTeacher>[];
+    for (final teacher in teachers) {
+      if (teacher.supportsSubject(organizationSubjectId)) {
+        availableTeachers.add(teacher);
+      }
+    }
+    return List<OrganizationSetupTeacher>.unmodifiable(availableTeachers);
+  }
+
+  bool get canCreateStudent => subjectsWithAvailableTeachers.isNotEmpty;
 
   factory OrganizationSetupOptions.fromJson(Map<String, dynamic> json) {
     final rawSubjects = json['subjects'];
@@ -942,6 +979,7 @@ String? organizationStudentTeacherAssignmentErrorMessage(Object error) {
     'teacher_subject_scope_required' => '接收老师还没有该学科的有效教学范围，请先配置教学范围。',
     'teacher_assignment_same_teacher' => '接收老师不能与原任课老师相同。',
     'teacher_assignment_already_active' => '接收老师已经拥有同类型的有效任课关系，请刷新后重试。',
+    'teacher_scope_handoff_required' => '该老师仍负责未关闭学情或待执行行动，请先完成对应交接，再变更任课关系。',
     'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
     'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
     'invalid_live_session' => '登录状态已失效，请重新登录。',
@@ -961,10 +999,13 @@ String? organizationStudentSetupErrorMessage(Object error) {
   }
   return switch (detail.toLowerCase()) {
     'invalid_student_setup_input' => '学生信息不完整或过长，请检查后重试。',
+    'student_code_already_exists' => '这个学生编号已被本机构其他学生使用，请核对后修改。',
+    'possible_duplicate_student' => '已存在姓名、年级、班级和校区相同的学生；请先核对，确为不同学生时填写不同学生编号。',
     'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
     'organization_subject_not_found' => '所选学科已变化，请刷新后重新选择。',
     'teacher_membership_not_found' => '所选老师已不是本机构的在岗老师，请刷新后重新选择。',
     'teacher_role_required' => '所选成员还没有老师角色，暂不能分配学生。',
+    'teacher_subject_scope_required' => '所选老师没有该学科的有效教学范围，请先配置教学范围。',
     'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开表单后再试。',
     'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
     'invalid_live_session' => '登录状态已失效，请重新登录。',
@@ -984,6 +1025,7 @@ String? organizationStudentLifecycleErrorMessage(Object error) {
   }
   return switch (detail.toLowerCase()) {
     'invalid_student_update_input' => '学生姓名、编号或状态不符合要求。',
+    'student_code_already_exists' => '这个学生编号已被本机构其他学生使用，请核对后修改。',
     'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
     'student_not_found' => '学生档案已变化，请刷新后重试。',
     'student_merged_immutable' => '已合并的学生档案不能直接修改。',
@@ -1020,6 +1062,7 @@ String? organizationInvitationErrorMessage(Object error) {
     'invitation_not_available' => '该邀请已被使用或撤销。',
     'invitation_expired' => '该邀请已过期，请让负责人重新创建邀请。',
     'invitation_email_mismatch' => '当前登录邮箱与邀请邮箱不一致。',
+    'organization_not_available' => '机构已归档，不能接受邀请，请联系负责人。',
     'invitation_already_member' => '当前账号已经拥有该机构的这个身份。',
     'user_already_member_elsewhere' => '当前账号已经加入其他机构，暂不能跨机构加入。',
     'app_user_disabled' => '当前账号已被停用，请联系机构负责人。',
@@ -1037,9 +1080,10 @@ class SupabaseOrganizationManagementRepository
   Future<List<OrganizationMember>> listMembers({
     required String organizationId,
   }) async {
-    final response = await _call('list_organization_members', <String, dynamic>{
-      'p_organization_id': organizationId,
-    });
+    final response = await _callRows(
+      'list_organization_members',
+      <String, dynamic>{'p_organization_id': organizationId},
+    );
     return _mapList(response, OrganizationMember.fromJson);
   }
 
@@ -1075,7 +1119,7 @@ class SupabaseOrganizationManagementRepository
   Future<List<OrganizationInvitation>> listInvitations({
     required String organizationId,
   }) async {
-    final response = await _call(
+    final response = await _callRows(
       'list_organization_invitations',
       <String, dynamic>{'p_organization_id': organizationId},
     );
@@ -1086,7 +1130,7 @@ class SupabaseOrganizationManagementRepository
   Future<List<OrganizationTeacherSubjectScope>> listTeacherSubjectScopes({
     required String organizationId,
   }) async {
-    final response = await _call(
+    final response = await _callRows(
       'list_organization_teacher_subject_scopes',
       <String, dynamic>{'p_organization_id': organizationId},
     );
@@ -1141,7 +1185,7 @@ class SupabaseOrganizationManagementRepository
   @override
   Future<List<OrganizationStudentTeacherAssignment>>
   listStudentTeacherAssignments({required String organizationId}) async {
-    final response = await _call(
+    final response = await _callRows(
       'list_organization_student_teacher_assignments',
       <String, dynamic>{'p_organization_id': organizationId},
     );
@@ -1185,7 +1229,7 @@ class SupabaseOrganizationManagementRepository
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   }) async {
-    final response = await _call(
+    final response = await _callRows(
       'list_organization_students',
       <String, dynamic>{'p_organization_id': organizationId},
     );
@@ -1363,6 +1407,29 @@ class SupabaseOrganizationManagementRepository
     return response;
   }
 
+  Future<List<Map<String, dynamic>>> _callRows(
+    String functionName,
+    Map<String, dynamic> params,
+  ) async {
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) {
+      throw const AuthException('No active session.');
+    }
+    return collectPagedRows(
+      loadPage: (from, to) =>
+          _client.rpc(functionName, params: params).range(from, to),
+      assertSession: () {
+        if (_client.auth.currentUser?.id != authUser.id) {
+          throw const AuthException(
+            'The active session changed while running organization management.',
+          );
+        }
+      },
+      invalidResponseMessage:
+          'Organization management returned an invalid list.',
+    );
+  }
+
   List<T> _mapList<T>(
     dynamic response,
     T Function(Map<String, dynamic> json) fromJson,
@@ -1398,7 +1465,7 @@ OrganizationInvitationRole _roleFromWire(Object? value) {
   return switch (wire) {
     'org_owner' => OrganizationInvitationRole.owner,
     'org_admin' => OrganizationInvitationRole.admin,
-    'academic_admin' => OrganizationInvitationRole.academicAdmin,
+    'academic_admin' => OrganizationInvitationRole.admin,
     'teacher' => OrganizationInvitationRole.teacher,
     _ => throw FormatException('Unknown organization invitation role: $wire'),
   };

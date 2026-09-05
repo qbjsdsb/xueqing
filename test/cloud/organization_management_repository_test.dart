@@ -3,6 +3,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:xueqing/cloud/organization_management_repository.dart';
 
 void main() {
+  test('uses the three-role invitation contract', () {
+    expect(OrganizationInvitationRole.values, const [
+      OrganizationInvitationRole.owner,
+      OrganizationInvitationRole.admin,
+      OrganizationInvitationRole.teacher,
+    ]);
+
+    final legacyInvitation = OrganizationInvitation.fromJson({
+      'id': 'legacy-invitation',
+      'email': 'legacy-admin@example.com',
+      'role': 'academic_admin',
+      'status': 'accepted',
+    });
+    expect(legacyInvitation.role, OrganizationInvitationRole.admin);
+  });
+
   test('parses member roles and invitation metadata', () {
     final member = OrganizationMember.fromJson({
       'app_user_id': 'app-user-1',
@@ -66,10 +82,94 @@ void main() {
       '当前账号没有本机构管理权限。',
     );
     expect(
+      organizationInvitationErrorMessage(
+        PostgrestException(
+          message: 'organization_not_available',
+          code: 'P0001',
+          details: '',
+          hint: '',
+        ),
+      ),
+      '机构已归档，不能接受邀请，请联系负责人。',
+    );
+    expect(
       organizationInvitationErrorMessage(const FormatException('other')),
       isNull,
     );
   });
+
+  test('parses and filters effective teacher subject setup options', () {
+    final options = OrganizationSetupOptions.fromJson({
+      'subjects': [
+        {'id': 'subject-1', 'display_name': '数学'},
+        {'id': 'subject-2', 'display_name': '英语'},
+      ],
+      'teachers': [
+        {
+          'membership_id': 'teacher-1',
+          'display_name': '数学老师',
+          'email': 'math@example.com',
+          'organization_subject_ids': ['subject-1'],
+        },
+        {
+          'membership_id': 'teacher-2',
+          'display_name': '待配置老师',
+          'email': 'pending@example.com',
+          'organization_subject_ids': <String>[],
+        },
+      ],
+    });
+
+    expect(options.canCreateStudent, isTrue);
+    final availableSubjects = options.subjectsWithAvailableTeachers;
+    expect(availableSubjects, hasLength(1));
+    expect(availableSubjects.single.id, 'subject-1');
+    expect(
+      options.teachersForSubject('subject-1').single.membershipId,
+      'teacher-1',
+    );
+    expect(options.teachersForSubject('subject-2'), isEmpty);
+  });
+
+  test('maps blocked teacher handoff to actionable guidance', () {
+    expect(
+      organizationStudentTeacherAssignmentErrorMessage(
+        const AuthException('teacher_scope_handoff_required'),
+      ),
+      '该老师仍负责未关闭学情或待执行行动，请先完成对应交接，再变更任课关系。',
+    );
+  });
+
+  test('maps missing scope for student setup', () {
+    expect(
+      organizationStudentSetupErrorMessage(
+        const AuthException('teacher_subject_scope_required'),
+      ),
+      '所选老师没有该学科的有效教学范围，请先配置教学范围。',
+    );
+  });
+
+  test('maps duplicate student identity errors to actionable guidance', () {
+    expect(
+      organizationStudentSetupErrorMessage(
+        const AuthException('student_code_already_exists'),
+      ),
+      '这个学生编号已被本机构其他学生使用，请核对后修改。',
+    );
+    expect(
+      organizationStudentSetupErrorMessage(
+        const AuthException('possible_duplicate_student'),
+      ),
+      '已存在姓名、年级、班级和校区相同的学生；请先核对，确为不同学生时填写不同学生编号。',
+    );
+    expect(
+      organizationStudentLifecycleErrorMessage(
+        const AuthException('student_code_already_exists'),
+      ),
+      '这个学生编号已被本机构其他学生使用，请核对后修改。',
+    );
+  });
+
   test('parses teacher subject scope history and command results', () {
     final scope = OrganizationTeacherSubjectScope.fromJson({
       'scope_id': 'scope-1',

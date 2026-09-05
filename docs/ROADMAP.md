@@ -21,7 +21,7 @@
 
 ## 0A. GitHub / ChatGPT 云端底座
 
-- [x] GitHub repository 已改为 Private
+- [x] GitHub repository 已公开（开源）
 - [ ] 创建 ChatGPT Project：`Xueqing｜学情闭环开发`
 - [ ] 使用兼容 Work 的 memory 配置
 - [x] GitHub 是代码事实源的规则已写入 AGENTS / docs
@@ -419,8 +419,7 @@ new
 
 - [ ] 本科详细权限
 - [ ] 跨学科有限共享
-- [ ] advisor 综合视角
-- [ ] subject_lead
+- [ ] 管理员必要治理视角（不绕过教学事实权限）
 - [ ] audit_logs
 - [ ] live-session helper 性能 / 安全复审
 - [ ] Storage RLS / signed URL 审计

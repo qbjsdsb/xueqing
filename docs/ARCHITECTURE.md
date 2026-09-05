@@ -95,6 +95,12 @@ V1 不存在以 Lesson participant 替代 Student Teacher Assignment 的授权�
 
 不开放 public self-register；credential 不存 DB/log/GitHub。
 
+接受机构邀请必须在同一事务中锁定并确认目标机构仍为 active；机构已归档时失败关闭，不能创建应用身份、成员关系或角色。
+
+任课交接同样不静默改写教学历史：如果源老师仍拥有未关闭 Learning Case 或待执行 Action，交接命令必须失败关闭，先完成显式 Case/Action 责任处理。
+
+机构归档后，Data API 对该机构的成员、角色、教学范围、机构学科和教学数据统一失败关闭；只保留当前用户自身应用身份的最小读取，用于显示账号状态。
+
 物理 Auth user ID/link strategy留 Phase 0B.0 P0-A。
 
 ## 6. Flutter layer
@@ -165,6 +171,8 @@ Supabase 没有大陆 region；CloudBase 上海是候选；这不代表后者自
 
 ### Data API
 适合授权读取、简单 append、Draft。**Quick Capture 即使是单 insert，也必须由 RLS/command policy执行完整 Teaching Fact Gate。**
+
+集合读取必须使用稳定排序并分页面拉取，不能依赖 PostgREST/Supabase 的单次默认行数上限。当前客户端每页 500 行，每页返回后重新确认登录账号未变化；服务端列表的最终排序字段必须包含唯一 ID，避免并列值跨页时重复或遗漏。
 
 ### DB Function / single DB transaction
 适合：

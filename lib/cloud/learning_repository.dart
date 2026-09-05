@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'paged_rows.dart';
+
 enum LearningCaseStatus {
   newCase,
   confirmed,
@@ -723,11 +725,13 @@ class SupabaseLearningRepository implements LearningRepository {
     );
     final membershipId = _requiredString(membership['id'], 'membership_id');
     final roleRows = await _rows(
-      _client
+      (from, to) => _client
           .from('membership_roles')
           .select('role')
           .eq('organization_id', organizationId)
-          .eq('membership_id', membershipId),
+          .eq('membership_id', membershipId)
+          .order('role')
+          .range(from, to),
       expectedUserId,
     );
     final roles = <String>[
@@ -739,10 +743,7 @@ class SupabaseLearningRepository implements LearningRepository {
       (role) => role == 'org_owner' || role == 'org_admin',
     );
     final canManageCaseTypes = roles.any(
-      (role) =>
-          role == 'org_owner' ||
-          role == 'org_admin' ||
-          role == 'academic_admin',
+      (role) => role == 'org_owner' || role == 'org_admin',
     );
 
     final organization = await _client
@@ -757,12 +758,14 @@ class SupabaseLearningRepository implements LearningRepository {
     final businessDate = _dateOnlyValue(organization['business_date']);
 
     final caseTypeRows = await _rows(
-      _client
+      (from, to) => _client
           .from('organization_case_types')
           .select('id,display_name,base_case_type,status,sort_order,version')
           .eq('organization_id', organizationId)
           .order('sort_order')
-          .order('created_at'),
+          .order('created_at')
+          .order('id')
+          .range(from, to),
       expectedUserId,
     );
     final caseTypes = <WorkspaceCaseType>[
@@ -789,99 +792,121 @@ class SupabaseLearningRepository implements LearningRepository {
 
     final rows = await Future.wait<List<Map<String, dynamic>>>([
       _rows(
-        _client
+        (from, to) => _client
             .from('organization_subjects')
             .select('id,display_name')
             .eq('organization_id', organizationId)
-            .eq('status', 'active'),
+            .eq('status', 'active')
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('student_subject_profiles')
             .select(
               'id,student_id,organization_subject_id,positioning,strengths, '
               'cadence_note,version',
             )
             .eq('organization_id', organizationId)
-            .eq('status', 'active'),
+            .eq('status', 'active')
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('students')
             .select('id,name,organization_id')
             .eq('organization_id', organizationId)
-            .eq('status', 'active'),
+            .eq('status', 'active')
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('teacher_workspace_student_enrollments')
             .select(
-              'student_id,grade,class_name,campus,starts_on,ends_on,is_current',
+              'id,student_id,grade,class_name,campus,starts_on,ends_on,is_current',
             )
-            .eq('organization_id', organizationId),
+            .eq('organization_id', organizationId)
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('learning_cases')
             .select(
               'id,student_subject_profile_id,case_type,'
               'organization_case_type_id,case_type_label_snapshot,'
               'title,description,priority,status,first_observed_at,version',
             )
-            .eq('organization_id', organizationId),
+            .eq('organization_id', organizationId)
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('case_actions')
             .select(
               'id,learning_case_id,action_type,title,due_at,is_primary,'
               'status,version',
             )
-            .eq('organization_id', organizationId),
+            .eq('organization_id', organizationId)
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('teacher_workspace_action_queue')
             .select('id,due_bucket,business_due_date')
-            .eq('organization_id', organizationId),
+            .eq('organization_id', organizationId)
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('case_evidence')
             .select(
               'id,learning_case_id,source_type,title,observed_at,summary,status',
             )
-            .eq('organization_id', organizationId),
+            .eq('organization_id', organizationId)
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('interventions')
             .select('id,learning_case_id,strategy,notes,occurred_at')
-            .eq('organization_id', organizationId),
+            .eq('organization_id', organizationId)
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('assessments')
             .select(
               'id,learning_case_id,result,evidence_summary,notes,assessed_at',
             )
-            .eq('organization_id', organizationId),
+            .eq('organization_id', organizationId)
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
       _rows(
-        _client
+        (from, to) => _client
             .from('case_events')
             .select('id,learning_case_id,event_type,occurred_at,metadata')
-            .eq('organization_id', organizationId),
+            .eq('organization_id', organizationId)
+            .order('id')
+            .range(from, to),
         expectedUserId,
       ),
     ]);
@@ -1235,15 +1260,13 @@ class SupabaseLearningRepository implements LearningRepository {
   }
 
   Future<List<Map<String, dynamic>>> _rows(
-    dynamic query,
+    PagedRowLoader loadPage,
     String expectedUserId,
-  ) async {
-    final response = await query;
-    _assertSameSession(expectedUserId);
-    return (response as List)
-        .map((row) => Map<String, dynamic>.from(row as Map))
-        .toList(growable: false);
-  }
+  ) => collectPagedRows(
+    loadPage: loadPage,
+    assertSession: () => _assertSameSession(expectedUserId),
+    invalidResponseMessage: 'Teacher workspace returned an invalid list.',
+  );
 
   WorkspaceCase _buildCase({
     required String profileId,

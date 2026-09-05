@@ -531,6 +531,35 @@ begin
       message = 'teacher_assignment_already_active';
   end if;
 
+
+  -- Ending the assignment would otherwise leave open Case ownership or
+  -- pending Action responsibility pointing at a teacher who is no longer
+  -- legally assigned to this student. Do not silently rewrite teaching
+  -- history; require an explicit Case/Action handoff first.
+  if exists (
+    select 1
+    from public.learning_cases as learning_case
+    where learning_case.organization_id = v_organization_id
+      and learning_case.student_subject_profile_id = target_profile.id
+      and learning_case.owner_membership_id = source_membership_id
+      and learning_case.status <> 'closed'
+  )
+  or exists (
+    select 1
+    from public.case_actions as action
+    join public.learning_cases as learning_case
+      on learning_case.id = action.learning_case_id
+     and learning_case.organization_id = action.organization_id
+    where action.organization_id = v_organization_id
+      and learning_case.student_subject_profile_id = target_profile.id
+      and action.assigned_membership_id = source_membership_id
+      and action.status = 'pending'
+  ) then
+    raise exception using
+      errcode = 'P0001',
+      message = 'teacher_scope_handoff_required';
+  end if;
+
   update public.student_teacher_assignments
   set status = 'ended',
       active_to = greatest(target_assignment.active_from, v_business_date),

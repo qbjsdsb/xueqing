@@ -60,7 +60,7 @@ A provider switch retires the old link and activates the new link in one control
 - timestamps / onboarding expiry
 
 ### `membership_roles`
-V1 roles：org_admin / academic_admin / subject_lead / teacher / student_advisor。
+试点角色仅为：org_owner / org_admin / teacher。
 
 ### `membership_subject_scopes`
 - `id`
@@ -80,14 +80,14 @@ Teaching scope 只代表可承担该科学科教学关系，不授予全部学�
 ### `students`
 - `id`
 - `organization_id`
-- `student_code` optional
+- `student_code` optional；非空时在机构内忽略大小写唯一
 - `display_name`
 - `status`: active / inactive / archived / merged
 - `merged_into_student_id` only merged
 - **`version`**
 - timestamps / archived_at
 
-姓名不是硬唯一。
+姓名不是硬唯一。未填写编号的新学生若姓名、年级、班级、校区均与现有档案一致，创建命令应先拒绝明显重复；确为同名学生时使用不同学生编号区分，不自动合并历史。
 
 ### Student lifecycle
 
@@ -157,7 +157,7 @@ inactive/archived：
 Committed active assignment 必须：active membership + teacher capability + active teaching scope + Profile active。
 
 ### `student_staff_assignments`
-Advisor/homeroom/coordinator 等综合职责；不伪装学科教师。
+未来如增加综合协调关系，也不能伪装成学科教师或绕过 Teaching Fact Gate。
 
 ---
 

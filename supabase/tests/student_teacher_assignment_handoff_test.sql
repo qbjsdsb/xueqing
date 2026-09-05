@@ -1,6 +1,6 @@
 begin;
 
-select plan(43);
+select plan(52);
 
 create temp table assignment_handoff_test_state (
   source_assignment_id uuid primary key,
@@ -184,6 +184,51 @@ values (
   '2026-01-01'
 );
 
+
+insert into public.learning_cases (
+  id,
+  organization_id,
+  student_subject_profile_id,
+  owner_membership_id,
+  case_type,
+  title,
+  first_observed_at,
+  created_by_app_user_id,
+  created_by_membership_id
+)
+values (
+  '69000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '67000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001',
+  'knowledge',
+  '交接前仍需处理的问题',
+  '2026-09-05T00:00:00Z',
+  '10000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001'
+);
+
+insert into public.case_actions (
+  id,
+  organization_id,
+  learning_case_id,
+  assigned_membership_id,
+  action_type,
+  title,
+  is_primary,
+  status
+)
+values (
+  '6a000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000001',
+  '69000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001',
+  'review',
+  '交接前仍需完成的行动',
+  true,
+  'pending'
+);
+
 set local role authenticated;
 
 select set_config(
@@ -308,8 +353,179 @@ select set_config(
   true
 );
 
+
+select throws_ok(
+  $handoff_case_conflict$
+    select public.transfer_organization_student_teacher_assignment(
+      '85000000-0000-0000-0000-000000000010',
+      '00000000-0000-0000-0000-000000000001',
+      '68000000-0000-0000-0000-000000000001',
+      1,
+      '81000000-0000-0000-0000-000000000001'
+    )
+  $handoff_case_conflict$,
+  'P0001',
+  'teacher_scope_handoff_required',
+  'handoff rejects an open Case and pending Action owned by the source teacher'
+);
+
+reset role;
+
+select is(
+  (
+    select assignment.status
+    from public.student_teacher_assignments as assignment
+    where assignment.id = '68000000-0000-0000-0000-000000000001'
+  ),
+  'active',
+  'blocked handoff leaves the source assignment active'
+);
+
+select is(
+  (
+    select assignment.version
+    from public.student_teacher_assignments as assignment
+    where assignment.id = '68000000-0000-0000-0000-000000000001'
+  ),
+  1,
+  'blocked handoff leaves the source assignment version unchanged'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.student_teacher_assignments as assignment
+    where assignment.student_subject_profile_id =
+      '67000000-0000-0000-0000-000000000001'
+      and assignment.membership_id =
+        '81000000-0000-0000-0000-000000000001'
+      and assignment.status = 'active'
+  ),
+  0,
+  'blocked handoff does not create a replacement assignment'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.operation_receipts
+    where operation_id =
+      '85000000-0000-0000-0000-000000000010'
+  ),
+  0,
+  'blocked handoff does not leave an operation receipt'
+);
+
+delete from public.case_actions
+where id = '6a000000-0000-0000-0000-000000000001';
+
+delete from public.learning_cases
+where id = '69000000-0000-0000-0000-000000000001';
+
+insert into public.learning_cases (
+  id,
+  organization_id,
+  student_subject_profile_id,
+  owner_membership_id,
+  case_type,
+  title,
+  first_observed_at,
+  created_by_app_user_id,
+  created_by_membership_id
+)
+values (
+  '69000000-0000-0000-0000-000000000002',
+  '00000000-0000-0000-0000-000000000001',
+  '67000000-0000-0000-0000-000000000001',
+  '81000000-0000-0000-0000-000000000001',
+  'knowledge',
+  '接收老师仍需执行的行动',
+  '2026-09-05T00:00:00Z',
+  '10000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001'
+);
+
+insert into public.case_actions (
+  id,
+  organization_id,
+  learning_case_id,
+  assigned_membership_id,
+  action_type,
+  title,
+  is_primary,
+  status
+)
+values (
+  '6a000000-0000-0000-0000-000000000002',
+  '00000000-0000-0000-0000-000000000001',
+  '69000000-0000-0000-0000-000000000002',
+  '61000000-0000-0000-0000-000000000001',
+  'review',
+  '接收老师仍需完成的行动',
+  true,
+  'pending'
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $handoff_action_conflict$
+    select public.transfer_organization_student_teacher_assignment(
+      '85000000-0000-0000-0000-000000000011',
+      '00000000-0000-0000-0000-000000000001',
+      '68000000-0000-0000-0000-000000000001',
+      1,
+      '81000000-0000-0000-0000-000000000001'
+    )
+  $handoff_action_conflict$,
+  'P0001',
+  'teacher_scope_handoff_required',
+  'handoff rejects a pending Action assigned to the source teacher'
+);
+
+reset role;
+
+select is(
+  (
+    select assignment.status
+    from public.student_teacher_assignments as assignment
+    where assignment.id = '68000000-0000-0000-0000-000000000001'
+  ),
+  'active',
+  'Action conflict leaves the source assignment active'
+);
+
+select is(
+  (
+    select assignment.version
+    from public.student_teacher_assignments as assignment
+    where assignment.id = '68000000-0000-0000-0000-000000000001'
+  ),
+  1,
+  'Action conflict leaves the source assignment version unchanged'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.operation_receipts
+    where operation_id =
+      '85000000-0000-0000-0000-000000000011'
+  ),
+  0,
+  'Action conflict does not leave an operation receipt'
+);
+
+delete from public.case_actions
+where id = '6a000000-0000-0000-0000-000000000002';
+
+delete from public.learning_cases
+where id = '69000000-0000-0000-0000-000000000002';
+
+set local role authenticated;
+
 select lives_ok(
-  $$
+  $handoff_success$
     select set_config(
       'xueqing.assignment_transfer',
       public.transfer_organization_student_teacher_assignment(
@@ -321,7 +537,7 @@ select lives_ok(
       )::text,
       true
     )
-  $$,
+  $handoff_success$,
   'a manager can transfer a current student teacher assignment'
 );
 

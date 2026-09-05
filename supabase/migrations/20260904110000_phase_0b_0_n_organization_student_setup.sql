@@ -4,8 +4,9 @@
 -- before any production deployment or real student data is introduced.
 --
 -- The command deliberately creates only the minimum pilot slice:
--- student root, enrollment, subject profile, selected teacher subject scope,
--- and a lead teaching assignment. Every write is manager-gated and uses the
+-- student root, enrollment, subject profile, and a lead teaching assignment.
+-- The selected teacher must already have an effective teaching scope. Every
+-- write is manager-gated and uses the
 -- existing operation receipt protocol for exactly-once retries.
 
 alter table public.operation_receipts
@@ -58,6 +59,8 @@ set search_path = ''
 as $function$
 declare
   app_user_id uuid;
+  organization_time_zone text;
+  v_business_date date;
 begin
   app_user_id := (select private.current_app_user_id_v2());
   if app_user_id is null then
@@ -72,6 +75,20 @@ begin
       errcode = 'P0001',
       message = 'organization_manager_required';
   end if;
+
+  select organization.time_zone
+  into organization_time_zone
+  from public.organizations as organization
+  where organization.id = p_organization_id
+    and organization.status = 'active';
+
+  if not found then
+    raise exception using
+      errcode = 'P0001',
+      message = 'organization_not_found';
+  end if;
+
+  v_business_date := (now() at time zone organization_time_zone)::date;
 
   return (
     select jsonb_build_object(
@@ -105,7 +122,26 @@ begin
                 nullif(auth_user.email, ''),
                 '未命名老师'
               ),
-              'email', coalesce(auth_user.email, '')
+              'email', coalesce(auth_user.email, ''),
+              'organization_subject_ids', coalesce(
+                (
+                  select jsonb_agg(
+                    scope.organization_subject_id
+                    order by scope.organization_subject_id
+                  )
+                  from public.membership_subject_scopes as scope
+                  where scope.organization_id = membership.organization_id
+                    and scope.membership_id = membership.id
+                    and scope.scope_kind = 'teaching'
+                    and scope.status = 'active'
+                    and scope.active_from <= v_business_date
+                    and (
+                      scope.active_to is null
+                      or scope.active_to >= v_business_date
+                    )
+                ),
+                '[]'::jsonb
+              )
             )
             order by coalesce(
               nullif(btrim(app_user.display_name), ''),
@@ -318,6 +354,27 @@ begin
     return existing_result;
   end if;
 
+  select scope.id
+  into v_scope_id
+  from public.membership_subject_scopes as scope
+  where scope.organization_id = v_organization_id
+    and scope.membership_id = v_teacher_membership_id
+    and scope.organization_subject_id = v_subject_id
+    and scope.scope_kind = 'teaching'
+    and scope.status = 'active'
+    and scope.active_from <= v_starts_on
+    and (
+      scope.active_to is null
+      or scope.active_to >= v_starts_on
+    )
+  for update;
+
+  if v_scope_id is null then
+    raise exception using
+      errcode = 'P0001',
+      message = 'teacher_subject_scope_required';
+  end if;
+
   student_id := gen_random_uuid();
   enrollment_id := gen_random_uuid();
   profile_id := gen_random_uuid();
@@ -377,46 +434,6 @@ begin
     v_strengths,
     v_cadence_note
   );
-
-  select scope.id
-  into v_scope_id
-  from public.membership_subject_scopes as scope
-  where scope.organization_id = v_organization_id
-    and scope.membership_id = v_teacher_membership_id
-    and scope.organization_subject_id = v_subject_id
-    and scope.scope_kind = 'teaching'
-    and scope.status = 'active'
-  for update;
-
-  if v_scope_id is null then
-    v_scope_id := gen_random_uuid();
-    insert into public.membership_subject_scopes (
-      id,
-      organization_id,
-      membership_id,
-      organization_subject_id,
-      scope_kind,
-      status,
-      active_from
-    )
-    values (
-      v_scope_id,
-      v_organization_id,
-      v_teacher_membership_id,
-      v_subject_id,
-      'teaching',
-      'active',
-      v_starts_on
-    );
-  else
-    update public.membership_subject_scopes
-    set active_from = least(active_from, v_starts_on),
-        active_to = case
-          when active_to is null or active_to >= v_starts_on then active_to
-          else null
-        end
-    where id = v_scope_id;
-  end if;
 
   insert into public.student_teacher_assignments (
     id,

@@ -276,6 +276,122 @@ TeacherWorkspace _fixtureWorkspace({
   );
 }
 
+WorkspaceStudent _studentFixture({
+  required String id,
+  required String name,
+  DateTime? recentActivityAt,
+  DateTime? actionDueAt,
+  WorkspaceActionBucket actionBucket = WorkspaceActionBucket.overdue,
+  String? actionTitle,
+  List<WorkspaceCase>? cases,
+}) {
+  final learningCase = actionDueAt == null
+      ? null
+      : WorkspaceCase(
+          id: 'case-$id',
+          profileId: 'profile-$id',
+          title: '$name 的学习问题',
+          type: LearningCaseType.knowledge,
+          status: LearningCaseStatus.confirmed,
+          priority: 'high',
+          description: null,
+          firstObservedAt: DateTime(2026, 9, 1),
+          version: 1,
+          evidence: const <WorkspaceEvidence>[],
+          interventions: const <WorkspaceIntervention>[],
+          assessments: const <WorkspaceAssessment>[],
+          actions: [
+            WorkspaceAction(
+              id: 'action-$id',
+              caseId: 'case-$id',
+              title: actionTitle ?? '$name 的下一步',
+              actionType: 'practice',
+              status: WorkspaceActionStatus.pending,
+              isPrimary: true,
+              bucket: actionBucket,
+              version: 1,
+              dueAt: actionDueAt,
+              businessDueDate: actionDueAt,
+            ),
+          ],
+          timeline: const <WorkspaceTimelineEvent>[],
+        );
+  return WorkspaceStudent(
+    id: 'student-$id',
+    profileId: 'profile-$id',
+    profileVersion: 1,
+    name: name,
+    grade: '初二',
+    subject: '数学',
+    context: '课堂学习',
+    positioning: null,
+    strengths: null,
+    cadenceNote: null,
+    cases: cases ?? (learningCase == null ? const [] : [learningCase]),
+    recentFacts: recentActivityAt == null
+        ? const []
+        : [
+            WorkspaceTimelineEvent(
+              id: 'event-$id',
+              occurredAt: recentActivityAt,
+              typeLabel: '课堂证据',
+              text: '$name 的课堂记录',
+            ),
+          ],
+  );
+}
+
+WorkspaceCase _caseFixture({
+  required String id,
+  required String title,
+  required LearningCaseStatus status,
+  required WorkspaceActionBucket actionBucket,
+  required DateTime? actionDueAt,
+  String priority = 'normal',
+}) {
+  return WorkspaceCase(
+    id: 'case-$id',
+    profileId: 'profile-detail',
+    title: title,
+    type: LearningCaseType.knowledge,
+    status: status,
+    priority: priority,
+    description: null,
+    firstObservedAt: DateTime(2026, 8, 1),
+    version: 1,
+    evidence: const <WorkspaceEvidence>[],
+    interventions: const <WorkspaceIntervention>[],
+    assessments: const <WorkspaceAssessment>[],
+    actions: [
+      WorkspaceAction(
+        id: 'action-$id',
+        caseId: 'case-$id',
+        title: '$title 的下一步',
+        actionType: 'practice',
+        status: WorkspaceActionStatus.pending,
+        isPrimary: true,
+        bucket: actionBucket,
+        version: 1,
+        dueAt: actionDueAt,
+        businessDueDate: actionDueAt,
+      ),
+    ],
+    timeline: const <WorkspaceTimelineEvent>[],
+  );
+}
+
+TeacherWorkspace _workspaceWithStudents(List<WorkspaceStudent> students) {
+  return TeacherWorkspace(
+    viewerName: '王老师',
+    organizationName: '虚构机构',
+    organizationTimeZone: 'Asia/Shanghai',
+    hasTeachingAccess: true,
+    students: students,
+    loadedAt: DateTime(2026, 9, 5),
+    businessDate: DateTime(2026, 9, 5),
+  );
+}
+
 Future<void> _pumpWorkspace(
   WidgetTester tester,
   _FakeLearningRepository repository,
@@ -356,10 +472,137 @@ void main() {
     expect(find.textContaining('9 月 3 日'), findsNothing);
   });
 
+  testWidgets('orders overdue student groups by their earliest action', (
+    tester,
+  ) async {
+    final laterAction = _studentFixture(
+      id: 'later',
+      name: '陈同学',
+      actionDueAt: DateTime(2026, 9, 4),
+      actionTitle: '较晚逾期行动',
+    );
+    final earlierAction = _studentFixture(
+      id: 'earlier',
+      name: '周同学',
+      actionDueAt: DateTime(2026, 9, 2),
+      actionTitle: '更早逾期行动',
+    );
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents([laterAction, earlierAction]),
+    );
+
+    await _pumpWorkspace(tester, repository);
+
+    expect(
+      tester.getTopLeft(find.text('更早逾期行动')).dy,
+      lessThan(tester.getTopLeft(find.text('较晚逾期行动')).dy),
+    );
+  });
+
+  testWidgets('shows students with newer activity first in Recent Students', (
+    tester,
+  ) async {
+    final olderStudent = _studentFixture(
+      id: 'older',
+      name: '安同学',
+      recentActivityAt: DateTime(2026, 9, 2),
+    );
+    final newerStudent = _studentFixture(
+      id: 'newer',
+      name: '周同学',
+      recentActivityAt: DateTime(2026, 9, 4),
+    );
+    final studentWithoutActivity = _studentFixture(
+      id: 'without-activity',
+      name: '白同学',
+    );
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents([
+        studentWithoutActivity,
+        olderStudent,
+        newerStudent,
+      ]),
+    );
+
+    await _pumpWorkspace(tester, repository);
+
+    expect(
+      tester.getTopLeft(find.text('周同学')).dy,
+      lessThan(tester.getTopLeft(find.text('安同学')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('安同学')).dy,
+      lessThan(tester.getTopLeft(find.text('白同学')).dy),
+    );
+  });
+
+  testWidgets('keeps the three most actionable Cases in the student summary', (
+    tester,
+  ) async {
+    final student = _studentFixture(
+      id: 'detail',
+      name: '许同学',
+      cases: [
+        _caseFixture(
+          id: 'future',
+          title: '未来再处理的问题',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.future,
+          actionDueAt: DateTime(2026, 9, 10),
+          priority: 'high',
+        ),
+        _caseFixture(
+          id: 'undated',
+          title: '尚未安排的问题',
+          status: LearningCaseStatus.intervening,
+          actionBucket: WorkspaceActionBucket.undated,
+          actionDueAt: null,
+        ),
+        _caseFixture(
+          id: 'verification',
+          title: '等待验证的问题',
+          status: LearningCaseStatus.pendingVerification,
+          actionBucket: WorkspaceActionBucket.future,
+          actionDueAt: DateTime(2026, 9, 12),
+        ),
+        _caseFixture(
+          id: 'today',
+          title: '今天要处理的问题',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.today,
+          actionDueAt: DateTime(2026, 9, 5),
+        ),
+        _caseFixture(
+          id: 'overdue',
+          title: '已经逾期的问题',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.overdue,
+          actionDueAt: DateTime(2026, 9, 2),
+          priority: 'low',
+        ),
+      ],
+    );
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents([student]),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('许同学');
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+
+    expect(find.text('已经逾期的问题'), findsNWidgets(2));
+    expect(find.text('今天要处理的问题'), findsNWidgets(2));
+    expect(find.text('等待验证的问题'), findsNWidgets(3));
+    expect(find.text('尚未安排的问题'), findsOneWidget);
+    expect(find.text('未来再处理的问题'), findsOneWidget);
+  });
+
   testWidgets('explains schema drift and lets the user retry', (tester) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace())
       ..loadError = StateError(
-        '404 PGRST205 relation organization_case_types does not exist',
+        '404 PGRST205 relation teacher_workspace_context does not exist',
       );
     await _pumpWorkspace(tester, repository);
 

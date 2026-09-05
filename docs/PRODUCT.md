@@ -19,9 +19,10 @@ Xueqing 不做七张电子表，而把发现—整改—验证—再整改—协
 ## 2. 用户
 
 - 任课教师：Today、课前/课中/课后、Case/Action；
-- Advisor/班主任：跨学科必要摘要、协调、家校；
-- Subject Lead：本科专业 review/治理；
-- Academic/Org Admin：成员、scope、assignment、handoff、merge、完整性治理。
+- 管理员：老师、学生、scope、assignment、handoff 和完整性治理；
+- 负责人：机构与管理员治理，并拥有管理员能力。
+
+当前试点不增加“学管、学科负责人、教务管理员”等独立系统角色；现实分工先通过三种角色、教学范围和学生分配表达。
 
 不以填写条数/沟通次数做核心 KPI。
 
@@ -79,7 +80,7 @@ live session
 + operation permission
 ```
 
-Advisor/Subject Lead/Admin 的管理身份本身不能 bypass。
+负责人/管理员的管理身份本身不能绕过教师教学事实权限。
 
 ## 5. Learning Case
 
@@ -105,7 +106,7 @@ unresolved Case 保留真实 status；tracking suspended；可以无 current own
 
 但“快”不等于绕过权限：云端 new Case 必须完整 Teaching Fact Gate。
 
-- Advisor-only 不创建 teaching Case；其非专业记录走 Parent Communication/Observation；
+- Admin-only 不创建 teaching Case；非教学专业记录未来走 Parent Communication/Observation；
 - inactive/archived Profile 拒绝；
 - 离线只保留 encrypted draft，恢复同步时重验 Gate。
 
