@@ -45,27 +45,30 @@ select throws_ok(
   'student advisor can no longer be assigned'
 );
 
-select unlike(
-  pg_get_functiondef(
-    'public.create_organization_invitation(uuid,text,text)'::regprocedure
-  ),
-  '%academic_admin%',
+select ok(
+  position(
+    'academic_admin' in pg_get_functiondef(
+      'public.create_organization_invitation(uuid,text,text)'::regprocedure
+    )
+  ) = 0,
   'invitation creation exposes no academic admin path'
 );
 
-select unlike(
-  pg_get_functiondef(
-    'private.can_manage_organization_v2(uuid)'::regprocedure
-  ),
-  '%academic_admin%',
+select ok(
+  position(
+    'academic_admin' in pg_get_functiondef(
+      'private.can_manage_organization_v2(uuid)'::regprocedure
+    )
+  ) = 0,
   'organization management uses the same three-role contract'
 );
 
-select unlike(
-  pg_get_functiondef(
-    'private.can_manage_case_types_v2(uuid)'::regprocedure
-  ),
-  '%academic_admin%',
+select ok(
+  position(
+    'academic_admin' in pg_get_functiondef(
+      'private.can_manage_case_types_v2(uuid)'::regprocedure
+    )
+  ) = 0,
   'Case type management uses the same three-role contract'
 );
 
