@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'paged_rows.dart';
+
 enum OrganizationInvitationRole { owner, admin, teacher }
 
 extension OrganizationInvitationRolePresentation on OrganizationInvitationRole {
@@ -1076,9 +1078,10 @@ class SupabaseOrganizationManagementRepository
   Future<List<OrganizationMember>> listMembers({
     required String organizationId,
   }) async {
-    final response = await _call('list_organization_members', <String, dynamic>{
-      'p_organization_id': organizationId,
-    });
+    final response = await _callRows(
+      'list_organization_members',
+      <String, dynamic>{'p_organization_id': organizationId},
+    );
     return _mapList(response, OrganizationMember.fromJson);
   }
 
@@ -1114,7 +1117,7 @@ class SupabaseOrganizationManagementRepository
   Future<List<OrganizationInvitation>> listInvitations({
     required String organizationId,
   }) async {
-    final response = await _call(
+    final response = await _callRows(
       'list_organization_invitations',
       <String, dynamic>{'p_organization_id': organizationId},
     );
@@ -1125,7 +1128,7 @@ class SupabaseOrganizationManagementRepository
   Future<List<OrganizationTeacherSubjectScope>> listTeacherSubjectScopes({
     required String organizationId,
   }) async {
-    final response = await _call(
+    final response = await _callRows(
       'list_organization_teacher_subject_scopes',
       <String, dynamic>{'p_organization_id': organizationId},
     );
@@ -1180,7 +1183,7 @@ class SupabaseOrganizationManagementRepository
   @override
   Future<List<OrganizationStudentTeacherAssignment>>
   listStudentTeacherAssignments({required String organizationId}) async {
-    final response = await _call(
+    final response = await _callRows(
       'list_organization_student_teacher_assignments',
       <String, dynamic>{'p_organization_id': organizationId},
     );
@@ -1224,7 +1227,7 @@ class SupabaseOrganizationManagementRepository
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   }) async {
-    final response = await _call(
+    final response = await _callRows(
       'list_organization_students',
       <String, dynamic>{'p_organization_id': organizationId},
     );
@@ -1400,6 +1403,29 @@ class SupabaseOrganizationManagementRepository
       );
     }
     return response;
+  }
+
+  Future<List<Map<String, dynamic>>> _callRows(
+    String functionName,
+    Map<String, dynamic> params,
+  ) async {
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) {
+      throw const AuthException('No active session.');
+    }
+    return collectPagedRows(
+      loadPage: (from, to) =>
+        _client.rpc(functionName, params: params).range(from, to),
+      assertSession: () {
+        if (_client.auth.currentUser?.id != authUser.id) {
+          throw const AuthException(
+            'The active session changed while running organization management.',
+          );
+        }
+      },
+      invalidResponseMessage:
+        'Organization management returned an invalid list.',
+    );
   }
 
   List<T> _mapList<T>(

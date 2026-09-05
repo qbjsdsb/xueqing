@@ -166,6 +166,8 @@ Supabase 没有大陆 region；CloudBase 上海是候选；这不代表后者自
 ### Data API
 适合授权读取、简单 append、Draft。**Quick Capture 即使是单 insert，也必须由 RLS/command policy执行完整 Teaching Fact Gate。**
 
+集合读取必须使用稳定排序并分页面拉取，不能依赖 PostgREST/Supabase 的单次默认行数上限。当前客户端每页 500 行，每页返回后重新确认登录账号未变化；服务端列表的最终排序字段必须包含唯一 ID，避免并列值跨页时重复或遗漏。
+
 ### DB Function / single DB transaction
 适合：
 - confirm/transition/reopen Case；
