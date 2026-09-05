@@ -276,6 +276,82 @@ TeacherWorkspace _fixtureWorkspace({
   );
 }
 
+WorkspaceStudent _studentFixture({
+  required String id,
+  required String name,
+  DateTime? recentActivityAt,
+  DateTime? actionDueAt,
+  WorkspaceActionBucket actionBucket = WorkspaceActionBucket.overdue,
+  String? actionTitle,
+}) {
+  final learningCase = actionDueAt == null
+      ? null
+      : WorkspaceCase(
+          id: 'case-$id',
+          profileId: 'profile-$id',
+          title: '$name 的学习问题',
+          type: LearningCaseType.knowledge,
+          status: LearningCaseStatus.confirmed,
+          priority: 'high',
+          description: null,
+          firstObservedAt: DateTime(2026, 9, 1),
+          version: 1,
+          evidence: const <WorkspaceEvidence>[],
+          interventions: const <WorkspaceIntervention>[],
+          assessments: const <WorkspaceAssessment>[],
+          actions: [
+            WorkspaceAction(
+              id: 'action-$id',
+              caseId: 'case-$id',
+              title: actionTitle ?? '$name 的下一步',
+              actionType: 'practice',
+              status: WorkspaceActionStatus.pending,
+              isPrimary: true,
+              bucket: actionBucket,
+              version: 1,
+              dueAt: actionDueAt,
+              businessDueDate: actionDueAt,
+            ),
+          ],
+          timeline: const <WorkspaceTimelineEvent>[],
+        );
+  return WorkspaceStudent(
+    id: 'student-$id',
+    profileId: 'profile-$id',
+    profileVersion: 1,
+    name: name,
+    grade: '初二',
+    subject: '数学',
+    context: '课堂学习',
+    positioning: null,
+    strengths: null,
+    cadenceNote: null,
+    cases: learningCase == null ? const [] : [learningCase],
+    recentFacts: recentActivityAt == null
+        ? const []
+        : [
+            WorkspaceTimelineEvent(
+              id: 'event-$id',
+              occurredAt: recentActivityAt,
+              typeLabel: '课堂证据',
+              text: '$name 的课堂记录',
+            ),
+          ],
+  );
+}
+
+TeacherWorkspace _workspaceWithStudents(List<WorkspaceStudent> students) {
+  return TeacherWorkspace(
+    viewerName: '王老师',
+    organizationName: '虚构机构',
+    organizationTimeZone: 'Asia/Shanghai',
+    hasTeachingAccess: true,
+    students: students,
+    loadedAt: DateTime(2026, 9, 5),
+    businessDate: DateTime(2026, 9, 5),
+  );
+}
+
 Future<void> _pumpWorkspace(
   WidgetTester tester,
   _FakeLearningRepository repository,
@@ -354,6 +430,70 @@ void main() {
 
     expect(find.textContaining('9 月 4 日'), findsOneWidget);
     expect(find.textContaining('9 月 3 日'), findsNothing);
+  });
+
+  testWidgets('orders overdue student groups by their earliest action', (
+    tester,
+  ) async {
+    final laterAction = _studentFixture(
+      id: 'later',
+      name: '陈同学',
+      actionDueAt: DateTime(2026, 9, 4),
+      actionTitle: '较晚逾期行动',
+    );
+    final earlierAction = _studentFixture(
+      id: 'earlier',
+      name: '周同学',
+      actionDueAt: DateTime(2026, 9, 2),
+      actionTitle: '更早逾期行动',
+    );
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents([laterAction, earlierAction]),
+    );
+
+    await _pumpWorkspace(tester, repository);
+
+    expect(
+      tester.getTopLeft(find.text('更早逾期行动')).dy,
+      lessThan(tester.getTopLeft(find.text('较晚逾期行动')).dy),
+    );
+  });
+
+  testWidgets('shows students with newer activity first in Recent Students', (
+    tester,
+  ) async {
+    final olderStudent = _studentFixture(
+      id: 'older',
+      name: '安同学',
+      recentActivityAt: DateTime(2026, 9, 2),
+    );
+    final newerStudent = _studentFixture(
+      id: 'newer',
+      name: '周同学',
+      recentActivityAt: DateTime(2026, 9, 4),
+    );
+    final studentWithoutActivity = _studentFixture(
+      id: 'without-activity',
+      name: '白同学',
+    );
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents([
+        studentWithoutActivity,
+        olderStudent,
+        newerStudent,
+      ]),
+    );
+
+    await _pumpWorkspace(tester, repository);
+
+    expect(
+      tester.getTopLeft(find.text('周同学')).dy,
+      lessThan(tester.getTopLeft(find.text('安同学')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('安同学')).dy,
+      lessThan(tester.getTopLeft(find.text('白同学')).dy),
+    );
   });
 
   testWidgets('explains schema drift and lets the user retry', (tester) async {

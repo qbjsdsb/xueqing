@@ -925,6 +925,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final today = _actionsInBucket(actions, WorkspaceActionBucket.today);
     final future = _actionsInBucket(actions, WorkspaceActionBucket.future);
     final undated = _actionsInBucket(actions, WorkspaceActionBucket.undated);
+    final recentStudents = _studentsByRecentActivity(workspace.students);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1040,7 +1041,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           ),
           child: Column(
             children: [
-              for (final student in workspace.students.take(5))
+              for (final student in recentStudents.take(5))
                 _WorkspaceStudentRow(
                   student: student,
                   onOpen: () => _openStudent(student),
@@ -1056,7 +1057,84 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     Iterable<WorkspaceActionWithContext> actions,
     WorkspaceActionBucket bucket,
   ) {
-    return actions.where((item) => item.action.bucket == bucket).toList();
+    return actions.where((item) => item.action.bucket == bucket).toList()
+      ..sort(_compareActionsForToday);
+  }
+
+  int _compareActionsForToday(
+    WorkspaceActionWithContext left,
+    WorkspaceActionWithContext right,
+  ) {
+    final leftDueAt = left.action.businessDueDate ?? left.action.dueAt;
+    final rightDueAt = right.action.businessDueDate ?? right.action.dueAt;
+    final dueAtComparison = switch ((leftDueAt, rightDueAt)) {
+      (final DateTime leftDate, final DateTime rightDate) => leftDate.compareTo(
+        rightDate,
+      ),
+      (null, final DateTime _) => 1,
+      (final DateTime _, null) => -1,
+      (null, null) => 0,
+    };
+    if (dueAtComparison != 0) {
+      return dueAtComparison;
+    }
+
+    final studentComparison = left.student.name.compareTo(right.student.name);
+    if (studentComparison != 0) {
+      return studentComparison;
+    }
+    final subjectComparison = left.student.subject.compareTo(
+      right.student.subject,
+    );
+    if (subjectComparison != 0) {
+      return subjectComparison;
+    }
+    final caseComparison = left.learningCase.title.compareTo(
+      right.learningCase.title,
+    );
+    if (caseComparison != 0) {
+      return caseComparison;
+    }
+    return left.action.id.compareTo(right.action.id);
+  }
+
+  List<WorkspaceStudent> _studentsByRecentActivity(
+    Iterable<WorkspaceStudent> students,
+  ) {
+    return students.toList()..sort((left, right) {
+      final leftOccurredAt = _latestActivityAt(left);
+      final rightOccurredAt = _latestActivityAt(right);
+      final activityComparison = switch ((leftOccurredAt, rightOccurredAt)) {
+        (final DateTime leftDate, final DateTime rightDate) =>
+          rightDate.compareTo(leftDate),
+        (null, final DateTime _) => 1,
+        (final DateTime _, null) => -1,
+        (null, null) => 0,
+      };
+      if (activityComparison != 0) {
+        return activityComparison;
+      }
+
+      final nameComparison = left.name.compareTo(right.name);
+      if (nameComparison != 0) {
+        return nameComparison;
+      }
+      final subjectComparison = left.subject.compareTo(right.subject);
+      if (subjectComparison != 0) {
+        return subjectComparison;
+      }
+      return left.profileId.compareTo(right.profileId);
+    });
+  }
+
+  DateTime? _latestActivityAt(WorkspaceStudent student) {
+    DateTime? latest;
+    for (final fact in student.recentFacts) {
+      if (latest == null || fact.occurredAt.isAfter(latest)) {
+        latest = fact.occurredAt;
+      }
+    }
+    return latest;
   }
 
   List<Widget> _buildActionRows(
