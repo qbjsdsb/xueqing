@@ -140,6 +140,18 @@ jobs:
             }
           }
 
+      - name: Build Windows updater helper
+        shell: pwsh
+        working-directory: tools/windows_updater
+        run: |
+          dart pub get
+          dart test
+          $updaterPath = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release/xueqing_updater.exe"
+          dart compile exe bin/xueqing_updater.dart -o $updaterPath
+          if (-not (Test-Path $updaterPath)) {
+            throw "Windows updater helper was not produced."
+          }
+
       - name: Upload Windows build for release packaging
         uses: actions/upload-artifact@v4
         with:
