@@ -20,6 +20,7 @@ void main() {
       publishableKey: 'fictional-production-key',
       allowedHosts: ['example.supabase.co'],
     ),
+    showDeveloperTools: true,
   );
 
   testWidgets('shows a loading state before configuration is ready', (
