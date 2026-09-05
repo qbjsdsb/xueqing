@@ -73,6 +73,10 @@ jobs:
             echo "release_tag must equal v + app_version without the +build suffix."
             exit 1
           fi
+          if (( 10#$build_number > 2100000000 )); then
+            echo "Android build number must not exceed 2100000000."
+            exit 1
+          fi
           if [[ "$XUEQING_ENV" == "production" && ( -z "$XUEQING_SUPABASE_URL" || -z "$XUEQING_SUPABASE_PUBLISHABLE_KEY" || -z "$XUEQING_SUPABASE_ALLOWED_HOSTS" ) ]]; then
             echo "Production releases require Supabase URL, publishable key, and allowed hosts."
             exit 1

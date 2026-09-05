@@ -321,6 +321,7 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 - `docs/SECURITY_AND_PRIVACY.md`
 - `docs/RISKS_AND_OPERATIONS.md`
 - `docs/DEVELOPMENT_WORKFLOW.md`
+- `docs/RELEASING.md`
 - `docs/REMOTE_DEVELOPMENT_RELEASE_CHECKLIST.md`
 - `docs/ZERO_COST_CLOUD_DEVELOPMENT.md`
 - `docs/DISASTER_RECOVERY.md`
