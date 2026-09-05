@@ -1776,9 +1776,7 @@ class _ManagementHeader extends StatelessWidget {
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .outline,
+                              color: Theme.of(context).colorScheme.outline,
                             ),
                             borderRadius: BorderRadius.circular(AppRadii.small),
                           ),
