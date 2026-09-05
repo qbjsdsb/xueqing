@@ -20,10 +20,7 @@ class UpdateException implements Exception {
 }
 
 class UpdateDownloadedArtifact {
-  const UpdateDownloadedArtifact({
-    required this.artifact,
-    required this.file,
-  });
+  const UpdateDownloadedArtifact({required this.artifact, required this.file});
 
   final UpdateArtifact artifact;
   final File file;
@@ -37,9 +34,9 @@ class UpdateService {
     UpdateManifestLoader? manifestLoader,
     this.channel = 'stable',
     this.requestTimeout = const Duration(seconds: 12),
-  })  : currentVersion = AppVersion.parse(currentVersion),
-        manifestUri = manifestUri ?? defaultManifestUri,
-        _manifestLoader = manifestLoader ?? _loadManifestFromNetwork;
+  }) : currentVersion = AppVersion.parse(currentVersion),
+       manifestUri = manifestUri ?? defaultManifestUri,
+       _manifestLoader = manifestLoader ?? _loadManifestFromNetwork;
 
   static final Uri defaultManifestUri = Uri.parse(
     'https://github.com/qbjsdsb/xueqing/releases/latest/download/'
@@ -61,9 +58,7 @@ class UpdateService {
       if (decoded is! Map) {
         throw const FormatException('更新清单根节点必须是对象。');
       }
-      manifest = UpdateManifest.fromJson(
-        Map<String, Object?>.from(decoded),
-      );
+      manifest = UpdateManifest.fromJson(Map<String, Object?>.from(decoded));
     } on FormatException catch (error) {
       throw UpdateException('更新清单格式无效，已停止本次更新。', cause: error);
     } on Object catch (error) {
@@ -71,9 +66,7 @@ class UpdateService {
     }
 
     if (manifest.channel != channel) {
-      throw UpdateException(
-        '当前更新通道为“$channel”，服务器清单通道为“${manifest.channel}”。',
-      );
+      throw UpdateException('当前更新通道为“$channel”，服务器清单通道为“${manifest.channel}”。');
     }
 
     final comparison = manifest.version.compareTo(currentVersion);
@@ -130,9 +123,7 @@ class UpdateService {
       request.headers.set(HttpHeaders.acceptHeader, '*/*');
       final response = await request.close().timeout(requestTimeout);
       if (response.statusCode != HttpStatus.ok) {
-        throw UpdateException(
-          '下载更新失败（HTTP ${response.statusCode}）。',
-        );
+        throw UpdateException('下载更新失败（HTTP ${response.statusCode}）。');
       }
 
       final digestSink = AccumulatorSink<Digest>();
@@ -211,11 +202,12 @@ class UpdateService {
   }
 
   static String _safeFileName(UpdateArtifact artifact) {
-    final fileName = artifact.fileName ??
-        Uri.parse(artifact.url).pathSegments.lastWhere(
-              (segment) => segment.isNotEmpty,
-              orElse: () => 'xueqing-update.${artifact.format}',
-            );
+    final fileName =
+        artifact.fileName ??
+          Uri.parse(artifact.url).pathSegments.lastWhere(
+            (segment) => segment.isNotEmpty,
+            orElse: () => 'xueqing-update.${artifact.format}',
+          );
     if (fileName.isEmpty ||
         fileName == '.' ||
         fileName == '..' ||

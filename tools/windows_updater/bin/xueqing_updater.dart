@@ -105,10 +105,11 @@ Future<void> _waitForProcessToExit(int processId) async {
 }
 
 Future<bool> _isProcessRunning(int processId) async {
-  final result = await Process.run(
-    'tasklist.exe',
-    <String>['/FI', 'PID eq $processId', '/NH'],
-  );
+  final result = await Process.run('tasklist.exe', <String>[
+    '/FI',
+    'PID eq $processId',
+    '/NH',
+  ]);
   if (result.exitCode != 0) {
     throw StateError('无法查询 Windows 进程状态：${result.stderr}');
   }

@@ -26,9 +26,8 @@ class UpdateInstallException implements Exception {
 }
 
 class PlatformUpdateInstaller implements UpdateInstaller {
-  PlatformUpdateInstaller({
-    MethodChannel? androidChannel,
-  }) : androidChannel =
+  PlatformUpdateInstaller({MethodChannel? androidChannel})
+    : androidChannel =
           androidChannel ?? const MethodChannel(_androidChannelName);
 
   static const _androidChannelName = 'com.xueqing.app/update';
@@ -58,9 +57,7 @@ class PlatformUpdateInstaller implements UpdateInstaller {
       '${installDirectory.path}${Platform.pathSeparator}xueqing_updater.exe',
     );
     if (!await helper.exists()) {
-      throw const UpdateInstallException(
-        '当前安装包缺少更新组件，请重新安装最新完整版本后再试。',
-      );
+      throw const UpdateInstallException('当前安装包缺少更新组件，请重新安装最新完整版本后再试。');
     }
 
     try {
@@ -100,9 +97,7 @@ class PlatformUpdateInstaller implements UpdateInstaller {
         <String, Object?>{'path': update.file.path},
       );
       if (status == 'permission_required') {
-        throw const UpdateInstallException(
-          '系统已打开“允许安装未知应用”设置，请允许本应用后返回重试。',
-        );
+        throw const UpdateInstallException('系统已打开“允许安装未知应用”设置，请允许本应用后返回重试。');
       }
       if (status != 'started') {
         throw UpdateInstallException(
@@ -111,10 +106,7 @@ class PlatformUpdateInstaller implements UpdateInstaller {
       }
       return const UpdateInstallResult(shouldExit: false);
     } on PlatformException catch (error) {
-      throw UpdateInstallException(
-        '系统安装器启动失败，请稍后重试。',
-        cause: error,
-      );
+      throw UpdateInstallException('系统安装器启动失败，请稍后重试。', cause: error);
     }
   }
 }

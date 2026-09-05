@@ -386,14 +386,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         await SystemNavigator.pop();
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已打开系统安装界面，请按提示完成更新。')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已打开系统安装界面，请按提示完成更新。')));
     } on UpdateException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.userMessage)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.userMessage)));
       }
     } on UpdateInstallException catch (error) {
       if (mounted) {
@@ -403,9 +401,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       }
     } on Object {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('更新失败，请稍后重试。')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('更新失败，请稍后重试。')));
       }
     } finally {
       if (mounted) {
@@ -978,10 +975,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         hasTeachingAccess: workspace.hasTeachingAccess,
         showManagement: workspace.canManageOrganization,
         onSignOut: widget.onSignOut,
-        onCheckForUpdates: widget.updateService == null ||
-                widget.updateInstaller == null
-            ? null
-            : () => unawaited(_checkForUpdates()),
+        onCheckForUpdates:
+            widget.updateService == null || widget.updateInstaller == null
+                ? null
+                : () => unawaited(_checkForUpdates()),
         checkingForUpdates: _checkingForUpdates,
         child: ResponsiveLayout(
           builder: (context, sizeClass) => _WorkspaceFrame(

@@ -5,7 +5,8 @@ import 'package:xueqing/update/update_models.dart';
 import 'package:xueqing/update/update_service.dart';
 
 void main() {
-  const hash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const hash =
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
   Map<String, Object?> manifest({
     String version = '0.2.0+2',
@@ -18,11 +19,11 @@ void main() {
       'version': version,
       if (minimumSupported != null) 'minimum_supported': minimumSupported,
       'notes': <String>['提升稳定性', '修复更新流程'],
-      'platforms': platforms ??
+      'platforms':
+          platforms ??
           <String, Object?>{
             'windows': <String, Object?>{
-              'url':
-                  'https://github.com/qbjsdsb/xueqing/releases/download/v0.2.0/xueqing-windows.zip',
+              'url': 'https://github.com/qbjsdsb/xueqing/releases/download/v0.2.0/xueqing-windows.zip',
               'sha256': hash,
               'size_bytes': 42,
               'format': 'zip',
@@ -50,14 +51,15 @@ void main() {
   test('rejects malformed artifact security fields', () {
     expect(
       () => UpdateManifest.fromJson(
-        manifest()..['platforms'] = <String, Object?>{
-          'windows': <String, Object?>{
-            'url': 'http://example.com/update.zip',
-            'sha256': hash,
-            'size_bytes': 42,
-            'format': 'zip',
+        manifest()
+          ..['platforms'] = <String, Object?>{
+            'windows': <String, Object?>{
+              'url': 'http://example.com/update.zip',
+              'sha256': hash,
+              'size_bytes': 42,
+              'format': 'zip',
+            },
           },
-        },
       ),
       throwsA(isA<FormatException>()),
     );
@@ -107,14 +109,10 @@ void main() {
     final service = UpdateService(
       currentVersion: '0.1.0+1',
       platform: UpdatePlatform.windows,
-      manifestLoader: (_) async => jsonEncode(
-        manifest()..['channel'] = 'preview',
-      ),
+      manifestLoader: (_) async =>
+          jsonEncode(manifest()..['channel'] = 'preview'),
     );
 
-    expect(
-      service.checkForUpdate(),
-      throwsA(isA<UpdateException>()),
-    );
+    expect(service.checkForUpdate(), throwsA(isA<UpdateException>()));
   });
 }

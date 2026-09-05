@@ -25,9 +25,7 @@ class UpdateDialog extends StatelessWidget {
       title: Text(title),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
-        child: SingleChildScrollView(
-          child: Text(content),
-        ),
+        child: SingleChildScrollView(child: Text(content)),
       ),
       actions: [
         TextButton(

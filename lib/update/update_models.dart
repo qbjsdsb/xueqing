@@ -112,9 +112,11 @@ class AppVersion implements Comparable<AppVersion> {
     if (prerelease.isNotEmpty && other.prerelease.isEmpty) {
       return -1;
     }
-    for (var index = 0;
-        index < prerelease.length && index < other.prerelease.length;
-        index++) {
+    for (
+      var index = 0;
+      index < prerelease.length && index < other.prerelease.length;
+      index++
+    ) {
       final left = prerelease[index];
       final right = other.prerelease[index];
       final leftNumber = int.tryParse(left);
@@ -135,8 +137,10 @@ class AppVersion implements Comparable<AppVersion> {
         }
       }
     }
-    final prereleaseLengthComparison =
-        _compareIntegers(prerelease.length, other.prerelease.length);
+    final prereleaseLengthComparison = _compareIntegers(
+      prerelease.length,
+      other.prerelease.length,
+    );
     if (prereleaseLengthComparison != 0) {
       return prereleaseLengthComparison;
     }
@@ -185,9 +189,7 @@ class UpdateArtifact {
     final url = urlValue is String ? urlValue.trim() : '';
     final uri = Uri.tryParse(url);
     if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
-      throw FormatException(
-        '${platform.manifestKey} 更新地址必须是 HTTPS URL。',
-      );
+      throw FormatException('${platform.manifestKey} 更新地址必须是 HTTPS URL。');
     }
 
     final hashValue = json['sha256'];
@@ -200,13 +202,13 @@ class UpdateArtifact {
 
     final sizeValue = json['size_bytes'];
     if (sizeValue is! int || sizeValue <= 0) {
-      throw FormatException(
-        '${platform.manifestKey} 更新包 size_bytes 必须是正整数。',
-      );
+      throw FormatException('${platform.manifestKey} 更新包 size_bytes 必须是正整数。');
     }
 
     final formatValue = json['format'];
-    final format = formatValue is String ? formatValue.trim().toLowerCase() : '';
+    final format = formatValue is String
+        ? formatValue.trim().toLowerCase()
+        : '';
     if (format.isEmpty) {
       throw FormatException('${platform.manifestKey} 更新包 format 不能为空。');
     }
@@ -315,9 +317,7 @@ class UpdateManifest {
       version: version,
       minimumSupportedVersion: minimumSupportedVersion,
       notes: UnmodifiableListView<String>(notes),
-      artifacts: UnmodifiableMapView<UpdatePlatform, UpdateArtifact>(
-        artifacts,
-      ),
+      artifacts: UnmodifiableMapView<UpdatePlatform, UpdateArtifact>(artifacts),
     );
   }
 
@@ -336,11 +336,7 @@ class UpdateManifest {
   }
 }
 
-enum UpdateCheckState {
-  upToDate,
-  available,
-  unsupportedPlatform,
-}
+enum UpdateCheckState { upToDate, available, unsupportedPlatform }
 
 class UpdateCheckResult {
   const UpdateCheckResult({
