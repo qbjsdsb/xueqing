@@ -525,7 +525,7 @@ where id = '69000000-0000-0000-0000-000000000002';
 set local role authenticated;
 
 select lives_ok(
-  $
+  $handoff_success$
     select set_config(
       'xueqing.assignment_transfer',
       public.transfer_organization_student_teacher_assignment(
@@ -537,7 +537,7 @@ select lives_ok(
       )::text,
       true
     )
-  $$,
+  $handoff_success$,
   'a manager can transfer a current student teacher assignment'
 );
 
