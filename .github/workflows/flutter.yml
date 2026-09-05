@@ -31,6 +31,9 @@ jobs:
       - name: Verify lockfile is current
         run: git diff --exit-code -- pubspec.lock
 
+      - name: Show update test formatter output
+        run: dart format --output=show test/update/update_service_test.dart
+
       - name: Check Dart formatting
         run: dart format --output=none --set-exit-if-changed .
 
