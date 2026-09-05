@@ -395,9 +395,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       }
     } on UpdateInstallException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.userMessage)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.userMessage)));
       }
     } on Object {
       if (mounted) {
@@ -977,8 +976,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         onSignOut: widget.onSignOut,
         onCheckForUpdates:
             widget.updateService == null || widget.updateInstaller == null
-                ? null
-                : () => unawaited(_checkForUpdates()),
+            ? null
+            : () => unawaited(_checkForUpdates()),
         checkingForUpdates: _checkingForUpdates,
         child: ResponsiveLayout(
           builder: (context, sizeClass) => _WorkspaceFrame(

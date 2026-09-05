@@ -204,10 +204,10 @@ class UpdateService {
   static String _safeFileName(UpdateArtifact artifact) {
     final fileName =
         artifact.fileName ??
-          Uri.parse(artifact.url).pathSegments.lastWhere(
-            (segment) => segment.isNotEmpty,
-            orElse: () => 'xueqing-update.${artifact.format}',
-          );
+        Uri.parse(artifact.url).pathSegments.lastWhere(
+          (segment) => segment.isNotEmpty,
+          orElse: () => 'xueqing-update.${artifact.format}',
+        );
     if (fileName.isEmpty ||
         fileName == '.' ||
         fileName == '..' ||
