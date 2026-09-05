@@ -355,7 +355,7 @@ select set_config(
 
 
 select throws_ok(
-  $
+  $handoff_case_conflict$
     select public.transfer_organization_student_teacher_assignment(
       '85000000-0000-0000-0000-000000000010',
       '00000000-0000-0000-0000-000000000001',
@@ -363,7 +363,7 @@ select throws_ok(
       1,
       '81000000-0000-0000-0000-000000000001'
     )
-  $,
+  $handoff_case_conflict$,
   'P0001',
   'teacher_scope_handoff_required',
   'handoff rejects an open Case and pending Action owned by the source teacher'
@@ -469,7 +469,7 @@ values (
 set local role authenticated;
 
 select throws_ok(
-  $
+  $handoff_action_conflict$
     select public.transfer_organization_student_teacher_assignment(
       '85000000-0000-0000-0000-000000000011',
       '00000000-0000-0000-0000-000000000001',
@@ -477,7 +477,7 @@ select throws_ok(
       1,
       '81000000-0000-0000-0000-000000000001'
     )
-  $,
+  $handoff_action_conflict$,
   'P0001',
   'teacher_scope_handoff_required',
   'handoff rejects a pending Action assigned to the source teacher'
