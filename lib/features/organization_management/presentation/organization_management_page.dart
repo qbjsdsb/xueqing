@@ -762,6 +762,7 @@ class _OrganizationManagementPageState
                     _ManagementMenuAction(
                       icon: Icons.category_outlined,
                       label: '问题类型',
+                      onPressed: widget.onOpenCaseTypes!,
                       button: OutlinedButton.icon(
                         onPressed: _busy ? null : widget.onOpenCaseTypes,
                         icon: const Icon(Icons.category_outlined),
@@ -771,6 +772,7 @@ class _OrganizationManagementPageState
                   _ManagementMenuAction(
                     icon: Icons.rule_outlined,
                     label: '配置教学范围',
+                    onPressed: _addTeacherScope,
                     button: OutlinedButton.icon(
                       onPressed: _busy ? null : _addTeacherScope,
                       icon: const Icon(Icons.rule_outlined),
@@ -780,6 +782,7 @@ class _OrganizationManagementPageState
                   _ManagementMenuAction(
                     icon: Icons.menu_book_outlined,
                     label: '添加学科',
+                    onPressed: _addSubject,
                     button: OutlinedButton.icon(
                       onPressed: _busy ? null : _addSubject,
                       icon: const Icon(Icons.menu_book_outlined),
@@ -1699,11 +1702,13 @@ class _ManagementMenuAction {
   const _ManagementMenuAction({
     required this.icon,
     required this.label,
+    required this.onPressed,
     required this.button,
   });
 
   final IconData icon;
   final String label;
+  final VoidCallback onPressed;
   final Widget button;
 }
 
@@ -1753,9 +1758,7 @@ class _ManagementHeader extends StatelessWidget {
                     if (secondaryActions.isNotEmpty)
                       PopupMenuButton<_ManagementMenuAction>(
                         tooltip: '更多管理操作',
-                        onSelected: (action) => action.button is Widget
-                            ? _invokeMenuAction(context, action)
-                            : null,
+                        onSelected: (action) => action.onPressed(),
                         itemBuilder: (context) => [
                           for (final action in secondaryActions)
                             PopupMenuItem<_ManagementMenuAction>(
@@ -1821,13 +1824,6 @@ class _ManagementHeader extends StatelessWidget {
         },
       ),
     );
-  }
-}
-
-void _invokeMenuAction(BuildContext context, _ManagementMenuAction action) {
-  final button = action.button;
-  if (button is OutlinedButton && button.onPressed != null) {
-    button.onPressed!();
   }
 }
 
