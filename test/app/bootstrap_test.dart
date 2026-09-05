@@ -77,9 +77,7 @@ void main() {
       showDeveloperTools: false,
     );
 
-    await tester.pumpWidget(
-      AppBootstrap(loader: () async => normalTestConfig),
-    );
+    await tester.pumpWidget(AppBootstrap(loader: () async => normalTestConfig));
     await tester.pumpAndSettle();
 
     expect(find.text('教师工作台'), findsOneWidget);
