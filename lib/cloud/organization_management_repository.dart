@@ -996,10 +996,8 @@ String? organizationStudentSetupErrorMessage(Object error) {
   }
   return switch (detail.toLowerCase()) {
     'invalid_student_setup_input' => '学生信息不完整或过长，请检查后重试。',
-    'student_code_already_exists' =>
-      '这个学生编号已被本机构其他学生使用，请核对后修改。',
-    'possible_duplicate_student' =>
-      '已存在姓名、年级、班级和校区相同的学生；请先核对，确为不同学生时填写不同学生编号。',
+    'student_code_already_exists' => '这个学生编号已被本机构其他学生使用，请核对后修改。',
+    'possible_duplicate_student' => '已存在姓名、年级、班级和校区相同的学生；请先核对，确为不同学生时填写不同学生编号。',
     'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
     'organization_subject_not_found' => '所选学科已变化，请刷新后重新选择。',
     'teacher_membership_not_found' => '所选老师已不是本机构的在岗老师，请刷新后重新选择。',
@@ -1024,8 +1022,7 @@ String? organizationStudentLifecycleErrorMessage(Object error) {
   }
   return switch (detail.toLowerCase()) {
     'invalid_student_update_input' => '学生姓名、编号或状态不符合要求。',
-    'student_code_already_exists' =>
-      '这个学生编号已被本机构其他学生使用，请核对后修改。',
+    'student_code_already_exists' => '这个学生编号已被本机构其他学生使用，请核对后修改。',
     'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
     'student_not_found' => '学生档案已变化，请刷新后重试。',
     'student_merged_immutable' => '已合并的学生档案不能直接修改。',
