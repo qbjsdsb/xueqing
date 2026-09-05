@@ -309,6 +309,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   String? _invitationErrorMessage;
   bool _invitationBusy = false;
   String? _reschedulingActionId;
+  final Map<String, String> _retryOperationIds = <String, String>{};
 
   @override
   void initState() {
@@ -413,6 +414,30 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       // FutureBuilder renders the retained error state. The input form has
       // already closed only after the command committed successfully.
     }
+  }
+
+  String _closeRetryKeyFor(WorkspaceCase learningCase) {
+    return 'close:${learningCase.id}:${learningCase.version}';
+  }
+
+  String _operationIdForRetry(String retryKey) {
+    return _retryOperationIds.putIfAbsent(retryKey, createOperationId);
+  }
+
+  void _clearRetry(String retryKey) {
+    _retryOperationIds.remove(retryKey);
+  }
+
+  String _rescheduleRetryKeyFor(
+    WorkspaceActionWithContext item,
+    DateTime picked,
+  ) {
+    final dateKey =
+        '${picked.year.toString().padLeft(4, '0')}-'
+        '${picked.month.toString().padLeft(2, '0')}-'
+        '${picked.day.toString().padLeft(2, '0')}';
+    return 'reschedule:${item.learningCase.id}:${item.action.id}:'
+        '${item.learningCase.version}:${item.action.version}:$dateKey';
   }
 
   Future<void> _acceptInvitation() async {
@@ -654,10 +679,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       return;
     }
 
+    final retryKey = _closeRetryKeyFor(learningCase);
     try {
       final receipt = await widget.repository.closeCase(
         CloseCaseCommand(
-          operationId: createOperationId(),
+          operationId: _operationIdForRetry(retryKey),
           caseId: learningCase.id,
           expectedCaseVersion: learningCase.version,
           closedAt: null,
@@ -670,6 +696,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (!mounted) {
         return;
       }
+      _clearRetry(retryKey);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -724,13 +751,14 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       return;
     }
 
+    final retryKey = _rescheduleRetryKeyFor(item, picked);
     setState(() {
       _reschedulingActionId = item.action.id;
     });
     try {
       await widget.repository.rescheduleCaseAction(
         RescheduleCaseActionCommand(
-          operationId: createOperationId(),
+          operationId: _operationIdForRetry(retryKey),
           actionId: item.action.id,
           caseId: item.learningCase.id,
           expectedCaseVersion: item.learningCase.version,
@@ -745,6 +773,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (!mounted) {
         return;
       }
+      _clearRetry(retryKey);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('行动已安排在${_formatDateOnly(picked)}。')),
       );
