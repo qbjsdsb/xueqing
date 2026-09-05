@@ -1415,7 +1415,7 @@ class SupabaseOrganizationManagementRepository
     }
     return collectPagedRows(
       loadPage: (from, to) =>
-        _client.rpc(functionName, params: params).range(from, to),
+          _client.rpc(functionName, params: params).range(from, to),
       assertSession: () {
         if (_client.auth.currentUser?.id != authUser.id) {
           throw const AuthException(
@@ -1424,7 +1424,7 @@ class SupabaseOrganizationManagementRepository
         }
       },
       invalidResponseMessage:
-        'Organization management returned an invalid list.',
+          'Organization management returned an invalid list.',
     );
   }
 

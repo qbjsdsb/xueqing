@@ -63,7 +63,10 @@ void main() {
   test('rejects malformed pages without returning partial data', () async {
     await expectLater(
       collectPagedRows(
-        loadPage: (from, to) async => <Object>[{'id': 1}, 'invalid'],
+        loadPage: (from, to) async => <Object>[
+          {'id': 1},
+          'invalid',
+        ],
         assertSession: () {},
         invalidResponseMessage: 'invalid rows',
       ),
