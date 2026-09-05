@@ -580,6 +580,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   Future<CaseCommandReceipt?> _showCaseForm({
     required _CaseCommandMode mode,
     required WorkspaceCase learningCase,
+    DateTime? businessDate,
   }) {
     final sizeClass = ResponsiveBreakpoints.classify(
       MediaQuery.sizeOf(context).width,
@@ -588,6 +589,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       mode: mode,
       learningCase: learningCase,
       repository: widget.repository,
+      businessDate: businessDate,
     );
     return sizeClass == WindowSizeClass.compact
         ? showModalBottomSheet<CaseCommandReceipt>(
@@ -617,7 +619,15 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     if (mode == null) {
       return;
     }
-    final result = await _showCaseForm(mode: mode, learningCase: learningCase);
+    final workspace = await _workspaceFuture;
+    if (!mounted) {
+      return;
+    }
+    final result = await _showCaseForm(
+      mode: mode,
+      learningCase: learningCase,
+      businessDate: workspace.businessDate,
+    );
     if (!mounted || result == null) {
       return;
     }
@@ -636,9 +646,14 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceStudent student,
     WorkspaceCase learningCase,
   ) async {
+    final workspace = await _workspaceFuture;
+    if (!mounted) {
+      return;
+    }
     final result = await _showCaseForm(
       mode: _CaseCommandMode.stabilize,
       learningCase: learningCase,
+      businessDate: workspace.businessDate,
     );
     if (!mounted || result == null) {
       return;
@@ -1607,11 +1622,13 @@ class _WorkspaceCaseCommandForm extends StatefulWidget {
     required this.mode,
     required this.learningCase,
     required this.repository,
+    this.businessDate,
   });
 
   final _CaseCommandMode mode;
   final WorkspaceCase learningCase;
   final LearningRepository repository;
+  final DateTime? businessDate;
 
   @override
   State<_WorkspaceCaseCommandForm> createState() =>
@@ -1719,7 +1736,12 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
   }
 
   Future<void> _pickDueDate() async {
-    final today = DateTime.now();
+    final businessNow = widget.businessDate ?? DateTime.now();
+    final today = DateTime(
+      businessNow.year,
+      businessNow.month,
+      businessNow.day,
+    );
     final current = _nextActionDueAt ?? today;
     final selected = await showDatePicker(
       context: context,
