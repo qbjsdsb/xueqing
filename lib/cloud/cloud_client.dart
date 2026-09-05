@@ -12,12 +12,19 @@ class CloudClient {
 
   static SupabaseClient get client => Supabase.instance.client;
 
-  static Future<void> initialize(CloudConfig config) async {
+  static Future<void> initialize(
+    CloudConfig config, {
+    bool requireSecureEndpoint = false,
+  }) async {
+    config.validate(
+      requireConfigured: requireSecureEndpoint,
+      requireHttps: requireSecureEndpoint,
+      requireAllowedHost: requireSecureEndpoint,
+    );
     if (_initialized) {
       return;
     }
 
-    config.validate();
     if (!config.isConfigured) {
       return;
     }

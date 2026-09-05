@@ -6,6 +6,11 @@ abstract interface class StudentRepository {
   Future<CloudUserContext> loadContext();
 }
 
+/// Loads the small context summary used by the Cloud Spike page.
+///
+/// The Teacher Workspace uses [SupabaseLearningRepository]. This compatibility
+/// summary deliberately keeps the old interface while reading the canonical
+/// identity and access tables.
 class SupabaseStudentRepository implements StudentRepository {
   SupabaseStudentRepository(this._client);
 
@@ -24,6 +29,7 @@ class SupabaseStudentRepository implements StudentRepository {
         .select('id,display_name')
         .eq('auth_provider', 'supabase')
         .eq('auth_subject_id', expectedUserId)
+        .eq('status', 'active')
         .maybeSingle();
     _assertSameSession(expectedUserId);
 
@@ -38,9 +44,9 @@ class SupabaseStudentRepository implements StudentRepository {
     }
 
     final membership = await _client
-        .from('memberships')
-        .select('organization_id,role')
-        .eq('user_id', appUserId)
+        .from('organization_memberships')
+        .select('id,organization_id')
+        .eq('app_user_id', appUserId)
         .eq('status', 'active')
         .limit(1)
         .maybeSingle();
@@ -53,12 +59,21 @@ class SupabaseStudentRepository implements StudentRepository {
       );
     }
 
+    final membershipId = membership['id'] as String?;
     final organizationId = membership['organization_id'] as String?;
-    if (organizationId == null) {
+    if (membershipId == null || organizationId == null) {
       throw const FormatException(
         'Membership did not include an organization.',
       );
     }
+
+    final role = await _client
+        .from('membership_roles')
+        .select('role')
+        .eq('membership_id', membershipId)
+        .limit(1)
+        .maybeSingle();
+    _assertSameSession(expectedUserId);
 
     final organization = await _client
         .from('organizations')
@@ -70,6 +85,7 @@ class SupabaseStudentRepository implements StudentRepository {
     final students = await _client
         .from('students')
         .select('id')
+        .eq('organization_id', organizationId)
         .eq('status', 'active');
     _assertSameSession(expectedUserId);
 
@@ -78,7 +94,7 @@ class SupabaseStudentRepository implements StudentRepository {
       userEmail: authUser.email ?? '—',
       organizationName:
           organization?['name'] as String? ?? 'Unknown organization',
-      role: membership['role'] as String? ?? 'unknown',
+      role: role?['role'] as String? ?? 'unknown',
       accessibleStudentCount: students.length,
     );
   }

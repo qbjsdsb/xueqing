@@ -6,6 +6,7 @@ declare
   auth_a uuid := '20000000-0000-0000-0000-000000000001';
   auth_b uuid := '20000000-0000-0000-0000-000000000002';
   auth_no_membership uuid := '20000000-0000-0000-0000-000000000003';
+  auth_invited uuid := '20000000-0000-0000-0000-000000000004';
 begin
   insert into auth.users (
     id,
@@ -65,6 +66,23 @@ begin
       'authenticated',
       'authenticated',
       'no.membership@xueqing.test',
+      crypt('XueqingDev-Only-123!', gen_salt('bf')),
+      now(),
+      now(),
+      now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{}'::jsonb,
+      '',
+      '',
+      '',
+      ''
+    ),
+    (
+      auth_invited,
+      '00000000-0000-0000-0000-000000000000',
+      'authenticated',
+      'authenticated',
+      'responsible@xueqing.test',
       crypt('XueqingDev-Only-123!', gen_salt('bf')),
       now(),
       now(),
@@ -240,6 +258,12 @@ begin
     (
       '50000000-0000-0000-0000-000000000003',
       auth_no_membership,
+      now(),
+      now()
+    ),
+    (
+      '60000000-0000-0000-0000-000000000004',
+      auth_invited,
       now(),
       now()
     );
@@ -440,6 +464,37 @@ begin
       'active',
       '2026-01-01'
     );
+
+  -- Teacher A is the fictional development manager for organization-scoped
+  -- Case type configuration. This seed data is never for production.
+  insert into public.membership_roles (
+    id,
+    organization_id,
+    membership_id,
+    role
+  )
+  values (
+    '62000000-0000-0000-0000-000000000010',
+    '00000000-0000-0000-0000-000000000001',
+    '61000000-0000-0000-0000-000000000001',
+    'org_admin'
+  );
+
+  -- Teacher A is also the fictional responsible person for Organization A.
+  -- This role exists only so local tests and the development UI can exercise
+  -- the owner path without creating a real account.
+  insert into public.membership_roles (
+    id,
+    organization_id,
+    membership_id,
+    role
+  )
+  values (
+    '62000000-0000-0000-0000-000000000011',
+    '00000000-0000-0000-0000-000000000001',
+    '61000000-0000-0000-0000-000000000001',
+    'org_owner'
+  );
 
 end;
 $seed$;

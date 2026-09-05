@@ -17,6 +17,8 @@ class XueqingApp extends StatelessWidget {
       title: '学情闭环',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
       initialRoute: AppRoutes.bootstrap,
       onGenerateRoute: router.onGenerateRoute,
     );

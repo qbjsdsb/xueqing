@@ -2,8 +2,6 @@ name: Phase 0B.0-A platform build smoke
 
 on:
   pull_request:
-    branches:
-      - main
     paths:
       - ".github/workflows/phase0b0a-platform-smoke.yml"
       - "android/**"
@@ -95,7 +93,8 @@ jobs:
           flutter build windows --release `
             --dart-define="XUEQING_ENV=$env:XUEQING_ENV" `
             --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
-            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=true"
 
       - name: Bundle Visual C++ release runtime
         shell: pwsh

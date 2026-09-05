@@ -150,6 +150,8 @@ assert_denied_rows() {
 
 student_a_id="30000000-0000-0000-0000-000000000001"
 student_b_id="30000000-0000-0000-0000-000000000002"
+profile_a_id="67000000-0000-0000-0000-000000000001"
+profile_b_id="67000000-0000-0000-0000-000000000002"
 organization_a_id="00000000-0000-0000-0000-000000000001"
 organization_b_id="00000000-0000-0000-0000-000000000002"
 
@@ -157,16 +159,31 @@ teacher_a_students="$temp_dir/teacher-a-students.json"
 teacher_a_cross_student="$temp_dir/teacher-a-cross-student.json"
 teacher_a_cross_org="$temp_dir/teacher-a-cross-org.json"
 teacher_a_memberships="$temp_dir/teacher-a-memberships.json"
+teacher_a_roles="$temp_dir/teacher-a-roles.json"
+teacher_a_profiles="$temp_dir/teacher-a-profiles.json"
 teacher_a_assignments="$temp_dir/teacher-a-assignments.json"
+teacher_a_enrollments="$temp_dir/teacher-a-enrollments.json"
+teacher_a_cases="$temp_dir/teacher-a-cases.json"
+teacher_a_queue="$temp_dir/teacher-a-queue.json"
+teacher_a_cross_cases="$temp_dir/teacher-a-cross-cases.json"
 teacher_a_app_user="$temp_dir/teacher-a-app-user.json"
 teacher_b_students="$temp_dir/teacher-b-students.json"
 teacher_b_cross_student="$temp_dir/teacher-b-cross-student.json"
 teacher_b_cross_org="$temp_dir/teacher-b-cross-org.json"
 teacher_b_memberships="$temp_dir/teacher-b-memberships.json"
+teacher_b_roles="$temp_dir/teacher-b-roles.json"
+teacher_b_profiles="$temp_dir/teacher-b-profiles.json"
 teacher_b_assignments="$temp_dir/teacher-b-assignments.json"
+teacher_b_enrollments="$temp_dir/teacher-b-enrollments.json"
+teacher_b_cases="$temp_dir/teacher-b-cases.json"
+teacher_b_queue="$temp_dir/teacher-b-queue.json"
+teacher_b_cross_cases="$temp_dir/teacher-b-cross-cases.json"
+teacher_b_app_user="$temp_dir/teacher-b-app-user.json"
 no_membership_students="$temp_dir/no-membership-students.json"
 no_membership_orgs="$temp_dir/no-membership-orgs.json"
 no_membership_memberships="$temp_dir/no-membership-memberships.json"
+no_membership_cases="$temp_dir/no-membership-cases.json"
+no_membership_queue="$temp_dir/no-membership-queue.json"
 after_logout_students="$temp_dir/after-logout-students.json"
 after_logout_app_user="$temp_dir/after-logout-app-user.json"
 
@@ -185,25 +202,60 @@ assert_status_and_json "$teacher_a_status" 200 "$teacher_a_app_user" \
   "Teacher A resolves to the provider-neutral application identity"
 
 teacher_a_status="$(request GET \
-  "$base_url/rest/v1/memberships?select=organization_id,role,status&status=eq.active" \
+  "$base_url/rest/v1/organization_memberships?select=organization_id,status&status=eq.active&order=organization_id" \
   "$teacher_a_memberships" "$teacher_a_token")"
 assert_status_and_json "$teacher_a_status" 200 "$teacher_a_memberships" \
-  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_a_id\" and .[0].role == \"teacher\"" \
-  "Teacher A has one active membership in Organization A"
+  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_a_id\" and .[0].status == \"active\"" \
+  "Teacher A has one active canonical membership in Organization A"
 
 teacher_a_status="$(request GET \
-  "$base_url/rest/v1/teacher_assignments?select=student_id,subject,status&status=eq.active" \
+  "$base_url/rest/v1/membership_roles?select=organization_id,role&organization_id=eq.$organization_a_id&order=role" \
+  "$teacher_a_roles" "$teacher_a_token")"
+assert_status_and_json "$teacher_a_status" 200 "$teacher_a_roles" \
+  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_a_id\" and .[0].role == \"teacher\"" \
+  "Teacher A has the expected canonical teaching role"
+
+teacher_a_status="$(request GET \
+  "$base_url/rest/v1/student_subject_profiles?select=id,student_id,organization_id&status=eq.active&order=id" \
+  "$teacher_a_profiles" "$teacher_a_token")"
+assert_status_and_json "$teacher_a_status" 200 "$teacher_a_profiles" \
+  "type == \"array\" and length == 1 and .[0].id == \"$profile_a_id\" and .[0].student_id == \"$student_a_id\"" \
+  "Teacher A can read the assigned subject profile"
+
+teacher_a_status="$(request GET \
+  "$base_url/rest/v1/student_teacher_assignments?select=student_subject_profile_id,membership_id,status&status=eq.active&order=student_subject_profile_id" \
   "$teacher_a_assignments" "$teacher_a_token")"
 assert_status_and_json "$teacher_a_status" 200 "$teacher_a_assignments" \
+  "type == \"array\" and length == 1 and .[0].student_subject_profile_id == \"$profile_a_id\" and .[0].status == \"active\"" \
+  "Teacher A has one active canonical teaching assignment"
+
+teacher_a_status="$(request GET \
+  "$base_url/rest/v1/student_enrollments?select=student_id,grade,class_name&order=student_id" \
+  "$teacher_a_enrollments" "$teacher_a_token")"
+assert_status_and_json "$teacher_a_status" 200 "$teacher_a_enrollments" \
   "type == \"array\" and length == 1 and .[0].student_id == \"$student_a_id\"" \
-  "Teacher A has one active assignment"
+  "Teacher A can read the current student enrollment"
 
 teacher_a_status="$(request GET \
   "$base_url/rest/v1/students?select=id,name,organization_id&order=id" \
   "$teacher_a_students" "$teacher_a_token")"
 assert_status_and_json "$teacher_a_status" 200 "$teacher_a_students" \
-  "type == \"array\" and length == 1 and .[0].id == \"$student_a_id\" and .[0].name == \"林雨桐\"" \
+  'type == "array" and length == 1 and .[0].id == "'"$student_a_id"'" and .[0].name == "林雨桐"' \
   "Teacher A can read Student A"
+
+teacher_a_status="$(request GET \
+  "$base_url/rest/v1/learning_cases?select=id,student_subject_profile_id,organization_id&order=id" \
+  "$teacher_a_cases" "$teacher_a_token")"
+assert_status_and_json "$teacher_a_status" 200 "$teacher_a_cases" \
+  'type == "array" and length == 3 and all(.[]; .organization_id == "'"$organization_a_id"'")' \
+  "Teacher A can read the Organization A Case set"
+
+teacher_a_status="$(request GET \
+  "$base_url/rest/v1/teacher_workspace_action_queue?select=id,due_bucket&order=id" \
+  "$teacher_a_queue" "$teacher_a_token")"
+assert_status_and_json "$teacher_a_status" 200 "$teacher_a_queue" \
+  'type == "array" and length == 3' \
+  "Teacher A can read the Today action queue"
 
 teacher_a_status="$(request GET \
   "$base_url/rest/v1/students?id=eq.$student_b_id&select=id" \
@@ -217,26 +269,74 @@ teacher_a_status="$(request GET \
 assert_denied_rows "$teacher_a_status" "$teacher_a_cross_org" \
   "Teacher A cannot read Organization B"
 
-teacher_b_status="$(request GET \
-  "$base_url/rest/v1/memberships?select=organization_id,role,status&status=eq.active" \
-  "$teacher_b_memberships" "$teacher_b_token")"
-assert_status_and_json "$teacher_b_status" 200 "$teacher_b_memberships" \
-  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_b_id\" and .[0].role == \"teacher\"" \
-  "Teacher B has one active membership in Organization B"
+teacher_a_status="$(request GET \
+  "$base_url/rest/v1/learning_cases?organization_id=eq.$organization_b_id&select=id" \
+  "$teacher_a_cross_cases" "$teacher_a_token")"
+assert_denied_rows "$teacher_a_status" "$teacher_a_cross_cases" \
+  "Teacher A cannot read Organization B Cases"
 
 teacher_b_status="$(request GET \
-  "$base_url/rest/v1/teacher_assignments?select=student_id,subject,status&status=eq.active" \
+  "$base_url/rest/v1/app_users?select=display_name,auth_provider" \
+  "$teacher_b_app_user" "$teacher_b_token")"
+assert_status_and_json "$teacher_b_status" 200 "$teacher_b_app_user" \
+  'type == "array" and length == 1 and .[0].display_name == "李老师" and .[0].auth_provider == "supabase"' \
+  "Teacher B resolves to the provider-neutral application identity"
+
+teacher_b_status="$(request GET \
+  "$base_url/rest/v1/organization_memberships?select=organization_id,status&status=eq.active&order=organization_id" \
+  "$teacher_b_memberships" "$teacher_b_token")"
+assert_status_and_json "$teacher_b_status" 200 "$teacher_b_memberships" \
+  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_b_id\" and .[0].status == \"active\"" \
+  "Teacher B has one active canonical membership in Organization B"
+
+teacher_b_status="$(request GET \
+  "$base_url/rest/v1/membership_roles?select=organization_id,role&organization_id=eq.$organization_b_id&order=role" \
+  "$teacher_b_roles" "$teacher_b_token")"
+assert_status_and_json "$teacher_b_status" 200 "$teacher_b_roles" \
+  "type == \"array\" and length == 1 and .[0].organization_id == \"$organization_b_id\" and .[0].role == \"teacher\"" \
+  "Teacher B has the expected canonical teaching role"
+
+teacher_b_status="$(request GET \
+  "$base_url/rest/v1/student_subject_profiles?select=id,student_id,organization_id&status=eq.active&order=id" \
+  "$teacher_b_profiles" "$teacher_b_token")"
+assert_status_and_json "$teacher_b_status" 200 "$teacher_b_profiles" \
+  "type == \"array\" and length == 1 and .[0].id == \"$profile_b_id\" and .[0].student_id == \"$student_b_id\"" \
+  "Teacher B can read the assigned subject profile"
+
+teacher_b_status="$(request GET \
+  "$base_url/rest/v1/student_teacher_assignments?select=student_subject_profile_id,membership_id,status&status=eq.active&order=student_subject_profile_id" \
   "$teacher_b_assignments" "$teacher_b_token")"
 assert_status_and_json "$teacher_b_status" 200 "$teacher_b_assignments" \
+  "type == \"array\" and length == 1 and .[0].student_subject_profile_id == \"$profile_b_id\" and .[0].status == \"active\"" \
+  "Teacher B has one active canonical teaching assignment"
+
+teacher_b_status="$(request GET \
+  "$base_url/rest/v1/student_enrollments?select=student_id,grade,class_name&order=student_id" \
+  "$teacher_b_enrollments" "$teacher_b_token")"
+assert_status_and_json "$teacher_b_status" 200 "$teacher_b_enrollments" \
   "type == \"array\" and length == 1 and .[0].student_id == \"$student_b_id\"" \
-  "Teacher B has one active assignment"
+  "Teacher B can read the current student enrollment"
 
 teacher_b_status="$(request GET \
   "$base_url/rest/v1/students?select=id,name,organization_id&order=id" \
   "$teacher_b_students" "$teacher_b_token")"
 assert_status_and_json "$teacher_b_status" 200 "$teacher_b_students" \
-  "type == \"array\" and length == 1 and .[0].id == \"$student_b_id\" and .[0].name == \"陈宇航\"" \
+  'type == "array" and length == 1 and .[0].id == "'"$student_b_id"'" and .[0].name == "陈宇航"' \
   "Teacher B can read Student B"
+
+teacher_b_status="$(request GET \
+  "$base_url/rest/v1/learning_cases?select=id,student_subject_profile_id,organization_id&order=id" \
+  "$teacher_b_cases" "$teacher_b_token")"
+assert_status_and_json "$teacher_b_status" 200 "$teacher_b_cases" \
+  'type == "array" and length == 2 and all(.[]; .organization_id == "'"$organization_b_id"'")' \
+  "Teacher B can read the Organization B Case set"
+
+teacher_b_status="$(request GET \
+  "$base_url/rest/v1/teacher_workspace_action_queue?select=id,due_bucket&order=id" \
+  "$teacher_b_queue" "$teacher_b_token")"
+assert_status_and_json "$teacher_b_status" 200 "$teacher_b_queue" \
+  'type == "array" and length == 2' \
+  "Teacher B can read the Today action queue"
 
 teacher_b_status="$(request GET \
   "$base_url/rest/v1/students?id=eq.$student_a_id&select=id" \
@@ -250,12 +350,18 @@ teacher_b_status="$(request GET \
 assert_denied_rows "$teacher_b_status" "$teacher_b_cross_org" \
   "Teacher B cannot read Organization A"
 
+teacher_b_status="$(request GET \
+  "$base_url/rest/v1/learning_cases?organization_id=eq.$organization_a_id&select=id" \
+  "$teacher_b_cross_cases" "$teacher_b_token")"
+assert_denied_rows "$teacher_b_status" "$teacher_b_cross_cases" \
+  "Teacher B cannot read Organization A Cases"
+
 no_membership_status="$(request GET \
-  "$base_url/rest/v1/memberships?select=id&status=eq.active" \
+  "$base_url/rest/v1/organization_memberships?select=id&status=eq.active" \
   "$no_membership_memberships" "$no_membership_token")"
 assert_status_and_json "$no_membership_status" 200 "$no_membership_memberships" \
   'type == "array" and length == 0' \
-  "A user without membership has no active membership"
+  "A user without membership has no active canonical membership"
 
 no_membership_status="$(request GET \
   "$base_url/rest/v1/organizations?select=id" \
@@ -270,6 +376,20 @@ no_membership_status="$(request GET \
 assert_status_and_json "$no_membership_status" 200 "$no_membership_students" \
   'type == "array" and length == 0' \
   "A user without membership cannot read students"
+
+no_membership_status="$(request GET \
+  "$base_url/rest/v1/learning_cases?select=id" \
+  "$no_membership_cases" "$no_membership_token")"
+assert_status_and_json "$no_membership_status" 200 "$no_membership_cases" \
+  'type == "array" and length == 0' \
+  "A user without membership cannot read Cases"
+
+no_membership_status="$(request GET \
+  "$base_url/rest/v1/teacher_workspace_action_queue?select=id" \
+  "$no_membership_queue" "$no_membership_token")"
+assert_status_and_json "$no_membership_status" 200 "$no_membership_queue" \
+  'type == "array" and length == 0' \
+  "A user without membership cannot read the Today action queue"
 
 # Keep the pre-logout token in memory and test the protected API after the
 # current session is revoked. A 200 with zero rows is an intentional pass:

@@ -7,12 +7,19 @@ import 'package:xueqing/features/design_prototype/design_fixture.dart';
 import 'package:xueqing/features/design_prototype/presentation/'
     'design_prototype_page.dart';
 
-Future<void> _pumpPreview(WidgetTester tester, Size size) async {
+Future<void> _pumpPreview(
+  WidgetTester tester,
+  Size size, {
+  Key? pageKey,
+}) async {
   tester.view
     ..physicalSize = size
     ..devicePixelRatio = 1;
   await tester.pumpWidget(
-    MaterialApp(theme: AppTheme.light(), home: const DesignPrototypePage()),
+    MaterialApp(
+      theme: AppTheme.light(),
+      home: DesignPrototypePage(key: pageKey),
+    ),
   );
   await tester.pumpAndSettle();
 }
@@ -157,7 +164,9 @@ void main() {
     expect(find.text('待验证'), findsWidgets);
     expect(find.text('待安排'), findsWidgets);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '记录问题'));
+    await tester.tap(
+      find.byKey(const Key('design-preview-today-record-question')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('问题标题 *'), findsOneWidget);
@@ -165,11 +174,54 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('示例学生甲 · 数学').last);
     await tester.enterText(find.byType(TextField).first, '记录一个新的课堂问题');
-    await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
+    await tester.tap(
+      find.byKey(const Key('design-preview-quick-capture-save')),
+    );
     await tester.pump(const Duration(milliseconds: 260));
     await tester.pumpAndSettle();
 
-    expect(find.text('已记录为待整理问题'), findsOneWidget);
+    expect(find.text('已记录为待整理问题，并已显示在当前预览。'), findsOneWidget);
+
+    await tester.tap(find.text('学生').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '记录一个新的课堂问题');
+    await tester.pump();
+    final filteredStudent = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
+    expect(filteredStudent, findsOneWidget);
+    await tester.tap(filteredStudent);
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Case 信息：示例学生甲 · 记录一个新的课堂问题'), findsWidgets);
+    expect(find.textContaining('补充一条题目或课堂证据后再整理'), findsWidgets);
+
+    await _pumpPreview(tester, const Size(390, 844), pageKey: UniqueKey());
+    expect(find.text('记录一个新的课堂问题'), findsNothing);
+  });
+
+  testWidgets('keeps a draft visible for the current preview session', (
+    tester,
+  ) async {
+    addTearDown(() => _resetView(tester));
+    await _pumpPreview(tester, const Size(390, 844));
+
+    await tester.tap(
+      find.byKey(const Key('design-preview-today-record-question')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<PrototypeStudent>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('示例学生乙 · 英语').last);
+    await tester.enterText(find.byType(TextField).first, '暂存一条课堂观察');
+    await tester.tap(find.widgetWithText(OutlinedButton, '取消'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂存这段记录？'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '暂存草稿'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('草稿已保留在本次预览会话中。'), findsOneWidget);
+    expect(find.text('本次预览会话草稿'), findsOneWidget);
+    expect(find.text('暂存一条课堂观察'), findsOneWidget);
   });
 
   testWidgets('keeps the fictional-data boundary explicit', (tester) async {

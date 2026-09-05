@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../app/layout/responsive.dart';
 import '../../../app/router/app_router.dart';
 import '../../../app/shell/app_shell.dart';
-import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../config/app_config.dart';
 
@@ -37,45 +36,59 @@ class BootstrapPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '教师工作台预览',
+                      '教师工作台',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '先从学生当前重点开始，把问题、证据和下一步放在同一条工作线上。',
-                      style: Theme.of(context).textTheme.bodyLarge
-                          ?.copyWith(color: AppColors.textSecondary),
+                      '从学生当前重点开始，把问题、证据和下一步放在同一条工作线上。',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     _StatusPanel(config: config),
                     const SizedBox(height: AppSpacing.lg),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pushNamed(AppRoutes.cloudSpike);
-                      },
-                      icon: const Icon(Icons.cloud_outlined),
-                      label: const Text('打开云端连接测试'),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pushNamed(AppRoutes.routeCheck);
-                      },
-                      icon: const Icon(Icons.route_outlined),
-                      label: const Text('路由自检'),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
                     FilledButton.icon(
                       onPressed: () {
                         Navigator.of(context)
-                            .pushNamed(AppRoutes.designPreview);
+                            .pushNamed(AppRoutes.teacherWorkspace);
                       },
-                      icon: const Icon(Icons.design_services_outlined),
+                      icon: const Icon(Icons.people_alt_outlined),
                       label: const Text('进入教师工作台'),
                     ),
+                    if (!config.environment.isProduction) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context)
+                              .pushNamed(AppRoutes.designPreview);
+                        },
+                        icon: const Icon(Icons.design_services_outlined),
+                        label: const Text('打开虚构数据预览'),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pushNamed(AppRoutes.cloudSpike);
+                        },
+                        icon: const Icon(Icons.cloud_outlined),
+                        label: const Text('打开云端连接测试'),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pushNamed(AppRoutes.routeCheck);
+                        },
+                        icon: const Icon(Icons.route_outlined),
+                        label: const Text('路由自检'),
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(
-                      '当前仅使用虚构资料；业务保存和真实学生数据尚未接入。',
+                      config.environment.isProduction
+                          ? '当前已加载生产配置；在完成发布检查、备份恢复和机构授权前，不应录入真实学生资料。'
+                          : '当前只连接开发环境虚构资料；正式 provider、真实学生数据和生产配置尚未启用。',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -96,21 +109,26 @@ class _StatusPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isProduction = config.environment.isProduction;
+
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(6),
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(AppRadii.medium),
       ),
       child: Column(
         children: [
-          const _StatusRow(label: '当前状态', value: '开发验证'),
+          _StatusRow(label: '当前状态', value: isProduction ? '生产配置' : '开发验证'),
           const Divider(height: 1),
           _StatusRow(label: '运行环境', value: config.environmentLabel),
           const Divider(height: 1),
           const _StatusRow(label: '目标平台', value: 'Android / Windows'),
           const Divider(height: 1),
-          const _StatusRow(label: '工作范围', value: '0B.1A 界面验证'),
+          _StatusRow(
+            label: '工作范围',
+            value: isProduction ? '生产发布前置检查' : '0B.0-D 数据接入验证',
+          ),
         ],
       ),
     );
@@ -135,8 +153,9 @@ class _StatusRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Text(

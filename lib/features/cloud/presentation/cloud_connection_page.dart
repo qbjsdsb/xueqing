@@ -8,20 +8,25 @@ import '../../../config/app_config.dart';
 import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
 import '../../../cloud/cloud_models.dart';
+import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/session_request_guard.dart';
 import '../../../cloud/student_repository.dart';
+import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
 
 class CloudConnectionPage extends StatefulWidget {
   const CloudConnectionPage({
     required this.config,
     this.authRepository,
     this.studentRepository,
+    this.invitationAcceptanceRepository,
     super.key,
   });
 
   final AppConfig config;
   final AuthRepository? authRepository;
   final StudentRepository? studentRepository;
+  final OrganizationInvitationAcceptanceRepository?
+  invitationAcceptanceRepository;
 
   @override
   State<CloudConnectionPage> createState() => _CloudConnectionPageState();
@@ -29,8 +34,11 @@ class CloudConnectionPage extends StatefulWidget {
 
 class _CloudConnectionPageState extends State<CloudConnectionPage> {
   final _formKey = GlobalKey<FormState>();
+  final _invitationFormKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _inviteCodeController = TextEditingController();
+  final _displayNameController = TextEditingController();
   final _contextRequestGuard = SessionRequestGuard();
 
   late final Future<void> _initialization;
@@ -38,6 +46,7 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
 
   AuthRepository? _authRepository;
   StudentRepository? _studentRepository;
+  OrganizationInvitationAcceptanceRepository? _invitationAcceptanceRepository;
   CloudUserContext? _userContext;
   String? _activeUserId;
   String? _errorMessage;
@@ -55,6 +64,8 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
     _authSubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
+    _inviteCodeController.dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -70,15 +81,27 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
     if (hasAuthRepository && hasStudentRepository) {
       _authRepository = widget.authRepository;
       _studentRepository = widget.studentRepository;
+      _invitationAcceptanceRepository = widget.invitationAcceptanceRepository;
     } else {
-      widget.config.cloudConfig.validate();
+      widget.config.cloudConfig.validate(
+        requireConfigured: widget.config.environment.isProduction,
+        requireHttps: widget.config.environment.isProduction,
+        requireAllowedHost: widget.config.environment.isProduction,
+      );
       if (!widget.config.cloudConfig.isConfigured) {
         return;
       }
 
-      await CloudClient.initialize(widget.config.cloudConfig);
+      await CloudClient.initialize(
+        widget.config.cloudConfig,
+        requireSecureEndpoint: widget.config.environment.isProduction,
+      );
       _authRepository = SupabaseAuthRepository(CloudClient.client);
       _studentRepository = SupabaseStudentRepository(CloudClient.client);
+      _invitationAcceptanceRepository =
+          SupabaseOrganizationInvitationAcceptanceRepository(
+            CloudClient.client,
+          );
     }
 
     _activeUserId = _authRepository!.currentUser?.id;
@@ -236,6 +259,47 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
     }
   }
 
+  Future<void> _acceptInvitation() async {
+    if (!(_invitationFormKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    final repository = _invitationAcceptanceRepository;
+    if (repository == null) {
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
+    try {
+      await repository.acceptInvitation(
+        inviteCode: _inviteCodeController.text.trim(),
+        displayName: _displayNameController.text.trim(),
+      );
+      _inviteCodeController.clear();
+      _displayNameController.clear();
+      await _loadUserContext();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已加入机构，可以开始使用。')));
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = _describeError(error, action: '接受邀请');
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
+  }
+
   Future<void> _signOut() async {
     final authRepository = _authRepository;
     if (authRepository == null || !mounted) {
@@ -346,29 +410,38 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
     if (mounted) {
       _emailController.clear();
       _passwordController.clear();
+      _inviteCodeController.clear();
+      _displayNameController.clear();
     }
   }
 
   String _describeError(Object error, {required String action}) {
-    if (error is AuthException) {
-      final detail = error.message.trim();
-      if (detail.isEmpty) {
-        return '$action失败，请检查网络后重试。';
-      }
-
-      final normalized = detail.toLowerCase();
-      if (normalized == 'invalid login credentials') {
-        return '$action失败：账号或密码不正确。';
-      }
-      if (normalized.contains('network') ||
-          normalized.contains('socket') ||
-          normalized.contains('timeout')) {
-        return '$action失败：网络连接异常，请检查网络后重试。';
-      }
-      return '$action失败：$detail';
+    final detail = switch (error) {
+      AuthException(:final message) => message.trim(),
+      PostgrestException(:final message) => message.trim(),
+      _ => null,
+    };
+    if (detail == null) {
+      return '$action失败：$error';
+    }
+    if (detail.isEmpty) {
+      return '$action失败，请检查网络后重试。';
     }
 
-    return '$action失败：$error';
+    final normalized = detail.toLowerCase();
+    if (normalized == 'invalid login credentials') {
+      return '$action失败：账号或密码不正确。';
+    }
+    final invitationError = organizationInvitationErrorMessage(error);
+    if (invitationError != null) {
+      return '$action失败：$invitationError';
+    }
+    if (normalized.contains('network') ||
+        normalized.contains('socket') ||
+        normalized.contains('timeout')) {
+      return '$action失败：网络连接异常，请检查网络后重试。';
+    }
+    return '$action失败：$detail';
   }
 
   @override
@@ -517,6 +590,17 @@ class _CloudConnectionPageState extends State<CloudConnectionPage> {
                   ),
                 ],
               ),
+              if (_invitationAcceptanceRepository != null) ...[
+                const SizedBox(height: 16),
+                OrganizationInvitationAcceptanceCard(
+                  formKey: _invitationFormKey,
+                  inviteCodeController: _inviteCodeController,
+                  displayNameController: _displayNameController,
+                  busy: _busy,
+                  initiallyExpanded: userContext?.organizationName == '无活动机构',
+                  onAccept: _acceptInvitation,
+                ),
+              ],
               if (_errorMessage != null) ...[
                 const SizedBox(height: 16),
                 _ErrorText(message: _errorMessage!),
