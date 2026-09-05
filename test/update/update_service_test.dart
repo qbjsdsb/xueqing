@@ -10,14 +10,14 @@ void main() {
 
   Map<String, Object?> manifest({
     String version = '0.2.0+2',
-    String? minimumSupported = '0.1.5+1',
+    String minimumSupported = '0.1.5+1',
     Map<String, Object?>? platforms,
   }) {
     return <String, Object?>{
       'schema': 1,
       'channel': 'stable',
       'version': version,
-      if (minimumSupported case final value?) 'minimum_supported': value,
+      'minimum_supported': minimumSupported,
       'notes': <String>['提升稳定性', '修复更新流程'],
       'platforms':
           platforms ??
