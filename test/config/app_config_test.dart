@@ -34,6 +34,17 @@ void main() {
       expect(config.environment, AppEnvironment.production);
       expect(config.environmentLabel, 'Production');
       expect(config.appVersion, '1.2.3+4');
+      expect(config.showDeveloperTools, isFalse);
+    });
+
+    test('can explicitly hide developer tools in a development build', () {
+      final config = AppConfig.fromValues(
+        environmentValue: 'development',
+        appVersion: '1.2.3+4',
+        showDeveloperTools: false,
+      );
+
+      expect(config.showDeveloperTools, isFalse);
     });
 
     test('rejects a production config without a cloud endpoint', () {

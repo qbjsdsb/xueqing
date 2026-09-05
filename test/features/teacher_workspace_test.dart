@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xueqing/app/theme/app_theme.dart';
@@ -11,6 +13,7 @@ class _FakeLearningRepository implements LearningRepository {
   TeacherWorkspace workspace;
   Object? loadError;
   int loadCount = 0;
+  Completer<TeacherWorkspace>? nextLoad;
   int saveCount = 0;
   bool failFirstSave = false;
   bool failFirstClose = false;
@@ -36,6 +39,11 @@ class _FakeLearningRepository implements LearningRepository {
     loadCount++;
     if (loadError != null) {
       throw loadError!;
+    }
+    final pendingLoad = nextLoad;
+    nextLoad = null;
+    if (pendingLoad != null) {
+      return pendingLoad.future;
     }
     return workspace;
   }
@@ -465,6 +473,29 @@ void main() {
     expect(repository.rescheduleCommands.single.expectedActionVersion, 1);
     expect(repository.rescheduleCommands.single.dueOn, isNotNull);
     expect(find.textContaining('行动已安排在'), findsOneWidget);
+  });
+
+  testWidgets('keeps the current workspace visible while refreshing', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    await _pumpWorkspace(tester, repository);
+
+    final pendingLoad = Completer<TeacherWorkspace>();
+    repository.nextLoad = pendingLoad;
+    await tester.tap(find.widgetWithText(TextButton, '改期'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '保存'));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('今天到期'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+    pendingLoad.complete(repository.workspace);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(repository.loadCount, 2);
   });
 
   testWidgets('reuses operation id after a reschedule response is lost', (

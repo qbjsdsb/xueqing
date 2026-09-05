@@ -259,6 +259,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
             passwordController: _passwordController,
             busy: _busy,
             errorMessage: _errorMessage,
+            isDevelopment: !widget.config.environment.isProduction,
             onSubmit: _signIn,
           );
         }
@@ -310,6 +311,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   bool _invitationBusy = false;
   String? _reschedulingActionId;
   final Map<String, String> _retryOperationIds = <String, String>{};
+  TeacherWorkspace? _lastWorkspace;
+  bool _isRefreshing = false;
+  int _loadSequence = 0;
 
   @override
   void initState() {
@@ -318,8 +322,15 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   }
 
   Future<TeacherWorkspace> _loadWorkspace() async {
+    final requestId = ++_loadSequence;
     try {
-      return await widget.repository.loadWorkspace();
+      final workspace = await widget.repository.loadWorkspace();
+      if (mounted && requestId == _loadSequence) {
+        setState(() {
+          _lastWorkspace = workspace;
+        });
+      }
+      return workspace;
     } catch (error, stackTrace) {
       _workspaceLogger.error(
         'Teacher workspace load failed.',
@@ -380,6 +391,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     setState(() {
       _workspaceFuture = nextFuture;
+      _isRefreshing = _lastWorkspace != null;
     });
     try {
       final workspace = await nextFuture;
@@ -411,8 +423,16 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         });
       }
     } catch (_) {
-      // FutureBuilder renders the retained error state. The input form has
-      // already closed only after the command committed successfully.
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('刷新失败，当前仍显示上一次数据。')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
     }
   }
 
@@ -810,6 +830,22 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
 
   @override
   Widget build(BuildContext context) {
+    final workspace = _lastWorkspace;
+    if (workspace != null) {
+      return Stack(
+        children: [
+          _buildLoadedWorkspace(workspace),
+          if (_isRefreshing)
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
+        ],
+      );
+    }
+
     return FutureBuilder<TeacherWorkspace>(
       future: _workspaceFuture,
       builder: (context, snapshot) {
@@ -829,52 +865,53 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             ),
           );
         }
+        return _buildLoadedWorkspace(snapshot.data!);
+      },
+    );
+  }
 
-        final workspace = snapshot.data!;
-        if (!workspace.hasTeachingAccess && !workspace.canManageOrganization) {
-          if (workspace.canManageCaseTypes &&
-              workspace.organizationId != null) {
-            return _WorkspaceStatusScaffold(
-              title: '机构问题类型',
-              child: _WorkspaceCaseTypeManager(
-                organizationId: workspace.organizationId!,
-                caseTypes: workspace.caseTypes,
-                repository: widget.repository,
-                onChanged: () => _reload(),
-                showCloseButton: false,
-              ),
-            );
-          }
-          return _WorkspaceStatusScaffold(
-            title: '教师工作台',
-            child: _WorkspaceNoAccessBody(
-              invitationAcceptanceCard: _buildInvitationAcceptanceCard(),
-            ),
-          );
-        }
-
-        return PopScope<void>(
-          canPop: _selectedStudent == null && _selectedCase == null,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) {
-              _goBack();
-            }
-          },
-          child: _WorkspaceShell(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: _selectDestination,
-            hasTeachingAccess: workspace.hasTeachingAccess,
-            showManagement: workspace.canManageOrganization,
-            onSignOut: widget.onSignOut,
-            child: ResponsiveLayout(
-              builder: (context, sizeClass) => _WorkspaceFrame(
-                sizeClass: sizeClass,
-                child: _buildCurrentPage(workspace, sizeClass),
-              ),
-            ),
+  Widget _buildLoadedWorkspace(TeacherWorkspace workspace) {
+    if (!workspace.hasTeachingAccess && !workspace.canManageOrganization) {
+      if (workspace.canManageCaseTypes && workspace.organizationId != null) {
+        return _WorkspaceStatusScaffold(
+          title: '机构问题类型',
+          child: _WorkspaceCaseTypeManager(
+            organizationId: workspace.organizationId!,
+            caseTypes: workspace.caseTypes,
+            repository: widget.repository,
+            onChanged: () => _reload(),
+            showCloseButton: false,
           ),
         );
+      }
+      return _WorkspaceStatusScaffold(
+        title: '教师工作台',
+        child: _WorkspaceNoAccessBody(
+          invitationAcceptanceCard: _buildInvitationAcceptanceCard(),
+        ),
+      );
+    }
+
+    return PopScope<void>(
+      canPop: _selectedStudent == null && _selectedCase == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _goBack();
+        }
       },
+      child: _WorkspaceShell(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _selectDestination,
+        hasTeachingAccess: workspace.hasTeachingAccess,
+        showManagement: workspace.canManageOrganization,
+        onSignOut: widget.onSignOut,
+        child: ResponsiveLayout(
+          builder: (context, sizeClass) => _WorkspaceFrame(
+            sizeClass: sizeClass,
+            child: _buildCurrentPage(workspace, sizeClass),
+          ),
+        ),
+      ),
     );
   }
 
@@ -4264,6 +4301,7 @@ class _WorkspaceLoginBody extends StatelessWidget {
     required this.passwordController,
     required this.busy,
     required this.errorMessage,
+    required this.isDevelopment,
     required this.onSubmit,
   });
 
@@ -4272,12 +4310,13 @@ class _WorkspaceLoginBody extends StatelessWidget {
   final TextEditingController passwordController;
   final bool busy;
   final String? errorMessage;
+  final bool isDevelopment;
   final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('教师工作台')),
+      appBar: AppBar(title: const Text('学情闭环')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -4290,38 +4329,40 @@ class _WorkspaceLoginBody extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '登录开发环境',
+                      '欢迎回来',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '仅使用虚构测试账号。登录后，服务端仍会按 membership、角色、学科范围和学生分配限制数据。',
+                      isDevelopment
+                          ? '测试版仅使用虚构资料。登录后，系统仍会按机构、角色和教学范围限制数据。'
+                          : '请使用机构分配的账号登录，系统会按你的权限显示内容。',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     TextFormField(
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Email'),
+                      decoration: const InputDecoration(labelText: '邮箱'),
                       validator: (value) =>
                           value == null || value.trim().isEmpty
-                          ? '请输入开发环境账号'
+                          ? '请输入邮箱'
                           : null,
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     TextFormField(
                       controller: passwordController,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Password'),
+                      decoration: const InputDecoration(labelText: '密码'),
                       validator: (value) =>
-                          value == null || value.isEmpty ? '请输入开发环境密码' : null,
+                          value == null || value.isEmpty ? '请输入密码' : null,
                     ),
                     const SizedBox(height: AppSpacing.md),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: busy ? null : onSubmit,
-                        child: Text(busy ? '登录中…' : '登录开发环境'),
+                        child: Text(busy ? '登录中…' : '登录'),
                       ),
                     ),
                     if (errorMessage != null) ...[

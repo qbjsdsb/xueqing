@@ -742,24 +742,7 @@ class _OrganizationManagementPageState
               _ManagementHeader(
                 organizationName: widget.organizationName,
                 roleLabel: _roleSummary(widget.roles),
-                actions: [
-                  if (widget.canManageCaseTypes &&
-                      widget.onOpenCaseTypes != null)
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : widget.onOpenCaseTypes,
-                      icon: const Icon(Icons.category_outlined),
-                      label: const Text('问题类型'),
-                    ),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _addTeacherScope,
-                    icon: const Icon(Icons.rule_outlined),
-                    label: const Text('配置教学范围'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _addSubject,
-                    icon: const Icon(Icons.menu_book_outlined),
-                    label: const Text('添加学科'),
-                  ),
+                primaryActions: [
                   FilledButton.icon(
                     onPressed: _busy ? null : _addStudent,
                     icon: const Icon(Icons.person_add_alt_1_outlined),
@@ -771,6 +754,40 @@ class _OrganizationManagementPageState
                         : _inviteMember,
                     icon: const Icon(Icons.person_add_outlined),
                     label: const Text('邀请成员'),
+                  ),
+                ],
+                secondaryActions: [
+                  if (widget.canManageCaseTypes &&
+                      widget.onOpenCaseTypes != null)
+                    _ManagementMenuAction(
+                      icon: Icons.category_outlined,
+                      label: '问题类型',
+                      onPressed: widget.onOpenCaseTypes!,
+                      button: OutlinedButton.icon(
+                        onPressed: _busy ? null : widget.onOpenCaseTypes,
+                        icon: const Icon(Icons.category_outlined),
+                        label: const Text('问题类型'),
+                      ),
+                    ),
+                  _ManagementMenuAction(
+                    icon: Icons.rule_outlined,
+                    label: '配置教学范围',
+                    onPressed: _addTeacherScope,
+                    button: OutlinedButton.icon(
+                      onPressed: _busy ? null : _addTeacherScope,
+                      icon: const Icon(Icons.rule_outlined),
+                      label: const Text('配置教学范围'),
+                    ),
+                  ),
+                  _ManagementMenuAction(
+                    icon: Icons.menu_book_outlined,
+                    label: '添加学科',
+                    onPressed: _addSubject,
+                    button: OutlinedButton.icon(
+                      onPressed: _busy ? null : _addSubject,
+                      icon: const Icon(Icons.menu_book_outlined),
+                      label: const Text('添加学科'),
+                    ),
                   ),
                 ],
               ),
@@ -1681,16 +1698,32 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
   }
 }
 
+class _ManagementMenuAction {
+  const _ManagementMenuAction({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    required this.button,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final Widget button;
+}
+
 class _ManagementHeader extends StatelessWidget {
   const _ManagementHeader({
     required this.organizationName,
     required this.roleLabel,
-    required this.actions,
+    required this.primaryActions,
+    required this.secondaryActions,
   });
 
   final String organizationName;
   final String roleLabel;
-  final List<Widget> actions;
+  final List<Widget> primaryActions;
+  final List<_ManagementMenuAction> secondaryActions;
 
   @override
   Widget build(BuildContext context) {
@@ -1720,7 +1753,50 @@ class _ManagementHeader extends StatelessWidget {
                 Wrap(
                   spacing: AppSpacing.xs,
                   runSpacing: AppSpacing.xs,
-                  children: actions,
+                  children: [
+                    ...primaryActions,
+                    if (secondaryActions.isNotEmpty)
+                      PopupMenuButton<_ManagementMenuAction>(
+                        tooltip: '更多管理操作',
+                        onSelected: (action) => action.onPressed(),
+                        itemBuilder: (context) => [
+                          for (final action in secondaryActions)
+                            PopupMenuItem<_ManagementMenuAction>(
+                              value: action,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(action.icon),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Text(action.label),
+                                ],
+                              ),
+                            ),
+                        ],
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                            borderRadius: BorderRadius.circular(AppRadii.small),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm,
+                              vertical: AppSpacing.xs,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.more_horiz),
+                                SizedBox(width: AppSpacing.xs),
+                                Text('更多操作'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             );
@@ -1735,7 +1811,10 @@ class _ManagementHeader extends StatelessWidget {
                   alignment: WrapAlignment.end,
                   spacing: AppSpacing.xs,
                   runSpacing: AppSpacing.xs,
-                  children: actions,
+                  children: [
+                    for (final action in secondaryActions) action.button,
+                    ...primaryActions,
+                  ],
                 ),
               ),
             ],
