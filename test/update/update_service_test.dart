@@ -77,10 +77,7 @@ void main() {
 
       final result = await service.checkForUpdate();
 
-      expect(
-        service.download(result),
-        throwsA(isA<UpdateException>()),
-      );
+      expect(service.download(result), throwsA(isA<UpdateException>()));
     },
   );
 
