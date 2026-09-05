@@ -309,10 +309,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   String? _invitationErrorMessage;
   bool _invitationBusy = false;
   String? _reschedulingActionId;
-  String? _closeRetryKey;
-  String? _closeRetryOperationId;
-  String? _rescheduleRetryKey;
-  String? _rescheduleRetryOperationId;
+  final Map<String, String> _retryOperationIds = <String, String>{};
 
   @override
   void initState() {
@@ -423,19 +420,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     return 'close:${learningCase.id}:${learningCase.version}';
   }
 
-  String _closeOperationIdFor(String retryKey) {
-    if (_closeRetryKey != retryKey || _closeRetryOperationId == null) {
-      _closeRetryKey = retryKey;
-      _closeRetryOperationId = createOperationId();
-    }
-    return _closeRetryOperationId!;
+  String _operationIdForRetry(String retryKey) {
+    return _retryOperationIds.putIfAbsent(retryKey, createOperationId);
   }
 
-  void _clearCloseRetry(String retryKey) {
-    if (_closeRetryKey == retryKey) {
-      _closeRetryKey = null;
-      _closeRetryOperationId = null;
-    }
+  void _clearRetry(String retryKey) {
+    _retryOperationIds.remove(retryKey);
   }
 
   String _rescheduleRetryKeyFor(
@@ -450,21 +440,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         '${item.learningCase.version}:${item.action.version}:$dateKey';
   }
 
-  String _rescheduleOperationIdFor(String retryKey) {
-    if (_rescheduleRetryKey != retryKey ||
-        _rescheduleRetryOperationId == null) {
-      _rescheduleRetryKey = retryKey;
-      _rescheduleRetryOperationId = createOperationId();
-    }
-    return _rescheduleRetryOperationId!;
-  }
-
-  void _clearRescheduleRetry(String retryKey) {
-    if (_rescheduleRetryKey == retryKey) {
-      _rescheduleRetryKey = null;
-      _rescheduleRetryOperationId = null;
-    }
-  }
 
   Future<void> _acceptInvitation() async {
     if (_invitationBusy ||
@@ -709,7 +684,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     try {
       final receipt = await widget.repository.closeCase(
         CloseCaseCommand(
-          operationId: _closeOperationIdFor(retryKey),
+          operationId: _operationIdForRetry(retryKey),
           caseId: learningCase.id,
           expectedCaseVersion: learningCase.version,
           closedAt: null,
@@ -722,7 +697,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (!mounted) {
         return;
       }
-      _clearCloseRetry(retryKey);
+      _clearRetry(retryKey);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -784,7 +759,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     try {
       await widget.repository.rescheduleCaseAction(
         RescheduleCaseActionCommand(
-          operationId: _rescheduleOperationIdFor(retryKey),
+          operationId: _operationIdForRetry(retryKey),
           actionId: item.action.id,
           caseId: item.learningCase.id,
           expectedCaseVersion: item.learningCase.version,
@@ -799,7 +774,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (!mounted) {
         return;
       }
-      _clearRescheduleRetry(retryKey);
+      _clearRetry(retryKey);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('行动已安排在${_formatDateOnly(picked)}。')),
       );
