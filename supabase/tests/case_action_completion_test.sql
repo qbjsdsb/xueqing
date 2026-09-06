@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(38);
 
 select is(
   (
@@ -50,8 +50,28 @@ select is(
     where pg_namespace.nspname = 'public'
       and pg_proc.proname = 'complete_case_action'
   ),
+  false,
+  'public complete command is an invoker boundary'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'private.complete_case_action_v2(uuid,uuid,uuid,integer,integer,text,text,date)',
+    'execute'
+  ),
   true,
-  'complete command is security definer'
+  'authenticated can reach the private completion implementation'
+);
+
+select is(
+  has_function_privilege(
+    'anon',
+    'private.complete_case_action_v2(uuid,uuid,uuid,integer,integer,text,text,date)',
+    'execute'
+  ),
+  false,
+  'anonymous clients cannot reach the private completion implementation'
 );
 
 select is(

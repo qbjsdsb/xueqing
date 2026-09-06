@@ -299,6 +299,17 @@ revoke all on function private.complete_case_action_v2(
   date
 ) from public;
 
+grant execute on function private.complete_case_action_v2(
+  uuid,
+  uuid,
+  uuid,
+  integer,
+  integer,
+  text,
+  text,
+  date
+) to authenticated;
+
 create or replace function public.complete_case_action(
   p_operation_id uuid,
   p_action_id uuid,
@@ -312,7 +323,7 @@ create or replace function public.complete_case_action(
 returns jsonb
 language plpgsql
 volatile
-security definer
+security invoker
 set search_path = ''
 as $function$
 begin
