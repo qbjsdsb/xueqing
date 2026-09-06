@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,6 +11,7 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
 import '../../../cloud/case_reopen_draft_store.dart';
+import '../../../cloud/evidence_attachment_repository.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/organization_member_provisioning_repository.dart';
@@ -17,6 +19,7 @@ import '../../../config/app_config.dart';
 import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
 import '../../organization_management/presentation/organization_management_page.dart';
 import 'member_onboarding_page.dart';
+import 'evidence_attachment_picker.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../update/update_dialog.dart';
 import '../../../update/update_installer.dart';
@@ -27,6 +30,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     required this.config,
     this.authRepository,
     this.learningRepository,
+    this.evidenceAttachmentRepository,
     this.organizationManagementRepository,
     this.invitationAcceptanceRepository,
     this.organizationMemberProvisioningRepository,
@@ -38,6 +42,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
   final AppConfig config;
   final AuthRepository? authRepository;
   final LearningRepository? learningRepository;
+  final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final OrganizationManagementRepository? organizationManagementRepository;
   final OrganizationInvitationAcceptanceRepository?
   invitationAcceptanceRepository;
@@ -61,6 +66,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   StreamSubscription<AuthState>? _authSubscription;
   AuthRepository? _authRepository;
   LearningRepository? _learningRepository;
+  EvidenceAttachmentRepository? _evidenceAttachmentRepository;
   OrganizationManagementRepository? _organizationManagementRepository;
   OrganizationInvitationAcceptanceRepository? _invitationAcceptanceRepository;
   OrganizationMemberProvisioningRepository?
@@ -107,6 +113,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
     if (hasAuthRepository && hasLearningRepository) {
       _authRepository = widget.authRepository;
       _learningRepository = widget.learningRepository;
+      _evidenceAttachmentRepository = widget.evidenceAttachmentRepository;
       _organizationManagementRepository =
           widget.organizationManagementRepository;
       _invitationAcceptanceRepository = widget.invitationAcceptanceRepository;
@@ -129,6 +136,9 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       );
       _authRepository = SupabaseAuthRepository(CloudClient.client);
       _learningRepository = SupabaseLearningRepository(CloudClient.client);
+      _evidenceAttachmentRepository = SupabaseEvidenceAttachmentRepository(
+        CloudClient.client,
+      );
       _organizationManagementRepository =
           SupabaseOrganizationManagementRepository(CloudClient.client);
       _invitationAcceptanceRepository =
@@ -389,6 +399,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
         return TeacherWorkspacePage(
           key: ValueKey(_activeUserId),
           repository: _learningRepository!,
+          evidenceAttachmentRepository: _evidenceAttachmentRepository,
           managementRepository: _organizationManagementRepository,
           memberProvisioningRepository:
               _organizationMemberProvisioningRepository,
@@ -435,6 +446,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
 class TeacherWorkspacePage extends StatefulWidget {
   const TeacherWorkspacePage({
     required this.repository,
+    this.evidenceAttachmentRepository,
     this.managementRepository,
     this.memberProvisioningRepository,
     this.invitationAcceptanceRepository,
@@ -447,6 +459,7 @@ class TeacherWorkspacePage extends StatefulWidget {
   });
 
   final LearningRepository repository;
+  final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final OrganizationManagementRepository? managementRepository;
   final OrganizationMemberProvisioningRepository? memberProvisioningRepository;
   final OrganizationInvitationAcceptanceRepository?
@@ -763,6 +776,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               caseTypes: workspace.caseTypes,
               initialStudent: student,
               repository: widget.repository,
+              organizationId: workspace.organizationId,
+              evidenceAttachmentRepository: widget.evidenceAttachmentRepository,
             ),
           )
         : await showDialog<bool>(
@@ -774,6 +789,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                 caseTypes: workspace.caseTypes,
                 initialStudent: student,
                 repository: widget.repository,
+                organizationId: workspace.organizationId,
+                evidenceAttachmentRepository:
+                    widget.evidenceAttachmentRepository,
               ),
             ),
           );
@@ -1285,7 +1303,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WindowSizeClass sizeClass,
   ) {
     if (_selectedCase != null && _selectedStudent != null) {
-      return _buildCaseDetail(_selectedStudent!, _selectedCase!);
+      return _buildCaseDetail(workspace, _selectedStudent!, _selectedCase!);
     }
     if (_selectedStudent != null) {
       return _buildStudentDetail(_selectedStudent!, sizeClass);
@@ -1876,6 +1894,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   }
 
   Widget _buildCaseDetail(
+    TeacherWorkspace workspace,
     WorkspaceStudent student,
     WorkspaceCase learningCase,
   ) {
@@ -1968,16 +1987,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           title: '问题',
           content: learningCase.description ?? '尚未补充问题说明。',
         ),
-        _WorkspaceNarrativeSection(
-          title: 'Evidence / 证据',
-          content: learningCase.evidence.isEmpty
-              ? '尚未记录 Evidence。'
-              : learningCase.evidence
-                    .map(
-                      (item) =>
-                          '${_formatDate(item.observedAt)} ${item.title}：${item.summary}',
-                    )
-                    .join('\n\n'),
+        _WorkspaceEvidenceSection(
+          learningCase: learningCase,
+          organizationId: workspace.organizationId,
+          repository: widget.evidenceAttachmentRepository,
         ),
         _WorkspaceNarrativeSection(
           title: 'Intervention / 教学动作',
@@ -3173,6 +3186,8 @@ class _WorkspaceQuickCaptureForm extends StatefulWidget {
     required this.students,
     required this.caseTypes,
     required this.repository,
+    this.organizationId,
+    this.evidenceAttachmentRepository,
     this.initialStudent,
   });
 
@@ -3180,6 +3195,8 @@ class _WorkspaceQuickCaptureForm extends StatefulWidget {
   final List<WorkspaceCaseType> caseTypes;
   final WorkspaceStudent? initialStudent;
   final LearningRepository repository;
+  final String? organizationId;
+  final EvidenceAttachmentRepository? evidenceAttachmentRepository;
 
   @override
   State<_WorkspaceQuickCaptureForm> createState() =>
@@ -3196,12 +3213,15 @@ class _WorkspaceQuickCaptureFormState
   String? _studentError;
   String? _titleError;
   String? _evidenceError;
+  String? _attachmentError;
   String? _saveError;
   bool _saving = false;
+  PickedEvidenceAttachment? _selectedAttachment;
 
   bool get _isDirty =>
       _titleController.text.trim().isNotEmpty ||
-      _evidenceController.text.trim().isNotEmpty;
+      _evidenceController.text.trim().isNotEmpty ||
+      _selectedAttachment != null;
 
   List<WorkspaceCaseType> get _caseTypeOptions {
     final customTypes = widget.caseTypes.where(
@@ -3231,6 +3251,10 @@ class _WorkspaceQuickCaptureFormState
     _evidenceController = TextEditingController();
     _titleController.addListener(_clearInlineErrors);
     _evidenceController.addListener(_clearInlineErrors);
+    if (widget.evidenceAttachmentRepository != null &&
+        defaultTargetPlatform == TargetPlatform.android) {
+      unawaited(_restoreLostAttachment());
+    }
   }
 
   @override
@@ -3250,7 +3274,8 @@ class _WorkspaceQuickCaptureFormState
     }
     if ((_titleError != null && _titleController.text.trim().isNotEmpty) ||
         (_evidenceError != null &&
-            _evidenceController.text.trim().isNotEmpty)) {
+            _evidenceController.text.trim().isNotEmpty) ||
+        _attachmentError != null) {
       setState(() {
         if (_titleController.text.trim().isNotEmpty) {
           _titleError = null;
@@ -3258,8 +3283,53 @@ class _WorkspaceQuickCaptureFormState
         if (_evidenceController.text.trim().isNotEmpty) {
           _evidenceError = null;
         }
+        _attachmentError = null;
       });
     }
+  }
+
+  Future<void> _restoreLostAttachment() async {
+    try {
+      final attachment = await recoverLostEvidenceAttachment();
+      if (attachment != null && mounted) {
+        setState(() => _selectedAttachment = attachment);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _attachmentError = _describeAttachmentError(error));
+      }
+    }
+  }
+
+  Future<void> _pickAttachment() async {
+    if (_saving || widget.evidenceAttachmentRepository == null) {
+      return;
+    }
+    try {
+      final attachment = await pickEvidenceAttachment(context);
+      if (attachment == null || !mounted) {
+        return;
+      }
+      setState(() {
+        _selectedAttachment = attachment;
+        _attachmentError = null;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _attachmentError = _describeAttachmentError(error));
+      }
+    }
+  }
+
+  String _describeAttachmentError(Object error) {
+    final detail = error.toString().toLowerCase();
+    if (detail.contains('10 mb') || detail.contains('too large')) {
+      return '图片不能超过 10 MB。';
+    }
+    if (detail.contains('cancel') || detail.contains('cancelled')) {
+      return '已取消选择图片。';
+    }
+    return '图片读取失败，请换一张 JPG、PNG 或 WEBP 图片后重试。';
   }
 
   Future<void> _save() async {
@@ -3287,7 +3357,7 @@ class _WorkspaceQuickCaptureFormState
       _saveError = null;
     });
     try {
-      await widget.repository.quickCapture(
+      final receipt = await widget.repository.quickCapture(
         QuickCaptureCommand(
           operationId: _operationId,
           profileId: student.profileId,
@@ -3302,6 +3372,36 @@ class _WorkspaceQuickCaptureFormState
           nextActionDueAt: null,
         ),
       );
+      final attachment = _selectedAttachment;
+      final attachmentRepository = widget.evidenceAttachmentRepository;
+      if (attachment != null && attachmentRepository != null) {
+        final organizationId = widget.organizationId;
+        if (organizationId == null) {
+          throw StateError('机构信息缺失，无法上传图片。');
+        }
+        try {
+          await attachmentRepository.upload(
+            organizationId: organizationId,
+            learningCaseId: receipt.caseId,
+            evidenceId: receipt.evidenceId,
+            attachmentId: attachment.attachmentId,
+            bytes: attachment.bytes,
+            fileName: attachment.fileName,
+            contentType: attachment.contentType,
+          );
+        } catch (error) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _saving = false;
+            _saveError =
+                '文字已保存，但图片上传失败：${_describeAttachmentError(error)} '
+                '请保持当前窗口打开后重试。';
+          });
+          return;
+        }
+      }
       if (!mounted) {
         return;
       }
@@ -3571,6 +3671,10 @@ class _WorkspaceQuickCaptureFormState
                     '保存后会生成一条 finalized Evidence；错误需要用后续修正事实表达，不会静默覆盖原记录。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  if (widget.evidenceAttachmentRepository != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _buildAttachmentField(context),
+                  ],
                   const SizedBox(height: AppSpacing.md),
                   _WorkspaceContextLine(
                     label: '保存后',
@@ -3605,6 +3709,88 @@ class _WorkspaceQuickCaptureFormState
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAttachmentField(BuildContext context) {
+    final attachment = _selectedAttachment;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '现场照片（可选）',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: _saving ? null : _pickAttachment,
+              icon: const Icon(Icons.add_a_photo_outlined),
+              label: Text(attachment == null ? '拍照 / 选择' : '更换图片'),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        if (attachment == null)
+          Text(
+            '照片只作为 Evidence 的补充；请保留一句文字说明，便于搜索和复盘。',
+            style: Theme.of(context).textTheme.bodySmall,
+          )
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadii.compact),
+                child: Image.memory(
+                  attachment.bytes,
+                  width: 112,
+                  height: 84,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox(
+                    width: 112,
+                    height: 84,
+                    child: Icon(Icons.broken_image_outlined),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      attachment.fileName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      '${(attachment.bytes.length / 1024 / 1024).toStringAsFixed(1)} MB · 保存后上传',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    TextButton.icon(
+                      onPressed: _saving
+                          ? null
+                          : () => setState(() {
+                              _selectedAttachment = null;
+                              _attachmentError = null;
+                            }),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('移除'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        if (_attachmentError != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          _WorkspaceErrorText(message: _attachmentError!),
+        ],
+      ],
     );
   }
 }
@@ -5335,6 +5521,335 @@ class _WorkspaceNarrativeSection extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WorkspaceEvidenceSection extends StatelessWidget {
+  const _WorkspaceEvidenceSection({
+    required this.learningCase,
+    required this.organizationId,
+    required this.repository,
+  });
+
+  final WorkspaceCase learningCase;
+  final String? organizationId;
+  final EvidenceAttachmentRepository? repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Evidence / 证据', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.sm),
+          if (learningCase.evidence.isEmpty)
+            const Text('尚未记录 Evidence。')
+          else
+            for (final evidence in learningCase.evidence)
+              _WorkspaceEvidenceItem(
+                learningCase: learningCase,
+                evidence: evidence,
+                organizationId: organizationId,
+                repository: repository,
+              ),
+          const Divider(height: AppSpacing.lg),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceEvidenceItem extends StatelessWidget {
+  const _WorkspaceEvidenceItem({
+    required this.learningCase,
+    required this.evidence,
+    required this.organizationId,
+    required this.repository,
+  });
+
+  final WorkspaceCase learningCase;
+  final WorkspaceEvidence evidence;
+  final String? organizationId;
+  final EvidenceAttachmentRepository? repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${_formatDate(evidence.observedAt)} ${evidence.title}',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(evidence.summary),
+          if (repository != null && organizationId != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _WorkspaceEvidenceAttachments(
+              organizationId: organizationId!,
+              learningCaseId: learningCase.id,
+              evidenceId: evidence.id,
+              canUpload: learningCase.status != LearningCaseStatus.closed,
+              repository: repository!,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceEvidenceAttachments extends StatefulWidget {
+  const _WorkspaceEvidenceAttachments({
+    required this.organizationId,
+    required this.learningCaseId,
+    required this.evidenceId,
+    required this.canUpload,
+    required this.repository,
+  });
+
+  final String organizationId;
+  final String learningCaseId;
+  final String evidenceId;
+  final bool canUpload;
+  final EvidenceAttachmentRepository repository;
+
+  @override
+  State<_WorkspaceEvidenceAttachments> createState() =>
+      _WorkspaceEvidenceAttachmentsState();
+}
+
+class _WorkspaceEvidenceAttachmentsState
+    extends State<_WorkspaceEvidenceAttachments> {
+  late Future<List<_EvidenceAttachmentPreview>> _previewsFuture;
+  bool _uploading = false;
+  String? _error;
+  PickedEvidenceAttachment? _pendingUpload;
+
+  @override
+  void initState() {
+    super.initState();
+    _previewsFuture = _loadPreviews();
+  }
+
+  Future<List<_EvidenceAttachmentPreview>> _loadPreviews() async {
+    final attachments = await widget.repository.listForEvidence(
+      widget.evidenceId,
+    );
+    return [
+      for (final attachment in attachments)
+        _EvidenceAttachmentPreview(
+          attachment: attachment,
+          signedUrl: await widget.repository.createSignedUrl(
+            attachment.storagePath,
+          ),
+        ),
+    ];
+  }
+
+  Future<void> _upload() async {
+    if (_uploading || !widget.canUpload) {
+      return;
+    }
+    PickedEvidenceAttachment? picked = _pendingUpload;
+    try {
+      picked ??= await pickEvidenceAttachment(context);
+      if (picked == null || !mounted) {
+        return;
+      }
+      final attachment = picked;
+      setState(() {
+        _uploading = true;
+        _error = null;
+        _pendingUpload = attachment;
+      });
+      await widget.repository.upload(
+        organizationId: widget.organizationId,
+        learningCaseId: widget.learningCaseId,
+        evidenceId: widget.evidenceId,
+        attachmentId: attachment.attachmentId,
+        bytes: attachment.bytes,
+        fileName: attachment.fileName,
+        contentType: attachment.contentType,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _pendingUpload = null;
+        _previewsFuture = _loadPreviews();
+        _uploading = false;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _uploading = false;
+          _error = _describeAttachmentUiError(error);
+        });
+      }
+    }
+  }
+
+  Future<void> _openPreview(_EvidenceAttachmentPreview preview) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4,
+          child: Image.network(
+            preview.signedUrl,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => const SizedBox(
+              width: 280,
+              height: 180,
+              child: Center(child: Text('图片暂时无法读取，请重新打开 Case。')),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<_EvidenceAttachmentPreview>>(
+      future: _previewsFuture,
+      builder: (context, snapshot) {
+        final previews = snapshot.data ?? const <_EvidenceAttachmentPreview>[];
+        final hasError = snapshot.hasError;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                for (final preview in previews)
+                  Semantics(
+                    button: true,
+                    label: '查看 ${preview.attachment.originalFileName}',
+                    child: InkWell(
+                      onTap: () => _openPreview(preview),
+                      borderRadius: BorderRadius.circular(AppRadii.compact),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadii.compact),
+                        child: Image.network(
+                          preview.signedUrl,
+                          width: 88,
+                          height: 68,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                width: 88,
+                                height: 68,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                                child: const Icon(Icons.broken_image_outlined),
+                              ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (widget.canUpload)
+                  OutlinedButton.icon(
+                    onPressed: _uploading ? null : _upload,
+                    icon: Icon(
+                      _uploading
+                          ? Icons.cloud_upload_outlined
+                          : Icons.add_a_photo_outlined,
+                    ),
+                    label: Text(
+                      _uploading
+                          ? '上传中…'
+                          : _pendingUpload != null && _error != null
+                          ? '重试上传'
+                          : '添加照片',
+                    ),
+                  ),
+                if (widget.canUpload &&
+                    _pendingUpload != null &&
+                    _error != null)
+                  TextButton(
+                    onPressed: _uploading
+                        ? null
+                        : () => setState(() {
+                            _pendingUpload = null;
+                            _error = null;
+                          }),
+                    child: const Text('更换图片'),
+                  ),
+              ],
+            ),
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Padding(
+                padding: EdgeInsets.only(top: AppSpacing.xs),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            if (hasError)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '照片读取失败，请重试。',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => setState(() {
+                        _error = null;
+                        _previewsFuture = _loadPreviews();
+                      }),
+                      child: const Text('重试'),
+                    ),
+                  ],
+                ),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: _WorkspaceErrorText(message: _error!),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _EvidenceAttachmentPreview {
+  const _EvidenceAttachmentPreview({
+    required this.attachment,
+    required this.signedUrl,
+  });
+
+  final CaseEvidenceAttachment attachment;
+  final String signedUrl;
+}
+
+String _describeAttachmentUiError(Object error) {
+  final detail = error.toString().toLowerCase();
+  if (detail.contains('10 mb') || detail.contains('too large')) {
+    return '图片不能超过 10 MB。';
+  }
+  if (detail.contains('invalid_live_session') || detail.contains('session')) {
+    return '登录状态已变化，请重新登录后再添加图片。';
+  }
+  if (detail.contains('network') ||
+      detail.contains('socket') ||
+      detail.contains('timeout')) {
+    return '网络暂时不可用，请检查网络后重试。';
+  }
+  return '图片上传失败，请换一张 JPG、PNG 或 WEBP 图片后重试。';
 }
 
 class _WorkspaceTimelineItem extends StatelessWidget {

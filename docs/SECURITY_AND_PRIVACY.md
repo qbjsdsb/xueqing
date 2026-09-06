@@ -500,7 +500,7 @@ break-glass 使用后要复核角色、撤销临时凭据并留下治理记录�
 
 ## 已完成
 
-- [x] GitHub repository 已 Private
+- [x] GitHub repository 已 Public；公开期间仍禁止任何真实数据和 Secret 进入 GitHub
 - [x] Wiki 已关闭
 - [x] Template repository 已关闭
 - [x] Foundation 禁止真实学生数据和 Secret 进入 GitHub 的规则明确

@@ -281,7 +281,7 @@ V1 不做：收费 / 课消 / 招生 CRM、完整排课 ERP、大型题库、学
 - [x] disaster recovery runbook
 - [x] Work / Codex / GitHub 事实源规则
 - [x] open-source 借鉴边界
-- [x] repository Private
+- [x] repository Public（零成本 CI 决策）
 - [x] Wiki 关闭
 - [x] Template repository 关闭
 - [x] branch behind main = 0

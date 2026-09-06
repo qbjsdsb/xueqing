@@ -103,9 +103,9 @@ git clone
 8. review；
 9. 合并。
 
-### GitHub Free private 的现实限制
+### GitHub Free 公开仓库的现实限制
 
-为了隐私，仓库必须 Private；但 GitHub Free 的 private repo 没有 Pro/Team 才有的私有 branch protection/ruleset 强制能力。
+仓库保持 Public 以满足零成本 CI；公开源码不等于公开业务数据，分支、PR、执行证据和人工合并仍是必要治理措施。
 
 零成本阶段因此采用**流程治理**：
 - Work/Codex 不直接 push main；
@@ -245,7 +245,7 @@ Phase 0A 已用 GitHub-hosted Ubuntu / Windows runner 完成一次 Android debug
 
 ## 11. GitHub Actions 成本控制策略
 
-GitHub Free private 有有限 Actions 额度。用户于 2026-09-02 明确选择**暂不设置 zero-overage budget**，并接受这一账户级计费风险；因此 budget 不再作为 Foundation、Phase 0A 或真实数据 Go/No-Go 的硬阻塞项，详见 ADR-044。
+公开仓库用于降低当前 CI 额度压力。用户于 2026-09-02 明确选择**暂不设置 zero-overage budget**，并接受这一账户级计费风险；因此 budget 不再作为 Foundation、Phase 0A 或真实数据 Go/No-Go 的硬阻塞项，详见 ADR-044。
 
 工程侧必须用触发策略控制消耗：
 - PR / `main` 默认 Linux：pub get、lockfile consistency、format、analyze、unit/widget tests；Phase 0B 后再加入适合 Linux 的 Local DB/RLS/static checks；

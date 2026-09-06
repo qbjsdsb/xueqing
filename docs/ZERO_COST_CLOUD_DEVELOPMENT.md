@@ -19,7 +19,7 @@ ChatGPT Project：Xueqing｜学情闭环开发
     ├─ Work：研究、实现、PR、复审
     └─ Codex：需要真实终端/build/debug 时使用
               ↓
-Private GitHub Repo
+Public GitHub Repo（用户明确选择，源码公开、数据不公开）
     ├─ source / docs / migrations
     ├─ branch / Draft PR / Issues
     └─ GitHub Actions（免费额度 + 克制触发策略）
@@ -249,11 +249,11 @@ Supabase Flutter v2 可能先读出本地 Session，而不保证它已经远端�
 
 ---
 
-## 10. GitHub Free：Private 优先，流程保护 main
+## 10. GitHub Free：Public 优先，流程保护 main
 
-仓库必须 Private。
+仓库保持 Public，这是当前零成本 CI 的明确选择；公开只针对源码和工程协作，不代表可以上传业务数据。
 
-现实限制：GitHub Free private repo 没有 Pro/Team 才有的 private branch protection/ruleset 强制能力。
+公开仓库的 Actions 运行不应被当成无限资源，仍需控制触发范围、并发和 artifact 保留时间；平台保护也不替代代码审阅和人工验收。
 
 因此零成本阶段：
 - 不直推 main；
@@ -263,13 +263,13 @@ Supabase Flutter v2 可能先读出本地 Session，而不保证它已经远端�
 - 人工合并；
 - 以后升级 GitHub 计划再开启 required PR/status checks。
 
-隐私优先级高于为了免费 branch protection 保持 Public。
+数据隐私优先级高于便利性：仓库可以公开，学生数据、账号凭据、备份和 Storage 对象必须留在受控环境。
 
 ---
 
-## 11. GitHub Actions：免费额度必须主动控制
+## 11. GitHub Actions：公开仓库也要主动控制资源
 
-GitHub Free private 当前有有限 Actions 分钟/存储；没有预算保护时更不能把“免费额度”理解成无限资源。
+公开仓库可用于当前零成本 CI，但运行时间、并发和 artifact 存储仍是有限的工程资源；不能把“公开”理解成无限资源。
 
 ### 当前明确决策
 
@@ -342,7 +342,7 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构无法接受这个恢�
 
 ```text
 Foundation Freeze
-→ repo Private
+→ repo Public
 → merge Foundation PR
 → Flutter Windows/Android bootstrap
 → Phase 0A.5 UX/UI Design Foundation

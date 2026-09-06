@@ -130,7 +130,7 @@ supabase db dump \
 备份必须：
 - **加密**；
 - 存在 Supabase 之外；
-- 不进入 GitHub，包括 Private repo；
+- 不进入 GitHub，包括 Public repo；
 - 不放在所有人都能访问的个人共享目录；
 - 至少保留多个时间点；
 - 至少有一份不与 Production 同故障域的副本。

@@ -117,7 +117,7 @@ Supabase `JWT session_id → auth.sessions` 是 reference；任何 Production pr
 ## ADR-037｜Production Region 由真实网络测试决定
 **Accepted / Expanded by ADR-045** — Supabase APAC 只是候选；中国大陆 CloudBase/自托管等也需同样 Auth/Data/Storage/restore/无代理网络测试。Region 不是合规证明。
 
-## ADR-038｜GitHub Free Private 用流程治理
+## ADR-038｜GitHub Free Public 用流程治理
 **Accepted / Refined by ADR-044**。
 
 ## ADR-039｜Free Pilot 恢复能力是产品门槛

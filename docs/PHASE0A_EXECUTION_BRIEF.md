@@ -71,7 +71,7 @@ Phase 0A 可以使用明显占位/编译期注入方式；Supabase 真正接入�
 - 不使用 larger runner；
 - artifact 保留从简。
 
-若 GitHub Free private runner/平台限制导致 Windows build 不适合作为每 PR 必跑项，记录原因，不为了“看起来完整”制造高成本 CI。
+若 GitHub-hosted runner/平台限制导致 Windows build 不适合作为每 PR 必跑项，记录原因，不为了“看起来完整”制造高成本 CI。
 
 ## 4. 明确禁止
 

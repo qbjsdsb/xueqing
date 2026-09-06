@@ -198,7 +198,7 @@ Credential 是特殊例外：明文密码不持久化，因此响应丢失时 re
 
 不得提交：真实学生 / 家长联系方式、作文 / 试卷照片、家校正文、真实账号密码、Token / Secret、真实 backup。
 
-Private repository 也不改变这条规则。
+公开仓库也不改变这条规则。
 
 自由文本只收集必要教学事实；日志 / audit 不复制完整敏感正文。
 
@@ -209,7 +209,7 @@ Private repository 也不改变这条规则。
 默认不新增现金支出：SMTP / 域名 / SMS、AI API、Supabase Pro / add-ons、商业 UI / 监控 / 分析 SaaS、GitHub larger runner、Work / Codex extra credits、Windows 付费公信签名作为 Pilot 硬依赖。
 
 GitHub：
-- repo 必须 Private；
+- repo 必须保持 Public，这是当前零成本 CI 的明确选择；
 - Work / Codex 禁直推 main；
 - branch + Draft PR + 执行证据 + 人工合并；
 - repository 已关闭 Wiki 与 Template repository；

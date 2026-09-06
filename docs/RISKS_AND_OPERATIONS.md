@@ -10,11 +10,11 @@
 >
 > 在两项 Gate 之前，只允许用虚构数据进行 provider-specific compatibility/security spike；Spike 不构成 production migration 授权。两 Gate 通过后，才可冻结 provider、region、identity 与 session strategy，再另行执行正式 migrations、Auth/RLS/CRUD 与 Go/No-Go。
 
-## R1｜Private 不等于可以把真实数据放进 GitHub
+## R1｜Public 不等于可以把真实数据放进 GitHub
 
 **等级：最高｜持续**
 
-当前仓库已经是 Private，但 Private 只解决源码可见性，不是学生数据存储方案。
+当前仓库已经是 Public，但 Public 只解决代码协作与零成本 CI，不是学生数据存储方案。
 
 处理：
 - Secret 永不提交；
@@ -22,15 +22,15 @@
 - 不上传真实学生、家长、教师账号资料、试卷、作文、家校正文、Production backup；
 - 发生误提交按安全事件处理，而不是只删最新 commit。
 
-退出：持续性要求，不因仓库 Private 而关闭。
+退出：持续性要求，不因仓库 Public 而关闭。
 
 ---
 
-## R2｜GitHub Free 私有仓库缺少平台级强制保护
+## R2｜公开仓库也不替代代码治理
 
 **等级：中高｜开发治理**
 
-零额外付费阶段不能假设 GitHub 会替我们强制所有 PR / status checks。
+公开仓库可以降低 CI 额度压力，但不能假设 GitHub 会替我们完成所有 PR、状态检查、人工验收和数据安全治理。
 
 处理：
 - Work / Codex 禁止直推 main；
@@ -38,7 +38,7 @@
 - PR 写清真实执行证据；
 - 人工合并；
 - Foundation 优先 squash；
-- 以后升级 GitHub 计划再考虑更强平台规则。
+- 以后如确有需要，再评估更强的平台规则；当前以分支、PR、执行证据和人工合并治理。
 
 退出：流程进入 AGENTS / workflow，并在实际开发中持续遵守。
 
@@ -566,7 +566,7 @@ Phase 0A 曾真实发生一次：低层 tree 更新错误地只保留少量路�
 
 ## 已完成
 
-- [x] GitHub repository 已 Private
+- [x] GitHub repository 已 Public（零成本 CI 决策）
 - [x] Wiki / Template repository 已关闭
 - [x] Foundation 明确不提交真实学生数据或 Secret
 - [x] Actions budget 已有明确用户决策：暂不设置；残余计费风险已接受，CI 触发策略已收紧
