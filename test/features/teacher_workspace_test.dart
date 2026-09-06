@@ -1547,7 +1547,10 @@ void main() {
       find.byKey(const Key('reopen-next-action')),
       '复核复发原因并安排验证',
     );
-    await tester.tap(find.widgetWithText(FilledButton, '保存 Evidence'));
+    final saveEvidenceButton =
+        find.widgetWithText(FilledButton, '保存 Evidence');
+    await tester.ensureVisible(saveEvidenceButton);
+    await tester.tap(saveEvidenceButton);
     await tester.pumpAndSettle();
 
     expect(repository.addEvidenceCount, 1);
@@ -1611,7 +1614,10 @@ void main() {
       find.byKey(const Key('reopen-evidence-summary')),
       '学生再次跳过通分步骤，需要重新安排验证。',
     );
-    await tester.tap(find.widgetWithText(FilledButton, '保存 Evidence'));
+    final saveEvidenceButton =
+        find.widgetWithText(FilledButton, '保存 Evidence');
+    await tester.ensureVisible(saveEvidenceButton);
+    await tester.tap(saveEvidenceButton);
     await tester.pumpAndSettle();
 
     expect(find.textContaining('观察时间必须晚于最近一次关闭时间'), findsOneWidget);
