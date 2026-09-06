@@ -307,7 +307,7 @@ Future<void> _restoreFromBackup(
 }) async {
   await for (final entity in installDirectory.list(followLinks: false)) {
     final name = _baseName(entity.path);
-    if (name == skipFileName) {
+    if (_shouldSkip(name, skipFileNames)) {
       continue;
     }
     await entity.delete(recursive: true);
