@@ -491,7 +491,9 @@ async function resetProvisioningAuthUser(
     userId,
     {
       password: temporaryPassword,
-      user_metadata: {
+      // Keep the recovery marker server-controlled. The member can edit
+      // user_metadata, so it must never be used as provisioning evidence.
+      app_metadata: {
         ...existingMetadata,
         xueqing_invitation_id: invitationId,
         xueqing_organization_id: organizationId,
