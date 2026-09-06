@@ -958,9 +958,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          '已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。',
-        ),
+        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
       ),
     );
   }
