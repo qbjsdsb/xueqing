@@ -1335,6 +1335,19 @@ void main() {
       ).validate(),
       throwsArgumentError,
     );
+    expect(
+      () => ReopenCaseCommand(
+        operationId: 'op-1',
+        caseId: 'case-1',
+        expectedCaseVersion: 1,
+        recurrenceEvidenceIds: <String>['evidence-1'],
+        expectedEvidenceVersions: <String, int>{'evidence-1': 1},
+        nextActionType: CaseActionType.review,
+        nextActionTitle: '安排复查',
+        nextActionDueOn: null,
+      ).validate(),
+      throwsArgumentError,
+    );
   });
 
   testWidgets('stabilizes a Case after a passed verification', (tester) async {

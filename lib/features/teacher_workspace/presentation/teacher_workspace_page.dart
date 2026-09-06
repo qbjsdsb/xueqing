@@ -2184,6 +2184,9 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
     }
     setState(() {
       _nextActionDueOn = DateTime(selected.year, selected.month, selected.day);
+      if (_nextActionType == CaseActionType.review) {
+        _nextActionError = null;
+      }
     });
   }
 
@@ -2205,6 +2208,10 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
     }
     if (nextActionTitle.isEmpty) {
       _nextActionError = '请保留或改写下一行动';
+      valid = false;
+    }
+    if (_nextActionType == CaseActionType.review && _nextActionDueOn == null) {
+      _nextActionError = '复查行动需要安排日期';
       valid = false;
     }
     if (!valid) {
@@ -2424,7 +2431,12 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                         ? null
                         : (value) {
                             if (value != null) {
-                              setState(() => _nextActionType = value);
+                              setState(() {
+                                _nextActionType = value;
+                                if (value != CaseActionType.review) {
+                                  _nextActionError = null;
+                                }
+                              });
                             }
                           },
                   ),
@@ -2449,7 +2461,9 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                           icon: Icon(Icons.event_outlined),
                           label: Text(
                             _nextActionDueOn == null
-                                ? '安排日期（可选）'
+                                ? _nextActionType == CaseActionType.review
+                                    ? '安排日期（必选）'
+                                    : '安排日期（可选）'
                                 : '行动日期：${_formatDateOnly(_nextActionDueOn!)}',
                           ),
                         ),
@@ -5784,6 +5798,9 @@ String _describeCaseCommandError(Object error) {
   }
   if (detail.contains('case_recurrence_before_close')) {
     return '观察时间必须晚于最近一次关闭时间；请调整实际观察时间后重试。';
+  }
+  if (detail.contains('review_due_date_required')) {
+    return '复查行动需要安排日期。';
   }
   if (detail.contains('evidence_not_finalized')) {
     return '这条 Evidence 还没有完成保存，不能用于重新打开 Case。';

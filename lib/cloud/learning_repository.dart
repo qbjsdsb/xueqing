@@ -711,6 +711,9 @@ class ReopenCaseCommand {
       throw ArgumentError('expectedEvidenceVersions does not match Evidence.');
     }
     _validateNextActionTitle(nextActionTitle);
+    if (nextActionType == CaseActionType.review && nextActionDueOn == null) {
+      throw ArgumentError('review actions require a due date.');
+    }
   }
 }
 

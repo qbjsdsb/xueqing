@@ -57,13 +57,6 @@ alter table public.case_events
     'case_reopened'
   ));
 
-alter table public.case_actions
-  drop constraint if exists case_actions_review_due_check;
-
-alter table public.case_actions
-  add constraint case_actions_review_due_check
-  check (action_type <> 'review' or due_at is not null);
-
 create or replace function private.add_case_evidence(
   p_operation_id uuid,
   p_case_id uuid,
