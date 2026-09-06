@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-**Phase 0B.0 release hardening｜学生任课关系交接与生产运行边界验证**
+**Phase 0B.0 pilot hardening｜邀请接管、软件更新与生产运行边界验证**
 
 Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、本地存储、零成本云端开发、恢复与运行风险已完成正式开发前审计。
 
-`main` 当前停在 `cd6f78e`（Phase 0B.0-C）。当前验证线是 `phase0b0f/runtime-boundary-hardening`（Draft PR #41），建立在学生任课关系交接 PR #40 及其前置管理能力之上；串联 Draft PR 必须按依赖顺序审阅、通过 CI 和人工验收后再合并。本阶段继续使用虚构数据，不承载真实学生、家长或教师隐私材料。
+`main` 当前为 `797aa42`，已包含成员账号开通与首次接管闭环（PR #50）。当前验证线是 `feature/in-app-updates`（Draft PR #49）；仓库按零成本 CI 决策保持公开。本阶段继续使用虚构数据，不承载真实学生、家长或教师隐私材料。
 
 当前开发线已经包含：
 
@@ -19,23 +19,23 @@ Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、
 - 加载、空状态、网络失败、重试、账号切换隔离和错误日志兜底；
 - Local migration / RLS 测试、轻量 CI，以及 Remote Development 的真实 Data API smoke evidence。
 
-### 当前执行证据（2026-09-04）
+### 当前执行证据（2026-09-06）
 
 以当前仓库和远端开发项目的实时状态为准：
 
-- main HEAD 为 cd6f78e，仍是 Phase 0B.0-C；当前验证线为 PR #41，HEAD 为 4dbfd6，仍是 Draft。
-- PR #40 已完成学生任课关系的原子交接：迁移、管理员权限、版本并发、幂等、跨机构 / 跨学科负面测试，以及 Flutter 管理界面均已加入；Flutter run 33885955988、Supabase run 33885956023 均通过。
-- PR #41 已加入 release 环境显式声明、Production HTTPS、精确 host allowlist、禁止凭据 / 路径 / query / fragment 的 endpoint 校验，以及开发 release 的显式 opt-in。最近一次 Flutter run 33887891047 已通过；Android / Windows 平台 smoke run 33887891051 在本记录生成时仍在运行，完成后还需检查 artifact。
-- Supabase xueqing-dev（ap-southeast-1）当前仍应用到 20260904065220 phase_0b_0_j_invitation_expiry_reinvite_fix；PR #40 的学生任课交接 migration 尚未应用到远端，PR #41 也没有远端 migration。
-- 当前所有数据仍为虚构开发数据；本轮没有改动 main、没有应用远端 migration、没有写入任何真实学生、家长或教师数据。
+- `main` HEAD 为 `797aa42`；PR #50 已合并，包含成员开通、一次性临时密码、首次改密、重新发放和 onboarding 启动门。
+- `xueqing-dev`（ap-southeast-1）已应用 `phase_0b_0_z_member_provisioning`；`organization-member-credentials` Edge Function v2 已部署并保持 `verify_jwt=true`。
+- PR #49 的更新分支已纳入 PR #50 主线并解决工作台冲突；原 Flutter checks、Android / Windows platform smoke 均通过，合并后的分支仍需新一轮 CI 与真实 Release 链路验收。
+- 仓库保持公开是当前零成本 CI 的明确选择；公开期间不得提交 service key、访问令牌、真实学生 / 家长 / 教师资料或可回溯的敏感导出。
+- 当前所有远端数据仍为虚构开发数据；未发布正式安装包，也未开启 Production 数据承载。
 
 当前 Android / Windows 包只连接虚构的 Remote Development；它们不是 Production 包，也不代表真实数据上线许可。
 ### Production 边界仍未开放
 
 P0 Gate A / B 的身份可移植性与撤销 Session / 旧 token spike 证据已经存在，但这只证明开发验证范围内的风险被测试过，不等于 Production provider、业务 migration 或真实数据上线获批。
 
-- 当前串联开发线为 PR #39 → PR #40 → PR #41；它们都是 Draft，必须先按依赖顺序审阅并合并，不能把分支上的功能当成 main 已交付。
-- PR #40 的数据库 migration 尚未部署到 xueqing-dev；PR #41 只是客户端运行边界，不包含 Production schema、Auth 用户开通或真实数据授权。
+- 当前已合并的成员接管线为 PR #50；软件内更新仍在 PR #49，不能把 Draft 分支上的 Release 能力当成已发布版本。
+- PR #50 的 migration / Edge Function 只部署到虚构的 xueqing-dev，不包含 Production schema、真实 Auth 用户开通或真实数据授权。
 - Release 构建必须显式声明 XUEQING_ENV；Production 还必须使用 HTTPS，并把 URL host 放进精确的 XUEQING_SUPABASE_ALLOWED_HOSTS，不接受通配符。开发 release 必须显式设置 XUEQING_ALLOW_DEVELOPMENT_RELEASE=true。
 - leaked password protection、SECURITY DEFINER 逐函数复核、intentional no-policy 表说明、迁移 drift、真实设备 / 网络、备份恢复和 Go / No-Go 仍待完成。
 - Production provider、region、identity/session strategy、signing、正式发布渠道和升级兼容窗口仍未最终冻结。
@@ -337,12 +337,11 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 
 ## 当前推进顺序
 
-1. 先完成 PR #41 当前 CI 与平台 artifact 核查，再按依赖顺序审阅并合并 PR #39 → PR #40 → PR #41；不跳过 Draft、测试或人工验收。
-2. 合并后只在虚构的 xueqing-dev 走受控 migration，核对 migration history、schema、RLS、RPC、Advisor 和 Remote smoke；记录本地 / 远端 drift。
-3. 完成 Android / Windows 真实点击验收：登录、重启恢复、退出、账号切换、双教师隔离、任课交接、邀请边界、时区跨午夜、网络失败和草稿恢复。
+1. 完成 PR #49 合并后的 CI 和一次虚构 Release 链路验收，配置并离线备份 Android release signing；不把测试版当作自更新基线。
+2. 在 Android / Windows 上验证登录、重启恢复、账号切换、邀请接管、旧 token、网络失败和更新回滚；记录可复核证据。
+3. 实现 Evidence 拍照 / 图片附件最小闭环：私有 Storage、附件元数据、机构 / 学生 / Case 权限和失败重试，不新增独立照片一级导航。
 4. 补齐 Case 真正闭环：Action 完成 / 改期 / 取消，以及 stabilize、close、reopen；保持“问题 → 证据 → 干预 → 验证 → 下一行动”的教学逻辑。
-5. 再补机构初始化能力：学生 / 学科 / 教师范围 / 学生分配、正式 onboarding、重置、停用和账号交接。
-6. 完成 DB / Auth / Storage recovery drill 与 Production Go / No-Go；在此之前不接入真实未成年人数据，也不扩展到 AI、家校和大型报表。
+5. 完成 DB / Auth / Storage recovery drill 与 Production Go / No-Go；在此之前不接入真实未成年人数据，也不扩展到 AI、家校和大型报表。
 
 当前阶段的主要质量增量是可复核执行证据和完整人工闭环，而不是继续堆叠页面或复杂后台。
 
