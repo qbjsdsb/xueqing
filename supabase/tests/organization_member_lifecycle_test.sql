@@ -26,8 +26,8 @@ select is(
     from pg_proc
     where oid = to_regprocedure('public.list_organization_members(uuid)')
   ),
-  true,
-  'member roster function is security definer'
+  false,
+  'member roster function is security-invoker wrapper'
 );
 
 select is(
@@ -46,8 +46,8 @@ select is(
       'public.update_organization_membership_status(uuid,uuid,uuid,integer,text)'
     )
   ),
-  true,
-  'member lifecycle function is security definer'
+  false,
+  'member lifecycle function is security-invoker wrapper'
 );
 
 select is(

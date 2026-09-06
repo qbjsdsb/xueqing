@@ -24,8 +24,8 @@ select is(
     where pg_namespace.nspname = 'public'
       and pg_proc.proname = 'reschedule_case_action'
   ),
-  true,
-  'reschedule command is security definer'
+  false,
+  'reschedule command is security-invoker wrapper'
 );
 
 select is(

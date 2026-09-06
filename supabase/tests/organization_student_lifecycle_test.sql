@@ -14,8 +14,8 @@ select is(
     from pg_proc
     where oid = to_regprocedure('public.list_organization_students(uuid)')
   ),
-  true,
-  'student roster function is security definer'
+  false,
+  'student roster function is security-invoker wrapper'
 );
 
 select is(
@@ -34,8 +34,8 @@ select is(
       'public.update_organization_student(uuid,uuid,uuid,integer,text,text,text)'
     )
   ),
-  true,
-  'student lifecycle function is security definer'
+  false,
+  'student lifecycle function is security-invoker wrapper'
 );
 
 select is(
