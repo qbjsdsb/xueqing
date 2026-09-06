@@ -2462,8 +2462,8 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                           label: Text(
                             _nextActionDueOn == null
                                 ? _nextActionType == CaseActionType.review
-                                    ? '安排日期（必选）'
-                                    : '安排日期（可选）'
+                                      ? '安排日期（必选）'
+                                      : '安排日期（可选）'
                                 : '行动日期：${_formatDateOnly(_nextActionDueOn!)}',
                           ),
                         ),
