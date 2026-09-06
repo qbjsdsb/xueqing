@@ -1,6 +1,6 @@
 begin;
 
-select plan(4);
+select plan(5);
 
 with expected(signature, authenticated_allowed) as (
   values
@@ -120,6 +120,26 @@ select ok(
       or authenticated_can_execute <> authenticated_allowed
   ),
   'private implementations retain definer execution and intended grants'
+);
+
+select ok(
+  not exists (
+    select 1
+    from (
+      values
+        ('public.get_my_membership_state()'::regprocedure),
+        ('public.list_organization_invitations(uuid)'::regprocedure),
+        ('public.list_organization_members(uuid)'::regprocedure),
+        ('public.list_organization_setup_options(uuid)'::regprocedure),
+        ('public.list_organization_student_teacher_assignments(uuid)'::regprocedure),
+        ('public.list_organization_students(uuid)'::regprocedure),
+        ('public.list_organization_subject_catalog(uuid)'::regprocedure),
+        ('public.list_organization_teacher_subject_scopes(uuid)'::regprocedure)
+    ) as expected(signature)
+    join pg_catalog.pg_proc as p on p.oid = expected.signature
+    where p.provolatile <> 's'
+  ),
+  'read-only public RPCs retain STABLE volatility'
 );
 
 select ok(
