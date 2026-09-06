@@ -163,6 +163,7 @@ Future<void> _scheduleSelfCleanup(String path) async {
     stderr.writeln('无法清理临时更新组件：$error');
   }
 }
+
 Future<void> _waitForProcessToExit(int processId) async {
   final deadline = DateTime.now().add(_waitTimeout);
   while (DateTime.now().isBefore(deadline)) {
