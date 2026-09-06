@@ -697,7 +697,9 @@ class ReopenCaseCommand {
     if (recurrenceEvidenceIds.isEmpty ||
         recurrenceEvidenceIds.any((id) => id.trim().isEmpty) ||
         recurrenceEvidenceIds.toSet().length != recurrenceEvidenceIds.length) {
-      throw ArgumentError('recurrenceEvidenceIds must be unique and non-empty.');
+      throw ArgumentError(
+        'recurrenceEvidenceIds must be unique and non-empty.',
+      );
     }
     if (expectedEvidenceVersions.length != recurrenceEvidenceIds.length ||
         expectedEvidenceVersions.keys.toSet().length !=

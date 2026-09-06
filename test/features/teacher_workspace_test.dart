@@ -1449,10 +1449,7 @@ void main() {
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
 
-    final reopenButton = find.widgetWithText(
-      FilledButton,
-      '记录复发并重新打开',
-    );
+    final reopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
     await tester.ensureVisible(reopenButton);
     await tester.tap(reopenButton);
     await tester.pumpAndSettle();
@@ -1474,18 +1471,14 @@ void main() {
 
     expect(repository.addEvidenceCount, 1);
     expect(repository.reopenCount, 1);
-    expect(
-      repository.reopenCommands.single.recurrenceEvidenceIds,
-      <String>['evidence-recurrence'],
-    );
+    expect(repository.reopenCommands.single.recurrenceEvidenceIds, <String>[
+      'evidence-recurrence',
+    ]);
     expect(
       repository.reopenCommands.single.expectedEvidenceVersions,
       <String, int>{'evidence-recurrence': 1},
     );
-    expect(
-      find.textContaining('Case 进入已确认'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Case 进入已确认'), findsOneWidget);
   });
 
   testWidgets('does not expose student data without teaching access', (

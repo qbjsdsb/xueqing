@@ -2009,7 +2009,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   }
 }
 
-
 class _WorkspaceReopenCaseForm extends StatefulWidget {
   const _WorkspaceReopenCaseForm({
     required this.learningCase,
@@ -2026,8 +2025,7 @@ class _WorkspaceReopenCaseForm extends StatefulWidget {
       _WorkspaceReopenCaseFormState();
 }
 
-class _WorkspaceReopenCaseFormState
-    extends State<_WorkspaceReopenCaseForm> {
+class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
   static const Map<String, String> _sourceTypeLabels = <String, String>{
     'observation': '课堂观察',
     'homework': '作业',
@@ -2258,9 +2256,7 @@ class _WorkspaceReopenCaseFormState
           caseId: widget.learningCase.id,
           expectedCaseVersion: widget.learningCase.version,
           recurrenceEvidenceIds: <String>[evidenceId],
-          expectedEvidenceVersions: <String, int>{
-            evidenceId: _evidenceVersion,
-          },
+          expectedEvidenceVersions: <String, int>{evidenceId: _evidenceVersion},
           nextActionType: _nextActionType,
           nextActionTitle: nextActionTitle,
           nextActionDueOn: _nextActionDueOn,
@@ -2460,8 +2456,7 @@ class _WorkspaceReopenCaseFormState
                           label: Text(
                             _nextActionDueOn == null
                                 ? '安排日期（可选）'
-                                : '行动日期：' +
-                                    _formatDateOnly(_nextActionDueOn!),
+                                : '行动日期：' + _formatDateOnly(_nextActionDueOn!),
                           ),
                         ),
                       ),
