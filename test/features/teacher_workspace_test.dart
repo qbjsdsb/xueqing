@@ -1667,6 +1667,7 @@ void main() {
     expect(find.text('示例学生甲'), findsNothing);
   });
 
+
   testWidgets(
     'renders management-only accounts without a navigation assertion',
     (tester) async {
@@ -1692,5 +1693,4 @@ void main() {
       expect(find.byType(NavigationRail), findsNothing);
     },
   );
-
 }
