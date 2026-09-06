@@ -8,7 +8,7 @@ select ok(
     in regexp_replace(
       lower(
         pg_get_functiondef(
-          'public.list_organization_members(uuid)'::regprocedure
+          'private.list_organization_members(uuid)'::regprocedure
         )
       ),
       '\s+',
@@ -25,7 +25,7 @@ select ok(
     in regexp_replace(
       lower(
         pg_get_functiondef(
-          'public.list_organization_invitations(uuid)'::regprocedure
+          'private.list_organization_invitations(uuid)'::regprocedure
         )
       ),
       '\s+',
@@ -42,7 +42,7 @@ select ok(
     in regexp_replace(
       lower(
         pg_get_functiondef(
-          'public.list_organization_students(uuid)'::regprocedure
+          'private.list_organization_students(uuid)'::regprocedure
         )
       ),
       '\s+',
@@ -59,7 +59,7 @@ select ok(
     in regexp_replace(
       lower(
         pg_get_functiondef(
-          'public.list_organization_teacher_subject_scopes(uuid)'::regprocedure
+          'private.list_organization_teacher_subject_scopes(uuid)'::regprocedure
         )
       ),
       '\s+',
@@ -76,7 +76,7 @@ select ok(
     in regexp_replace(
       lower(
         pg_get_functiondef(
-          'public.list_organization_student_teacher_assignments(uuid)'::regprocedure
+          'private.list_organization_student_teacher_assignments(uuid)'::regprocedure
         )
       ),
       '\s+',
