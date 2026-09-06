@@ -7,6 +7,8 @@ abstract interface class AuthRepository {
 
   Future<void> signIn({required String email, required String password});
 
+  Future<void> updatePassword({required String password});
+
   /// Signs out from the provider and clears the local session.
   ///
   /// A global sign-out revokes the user's other sessions when the network is
@@ -34,6 +36,16 @@ class SupabaseAuthRepository implements AuthRepository {
     );
     if (response.user == null) {
       throw const AuthException('Authentication did not return a user.');
+    }
+  }
+
+  @override
+  Future<void> updatePassword({required String password}) async {
+    final response = await _client.auth.updateUser(
+      UserAttributes(password: password),
+    );
+    if (response.user == null) {
+      throw const AuthException('Password update did not return a user.');
     }
   }
 

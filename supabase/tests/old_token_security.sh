@@ -11,7 +11,7 @@ eval "$status_env"
 : "${ANON_KEY:?supabase status did not return ANON_KEY}"
 
 login_response="$(
-  curl --fail-with-body --silent --show-error \
+  curl --silent --show-error \
     --request POST \
     --url "${API_URL}/auth/v1/token?grant_type=password" \
     --header "apikey: ${ANON_KEY}" \
@@ -19,8 +19,10 @@ login_response="$(
     --data '{"email":"teacher.a@xueqing.test","password":"XueqingDev-Only-123!"}'
 )"
 
-access_token="$(printf '%s' "${login_response}" | jq --exit-status --raw-output '.access_token')"
-test -n "${access_token}"
+if ! access_token="$(printf '%s' "${login_response}" | jq --exit-status --raw-output '.access_token')" || [ -z "${access_token}" ]; then
+  echo "password login failed; response: ${login_response}" >&2
+  exit 1
+fi
 
 # Keep the pre-revocation token in memory as the old-token fixture.
 old_access_token="${access_token}"
