@@ -119,12 +119,18 @@ Future<void> _launchInstalledExecutable(
     workingDirectory: workingDirectory,
     mode: ProcessStartMode.detached,
   );
-  final exitCode = await Future.any<int?>(<Future<int?>>[
-    process.exitCode,
-    Future<int?>.delayed(_launchGracePeriod, () => null),
-  ]);
-  if (exitCode != null) {
-    throw StateError('更新后的程序启动后立即退出（exit code $exitCode）。');
+  final deadline = DateTime.now().add(_launchGracePeriod);
+  var observedRunning = false;
+  while (DateTime.now().isBefore(deadline)) {
+    if (await _isProcessRunning(process.pid)) {
+      observedRunning = true;
+    } else if (observedRunning) {
+      throw StateError('更新后的程序启动后立即退出（pid ${process.pid}）。');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+  }
+  if (!observedRunning || !await _isProcessRunning(process.pid)) {
+    throw StateError('更新后的程序未能在宽限期内保持运行（pid ${process.pid}）。');
   }
 }
 
