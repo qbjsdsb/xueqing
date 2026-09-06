@@ -959,7 +959,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '已保存，Case 进入' + _caseStatusLabelFromWire(result.status) + '。',
+          '已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。',
         ),
       ),
     );
@@ -2311,11 +2311,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final caseContext =
-        widget.learningCase.typeLabel +
-        ' · ' +
-        widget.learningCase.status.label +
-        ' · version ' +
-        widget.learningCase.version.toString();
+        '${widget.learningCase.typeLabel} · ${widget.learningCase.status.label} · version ${widget.learningCase.version}';
     return PopScope<void>(
       canPop: !_submissionStarted && !_saving,
       onPopInvokedWithResult: (didPop, _) {
@@ -2412,7 +2408,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                     onPressed: _inputsLocked ? null : _pickObservedAt,
                     icon: Icon(Icons.schedule_outlined),
                     label: Text(
-                      '观察时间：' + _formatDateTimeForReopen(_observedAt),
+                      '观察时间：${_formatDateTimeForReopen(_observedAt)}',
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
@@ -2456,7 +2452,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                           label: Text(
                             _nextActionDueOn == null
                                 ? '安排日期（可选）'
-                                : '行动日期：' + _formatDateOnly(_nextActionDueOn!),
+                                : '行动日期：${_formatDateOnly(_nextActionDueOn!)}',
                           ),
                         ),
                       ),
@@ -5867,15 +5863,7 @@ String _formatDateTimeForReopen(DateTime value) {
   final day = value.day.toString().padLeft(2, '0');
   final hour = value.hour.toString().padLeft(2, '0');
   final minute = value.minute.toString().padLeft(2, '0');
-  return value.year.toString() +
-      '-' +
-      month +
-      '-' +
-      day +
-      ' ' +
-      hour +
-      ':' +
-      minute;
+  return '${value.year.toString().padLeft(4, '0')}-$month-$day $hour:$minute';
 }
 
 String _formatDateOnly(DateTime value) {
