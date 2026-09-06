@@ -2,7 +2,7 @@ const maxUpdaterArchiveEntries = 10000;
 
 const _reservedWindowsNames = <String>{
   'AUX',
-  'CLOCK$',
+  'CLOCK\$',
   'COM1',
   'COM2',
   'COM3',
@@ -15,8 +15,8 @@ const _reservedWindowsNames = <String>{
   'COM¹',
   'COM²',
   'COM³',
-  'CONIN$',
-  'CONOUT$',
+  'CONIN\$',
+  'CONOUT\$',
   'LPT1',
   'LPT2',
   'LPT3',

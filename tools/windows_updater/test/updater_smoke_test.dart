@@ -33,7 +33,7 @@ void main() {
       'CON',
       'CON.txt',
       'CON .txt',
-      'CONIN$',
+      'CONIN\$',
       'COM¹.txt',
       'folder/COM1.dll',
       'folder/LPT³.log',
