@@ -1511,7 +1511,6 @@ void main() {
     expect(find.textContaining('Case 进入已确认'), findsOneWidget);
   });
 
-
   testWidgets('restores an unfinished reopen after the page is recreated', (
     tester,
   ) async {
@@ -1578,10 +1577,7 @@ void main() {
 
     expect(repository.addEvidenceCount, 1);
     expect(repository.reopenCount, 2);
-    expect(
-      repository.reopenCommands[1].operationId,
-      firstReopenOperationId,
-    );
+    expect(repository.reopenCommands[1].operationId, firstReopenOperationId);
     expect(await store.load(scope), isNull);
     expect(find.textContaining('Case 进入已确认'), findsOneWidget);
   });
@@ -1614,9 +1610,9 @@ void main() {
 
     expect(find.textContaining('观察时间必须晚于最近一次关闭时间'), findsOneWidget);
     expect(
-      tester.widget<TextField>(
-        find.byKey(const Key('reopen-evidence-title')),
-      ).enabled,
+      tester
+          .widget<TextField>(find.byKey(const Key('reopen-evidence-title')))
+          .enabled,
       isTrue,
     );
     expect(
