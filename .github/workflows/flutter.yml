@@ -34,6 +34,10 @@ jobs:
       - name: Check Dart formatting
         run: dart format --output=none --set-exit-if-changed .
 
+      - name: Show canonical updater formatting
+        if: always()
+        run: dart format --output=show tools/windows_updater/bin/xueqing_updater.dart
+
       - name: Analyze
         run: flutter analyze
 
