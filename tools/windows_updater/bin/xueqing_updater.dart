@@ -288,8 +288,7 @@ Future<bool> _isProcessRunning(int processId) async {
   }
   final output = result.stdout.toString();
   _lastProcessProbeOutputs[processId] = output.trim();
-  return RegExp(r'(^|\s)' + processId.toString() + r'(\s|$)')
-      .hasMatch(output);
+  return RegExp(r'(^|\s)' + processId.toString() + r'(\s|$)').hasMatch(output);
 }
 
 Future<void> _verifySha256(File file, String expected) async {
