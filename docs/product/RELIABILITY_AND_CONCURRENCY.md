@@ -110,6 +110,7 @@ closed → post-close recurrence fact → teacher-confirmed recurrence Evidence 
 ```
 
 同一 logical DB transaction 内 lock/re-read target Case，确认 current status closed + expected_case_version；server 从 immutable committed lifecycle history 自动解析该 Case 最新 **committed** `case_closed` event。client 不得提供 close boundary/previous_close_id。
+最新边界只取有已提交 operation receipt 的 `case_closed` event，排序为 `committed_at desc, receipt_claim_sequence desc, receipt.id desc`；其中序号只用于打破同一 PostgreSQL transaction timestamp 的平局，未提交 receipt 永远不能成为边界。
 
 server 随后按稳定 ID 顺序 lock/re-read 每条 selected recurrence Evidence，确认其仍 committed/finalized、legally usable、属于 target Case，expected Evidence version/freshness 未漂移，且：
 

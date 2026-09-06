@@ -2,6 +2,14 @@
 -- A closed Case can reopen only from new, finalized Evidence observed after
 -- the latest committed close boundary. This is still fictional/dev data only.
 
+-- A monotonic claim sequence makes committed close ordering deterministic when
+-- multiple commands share one PostgreSQL transaction timestamp.
+alter table public.operation_receipts
+  add column if not exists receipt_claim_sequence bigint generated always as identity;
+
+comment on column public.operation_receipts.receipt_claim_sequence is
+  'Monotonic operation-claim sequence used to break committed_at ties; only committed receipts are eligible as boundaries.';
+
 alter table public.operation_receipts
   drop constraint if exists operation_receipts_command_type_check;
 
@@ -158,7 +166,9 @@ begin
       and event.event_type = 'case_closed'
       and event.operation_id is not null
       and event.operation_event_key = 'case_closed'
-    order by receipt.committed_at desc, receipt.id desc
+    order by receipt.committed_at desc,
+             receipt.receipt_claim_sequence desc,
+             receipt.id desc
     limit 1
     for update of event;
 
@@ -520,7 +530,9 @@ begin
     and event.event_type = 'case_closed'
     and event.operation_id is not null
     and event.operation_event_key = 'case_closed'
-  order by receipt.committed_at desc, receipt.id desc
+  order by receipt.committed_at desc,
+             receipt.receipt_claim_sequence desc,
+             receipt.id desc
   limit 1
   for update of event;
 
