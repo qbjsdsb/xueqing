@@ -486,7 +486,7 @@ select set_config(
 );
 
 select lives_ok(
-  $select public.complete_case_action(
+  $$select public.complete_case_action(
       '73000000-0000-0000-0000-000000000006',
       (
         select id
@@ -502,7 +502,7 @@ select lives_ok(
       'review',
       '高时区下的下一步',
       date '2026-09-10'
-    )$,
+    )$$,
   'the organization date is converted server-side for UTC+14'
 );
 

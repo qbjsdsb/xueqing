@@ -1323,7 +1323,7 @@ class SupabaseLearningRepository implements LearningRepository {
         'p_expected_action_version': command.expectedActionVersion,
         'p_next_action_type': command.nextActionType.wireValue,
         'p_next_action_title': command.nextActionTitle.trim(),
-        'p_next_action_due_on': _utcIso8601(command.nextActionDueOn),
+        'p_next_action_due_on': _dateOnlyString(command.nextActionDueOn),
       },
     );
   }
