@@ -4299,9 +4299,7 @@ class _WorkspaceCompleteActionFormState
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('提交结果未确认'),
-          content: const Text(
-            '上一次提交可能已在服务器完成。请先重试原提交；重试会沿用原内容和 operation ID。',
-          ),
+          content: const Text('上一次提交可能已在服务器完成。请先重试原提交；重试会沿用原内容和 operation ID。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
