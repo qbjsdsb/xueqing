@@ -48,8 +48,7 @@ class UpdateDialog extends StatelessWidget {
       if (result.isMandatory) '这是必须更新的版本。',
       if (result.platform == UpdatePlatform.windows)
         'Windows 会自动下载并完成替换，无需手动解压。',
-      if (result.platform == UpdatePlatform.android)
-        'Android 会打开系统安装器完成更新。',
+      if (result.platform == UpdatePlatform.android) 'Android 会打开系统安装器完成更新。',
       ...result.manifest.notes.map((note) => '• $note'),
     ];
     return lines.join('\n');
