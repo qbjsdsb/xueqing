@@ -5,8 +5,6 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:xueqing_windows_updater/updater_safety.dart';
 
-// Temporary formatter probe marker.
-
 const _canonicalHelperFileName = 'xueqing_updater.exe';
 const _bootstrapHelperFileName = 'xueqing_updater_bootstrap.exe';
 const _bootstrapMigrationMarkerName = '.xueqing_updater_bootstrap_migrated';
@@ -31,6 +29,7 @@ Future<void> main(List<String> args) async {
     }
   }
 }
+
 Future<void> _runUpdate(_UpdaterOptions options) async {
   await _waitForProcessToExit(options.pid);
   await _verifySha256(options.packageFile, options.sha256);
@@ -155,15 +154,11 @@ Future<void> _scheduleSelfCleanup(String path) async {
   }
   try {
     final escapedPath = path.replaceAll('"', '""');
-    await Process.start(
-      'cmd.exe',
-      <String>[
-        '/d',
-        '/c',
-        'ping.exe 127.0.0.1 -n 3 > nul & del /f /q "$escapedPath"',
-      ],
-      mode: ProcessStartMode.detached,
-    );
+    await Process.start('cmd.exe', <String>[
+      '/d',
+      '/c',
+      'ping.exe 127.0.0.1 -n 3 > nul & del /f /q "$escapedPath"',
+    ], mode: ProcessStartMode.detached);
   } on Object catch (error) {
     stderr.writeln('无法清理临时更新组件：$error');
   }
@@ -245,9 +240,7 @@ void _requireStagedUpdater(Directory stagingDirectory) {
   }
 }
 
-Future<void> _markBootstrapMigrationComplete(
-  Directory installDirectory,
-) async {
+Future<void> _markBootstrapMigrationComplete(Directory installDirectory) async {
   if (_baseName(Platform.resolvedExecutable).toLowerCase() !=
       _bootstrapHelperFileName) {
     return;
