@@ -8,7 +8,7 @@
 
 Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、本地存储、零成本云端开发、恢复与运行风险已完成正式开发前审计。
 
-`main` 当前为 `797aa42`，已包含成员账号开通与首次接管闭环（PR #50）。当前验证线是 `feature/in-app-updates`（Draft PR #49）；仓库按零成本 CI 决策保持公开。本阶段继续使用虚构数据，不承载真实学生、家长或教师隐私材料。
+`main` 的本次收口基线为 `c311927`（GitHub 实时 HEAD 以 `main` 为准）：PR #53（成员开通异常恢复）、PR #58（服务端权威 Case reopen）和 PR #54（按已验证 tag commit 构建发布包）已合并。图片附件 PR #51 已重基到该主线并补上会话切换保护、同一附件 ID 重试与 public RPC 安全边界；在 Android / Windows 真实设备 gate 完成前不合入 `main`。仓库按零成本 CI 决策保持公开，本阶段继续使用虚构数据，不承载真实学生、家长或教师隐私材料。
 
 当前开发线已经包含：
 
@@ -23,9 +23,9 @@ Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、
 
 以当前仓库和远端开发项目的实时状态为准：
 
-- `main` HEAD 为 `797aa42`；PR #50 已合并，包含成员开通、一次性临时密码、首次改密、重新发放和 onboarding 启动门。
+- 文档同步前的 `main` 收口基线为 `c311927`；已包含 PR #53 的成员开通异常恢复、PR #58 的服务端权威 Case reopen，以及 PR #54 的 tag commit 不可变发布构建校验。
 - `xueqing-dev`（ap-southeast-1）已应用 `phase_0b_0_z_member_provisioning`；`organization-member-credentials` Edge Function v2 已部署并保持 `verify_jwt=true`。
-- PR #49 的更新分支已纳入 PR #50 主线并解决工作台冲突；原 Flutter checks、Android / Windows platform smoke 均通过，合并后的分支仍需新一轮 CI 与真实 Release 链路验收。
+- PR #51 已重基为集成分支并通过代码审计：上传中账号切换会中止，失败重试复用同一 attachment ID；其自动化 CI 需通过，Android / Windows 真实设备 gate 仍未在本环境执行。旧的堆叠 Draft PR #20–#45 已关闭，原分支保留用于追溯。
 - 仓库保持公开是当前零成本 CI 的明确选择；公开期间不得提交 service key、访问令牌、真实学生 / 家长 / 教师资料或可回溯的敏感导出。
 - 当前所有远端数据仍为虚构开发数据；未发布正式安装包，也未开启 Production 数据承载。
 
@@ -34,8 +34,9 @@ Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、
 
 P0 Gate A / B 的身份可移植性与撤销 Session / 旧 token spike 证据已经存在，但这只证明开发验证范围内的风险被测试过，不等于 Production provider、业务 migration 或真实数据上线获批。
 
-- 当前已合并的成员接管线为 PR #50；软件内更新仍在 PR #49，不能把 Draft 分支上的 Release 能力当成已发布版本。
-- PR #50 的 migration / Edge Function 只部署到虚构的 xueqing-dev，不包含 Production schema、真实 Auth 用户开通或真实数据授权。
+- 成员接管与异常恢复已经合并（PR #50 / #53）；软件内更新已在主线，PR #54 进一步要求 release workflow checkout 已验证的 tag commit。
+- PR #50 / #53 的 migration / Edge Function 只部署到虚构的 xueqing-dev，不包含 Production schema、真实 Auth 用户开通或真实数据授权。
+- 图片附件仍是独立的真实设备 gate：必须用虚构账号和非敏感图片验证拍照/选图、上传、签名预览、失败重试、跨机构拒绝与 closed Case 拒绝后，才允许合入主线。
 - Release 构建必须显式声明 XUEQING_ENV；Production 还必须使用 HTTPS，并把 URL host 放进精确的 XUEQING_SUPABASE_ALLOWED_HOSTS，不接受通配符。开发 release 必须显式设置 XUEQING_ALLOW_DEVELOPMENT_RELEASE=true。
 - leaked password protection、SECURITY DEFINER 逐函数复核、intentional no-policy 表说明、迁移 drift、真实设备 / 网络、备份恢复和 Go / No-Go 仍待完成。
 - Production provider、region、identity/session strategy、signing、正式发布渠道和升级兼容窗口仍未最终冻结。
@@ -337,10 +338,10 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 
 ## 当前推进顺序
 
-1. 完成 PR #49 合并后的 CI 和一次虚构 Release 链路验收，配置并离线备份 Android release signing；不把测试版当作自更新基线。
-2. 在 Android / Windows 上验证登录、重启恢复、账号切换、邀请接管、旧 token、网络失败和更新回滚；记录可复核证据。
-3. 实现 Evidence 拍照 / 图片附件最小闭环：私有 Storage、附件元数据、机构 / 学生 / Case 权限和失败重试，不新增独立照片一级导航。
-4. 补齐 Case 真正闭环：Action 完成 / 改期 / 取消，以及 stabilize、close、reopen；保持“问题 → 证据 → 干预 → 验证 → 下一行动”的教学逻辑。
+1. 完成 PR #51 集成分支的 Flutter / Supabase / Android / Windows build smoke，并在真实 Android / Windows 设备上验收图片附件；未通过前不把图片功能视为主线能力。
+2. 用虚构账号完成完整验收矩阵：登录与启动门、邀请接管、权限隔离、学生交接、Case 全闭环与 reopen、图片、网络失败、软件更新、失败回滚和旧 Session 拒绝。
+3. 基于“已验证 tag commit”构建并发布新的开发测试版；逐项核对版本、更新包、manifest/hash/size、Windows 安全解包、备份与回滚，不把未验证包当作自更新基线。
+4. 记录 Android / Windows 设备型号、系统版本、构建 SHA、网络条件、测试账号和每条结果；所有账号与图片必须是虚构或非敏感数据。
 5. 完成 DB / Auth / Storage recovery drill 与 Production Go / No-Go；在此之前不接入真实未成年人数据，也不扩展到 AI、家校和大型报表。
 
 当前阶段的主要质量增量是可复核执行证据和完整人工闭环，而不是继续堆叠页面或复杂后台。
