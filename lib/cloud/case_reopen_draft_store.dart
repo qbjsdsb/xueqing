@@ -167,9 +167,7 @@ class SecureCaseReopenDraftStore implements CaseReopenDraftStore {
       if (decoded is! Map) {
         throw const FormatException('Case reopen draft must be a JSON object.');
       }
-      return CaseReopenDraft.fromJson(
-        Map<String, dynamic>.from(decoded),
-      );
+      return CaseReopenDraft.fromJson(Map<String, dynamic>.from(decoded));
     } on Object {
       await _storage.delete(key: key);
       rethrow;
