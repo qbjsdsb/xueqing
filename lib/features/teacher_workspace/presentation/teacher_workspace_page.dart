@@ -464,6 +464,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   String? _invitationErrorMessage;
   bool _invitationBusy = false;
   String? _reschedulingActionId;
+  String? _completingActionId;
   final Map<String, String> _retryOperationIds = <String, String>{};
   TeacherWorkspace? _lastWorkspace;
   bool _isRefreshing = false;
@@ -590,13 +591,13 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
   }
 
-  Future<void> _reload({
+  Future<bool> _reload({
     WorkspaceStudent? preserveStudent,
     String? preserveCaseId,
   }) async {
     final nextFuture = _loadWorkspace();
     if (!mounted) {
-      return;
+      return false;
     }
     setState(() {
       _workspaceFuture = nextFuture;
@@ -605,7 +606,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     try {
       final workspace = await nextFuture;
       if (!mounted || preserveStudent == null) {
-        return;
+        return true;
       }
       WorkspaceStudent? matchingStudent;
       for (final student in workspace.students) {
@@ -631,11 +632,17 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           }
         });
       }
+      return true;
     } catch (_) {
       if (mounted) {
+        setState(() {
+          // Never leave a write result hidden behind stale workspace data.
+          _lastWorkspace = null;
+        });
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('刷新失败，当前仍显示上一次数据。')));
+            .showSnackBar(const SnackBar(content: Text('刷新失败，请点击重试确认最新数据。')));
       }
+      return false;
     } finally {
       if (mounted) {
         setState(() {
@@ -1035,6 +1042,70 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         });
       }
     }
+  }
+
+  Future<void> _completeAction(
+    TeacherWorkspace workspace,
+    WorkspaceActionWithContext item,
+  ) async {
+    if (_completingActionId != null) {
+      return;
+    }
+    setState(() => _completingActionId = item.action.id);
+    try {
+      final result = await _showCompleteActionForm(
+        item: item,
+        businessDate: workspace.businessDate,
+      );
+      if (!mounted || result == null) {
+        return;
+      }
+      if (!await _reload()) {
+        return;
+      }
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('行动已完成，并已安排下一步。')));
+    } finally {
+      if (mounted) {
+        setState(() => _completingActionId = null);
+      }
+    }
+  }
+
+  Future<CaseCommandReceipt?> _showCompleteActionForm({
+    required WorkspaceActionWithContext item,
+    required DateTime? businessDate,
+  }) {
+    final sizeClass = ResponsiveBreakpoints.classify(
+      MediaQuery.sizeOf(context).width,
+    );
+    final form = _WorkspaceCompleteActionForm(
+      action: item.action,
+      learningCase: item.learningCase,
+      repository: widget.repository,
+      businessDate: businessDate,
+    );
+    return sizeClass == WindowSizeClass.compact
+        ? showModalBottomSheet<CaseCommandReceipt>(
+            context: context,
+            isScrollControlled: true,
+            isDismissible: false,
+            enableDrag: false,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            builder: (_) => form,
+          )
+        : showDialog<CaseCommandReceipt>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => Dialog(child: form),
+          );
   }
 
   @override
@@ -1449,7 +1520,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           onOpenCase: (learningCase) =>
               _openCase(group.first.student, learningCase),
           onReschedule: (item) => _rescheduleAction(workspace, item),
+          onComplete: (item) => _completeAction(workspace, item),
           reschedulingActionId: _reschedulingActionId,
+          completingActionId: _completingActionId,
         ),
     ];
   }
@@ -3974,14 +4047,18 @@ class _WorkspaceActionGroup extends StatelessWidget {
     required this.items,
     required this.onOpenCase,
     required this.onReschedule,
+    required this.onComplete,
     this.reschedulingActionId,
+    this.completingActionId,
   });
 
   final WorkspaceStudent student;
   final List<WorkspaceActionWithContext> items;
   final ValueChanged<WorkspaceCase> onOpenCase;
   final Future<void> Function(WorkspaceActionWithContext item) onReschedule;
+  final Future<void> Function(WorkspaceActionWithContext item) onComplete;
   final String? reschedulingActionId;
+  final String? completingActionId;
 
   @override
   Widget build(BuildContext context) {
@@ -4040,6 +4117,15 @@ class _WorkspaceActionGroup extends StatelessWidget {
                       spacing: AppSpacing.xs,
                       runSpacing: AppSpacing.xs,
                       children: [
+                        if (item.learningCase.status !=
+                            LearningCaseStatus.newCase)
+                          FilledButton.icon(
+                            onPressed: completingActionId == item.action.id
+                                ? null
+                                : () => onComplete(item),
+                            icon: const Icon(Icons.check),
+                            label: const Text('完成行动'),
+                          ),
                         OutlinedButton(
                           onPressed: () => onOpenCase(item.learningCase),
                           child: const Text('查看 Case'),
@@ -4061,6 +4147,363 @@ class _WorkspaceActionGroup extends StatelessWidget {
             ),
           const Divider(height: 1),
         ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceCompleteActionForm extends StatefulWidget {
+  const _WorkspaceCompleteActionForm({
+    required this.action,
+    required this.learningCase,
+    required this.repository,
+    required this.businessDate,
+  });
+
+  final WorkspaceAction action;
+  final WorkspaceCase learningCase;
+  final LearningRepository repository;
+  final DateTime? businessDate;
+
+  @override
+  State<_WorkspaceCompleteActionForm> createState() =>
+      _WorkspaceCompleteActionFormState();
+}
+
+class _WorkspaceCompleteActionFormState
+    extends State<_WorkspaceCompleteActionForm> {
+  late final TextEditingController _nextActionController;
+  late final String _operationId;
+  late CaseActionType _nextActionType;
+  late String _autoGeneratedNextActionTitle;
+  DateTime? _nextActionDueOn;
+  String? _nextActionError;
+  String? _saveError;
+  bool _saving = false;
+  bool _submissionAttempted = false;
+  CompleteCaseActionCommand? _submittedCommand;
+
+  @override
+  void initState() {
+    super.initState();
+    _operationId = createOperationId();
+    _nextActionType = _defaultNextActionType(widget.action.actionType);
+    _autoGeneratedNextActionTitle = _defaultNextActionTitle(_nextActionType);
+    _nextActionController = TextEditingController(
+      text: _autoGeneratedNextActionTitle,
+    )..addListener(_clearInlineError);
+  }
+
+  @override
+  void dispose() {
+    _nextActionController
+      ..removeListener(_clearInlineError)
+      ..dispose();
+    super.dispose();
+  }
+
+  bool get _isDirty =>
+      _nextActionController.text.trim() !=
+          _defaultNextActionTitle(_nextActionType) ||
+      _nextActionDueOn != null;
+
+  void _clearInlineError() {
+    if (_nextActionError == null ||
+        _nextActionController.text.trim().isEmpty ||
+        !mounted) {
+      return;
+    }
+    setState(() => _nextActionError = null);
+  }
+
+  Future<void> _pickDueDate() async {
+    final businessNow = widget.businessDate ?? DateTime.now();
+    final today = DateTime(
+      businessNow.year,
+      businessNow.month,
+      businessNow.day,
+    );
+    final current = _nextActionDueOn ?? today;
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: DateTime(current.year, current.month, current.day),
+      firstDate: today,
+      lastDate: DateTime(today.year + 2, 12, 31),
+      helpText: '选择下一行动日期',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    setState(() {
+      // Keep this as a calendar date; the repository serializes it without
+      // applying the device time zone.
+      _nextActionDueOn = DateTime(selected.year, selected.month, selected.day);
+    });
+  }
+
+  Future<void> _save() async {
+    if (_saving) {
+      return;
+    }
+
+    if (_submittedCommand == null) {
+      final nextActionTitle = _nextActionController.text.trim();
+      if (nextActionTitle.isEmpty) {
+        setState(() => _nextActionError = '请保留或改写下一行动');
+        return;
+      }
+      _submittedCommand = CompleteCaseActionCommand(
+        operationId: _operationId,
+        actionId: widget.action.id,
+        caseId: widget.learningCase.id,
+        expectedCaseVersion: widget.learningCase.version,
+        expectedActionVersion: widget.action.version,
+        nextActionType: _nextActionType,
+        nextActionTitle: nextActionTitle,
+        nextActionDueOn: _nextActionDueOn,
+      );
+    }
+
+    final command = _submittedCommand!;
+    setState(() {
+      _submissionAttempted = true;
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      final receipt = await widget.repository.completeCaseAction(command);
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(receipt);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _saving = false;
+        _saveError =
+            '${_describeCaseCommandError(error)}\n本次提交内容已锁定；重试只会查询同一 operation ID。若需修改，请关闭表单并刷新后重新打开。';
+      });
+    }
+  }
+
+  Future<void> _confirmDiscard() async {
+    if (_saving) {
+      return;
+    }
+    if (_submissionAttempted) {
+      final retry = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('提交结果未确认'),
+          content: const Text('上一次提交可能已在服务器完成。请先重试原提交；重试会沿用原内容和 operation ID。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('继续查看'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('重试原提交'),
+            ),
+          ],
+        ),
+      );
+      if (mounted && retry == true) {
+        await _save();
+      }
+      return;
+    }
+    if (!_isDirty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('放弃完成行动？'),
+        content: const Text('当前输入还没有保存。放弃后不会标记行动完成。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('继续编辑'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('放弃'),
+          ),
+        ],
+      ),
+    );
+    if (mounted && discard == true) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final caseContext =
+        '${widget.learningCase.title} · ${widget.learningCase.status.label} · '
+        'version ${widget.learningCase.version}';
+    return PopScope<void>(
+      canPop: !_isDirty && !_saving && !_submissionAttempted,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_saving) {
+          _confirmDiscard();
+        }
+      },
+      child: SafeArea(
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '完成行动',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '关闭',
+                        onPressed: _saving ? null : _confirmDiscard,
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '完成“${widget.action.title}”后安排下一步。正式 Case 不会因为勾选完成就失去后续跟进。',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _WorkspaceContextLine(label: '当前 Case', value: caseContext),
+                  const SizedBox(height: AppSpacing.md),
+                  DropdownButtonFormField<CaseActionType>(
+                    key: const Key('complete-action-type-dropdown'),
+                    initialValue: _nextActionType,
+                    decoration: const InputDecoration(labelText: '下一行动类型 *'),
+                    items: [
+                      for (final type in CaseActionType.values)
+                        DropdownMenuItem<CaseActionType>(
+                          value: type,
+                          child: Text(type.label),
+                        ),
+                    ],
+                    onChanged: _saving || _submissionAttempted
+                        ? null
+                        : (type) {
+                            if (type == null) {
+                              return;
+                            }
+                            setState(() {
+                              _nextActionType = type;
+                              final currentTitle = _nextActionController.text
+                                  .trim();
+                              final shouldRefreshGeneratedTitle =
+                                  currentTitle.isEmpty ||
+                                  currentTitle == _autoGeneratedNextActionTitle;
+                              if (shouldRefreshGeneratedTitle) {
+                                _autoGeneratedNextActionTitle =
+                                    _defaultNextActionTitle(type);
+                                _nextActionController.text =
+                                    _autoGeneratedNextActionTitle;
+                              }
+                            });
+                          },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: _nextActionController,
+                    autofocus: true,
+                    enabled: !_saving && !_submissionAttempted,
+                    textInputAction: TextInputAction.done,
+                    decoration: InputDecoration(
+                      labelText: '下一行动 *',
+                      hintText: '明确下一次要做什么',
+                      errorText: _nextActionError,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _saving || _submissionAttempted
+                              ? null
+                              : _pickDueDate,
+                          icon: const Icon(Icons.event_outlined),
+                          label: Text(
+                            _nextActionDueOn == null
+                                ? '安排日期（可选）'
+                                : '行动日期：${_formatDateOnly(_nextActionDueOn!)}',
+                          ),
+                        ),
+                      ),
+                      if (_nextActionDueOn != null) ...[
+                        const SizedBox(width: AppSpacing.xs),
+                        IconButton(
+                          tooltip: '清除日期',
+                          onPressed: _saving || _submissionAttempted
+                              ? null
+                              : () => setState(() => _nextActionDueOn = null),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '日期按机构时区解释；提交失败时原始内容会锁定，重试沿用同一 operation ID。',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (_saveError != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _WorkspaceErrorText(message: _saveError!),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _saving ? null : _confirmDiscard,
+                          child: const Text('取消'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _saving ? null : _save,
+                          child: Text(
+                            _saving
+                                ? '保存中…'
+                                : _submissionAttempted
+                                ? '重试原提交'
+                                : '完成并安排下一步',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -4765,6 +5208,12 @@ String _describeCaseCommandError(Object error) {
   if (detail.contains('case_transition_not_allowed')) {
     return 'Case 状态已经变化，请刷新后再试。';
   }
+  if (detail.contains('case_closed')) {
+    return '这个 Case 已经关闭，不能再完成其中的行动。请刷新后查看最新状态。';
+  }
+  if (detail.contains('teaching_fact_gate')) {
+    return '当前账号已经失去这名学生的教学权限，请刷新后查看最新分配。';
+  }
   if (detail.contains('action_not_pending')) {
     return '这条行动已经被处理，请刷新工作台后查看最新状态。';
   }
@@ -4794,6 +5243,28 @@ String _describeCaseCommandError(Object error) {
     return '网络暂时不可用。输入仍保留在这里，请检查网络后重试。';
   }
   return '保存失败。输入仍保留在这里，请重试；未确认成功前不会生成重复事实。';
+}
+
+CaseActionType _defaultNextActionType(String wireValue) {
+  return switch (wireValue) {
+    'reteach' => CaseActionType.practice,
+    'practice' => CaseActionType.verify,
+    'verify' => CaseActionType.review,
+    'communicate' => CaseActionType.review,
+    'review' => CaseActionType.review,
+    _ => CaseActionType.other,
+  };
+}
+
+String _defaultNextActionTitle(CaseActionType type) {
+  return switch (type) {
+    CaseActionType.reteach => '安排一次针对性再教',
+    CaseActionType.practice => '安排一次针对性练习',
+    CaseActionType.verify => '安排下一次验证',
+    CaseActionType.communicate => '安排一次家校沟通',
+    CaseActionType.review => '安排一次复查',
+    CaseActionType.other => '安排下一步跟进',
+  };
 }
 
 String _formatDateOnly(DateTime value) {

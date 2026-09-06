@@ -18,8 +18,8 @@ select is(
       'public.list_organization_setup_options(uuid)'
     )
   ),
-  true,
-  'setup options function is security definer'
+  false,
+  'setup options function is security-invoker wrapper'
 );
 
 select is(
@@ -38,8 +38,8 @@ select is(
       'public.create_organization_student(uuid,uuid,text,text,text,text,text,uuid,uuid,date,text,text,text)'
     )
   ),
-  true,
-  'student setup function is security definer'
+  false,
+  'student setup function is security-invoker wrapper'
 );
 
 select is(

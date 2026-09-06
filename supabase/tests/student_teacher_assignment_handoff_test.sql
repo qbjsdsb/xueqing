@@ -40,8 +40,8 @@ select is(
       'public.list_organization_student_teacher_assignments(uuid)'
     )
   ),
-  true,
-  'assignment roster is security definer'
+  false,
+  'assignment roster is security-invoker wrapper'
 );
 
 select is(
@@ -60,8 +60,8 @@ select is(
       'public.transfer_organization_student_teacher_assignment(uuid,uuid,uuid,integer,uuid)'
     )
   ),
-  true,
-  'assignment transfer is security definer'
+  false,
+  'assignment transfer is security-invoker wrapper'
 );
 
 select is(

@@ -4,8 +4,8 @@
 
 ## 更新机制
 
-- Windows 发布包是完整目录 ZIP，必须包含 `xueqing.exe`、`xueqing_updater.exe` 以及 Flutter 运行库。
-- Windows 应用下载 ZIP 后启动更新助手；助手等待主程序退出，校验 SHA-256，先备份再替换，失败时回滚。
+- Windows 发布包是完整目录 ZIP，必须包含 `xueqing.exe`、`xueqing_updater.exe`、`xueqing_updater_bootstrap.exe` 以及 Flutter 运行库。
+- Windows 应用下载 ZIP 后启动更新助手；新安装从临时副本运行助手，旧安装先通过 bootstrap 完成一次助手迁移；助手等待主程序退出，校验 SHA-256，先备份再替换，失败时回滚。
 - Android 发布包是使用同一长期保存的 release keystore 签名的 APK。应用下载并校验 APK 后交给系统安装器；系统会要求允许本应用安装未知来源。
 - GitHub Release 资产同时上传 `update-manifest.json` 和 `SHA256SUMS.txt`。应用从稳定版的 `releases/latest/download/update-manifest.json` 检查更新。
 - 当前清单只接受 HTTPS、版本 schema 1、正整数文件大小和 64 位 SHA-256；下载完成后再次校验大小与摘要。

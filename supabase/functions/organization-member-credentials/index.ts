@@ -30,6 +30,7 @@ const publicErrorCodes = new Set([
   "onboarding_relogin_required",
   "onboarding_not_required",
   "provision_cleanup_required",
+  "provision_recovery_required",
   "user_already_member_elsewhere",
 ]);
 
@@ -176,6 +177,13 @@ function asObject(value: unknown): JsonObject {
   return value as JsonObject;
 }
 
+function objectValue(value: unknown): JsonObject | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as JsonObject;
+}
+
 function withoutInviteCode(invitation: JsonObject): JsonObject {
   const copy = { ...invitation };
   delete copy.invite_code;
@@ -262,6 +270,169 @@ async function callServiceRpc(
   return asObject(data);
 }
 
+async function waitMilliseconds(milliseconds: number): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+type CommittedProvisioning = {
+  email: string;
+  expiresAt: unknown;
+  membershipId: string;
+  organizationId: string;
+  role: string;
+  status: string;
+};
+
+async function readCommittedProvisioning(
+  adminClient: ReturnType<typeof createClient>,
+  invitationId: string,
+  organizationId: string,
+  email: string,
+  role: string,
+  targetAuthUserId: string
+): Promise<CommittedProvisioning | null> {
+  const { data: invitation, error: invitationError } = await adminClient
+    .from("organization_invitations")
+    .select("id, organization_id, email, role, status, accepted_by_app_user_id")
+    .eq("id", invitationId)
+    .maybeSingle();
+  if (invitationError) {
+    throw new ProvisioningError("provision_cleanup_required");
+  }
+
+  const invitationObject = objectValue(invitation);
+  if (
+    !invitationObject ||
+    stringValue(invitationObject.id) !== invitationId ||
+    stringValue(invitationObject.organization_id) !== organizationId ||
+    stringValue(invitationObject.email) !== email ||
+    stringValue(invitationObject.role) !== role ||
+    stringValue(invitationObject.status) !== "accepted"
+  ) {
+    return null;
+  }
+
+  const acceptedAppUserId = stringValue(
+    invitationObject.accepted_by_app_user_id
+  );
+  if (!acceptedAppUserId) return null;
+
+  const { data: appUser, error: appUserError } = await adminClient
+    .from("app_users")
+    .select("id, auth_provider, auth_subject_id, status")
+    .eq("id", acceptedAppUserId)
+    .maybeSingle();
+  if (appUserError) {
+    throw new ProvisioningError("provision_cleanup_required");
+  }
+  const appUserObject = objectValue(appUser);
+  if (
+    !appUserObject ||
+    stringValue(appUserObject.auth_provider) !== "supabase" ||
+    stringValue(appUserObject.auth_subject_id) !== targetAuthUserId ||
+    stringValue(appUserObject.status) !== "active"
+  ) {
+    return null;
+  }
+
+  const { data: membership, error: membershipError } = await adminClient
+    .from("organization_memberships")
+    .select(
+      "id, organization_id, app_user_id, status, onboarding_expires_at"
+    )
+    .eq("organization_id", organizationId)
+    .eq("app_user_id", acceptedAppUserId)
+    .eq("status", "onboarding")
+    .limit(1)
+    .maybeSingle();
+  if (membershipError) {
+    throw new ProvisioningError("provision_cleanup_required");
+  }
+  const membershipObject = objectValue(membership);
+  const membershipId = stringValue(membershipObject?.id);
+  if (!membershipObject || !membershipId) return null;
+
+  const { data: membershipRole, error: membershipRoleError } =
+    await adminClient
+      .from("membership_roles")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .eq("membership_id", membershipId)
+      .eq("role", role)
+      .maybeSingle();
+  if (membershipRoleError) {
+    throw new ProvisioningError("provision_cleanup_required");
+  }
+  if (!objectValue(membershipRole)) return null;
+
+  return {
+    email,
+    expiresAt: membershipObject.onboarding_expires_at,
+    membershipId,
+    organizationId,
+    role,
+    status: "onboarding",
+  };
+}
+
+async function reconcileCommittedProvisioning(
+  adminClient: ReturnType<typeof createClient>,
+  invitationId: string,
+  organizationId: string,
+  email: string,
+  role: string,
+  targetAuthUserId: string
+): Promise<CommittedProvisioning | null> {
+  // A successful Postgres transaction can finish just after a transport
+  // failure reaches the Edge Function. Give the commit a short, bounded
+  // window to become visible before reporting recovery is required.
+  for (const delay of [0, 100, 300, 700]) {
+    if (delay > 0) await waitMilliseconds(delay);
+    try {
+      const committed = await readCommittedProvisioning(
+        adminClient,
+        invitationId,
+        organizationId,
+        email,
+        role,
+        targetAuthUserId
+      );
+      if (committed) return committed;
+    } catch (error) {
+      if (
+        error instanceof ProvisioningError &&
+        error.code === "provision_cleanup_required"
+      ) {
+        // A service-role read failure makes the transaction outcome unknown;
+        // never delete an Auth user while that uncertainty remains.
+        continue;
+      }
+      throw error;
+    }
+  }
+  return null;
+}
+
+function provisioningMetadata(user: JsonObject): JsonObject | null {
+  // app_metadata is written through the Auth Admin API and is not editable
+  // by the account holder. Never use user_metadata as recovery evidence: the
+  // signed-in user can change it themselves.
+  return objectValue(user.app_metadata);
+}
+
+function isMarkedProvisioningUser(
+  user: JsonObject,
+  organizationId: string,
+  invitationId: string
+): boolean {
+  const metadata = provisioningMetadata(user);
+  return (
+    metadata?.xueqing_provisioning === true &&
+    stringValue(metadata.xueqing_organization_id) === organizationId &&
+    stringValue(metadata.xueqing_invitation_id) === invitationId
+  );
+}
+
 async function findAuthUserByEmail(
   adminClient: ReturnType<typeof createClient>,
   email: string
@@ -294,7 +465,7 @@ async function createAuthUser(
     email,
     email_confirm: true,
     password: temporaryPassword,
-    user_metadata: {
+    app_metadata: {
       xueqing_invitation_id: invitationId,
       xueqing_organization_id: organizationId,
       xueqing_provisioning: true,
@@ -309,9 +480,161 @@ async function createAuthUser(
   };
 }
 
+async function resetProvisioningAuthUser(
+  adminClient: ReturnType<typeof createClient>,
+  user: JsonObject,
+  organizationId: string,
+  invitationId: string
+): Promise<{ temporaryPassword: string }> {
+  const userId = requiredUuid(user.id, "member_provisioning_failed");
+  const temporaryPassword = generateTemporaryPassword();
+  const existingMetadata = provisioningMetadata(user) ?? {};
+  const { data, error } = await adminClient.auth.admin.updateUserById(
+    userId,
+    {
+      password: temporaryPassword,
+      // Keep the recovery marker server-controlled. The member can edit
+      // user_metadata, so it must never be used as provisioning evidence.
+      app_metadata: {
+        ...existingMetadata,
+        xueqing_invitation_id: invitationId,
+        xueqing_organization_id: organizationId,
+        xueqing_provisioning: true,
+      },
+    }
+  );
+  if (error || !data.user) {
+    throw new ProvisioningError("credential_update_failed");
+  }
+  return {
+    temporaryPassword,
+  };
+}
+
+async function provisionBusinessMember(
+  actor: Actor,
+  adminClient: ReturnType<typeof createClient>,
+  invitationId: string,
+  displayName: string | null,
+  targetAuthUserId: string
+): Promise<JsonObject> {
+  return callServiceRpc(
+    adminClient,
+    "provision_organization_member_from_auth",
+    {
+      p_actor_auth_user_id: actor.authUserId,
+      p_actor_issuer: actor.issuer,
+      p_actor_session_id: actor.sessionId,
+      p_display_name: displayName,
+      p_invitation_id: invitationId,
+      p_target_auth_user_id: targetAuthUserId,
+    }
+  );
+}
+
+function temporaryPasswordResult(
+  invitation: JsonObject,
+  businessResult: JsonObject | CommittedProvisioning,
+  temporaryPassword: string | null
+): JsonObject {
+  const result: JsonObject = {
+    email: stringValue(invitation.email) ?? businessResult.email,
+    expires_at:
+      "onboarding_expires_at" in businessResult
+        ? businessResult.onboarding_expires_at
+        : businessResult.expiresAt,
+    membership_id:
+      "membership_id" in businessResult
+        ? businessResult.membership_id
+        : businessResult.membershipId,
+    mode: "temporary_password",
+    ok: true,
+    organization_id:
+      stringValue(invitation.organization_id) ?? businessResult.organizationId,
+    role: stringValue(invitation.role) ?? businessResult.role,
+    status: businessResult.status ?? "onboarding",
+  };
+  if (temporaryPassword) result.temporary_password = temporaryPassword;
+  return result;
+}
+
+async function recoverMarkedProvisioningUser(
+  actor: Actor,
+  adminClient: ReturnType<typeof createClient>,
+  invitation: JsonObject,
+  existingUser: JsonObject,
+  displayName: string | null
+): Promise<JsonObject> {
+  const invitationId = requiredUuid(invitation.id, "invitation_not_found");
+  const organizationId = requiredUuid(
+    invitation.organization_id,
+    "organization_not_available"
+  );
+  const email = normalizedEmail(invitation.email);
+  const role = stringValue(invitation.role);
+  if (!role) throw new ProvisioningError("invalid_invitation_input");
+  const targetAuthUserId = requiredUuid(
+    existingUser.id,
+    "auth_user_not_found"
+  );
+  let businessResult: JsonObject | CommittedProvisioning;
+  try {
+    businessResult = await provisionBusinessMember(
+      actor,
+      adminClient,
+      invitationId,
+      displayName,
+      targetAuthUserId
+    );
+  } catch (error) {
+    const committed = await reconcileCommittedProvisioning(
+      adminClient,
+      invitationId,
+      organizationId,
+      email,
+      role,
+      targetAuthUserId
+    );
+    if (!committed) {
+      // The Auth account and marker are intentionally retained. A later
+      // “continue opening account” action can retry without changing a
+      // credential for an account that the RPC may reject as unrelated.
+      if (
+        error instanceof ProvisioningError &&
+        error.code !== "member_provisioning_failed"
+      ) {
+        throw error;
+      }
+      throw new ProvisioningError("provision_recovery_required");
+    }
+    businessResult = committed;
+  }
+
+  // Only reset the global Auth credential after the business RPC has proved
+  // that this account belongs to this invitation. This prevents a marker (or
+  // an unrelated existing membership) from causing a cross-organization
+  // password reset.
+  // A marked account may have obtained a session before the business
+  // transaction outcome became ambiguous. Revoke it before issuing a fresh
+  // temporary credential.
+  await callServiceRpc(adminClient, "revoke_member_auth_sessions", {
+    p_target_auth_user_id: targetAuthUserId,
+  });
+  const reset = await resetProvisioningAuthUser(
+    adminClient,
+    existingUser,
+    organizationId,
+    invitationId
+  );
+  return temporaryPasswordResult(
+    { ...invitation, email, role },
+    businessResult,
+    reset.temporaryPassword
+  );
+}
+
 async function provisionInvitation(
   actor: Actor,
-  userClient: ReturnType<typeof createClient>,
   adminClient: ReturnType<typeof createClient>,
   invitation: JsonObject,
   displayName: string | null
@@ -337,6 +660,15 @@ async function provisionInvitation(
 
   const existingUser = await findAuthUserByEmail(adminClient, email);
   if (existingUser) {
+    if (isMarkedProvisioningUser(existingUser, organizationId, invitationId)) {
+      return recoverMarkedProvisioningUser(
+        actor,
+        adminClient,
+        invitation,
+        existingUser,
+        displayName
+      );
+    }
     return {
       ok: true,
       mode: "invite_code",
@@ -351,51 +683,50 @@ async function provisionInvitation(
     invitationId
   );
   try {
-    const businessResult = await callServiceRpc(
+    const businessResult = await provisionBusinessMember(
+      actor,
       adminClient,
-      "provision_organization_member_from_auth",
-      {
-        p_actor_auth_user_id: actor.authUserId,
-        p_actor_issuer: actor.issuer,
-        p_actor_session_id: actor.sessionId,
-        p_display_name: displayName,
-        p_invitation_id: invitationId,
-        p_target_auth_user_id: requiredUuid(
-          created.user.id,
-          "member_provisioning_failed"
-        ),
-      }
-    );
-    return {
-      email,
-      expires_at: businessResult.onboarding_expires_at,
-      membership_id: businessResult.membership_id,
-      mode: "temporary_password",
-      ok: true,
-      organization_id: organizationId,
-      role: invitation.role,
-      status: "onboarding",
-      temporary_password: created.temporaryPassword,
-    };
-  } catch (error) {
-    const { error: cleanupError } = await adminClient.auth.admin.deleteUser(
+      invitationId,
+      displayName,
       requiredUuid(created.user.id, "member_provisioning_failed")
     );
-    if (cleanupError) {
-      // Do not log the email or password. The marker metadata on the Auth
-      // user allows an operator to identify this orphan in the dashboard.
-      console.error("member provisioning cleanup failed");
-      throw new ProvisioningError("provision_cleanup_required");
+    return temporaryPasswordResult(
+      invitation,
+      businessResult,
+      created.temporaryPassword
+    );
+  } catch (error) {
+    const targetAuthUserId = requiredUuid(
+      created.user.id,
+      "member_provisioning_failed"
+    );
+    const committed = await reconcileCommittedProvisioning(
+      adminClient,
+      invitationId,
+      organizationId,
+      email,
+      stringValue(invitation.role) ?? "",
+      targetAuthUserId
+    );
+    if (committed) {
+      return temporaryPasswordResult(
+        invitation,
+        committed,
+        created.temporaryPassword
+      );
     }
-    try {
-      await callUserRpc(userClient, "revoke_organization_invitation", {
-        p_invitation_id: invitationId,
-      });
-    } catch {
-      // The pending invitation is still recoverable through the management
-      // screen's “provision existing invitation” action.
+    // The old implementation deleted the Auth user here. That is unsafe when
+    // the RPC committed but its HTTP response was lost: the business rows do
+    // not have a foreign key to auth.users and would become unrecoverable.
+    // Keep the marked user and pending invitation so the next attempt can
+    // reconcile or reissue credentials safely.
+    if (
+      error instanceof ProvisioningError &&
+      error.code !== "member_provisioning_failed"
+    ) {
+      throw error;
     }
-    throw error;
+    throw new ProvisioningError("provision_recovery_required");
   }
 }
 
@@ -411,13 +742,7 @@ async function provisionFromExistingInvitation(
     "reissue_organization_invitation",
     { p_invitation_id: invitationId }
   );
-  return provisionInvitation(
-    actor,
-    userClient,
-    adminClient,
-    invitation,
-    displayName
-  );
+  return provisionInvitation(actor, adminClient, invitation, displayName);
 }
 
 async function reissueMemberCredential(
@@ -497,7 +822,6 @@ async function handle(request: Request): Promise<Response> {
     return response(
       await provisionInvitation(
         actor,
-        userClient,
         adminClient,
         invitation,
         stringValue(input.display_name)

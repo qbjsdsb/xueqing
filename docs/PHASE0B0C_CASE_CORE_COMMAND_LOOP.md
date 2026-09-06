@@ -29,6 +29,8 @@
 - \`record_assessment\`
 - \`stabilize_case\`
 - \`close_case\`
+- \`reschedule_case_action\`
+- \`complete_case_action\`
 
 每个命令：
 
@@ -38,7 +40,7 @@
 4. 在同一事务写入事实、Action、Case event 和 operation receipt；
 5. 最后检查 Case 的 owner/primary Action/closed 状态不变量。
 
-普通 Evidence append 不机械增加 Case version；会改变 Case current snapshot 的命令才递增 Case version。Finalized Evidence、Intervention、Assessment 和 Case Event 在本切片中没有客户端 UPDATE/DELETE 权限，并由 append-only trigger 保护历史含义。
+普通 Evidence append 不机械增加 Case version；会改变 Case current snapshot 的命令才递增 Case version。完成当前 primary Action 时，服务端在同一事务中把旧 Action 标记为 `done`、写入不可变事件并创建 successor Action，避免 active formal Case 出现没有后续行动的半状态。Finalized Evidence、Intervention、Assessment、Action progress 和 Case Event 没有客户端 UPDATE/DELETE 权限，并由 append-only / 受控 command 边界保护历史含义。
 
 ## 安全验证
 
@@ -52,13 +54,14 @@
 - Quick Capture、Evidence、Intervention operation retry 不重复副作用；
 - Assessment passed 只进入 \`pending_verification\`，不自动变成 stable；
 - stable → closed 写入一个 immutable \`case_closed\` event，且没有 pending primary Action；
+- complete Action 必须通过 teaching gate、Case/Action expected versions，并 exactly-once 创建下一条 pending primary；
 - finalized Evidence 静默 UPDATE 被拒绝。
 
 ## 明确未做
 
 - \`reopen_case\` 的 post-close recurrence Evidence freshness/close-boundary 矩阵；
 - Lesson、家校沟通、Report、Advisor staff assignment；
-- Today 查询和 Flutter Repository/UI 接线；
+- \`reopen_case\` 的完整 Flutter 入口和 Today 更深的批量操作；
 - Realtime、离线/CRDT、AI、真实数据和 Production provider/region/session 冻结。
 
 这些留在下一条经过独立测试的 PR，不和本次 Case 写入事务混在一起。

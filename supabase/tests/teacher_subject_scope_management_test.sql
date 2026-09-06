@@ -37,8 +37,8 @@ select is(
       'public.list_organization_teacher_subject_scopes(uuid)'
     )
   ),
-  true,
-  'teacher scope roster is security definer'
+  false,
+  'teacher scope roster is security-invoker wrapper'
 );
 
 select is(

@@ -16,8 +16,8 @@
 - `SupabaseLearningRepository`：只查询 canonical foundation、Case Core 和受 RLS 保护的 read model；客户端不读取 `operation_receipts`，也不直接写业务表；
 - `TeacherWorkspaceEntryPage`：开发环境登录、退出和配置边界；
 - `TeacherWorkspacePage`：Today、学生搜索、学生详情、Case 叙事、Quick Capture 和状态对应的后续命令表单；
-- `LearningRepository` 暴露 `confirm_case`、`record_intervention`、`record_assessment` 三条事务命令；UI 只追加教学事实，不直接编辑历史；
-- Quick Capture 和三个后续命令都使用一次生成、重试复用的 `operation_id`，服务端成功前不关闭表单；
+- `LearningRepository` 暴露 Case 确认、教学动作、验证、Action 改期和 Action 完成事务命令；UI 只追加教学事实或通过受控命令推进状态，不直接编辑历史；
+- Quick Capture 和所有后续命令都使用一次生成、重试复用的 `operation_id`，服务端成功前不关闭表单；完成 Action 时必须同时填写下一行动，服务端原子保留当前 Case 的后续责任链；
 - 保存失败时保留当前输入，不伪造 timeline、Case 或“已保存”反馈；
 - 没有教学范围时只显示无权限说明，不显示隐藏学生、Case 标题或数量。
 
@@ -31,7 +31,6 @@
 
 ## 明确未做
 
-- Action completion command；
 - Case 历史事实的自由编辑 sheet（当前只支持追加 Evidence / Intervention / Assessment 命令）；
 - 多学科学生的合并呈现与复杂筛选；
 - Realtime、复杂离线同步、CRDT、AI、家校沟通、Lesson；

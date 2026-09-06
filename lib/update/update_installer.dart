@@ -5,6 +5,11 @@ import 'package:flutter/services.dart';
 import 'update_models.dart';
 import 'update_service.dart';
 
+const _windowsUpdaterFileName = 'xueqing_updater.exe';
+const _windowsUpdaterBootstrapFileName = 'xueqing_updater_bootstrap.exe';
+const _windowsUpdaterMigrationMarkerName =
+    '.xueqing_updater_bootstrap_migrated';
+
 abstract interface class UpdateInstaller {
   Future<UpdateInstallResult> install(UpdateDownloadedArtifact update);
 }
@@ -53,32 +58,75 @@ class PlatformUpdateInstaller implements UpdateInstaller {
 
     final executable = File(Platform.resolvedExecutable);
     final installDirectory = executable.parent;
-    final helper = File(
-      '${installDirectory.path}${Platform.pathSeparator}xueqing_updater.exe',
+    final canonicalHelper = File(
+      '${installDirectory.path}${Platform.pathSeparator}$_windowsUpdaterFileName',
     );
-    if (!await helper.exists()) {
+    final bootstrapHelper = File(
+      '${installDirectory.path}${Platform.pathSeparator}'
+      '$_windowsUpdaterBootstrapFileName',
+    );
+    final migrationMarker = File(
+      '${installDirectory.path}${Platform.pathSeparator}'
+      '$_windowsUpdaterMigrationMarkerName',
+    );
+
+    File? helper;
+    String? cleanupPath;
+    if (!await migrationMarker.exists() && await bootstrapHelper.exists()) {
+      // The bootstrap is copied by the pre-hardening updater during the
+      // first upgrade, so it can replace the canonical helper on the next.
+      helper = bootstrapHelper;
+    } else if (await canonicalHelper.exists()) {
+      final temporaryName =
+          'xueqing-updater-$pid-${DateTime.now().microsecondsSinceEpoch}.exe';
+      final temporaryHelper = File(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}$temporaryName',
+      );
+      try {
+        await canonicalHelper.copy(temporaryHelper.path);
+      } on Object catch (error) {
+        throw UpdateInstallException('无法准备 Windows 更新组件。', cause: error);
+      }
+      helper = temporaryHelper;
+      cleanupPath = temporaryHelper.path;
+    } else if (await bootstrapHelper.exists()) {
+      helper = bootstrapHelper;
+    }
+    if (helper == null) {
       throw const UpdateInstallException('当前安装包缺少更新组件，请重新安装最新完整版本后再试。');
+    }
+    final helperToLaunch = helper;
+    final arguments = <String>[
+      '--pid',
+      '$pid',
+      '--package',
+      update.file.path,
+      '--install-dir',
+      installDirectory.path,
+      '--launch',
+      executable.path,
+      '--sha256',
+      update.artifact.sha256,
+    ];
+    if (cleanupPath != null) {
+      arguments.addAll(<String>['--cleanup-path', cleanupPath]);
     }
 
     try {
       await Process.start(
-        helper.path,
-        [
-          '--pid',
-          '$pid',
-          '--package',
-          update.file.path,
-          '--install-dir',
-          installDirectory.path,
-          '--launch',
-          executable.path,
-          '--sha256',
-          update.artifact.sha256,
-        ],
+        helperToLaunch.path,
+        arguments,
         workingDirectory: installDirectory.path,
         mode: ProcessStartMode.detached,
       );
     } on Object catch (error) {
+      if (cleanupPath != null) {
+        try {
+          await File(cleanupPath).delete();
+        } on Object catch (_) {
+          // The detached helper may already have started.
+        }
+      }
       throw UpdateInstallException('无法启动 Windows 更新组件。', cause: error);
     }
     return const UpdateInstallResult(shouldExit: true);

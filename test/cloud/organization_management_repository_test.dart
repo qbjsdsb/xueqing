@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:xueqing/cloud/organization_management_repository.dart';
+import 'package:xueqing/cloud/organization_member_provisioning_repository.dart';
 
 void main() {
   test('uses the three-role invitation contract', () {
@@ -95,6 +96,17 @@ void main() {
     expect(
       organizationInvitationErrorMessage(const FormatException('other')),
       isNull,
+    );
+  });
+
+  test('explains provisioning recovery without asking the operator to duplicate an invite', () {
+    expect(
+      organizationMemberProvisioningErrorMessage(
+        const OrganizationMemberProvisioningException(
+          'provision_recovery_required',
+        ),
+      ),
+      '账号开通结果正在恢复中；请刷新邀请列表后点击“继续开通”或“重新发放临时密码”，不要再次创建同邮箱邀请。',
     );
   });
 

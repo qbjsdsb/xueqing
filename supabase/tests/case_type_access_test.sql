@@ -65,8 +65,8 @@ select is(
     where pg_namespace.nspname = 'public'
       and pg_proc.proname = 'create_organization_case_type'
   ),
-  true,
-  'creating a Case type is a security-definer command'
+  false,
+  'creating a Case type is a security-invoker wrapper command'
 );
 
 select is(
@@ -78,8 +78,8 @@ select is(
     where pg_namespace.nspname = 'public'
       and pg_proc.proname = 'quick_capture_case_with_type'
   ),
-  true,
-  'custom Quick Capture is a security-definer command'
+  false,
+  'custom Quick Capture is a security-invoker wrapper command'
 );
 
 select is(
