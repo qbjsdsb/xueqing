@@ -1466,8 +1466,7 @@ void main() {
       find.byKey(const Key('reopen-next-action')),
       '复核复发原因并安排验证',
     );
-    final saveEvidenceButton =
-        find.widgetWithText(FilledButton, '保存 Evidence');
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存 Evidence');
     await tester.ensureVisible(saveEvidenceButton);
     await tester.tap(saveEvidenceButton);
     await tester.pumpAndSettle();
