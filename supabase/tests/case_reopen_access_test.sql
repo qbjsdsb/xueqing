@@ -1,6 +1,6 @@
 begin;
 
-select plan(50);
+select plan(58);
 
 select is(
   (select prosecdef from pg_catalog.pg_proc
@@ -176,6 +176,340 @@ select is(
      and operation_id = '74000000-0000-0000-0000-000000000006'),
   1,
   'the first close creates one committed close boundary'
+);
+
+reset role;
+
+select set_config(
+  'xueqing.reopen_case_id',
+  (select id::text
+   from public.learning_cases
+   where title = '关闭后复发闭环测试'),
+  true
+);
+select set_config(
+  'xueqing.reopen_evidence_id',
+  (select id::text
+   from public.case_evidence
+   where title = '关闭后复发闭环测试'),
+  true
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $select public.reopen_case(
+      '74000000-0000-0000-0000-000000000010',
+      current_setting('xueqing.reopen_case_id')::uuid,
+      6,
+      array[current_setting('xueqing.reopen_evidence_id')::uuid],
+      jsonb_build_object(current_setting('xueqing.reopen_evidence_id'), 1),
+      'review',
+      '没有日期的复查不得创建',
+      null
+    )$,
+  'P0001',
+  'review_due_date_required',
+  'review Action requires a due date'
+);
+
+set local role anon;
+
+select throws_ok(
+  $select public.reopen_case(
+      '74000000-0000-0000-0000-000000000011',
+      current_setting('xueqing.reopen_case_id')::uuid,
+      6,
+      array[current_setting('xueqing.reopen_evidence_id')::uuid],
+      jsonb_build_object(current_setting('xueqing.reopen_evidence_id'), 1),
+      'verify',
+      '匿名不得重新打开',
+      date '2026-09-18'
+    )$,
+  '42501',
+  null,
+  'anonymous callers cannot invoke reopen_case'
+);
+
+reset role;
+set local role authenticated;
+
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-0000000000ff'
+  )::text,
+  true
+);
+
+select throws_ok(
+  $select public.reopen_case(
+      '74000000-0000-0000-0000-000000000012',
+      current_setting('xueqing.reopen_case_id')::uuid,
+      6,
+      array[current_setting('xueqing.reopen_evidence_id')::uuid],
+      jsonb_build_object(current_setting('xueqing.reopen_evidence_id'), 1),
+      'verify',
+      '撤销会话不得重新打开',
+      date '2026-09-18'
+    )$,
+  'P0001',
+  null,
+  'a revoked session cannot reopen a Case'
+);
+
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000003', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000003',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000003'
+  )::text,
+  true
+);
+
+select throws_ok(
+  $select public.reopen_case(
+      '74000000-0000-0000-0000-000000000013',
+      current_setting('xueqing.reopen_case_id')::uuid,
+      6,
+      array[current_setting('xueqing.reopen_evidence_id')::uuid],
+      jsonb_build_object(current_setting('xueqing.reopen_evidence_id'), 1),
+      'verify',
+      '无机构账号不得重新打开',
+      date '2026-09-18'
+    )$,
+  'P0001',
+  null,
+  'a user without membership cannot reopen a Case'
+);
+
+reset role;
+
+insert into public.organization_memberships (
+  id,
+  organization_id,
+  app_user_id,
+  status,
+  onboarding_expires_at,
+  onboarding_started_at,
+  onboarding_required
+)
+values (
+  '61000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000003',
+  'onboarding',
+  now() + interval '7 days',
+  now(),
+  true
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $select public.reopen_case(
+      '74000000-0000-0000-0000-000000000014',
+      current_setting('xueqing.reopen_case_id')::uuid,
+      6,
+      array[current_setting('xueqing.reopen_evidence_id')::uuid],
+      jsonb_build_object(current_setting('xueqing.reopen_evidence_id'), 1),
+      'verify',
+      'onboarding 账号不得重新打开',
+      date '2026-09-18'
+    )$,
+  'P0001',
+  null,
+  'an onboarding member cannot reopen a Case'
+);
+
+reset role;
+
+delete from public.organization_memberships
+where id = '61000000-0000-0000-0000-000000000003';
+
+insert into public.organization_memberships (
+  id,
+  organization_id,
+  app_user_id,
+  status,
+  onboarding_required
+)
+values (
+  '61000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000003',
+  'disabled',
+  false
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $select public.reopen_case(
+      '74000000-0000-0000-0000-000000000015',
+      current_setting('xueqing.reopen_case_id')::uuid,
+      6,
+      array[current_setting('xueqing.reopen_evidence_id')::uuid],
+      jsonb_build_object(current_setting('xueqing.reopen_evidence_id'), 1),
+      'verify',
+      'disabled 账号不得重新打开',
+      date '2026-09-18'
+    )$,
+  'P0001',
+  null,
+  'a disabled member cannot reopen a Case'
+);
+
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000002', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000002',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000002'
+  )::text,
+  true
+);
+
+select throws_ok(
+  $select public.reopen_case(
+      '74000000-0000-0000-0000-000000000016',
+      current_setting('xueqing.reopen_case_id')::uuid,
+      6,
+      array[current_setting('xueqing.reopen_evidence_id')::uuid],
+      jsonb_build_object(current_setting('xueqing.reopen_evidence_id'), 1),
+      'verify',
+      '跨组织账号不得重新打开',
+      date '2026-09-18'
+    )$,
+  'P0001',
+  null,
+  'a teacher from another organization cannot reopen a Case'
+);
+
+reset role;
+
+delete from public.organization_memberships
+where id = '61000000-0000-0000-0000-000000000003';
+
+insert into public.organization_memberships (
+  id,
+  organization_id,
+  app_user_id,
+  status
+)
+values (
+  '61000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000003',
+  'active'
+);
+
+insert into public.organization_subjects (
+  id,
+  organization_id,
+  subject_id,
+  display_name,
+  status
+)
+values (
+  '64000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '63000000-0000-0000-0000-000000000002',
+  '英语',
+  'active'
+);
+
+insert into public.membership_roles (
+  id,
+  organization_id,
+  membership_id,
+  role
+)
+values (
+  '62000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000003',
+  'teacher'
+);
+
+insert into public.membership_subject_scopes (
+  id,
+  organization_id,
+  membership_id,
+  organization_subject_id,
+  scope_kind,
+  status,
+  active_from
+)
+values (
+  '65000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000003',
+  '64000000-0000-0000-0000-000000000003',
+  'teaching',
+  'active',
+  '2026-01-01'
+);
+
+insert into public.student_teacher_assignments (
+  id,
+  organization_id,
+  student_subject_profile_id,
+  membership_id,
+  assignment_role,
+  status,
+  active_from
+)
+values (
+  '68000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '67000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000003',
+  'collaborator',
+  'active',
+  '2026-01-01'
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $select public.reopen_case(
+      '74000000-0000-0000-0000-000000000017',
+      current_setting('xueqing.reopen_case_id')::uuid,
+      6,
+      array[current_setting('xueqing.reopen_evidence_id')::uuid],
+      jsonb_build_object(current_setting('xueqing.reopen_evidence_id'), 1),
+      'verify',
+      '跨学科账号不得重新打开',
+      date '2026-09-18'
+    )$,
+  'P0001',
+  null,
+  'a teacher without the matching subject scope cannot reopen a Case'
+);
+
+reset role;
+set local role authenticated;
+
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
 );
 
 select throws_ok(
