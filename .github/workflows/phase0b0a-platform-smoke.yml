@@ -189,6 +189,9 @@ jobs:
           "XUEQING_UPDATER_SHORT_FIXTURE=$shortFixture" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "XUEQING_UPDATER_LONG_FIXTURE=$longFixture" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           dart test
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater smoke tests failed with exit code $LASTEXITCODE."
+          }
           $releaseDir = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release"
           $updaterPath = Join-Path $releaseDir "xueqing_updater.exe"
           $bootstrapPath = Join-Path $releaseDir "xueqing_updater_bootstrap.exe"

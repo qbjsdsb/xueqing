@@ -167,10 +167,27 @@ void main() {
       await Future<void>.delayed(const Duration(seconds: 6));
     } finally {
       if (await root.exists()) {
-        await root.delete(recursive: true);
+        await _deleteDirectoryWithRetries(root);
       }
     }
   });
+}
+
+Future<void> _deleteDirectoryWithRetries(Directory directory) async {
+  Object? lastError;
+  for (var attempt = 0; attempt < 20; attempt++) {
+    try {
+      await directory.delete(recursive: true);
+      return;
+    } on FileSystemException catch (error) {
+      lastError = error;
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+  }
+  Error.throwWithStackTrace(
+    lastError ?? StateError('无法清理 Windows 更新集成测试目录。'),
+    StackTrace.current,
+  );
 }
 
 Future<File> _createPackage({

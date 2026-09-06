@@ -279,7 +279,13 @@ jobs:
         run: |
           dart pub get
           dart analyze
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater analysis failed with exit code $LASTEXITCODE."
+          }
           dart test
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater tests failed with exit code $LASTEXITCODE."
+          }
           $updaterPath = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release/xueqing_updater.exe"
           $bootstrapPath = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release/xueqing_updater_bootstrap.exe"
           dart compile exe bin/xueqing_updater.dart -o $updaterPath

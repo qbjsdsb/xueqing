@@ -15,6 +15,7 @@ const _reservedWindowsNames = <String>{
   'COM¹',
   'COM²',
   'COM³',
+  'CON',
   'CONIN\$',
   'CONOUT\$',
   'LPT1',
