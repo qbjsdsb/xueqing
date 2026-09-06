@@ -212,7 +212,7 @@ begin
     select private.finish_primary_case_action_v2(
       p_case_id,
       membership_id,
-      timezone('utc', now()),
+      now(),
       'done'
     )
   );
@@ -236,7 +236,7 @@ begin
 
   update public.learning_cases
   set version = version + 1,
-      updated_at = timezone('utc', now())
+      updated_at = now()
   where id = p_case_id;
 
   insert into public.case_events (
