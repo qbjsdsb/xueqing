@@ -849,6 +849,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
 
   Future<CaseCommandReceipt?> _showReopenForm({
     required WorkspaceCase learningCase,
+    DateTime? businessDate,
   }) {
     final sizeClass = ResponsiveBreakpoints.classify(
       MediaQuery.sizeOf(context).width,
@@ -856,7 +857,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final form = _WorkspaceReopenCaseForm(
       learningCase: learningCase,
       repository: widget.repository,
-      businessDate: null,
+      businessDate: businessDate,
     );
     return sizeClass == WindowSizeClass.compact
         ? showModalBottomSheet<CaseCommandReceipt>(
@@ -940,7 +941,14 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceStudent student,
     WorkspaceCase learningCase,
   ) async {
-    final result = await _showReopenForm(learningCase: learningCase);
+    final workspace = await _workspaceFuture;
+    if (!mounted) {
+      return;
+    }
+    final result = await _showReopenForm(
+      learningCase: learningCase,
+      businessDate: workspace.businessDate,
+    );
     if (!mounted || result == null) {
       return;
     }
@@ -5795,7 +5803,7 @@ String _describeCaseCommandError(Object error) {
     return '复发 Evidence 已经发生变化，请刷新 Case 后重新选择。';
   }
   if (detail.contains('owner_permission_required')) {
-    return '只有这条 Case 的负责教师可以执行重新打开。';
+    return '只有这条 Case 的负责教师可以执行这一步。';
   }
   if (detail.contains('case_transition_not_allowed')) {
     return 'Case 状态已经变化，请刷新后再试。';
