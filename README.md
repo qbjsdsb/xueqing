@@ -25,7 +25,7 @@ Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、
 
 - 文档同步前的 `main` 收口基线为 `c311927`；已包含 PR #53 的成员开通异常恢复、PR #58 的服务端权威 Case reopen，以及 PR #54 的 tag commit 不可变发布构建校验。
 - `xueqing-dev`（ap-southeast-1）已应用 `phase_0b_0_z_member_provisioning`；`organization-member-credentials` Edge Function v2 已部署并保持 `verify_jwt=true`。
-- PR #51 最终集成 head 为 `c0e9a58`：上传中账号切换会中止，失败重试复用同一 attachment ID；Flutter run `589`、Supabase run `341`（696 项）和 platform smoke run `240` 均通过，`git diff --check` clean。Android / Windows 归档仅证明包已构建，真实设备 gate 仍未在本环境执行。旧的堆叠 Draft PR #20–#45 已关闭，原分支保留用于追溯。
+- PR #51 最终验证 head 为 `299aafb`：上传中账号切换会中止，失败重试复用同一 attachment ID；Flutter run `592`、Supabase run `342`（696 项）和 platform smoke run `241` 均通过，`git diff --check` clean。Android / Windows 归档仅证明包已构建，真实设备 gate 仍未在本环境执行。旧的堆叠 Draft PR #20–#45 已关闭，原分支保留用于追溯。
 - 仓库保持公开是当前零成本 CI 的明确选择；公开期间不得提交 service key、访问令牌、真实学生 / 家长 / 教师资料或可回溯的敏感导出。
 - 当前所有远端数据仍为虚构开发数据；未发布正式安装包，也未开启 Production 数据承载。
 
