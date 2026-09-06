@@ -1666,6 +1666,7 @@ void main() {
     expect(find.text('当前账号没有可用的教师教学范围'), findsOneWidget);
     expect(find.text('示例学生甲'), findsNothing);
   });
+
   testWidgets(
     'renders management-only accounts without a navigation assertion',
     (tester) async {
