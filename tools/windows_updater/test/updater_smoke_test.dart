@@ -32,7 +32,44 @@ void main() {
     for (final path in <String>[
       'CON',
       'CON.txt',
+      'CON .txt',
+      'CONIN
+      'folder/report ',
+    ]) {
+      expect(
+        () => normalizeUpdaterArchivePath(path),
+        throwsA(isA<StateError>()),
+        reason: path,
+      );
+    }
+  });
+
+  test('rejects duplicate and case-insensitive archive paths', () {
+    expect(
+      () => validateUpdaterArchivePaths(<String>[
+        'xueqing.exe',
+        'assets/Logo.png',
+        'assets/logo.png',
+      ]),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('rejects archive entry bombs by entry count', () {
+    final paths = List<String>.generate(
+      maxUpdaterArchiveEntries + 1,
+      (index) => 'assets/$index.bin',
+    );
+    expect(
+      () => validateUpdaterArchivePaths(paths),
+      throwsA(isA<StateError>()),
+    );
+  });
+}
+,
+      'COM¹.txt',
       'folder/COM1.dll',
+      'folder/LPT³.log',
       'folder/report.',
       'folder/report ',
     ]) {
