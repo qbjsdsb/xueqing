@@ -338,7 +338,7 @@ begin
     or cardinality(p_recurrence_evidence_ids) = 0
     or p_expected_evidence_versions is null
     or jsonb_typeof(p_expected_evidence_versions) <> 'object'
-    or jsonb_object_length(p_expected_evidence_versions)
+    or (select count(*) from jsonb_each(p_expected_evidence_versions))
       <> cardinality(p_recurrence_evidence_ids) then
     raise exception using
       errcode = 'P0001',
