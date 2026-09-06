@@ -4,7 +4,7 @@
 
 ## 先确认仓库和密钥边界
 
-当前代码仓库是公开可见状态。正式操作前应在 GitHub 的 `Settings → Danger Zone → Change repository visibility` 改回 `Private`，并确认没有把 Supabase service key、临时密码、Access Token 或真实数据提交到 Git 历史。
+当前代码仓库保持公开可见，这是当前零成本 CI 的明确决策。公开期间不得提交真实学生、家长或教师资料，也不得提交 Supabase service key、临时密码或 Access Token；如果将来需要引入真实数据，必须先重新评估仓库可见性和数据迁移边界。
 
 Auth Admin 的 `service_role` / secret key 只能配置在 Supabase Edge Function 的服务端环境变量中。Flutter 客户端只使用 publishable/anon key；任何客户端、日志、审计记录、migration 和 GitHub 内容都不能保存临时密码。
 

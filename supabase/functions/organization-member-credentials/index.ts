@@ -70,20 +70,29 @@ function requiredEnvironment(name: string): string {
   return value;
 }
 
-function publishableKey(): string {
-  const keyMap = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
-  if (keyMap) {
-    try {
-      const parsed = JSON.parse(keyMap) as JsonObject;
-      const defaultKey = parsed.default;
-      if (typeof defaultKey === "string") {
-        const value = Deno.env.get(defaultKey)?.trim();
-        if (value) return value;
-      }
-    } catch {
-      // Fall through to the compatibility environment names.
-    }
+function mappedKey(environmentName: string): string | null {
+  const raw = Deno.env.get(environmentName)?.trim();
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as JsonObject;
+    const defaultKey = stringValue(parsed.default);
+    if (!defaultKey) return null;
+
+    // Hosted Supabase projects currently expose the actual sb_* key in the
+    // JSON map. Older/local setups may instead put an environment variable
+    // name there, so support both without ever returning the variable name as
+    // if it were a credential.
+    if (defaultKey.startsWith("sb_")) return defaultKey;
+    return Deno.env.get(defaultKey)?.trim() ?? null;
+  } catch {
+    return null;
   }
+}
+
+function publishableKey(): string {
+  const mapped = mappedKey("SUPABASE_PUBLISHABLE_KEYS");
+  if (mapped) return mapped;
 
   for (const name of ["SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY"]) {
     const value = Deno.env.get(name)?.trim();
@@ -93,6 +102,9 @@ function publishableKey(): string {
 }
 
 function serviceKey(): string {
+  const mapped = mappedKey("SUPABASE_SECRET_KEYS");
+  if (mapped) return mapped;
+
   for (const name of ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"]) {
     const value = Deno.env.get(name)?.trim();
     if (value) return value;
