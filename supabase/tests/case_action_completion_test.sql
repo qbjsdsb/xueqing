@@ -1,6 +1,6 @@
 begin;
 
-select plan(35);
+select plan(36);
 
 select is(
   (
@@ -465,7 +465,17 @@ reset role;
 
 update public.organizations
 set time_zone = 'Pacific/Kiritimati'
-where id = '7a000000-0000-0000-0000-000000000005';
+where id = '00000000-0000-0000-0000-000000000001';
+
+select is(
+  (
+    select time_zone
+    from public.organizations
+    where id = '00000000-0000-0000-0000-000000000001'
+  ),
+  'Pacific/Kiritimati',
+  'high-zone regression test changes the intended fictional organization'
+);
 
 set local role authenticated;
 
