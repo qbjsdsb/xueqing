@@ -1616,9 +1616,11 @@ void main() {
       isTrue,
     );
     expect(
-      tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, '取消').last,
-      ).onPressed,
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, '取消').last,
+          )
+          .onPressed,
       isNotNull,
     );
   });
