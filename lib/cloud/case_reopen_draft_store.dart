@@ -70,7 +70,9 @@ class CaseReopenDraft {
       'schema_version',
     );
     if (schemaVersion != currentSchemaVersion) {
-      throw FormatException('Unsupported case reopen draft schema: $schemaVersion.');
+      throw FormatException(
+        'Unsupported case reopen draft schema: $schemaVersion.',
+      );
     }
     final sourceType = _requiredString(json['source_type'], 'source_type');
     const sourceTypes = <String>{
@@ -84,7 +86,9 @@ class CaseReopenDraft {
       'other',
     };
     if (!sourceTypes.contains(sourceType)) {
-      throw const FormatException('Unsupported source_type in case reopen draft.');
+      throw const FormatException(
+        'Unsupported source_type in case reopen draft.',
+      );
     }
     final nextActionTypeWire = _requiredString(
       json['next_action_type'],
