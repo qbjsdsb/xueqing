@@ -64,6 +64,7 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
     );
     backupReady = true;
 
+    int? launchedPid;
     try {
       await _clearInstallDirectory(
         installDirectory,
@@ -79,14 +80,33 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
         throw StateError('更新包没有生成主程序：${options.launchPath}');
       }
 
-      await _launchInstalledExecutable(
+      launchedPid = await _launchInstalledExecutable(
         installedExecutable.path,
         installDirectory.path,
       );
       await _markBootstrapMigrationComplete(installDirectory);
+      launchedPid = null;
     } catch (error) {
       if (!backupReady) {
         rethrow;
+      }
+      if (launchedPid != null) {
+        try {
+          await _terminateProcess(launchedPid);
+        } catch (terminationError) {
+          preserveBackup = true;
+          throw StateError(
+            '更新失败且无法终止新程序；请保留备份目录 ${backupDirectory.path}。'
+            ' 原始错误：$error；终止错误：$terminationError',
+          );
+        }
+      } else if (error is _UpdaterLaunchFailure &&
+          error.terminationError != null) {
+        preserveBackup = true;
+        throw StateError(
+          '更新失败且无法终止新程序；请保留备份目录 ${backupDirectory.path}。'
+          ' 原始错误：${error.cause}；终止错误：${error.terminationError}',
+        );
       }
       try {
         await _restoreFromBackup(
@@ -123,7 +143,7 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
   }
 }
 
-Future<void> _launchInstalledExecutable(
+Future<int> _launchInstalledExecutable(
   String executablePath,
   String workingDirectory,
 ) async {
@@ -133,19 +153,83 @@ Future<void> _launchInstalledExecutable(
     workingDirectory: workingDirectory,
     mode: ProcessStartMode.detached,
   );
-  final deadline = DateTime.now().add(_launchGracePeriod);
-  var observedRunning = false;
+  try {
+    final deadline = DateTime.now().add(_launchGracePeriod);
+    var observedRunning = false;
+    while (DateTime.now().isBefore(deadline)) {
+      if (await _isProcessRunning(process.pid)) {
+        observedRunning = true;
+      } else if (observedRunning) {
+        throw StateError('更新后的程序启动后立即退出（pid ${process.pid}）。');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    if (!observedRunning || !await _isProcessRunning(process.pid)) {
+      throw StateError('更新后的程序未能在宽限期内保持运行（pid ${process.pid}）。');
+    }
+    return process.pid;
+  } catch (error) {
+    Object? terminationError;
+    try {
+      await _terminateProcess(process.pid);
+    } catch (caughtTerminationError) {
+      terminationError = caughtTerminationError;
+    }
+    throw _UpdaterLaunchFailure(
+      processId: process.pid,
+      cause: error,
+      terminationError: terminationError,
+    );
+  }
+}
+
+class _UpdaterLaunchFailure implements Exception {
+  const _UpdaterLaunchFailure({
+    required this.processId,
+    required this.cause,
+    required this.terminationError,
+  });
+
+  final int processId;
+  final Object cause;
+  final Object? terminationError;
+
+  @override
+  String toString() {
+    final termination = terminationError == null
+        ? '启动进程已终止。'
+        : '无法终止启动进程：$terminationError。';
+    return '更新后的程序启动失败（pid $processId）：$cause；$termination';
+  }
+}
+
+const _terminateTimeout = Duration(seconds: 10);
+
+Future<void> _terminateProcess(int processId) async {
+  if (!await _isProcessRunning(processId)) {
+    return;
+  }
+  final result = await Process.run('taskkill.exe', <String>[
+    '/PID',
+    '$processId',
+    '/T',
+    '/F',
+  ]);
+  if (result.exitCode != 0) {
+    if (!await _isProcessRunning(processId)) {
+      return;
+    }
+    throw StateError('无法终止 Windows 进程 $processId：${result.stderr}');
+  }
+
+  final deadline = DateTime.now().add(_terminateTimeout);
   while (DateTime.now().isBefore(deadline)) {
-    if (await _isProcessRunning(process.pid)) {
-      observedRunning = true;
-    } else if (observedRunning) {
-      throw StateError('更新后的程序启动后立即退出（pid ${process.pid}）。');
+    if (!await _isProcessRunning(processId)) {
+      return;
     }
     await Future<void>.delayed(const Duration(milliseconds: 250));
   }
-  if (!observedRunning || !await _isProcessRunning(process.pid)) {
-    throw StateError('更新后的程序未能在宽限期内保持运行（pid ${process.pid}）。');
-  }
+  throw StateError('Windows 进程 $processId 在 ${_terminateTimeout.inSeconds} 秒内没有退出。');
 }
 
 Future<void> _scheduleSelfCleanup(String path) async {
