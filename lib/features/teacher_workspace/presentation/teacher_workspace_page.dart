@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import '../../../app/layout/responsive.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
+import '../../../cloud/case_reopen_draft_store.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/organization_member_provisioning_repository.dart';
@@ -29,6 +31,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     this.invitationAcceptanceRepository,
     this.organizationMemberProvisioningRepository,
     this.organizationMemberLifecycleRepository,
+    this.caseReopenDraftStore,
     super.key,
   });
 
@@ -42,6 +45,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
   organizationMemberProvisioningRepository;
   final OrganizationMemberLifecycleRepository?
   organizationMemberLifecycleRepository;
+  final CaseReopenDraftStore? caseReopenDraftStore;
 
   @override
   State<TeacherWorkspaceEntryPage> createState() =>
@@ -71,10 +75,13 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   bool _checkingMembershipState = false;
   OrganizationMembershipState? _membershipState;
   bool _onboardingTransition = false;
+  late final CaseReopenDraftStore _caseReopenDraftStore;
 
   @override
   void initState() {
     super.initState();
+    _caseReopenDraftStore =
+        widget.caseReopenDraftStore ?? SecureCaseReopenDraftStore();
     _updateService = UpdateService(currentVersion: widget.config.appVersion);
     _updateInstaller = PlatformUpdateInstaller();
     _initialization = _initialize();
@@ -389,6 +396,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           updateService: _updateService,
           updateInstaller: _updateInstaller,
           onSignOut: _busy ? null : _signOut,
+          caseReopenDraftStore: _caseReopenDraftStore,
+          sessionUserId: _activeUserId,
         );
       },
     );
@@ -432,6 +441,8 @@ class TeacherWorkspacePage extends StatefulWidget {
     this.updateService,
     this.updateInstaller,
     this.onSignOut,
+    this.caseReopenDraftStore,
+    this.sessionUserId,
     super.key,
   });
 
@@ -443,6 +454,8 @@ class TeacherWorkspacePage extends StatefulWidget {
   final UpdateService? updateService;
   final UpdateInstaller? updateInstaller;
   final VoidCallback? onSignOut;
+  final CaseReopenDraftStore? caseReopenDraftStore;
+  final String? sessionUserId;
 
   @override
   State<TeacherWorkspacePage> createState() => _TeacherWorkspacePageState();
@@ -850,6 +863,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   Future<CaseCommandReceipt?> _showReopenForm({
     required WorkspaceCase learningCase,
     DateTime? businessDate,
+    String? draftScopeKey,
   }) {
     final sizeClass = ResponsiveBreakpoints.classify(
       MediaQuery.sizeOf(context).width,
@@ -858,6 +872,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       learningCase: learningCase,
       repository: widget.repository,
       businessDate: businessDate,
+      draftStore:
+          widget.caseReopenDraftStore ?? const NoopCaseReopenDraftStore(),
+      draftScopeKey: draftScopeKey,
     );
     return sizeClass == WindowSizeClass.compact
         ? showModalBottomSheet<CaseCommandReceipt>(
@@ -948,6 +965,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final result = await _showReopenForm(
       learningCase: learningCase,
       businessDate: workspace.businessDate,
+      draftScopeKey: _caseReopenDraftScopeKey(
+        sessionUserId: widget.sessionUserId,
+        organizationId: workspace.organizationId,
+        caseId: learningCase.id,
+      ),
     );
     if (!mounted || result == null) {
       return;
@@ -2011,12 +2033,16 @@ class _WorkspaceReopenCaseForm extends StatefulWidget {
   const _WorkspaceReopenCaseForm({
     required this.learningCase,
     required this.repository,
+    required this.draftStore,
     this.businessDate,
+    this.draftScopeKey,
   });
 
   final WorkspaceCase learningCase;
   final LearningRepository repository;
+  final CaseReopenDraftStore draftStore;
   final DateTime? businessDate;
+  final String? draftScopeKey;
 
   @override
   State<_WorkspaceReopenCaseForm> createState() =>
@@ -2038,8 +2064,8 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
   late final TextEditingController _evidenceTitleController;
   late final TextEditingController _evidenceSummaryController;
   late final TextEditingController _nextActionController;
-  late final String _evidenceOperationId;
-  late final String _reopenOperationId;
+  late String _evidenceOperationId;
+  late String _reopenOperationId;
 
   String _sourceType = 'observation';
   CaseActionType _nextActionType = CaseActionType.verify;
@@ -2053,8 +2079,11 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
   String? _saveError;
   bool _submissionStarted = false;
   bool _saving = false;
+  bool _restoring = false;
+  bool _draftStorageFailed = false;
 
-  bool get _inputsLocked => _submissionStarted;
+  bool get _inputsLocked =>
+      _restoring || _draftStorageFailed || _submissionStarted;
   bool get _isDirty =>
       _submissionStarted ||
       _evidenceTitleController.text.trim().isNotEmpty ||
@@ -2074,6 +2103,96 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
     _evidenceTitleController.addListener(_clearInlineErrors);
     _evidenceSummaryController.addListener(_clearInlineErrors);
     _nextActionController.addListener(_clearInlineErrors);
+    _restoring = widget.draftScopeKey != null;
+    if (_restoring) {
+      unawaited(_restoreDraft());
+    }
+  }
+
+  Future<void> _restoreDraft() async {
+    final scopeKey = widget.draftScopeKey;
+    if (scopeKey == null) {
+      return;
+    }
+    try {
+      final draft = await widget.draftStore.load(scopeKey);
+      if (!mounted) {
+        return;
+      }
+      if (draft != null) {
+        if (draft.caseId != widget.learningCase.id) {
+          throw const FormatException(
+            'Persisted case reopen draft targets a different Case.',
+          );
+        }
+        _evidenceOperationId = draft.evidenceOperationId;
+        _reopenOperationId = draft.reopenOperationId;
+        _sourceType = draft.sourceType;
+        _evidenceTitleController.text = draft.evidenceTitle;
+        _evidenceSummaryController.text = draft.evidenceSummary;
+        _observedAt = draft.observedAt;
+        _evidenceId = draft.evidenceId;
+        _evidenceVersion = draft.evidenceVersion;
+        _nextActionType = CaseActionType.values.firstWhere(
+          (type) => type.wireValue == draft.nextActionTypeWire,
+          orElse: () => CaseActionType.other,
+        );
+        _nextActionController.text = draft.nextActionTitle;
+        _nextActionDueOn = draft.nextActionDueOn;
+      }
+      setState(() {
+        _restoring = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _restoring = false;
+        _draftStorageFailed = true;
+        _saveError = '无法安全恢复未完成的复发记录。为避免重复提交，暂不能保存；可以关闭窗口后重试。';
+      });
+    }
+  }
+
+  CaseReopenDraft _draftFromForm() {
+    return CaseReopenDraft(
+      schemaVersion: CaseReopenDraft.currentSchemaVersion,
+      caseId: widget.learningCase.id,
+      expectedCaseVersion: widget.learningCase.version,
+      evidenceOperationId: _evidenceOperationId,
+      reopenOperationId: _reopenOperationId,
+      sourceType: _sourceType,
+      evidenceTitle: _evidenceTitleController.text.trim(),
+      evidenceSummary: _evidenceSummaryController.text.trim(),
+      observedAt: _observedAt,
+      evidenceId: _evidenceId,
+      evidenceVersion: _evidenceVersion,
+      nextActionTypeWire: _nextActionType.wireValue,
+      nextActionTitle: _nextActionController.text.trim(),
+      nextActionDueOn: _nextActionDueOn,
+    );
+  }
+
+  Future<void> _persistDraft() async {
+    final scopeKey = widget.draftScopeKey;
+    if (scopeKey == null) {
+      return;
+    }
+    await widget.draftStore.save(scopeKey, _draftFromForm());
+  }
+
+  Future<void> _clearPersistedDraft() async {
+    final scopeKey = widget.draftScopeKey;
+    if (scopeKey == null) {
+      return;
+    }
+    try {
+      await widget.draftStore.clear(scopeKey);
+    } catch (_) {
+      // A committed reopen is safe to retry with the same operation ID.
+      // Keeping the draft is safer than masking a successful server result.
+    }
   }
 
   @override
@@ -2191,7 +2310,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
   }
 
   Future<void> _save() async {
-    if (_saving) {
+    if (_saving || _restoring || _draftStorageFailed) {
       return;
     }
     final title = _evidenceTitleController.text.trim();
@@ -2219,6 +2338,21 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
       return;
     }
 
+    try {
+      await _persistDraft();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _saveError = '无法安全保存恢复记录，未提交到服务器。请重试或关闭窗口后再试。';
+      });
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _submissionStarted = true;
       _saving = true;
@@ -2250,6 +2384,11 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
           _evidenceId = evidenceId;
           _evidenceVersion = 1;
         });
+        try {
+          await _persistDraft();
+        } catch (error) {
+          throw _CaseReopenDraftStorageException(error);
+        }
       }
       final evidenceId = _evidenceId;
       if (evidenceId == null) {
@@ -2267,6 +2406,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
           nextActionDueOn: _nextActionDueOn,
         ),
       );
+      await _clearPersistedDraft();
       if (!mounted) {
         return;
       }
@@ -2275,19 +2415,32 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
       if (!mounted) {
         return;
       }
+      final hasCommittedEvidence = _evidenceId != null;
+      final unknownResult = _isUnknownResultFailure(error);
+      final saveError = error is _CaseReopenDraftStorageException
+          ? hasCommittedEvidence
+                ? 'Evidence 已保存，但恢复记录暂时无法保存。请保持页面打开并重试。'
+                : '无法安全保存恢复记录，未提交到服务器。请重试。'
+          : _describeCaseCommandError(error);
       setState(() {
         _saving = false;
-        _saveError = _describeCaseCommandError(error);
+        _saveError = saveError;
+        if (!unknownResult && !hasCommittedEvidence) {
+          _submissionStarted = false;
+        }
       });
     }
   }
 
   Future<void> _confirmDiscard() async {
-    if (_submissionStarted || _saving) {
+    if (_submissionStarted || _saving || _restoring) {
       return;
     }
     if (!_isDirty) {
-      Navigator.of(context).pop();
+      await _clearPersistedDraft();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
       return;
     }
     final discard = await showDialog<bool>(
@@ -2308,7 +2461,10 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
       ),
     );
     if (mounted && discard == true) {
-      Navigator.of(context).pop();
+      await _clearPersistedDraft();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -2318,9 +2474,9 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
     final caseContext =
         '${widget.learningCase.typeLabel} · ${widget.learningCase.status.label} · version ${widget.learningCase.version}';
     return PopScope<void>(
-      canPop: !_submissionStarted && !_saving,
+      canPop: !_restoring && !_submissionStarted && !_saving,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !_submissionStarted && !_saving) {
+        if (!didPop && !_restoring && !_submissionStarted && !_saving) {
           _confirmDiscard();
         }
       },
@@ -2346,7 +2502,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                       ),
                       IconButton(
                         tooltip: '关闭',
-                        onPressed: _submissionStarted || _saving
+                        onPressed: _restoring || _submissionStarted || _saving
                             ? null
                             : _confirmDiscard,
                         icon: Icon(Icons.close),
@@ -2355,13 +2511,16 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '先保存关闭后的新 Evidence，再重新打开 Case；两步各自可安全重试。',
+                    '提交前会保存安全恢复记录；两步可安全重试，退出应用后也会保留未完成进度。',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _WorkspaceContextLine(label: '当前 Case', value: caseContext),
+                  const SizedBox(height: AppSpacing.md),
+                  if (_restoring)
+                    const Text('正在恢复未完成的复发记录…'),
                   const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<String>(
                     initialValue: _sourceType,
@@ -2503,7 +2662,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: _submissionStarted || _saving
+                          onPressed: _restoring || _submissionStarted || _saving
                               ? null
                               : _confirmDiscard,
                           child: const Text('取消'),
@@ -2512,7 +2671,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: FilledButton(
-                          onPressed: _saving ? null : _save,
+                          onPressed: _saving || _restoring || _draftStorageFailed ? null : _save,
                           child: Text(
                             _saving
                                 ? '保存中…'
@@ -5783,6 +5942,45 @@ String _describeWorkspaceLoadError(Object? error) {
     return '登录状态已失效，请重新登录后再试。';
   }
   return '学生和今日事项暂时没有加载完成。可以重试，已打开的输入不会被删除。';
+}
+
+class _CaseReopenDraftStorageException implements Exception {
+  const _CaseReopenDraftStorageException(this.cause);
+
+  final Object cause;
+}
+
+bool _isUnknownResultFailure(Object error) {
+  if (error is TimeoutException || error is SocketException) {
+    return true;
+  }
+  final detail = error.toString().toLowerCase();
+  return detail.contains('network') ||
+      detail.contains('socket') ||
+      detail.contains('timeout') ||
+      detail.contains('connection reset') ||
+      detail.contains('connection closed') ||
+      detail.contains('failed host lookup') ||
+      detail.contains('clientexception') ||
+      detail.contains('status: 0') ||
+      detail.contains('status: 502') ||
+      detail.contains('status: 503') ||
+      detail.contains('status: 504');
+}
+
+String? _caseReopenDraftScopeKey({
+  required String? sessionUserId,
+  required String? organizationId,
+  required String caseId,
+}) {
+  if (sessionUserId == null ||
+      sessionUserId.trim().isEmpty ||
+      organizationId == null ||
+      organizationId.trim().isEmpty ||
+      caseId.trim().isEmpty) {
+    return null;
+  }
+  return 'user:$sessionUserId|organization:$organizationId|case:$caseId';
 }
 
 String _describeCaseCommandError(Object error) {
