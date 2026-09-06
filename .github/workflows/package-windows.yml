@@ -138,3 +138,17 @@ jobs:
           path: build/windows/x64/runner/Release
           if-no-files-found: error
           retention-days: 7
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/tools/windows_installer/build_installer.ps1" `
+            -AppVersion "0.1.0"
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: xueqing-windows-installer-${{ github.sha }}
+          path: build/windows/installer/xueqing-setup-0.1.0.exe
+          if-no-files-found: error
+          retention-days: 7

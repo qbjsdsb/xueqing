@@ -32,13 +32,14 @@ class UpdateService {
 
   UpdateService({
     required String currentVersion,
-    this.platform,
+    UpdatePlatform? platform,
     Uri? manifestUri,
     UpdateManifestLoader? manifestLoader,
     this.channel = 'stable',
     this.requestTimeout = const Duration(seconds: 12),
     this.maxDownloadBytes = defaultMaxDownloadBytes,
   }) : currentVersion = AppVersion.parse(currentVersion),
+       platform = platform ?? runtimePlatform,
        manifestUri = manifestUri ?? defaultManifestUri,
        _manifestLoader = manifestLoader ?? _loadManifestFromNetwork;
 
@@ -46,6 +47,16 @@ class UpdateService {
     'https://github.com/qbjsdsb/xueqing/releases/latest/download/'
     'update-manifest.json',
   );
+
+  static UpdatePlatform? get runtimePlatform {
+    if (Platform.isWindows) {
+      return UpdatePlatform.windows;
+    }
+    if (Platform.isAndroid) {
+      return UpdatePlatform.android;
+    }
+    return null;
+  }
 
   final AppVersion currentVersion;
   final UpdatePlatform? platform;

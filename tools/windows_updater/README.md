@@ -1,5 +1,10 @@
 # Windows updater helper
 
+The normal user flow is: install the Windows `.exe` installer once, then use
+the in-app update action. The app downloads the SHA-256-verified ZIP in the
+background; users do not manually extract it. The installer is kept for first
+install and intentional repair/reinstall.
+
 The Windows release bundle contains two copies of this helper:
 
 - `xueqing_updater.exe` is the normal helper. New installs launch a temporary

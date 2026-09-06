@@ -4,10 +4,11 @@
 
 ## 更新机制
 
-- Windows 发布包是完整目录 ZIP，必须包含 `xueqing.exe`、`xueqing_updater.exe`、`xueqing_updater_bootstrap.exe` 以及 Flutter 运行库。
+- Windows Release 同时提供真正的 per-user `.exe` 安装器和完整目录 ZIP。安装器会把程序装到当前用户的 `AppData\Local\Programs\Xueqing`，不要求管理员权限；ZIP 只作为应用内更新的后台包和故障恢复材料。
+- Windows 安装器和 ZIP 都必须包含 `xueqing.exe`、`xueqing_updater.exe`、`xueqing_updater_bootstrap.exe` 以及 Flutter 运行库。
 - Windows 应用下载 ZIP 后启动更新助手；新安装从临时副本运行助手，旧安装先通过 bootstrap 完成一次助手迁移；助手等待主程序退出，校验 SHA-256，先备份再替换，失败时回滚。
 - Android 发布包是使用同一长期保存的 release keystore 签名的 APK。应用下载并校验 APK 后交给系统安装器；系统会要求允许本应用安装未知来源。
-- GitHub Release 资产同时上传 `update-manifest.json` 和 `SHA256SUMS.txt`。应用从稳定版的 `releases/latest/download/update-manifest.json` 检查更新。
+- GitHub Release 资产同时上传 Windows 安装器、Windows 更新 ZIP、Android APK、`update-manifest.json` 和 `SHA256SUMS.txt`。应用从稳定版的 `releases/latest/download/update-manifest.json` 检查更新；清单中的 Windows 资产仍指向 ZIP，因为现有更新助手负责备份、原子替换和失败回滚。
 - 当前清单只接受 HTTPS、版本 schema 1、正整数文件大小和 64 位 SHA-256；下载完成后再次校验大小与摘要。
 
 ## 一次性配置 Android 签名
@@ -53,14 +54,15 @@ Windows PowerShell 可这样生成单行内容：
    - `app_version`：三段版本号加正整数 build，例如 `0.2.0+2`；
    - `release_environment`：开发验证选 `development`，正式数据环境才选 `production`；
    - `release_notes`：每行一条更新说明。
-4. 工作流会先构建并测试更新助手，再生成签名 APK、Windows 完整 ZIP、真实哈希和更新清单。任何密钥缺失、版本不匹配、构建失败或资产重名都会停止，不会覆盖旧资产。
-5. 成功后，已安装的旧版本在教师工作台的更新入口中选择检查更新，即可下载并安装。
+4. 工作流会先构建并测试更新助手，再生成 Windows `.exe` 安装器、签名 APK、Windows 完整 ZIP、真实哈希和更新清单。任何密钥缺失、版本不匹配、构建失败或资产重名都会停止，不会覆盖旧资产。
+5. 新用户双击 Windows `.exe` 安装器即可完成首次安装；已安装用户在教师工作台选择检查更新，应用会在后台下载并校验完整 ZIP，然后自动替换、重启，用户不需要手动解压。
 
 ## 首次安装与验证建议
 
 - 先安装一个较旧的、同一 Android release keystore 签名的包；再发布更高版本测试覆盖升级。
 - Android 首次安装更新可能要在系统设置中打开“允许安装未知应用”，返回应用后重新点击安装。
-- Windows 首次安装应使用包含 `xueqing_updater.exe` 的完整 ZIP；很早的旧包没有更新助手时，应用会提示先手动安装一次最新完整包。
+- Windows 首次安装使用 `.exe` 安装器；很早的旧 ZIP 没有更新助手时，应用会提示先手动安装一次最新安装器。安装目录采用 per-user 路径，后续应用内更新不需要管理员权限。
+- Windows 更新包在用户体验上是一键更新，但内部仍使用受 SHA-256 校验保护的 ZIP，由更新助手完成等待退出、备份、替换、启动探测和回滚；安装器主要负责首次安装和用户主动重新安装。
 - 更新前保留应用目录外的用户数据；更新助手只替换安装目录，不删除业务数据。
 - 不要用 debug APK 验证 Android 覆盖升级；debug 签名与 release 签名不同，且不代表正式更新链路。
 
@@ -68,4 +70,4 @@ Windows PowerShell 可这样生成单行内容：
 
 - 当前默认环境仍可指向虚构开发项目；开发 Release 不得录入真实学生、家长或教师隐私数据。
 - GitHub Release 资产是公开下载地址；不要把 Supabase secret、service_role、数据库密码或 Android keystore 放进仓库。
-- Windows / Android 代码签名证书和安装器信任仍是后续发行加固项；软件内更新链路的 HTTPS、摘要校验、版本比较、签名覆盖关系和 Windows 回滚先由本流程保证。
+- Windows Authenticode 代码签名证书和安装器信任仍是后续发行加固项；当前安装器可用但可能触发 Windows SmartScreen 提示。软件内更新链路的 HTTPS、摘要校验、版本比较、签名 APK 覆盖关系和 Windows 回滚由本流程保证。

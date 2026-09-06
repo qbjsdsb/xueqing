@@ -48,6 +48,12 @@ void main() {
     );
   });
 
+  test('defaults to the runtime platform when none is supplied', () {
+    final service = UpdateService(currentVersion: '0.1.0+1');
+
+    expect(service.platform, UpdateService.runtimePlatform);
+  });
+
   test('rejects malformed artifact security fields', () {
     expect(
       () => UpdateManifest.fromJson(
