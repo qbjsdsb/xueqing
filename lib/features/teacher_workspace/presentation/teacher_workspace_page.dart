@@ -2066,6 +2066,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
   late final TextEditingController _nextActionController;
   late String _evidenceOperationId;
   late String _reopenOperationId;
+  late int _expectedCaseVersion;
 
   String _sourceType = 'observation';
   CaseActionType _nextActionType = CaseActionType.verify;
@@ -2097,6 +2098,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
     super.initState();
     _evidenceOperationId = createOperationId();
     _reopenOperationId = createOperationId();
+    _expectedCaseVersion = widget.learningCase.version;
     _evidenceTitleController = TextEditingController();
     _evidenceSummaryController = TextEditingController();
     _nextActionController = TextEditingController(text: '复发后安排验证');
@@ -2127,6 +2129,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
         }
         _evidenceOperationId = draft.evidenceOperationId;
         _reopenOperationId = draft.reopenOperationId;
+        _expectedCaseVersion = draft.expectedCaseVersion;
         _sourceType = draft.sourceType;
         _evidenceTitleController.text = draft.evidenceTitle;
         _evidenceSummaryController.text = draft.evidenceSummary;
@@ -2159,7 +2162,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
     return CaseReopenDraft(
       schemaVersion: CaseReopenDraft.currentSchemaVersion,
       caseId: widget.learningCase.id,
-      expectedCaseVersion: widget.learningCase.version,
+      expectedCaseVersion: _expectedCaseVersion,
       evidenceOperationId: _evidenceOperationId,
       reopenOperationId: _reopenOperationId,
       sourceType: _sourceType,
@@ -2364,7 +2367,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
           AddCaseEvidenceCommand(
             operationId: _evidenceOperationId,
             caseId: widget.learningCase.id,
-            expectedCaseVersion: widget.learningCase.version,
+            expectedCaseVersion: _expectedCaseVersion,
             sourceType: _sourceType,
             title: title,
             observedAt: _observedAt,
@@ -2398,7 +2401,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
         ReopenCaseCommand(
           operationId: _reopenOperationId,
           caseId: widget.learningCase.id,
-          expectedCaseVersion: widget.learningCase.version,
+          expectedCaseVersion: _expectedCaseVersion,
           recurrenceEvidenceIds: <String>[evidenceId],
           expectedEvidenceVersions: <String, int>{evidenceId: _evidenceVersion},
           nextActionType: _nextActionType,
