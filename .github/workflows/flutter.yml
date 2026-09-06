@@ -31,6 +31,11 @@ jobs:
       - name: Verify lockfile is current
         run: git diff --exit-code -- pubspec.lock
 
+      - name: Probe Dart formatter output
+        run: |
+          dart format .
+          git diff -- tools/windows_updater/bin/xueqing_updater.dart tools/windows_updater/test/updater_integration_test.dart
+
       - name: Check Dart formatting
         run: dart format --output=none --set-exit-if-changed .
 
