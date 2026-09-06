@@ -40,6 +40,7 @@ class OrganizationMember {
   final DateTime? onboardingExpiresAt;
 
   bool get isActive => status == 'active';
+  bool get isOnboarding => status == 'onboarding';
 
   factory OrganizationMember.fromJson(Map<String, dynamic> json) {
     final rawRoles = json['roles'];
@@ -910,6 +911,7 @@ String? organizationMemberLifecycleErrorMessage(Object error) {
     'membership_status_transition_invalid' => '当前成员状态不能执行这项转换。',
     'membership_handoff_required' => '这位成员还有未交接的进行中事项，请先完成案件和行动交接。',
     'current_membership_immutable' => '不能停用或恢复当前正在使用的账号。',
+    'onboarding_completion_required' => '成员仍需完成首次接管，不能由管理员直接激活。',
     'organization_owner_required' => '负责人状态只能由另一位负责人调整。',
     'last_owner_immutable' => '机构至少要保留一位正常负责人的账号。',
     'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
@@ -1066,6 +1068,7 @@ String? organizationInvitationErrorMessage(Object error) {
     'invitation_already_member' => '当前账号已经拥有该机构的这个身份。',
     'user_already_member_elsewhere' => '当前账号已经加入其他机构，暂不能跨机构加入。',
     'app_user_disabled' => '当前账号已被停用，请联系机构负责人。',
+    'onboarding_completion_required' => '当前账号仍需完成首次接管，不能直接通过邀请激活。',
     _ => null,
   };
 }

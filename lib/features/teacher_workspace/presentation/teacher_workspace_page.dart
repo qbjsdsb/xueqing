@@ -10,9 +10,11 @@ import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
+import '../../../cloud/organization_member_provisioning_repository.dart';
 import '../../../config/app_config.dart';
 import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
 import '../../organization_management/presentation/organization_management_page.dart';
+import 'member_onboarding_page.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../update/update_dialog.dart';
 import '../../../update/update_installer.dart';
@@ -25,6 +27,8 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     this.learningRepository,
     this.organizationManagementRepository,
     this.invitationAcceptanceRepository,
+    this.organizationMemberProvisioningRepository,
+    this.organizationMemberLifecycleRepository,
     super.key,
   });
 
@@ -34,6 +38,10 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
   final OrganizationManagementRepository? organizationManagementRepository;
   final OrganizationInvitationAcceptanceRepository?
   invitationAcceptanceRepository;
+  final OrganizationMemberProvisioningRepository?
+  organizationMemberProvisioningRepository;
+  final OrganizationMemberLifecycleRepository?
+  organizationMemberLifecycleRepository;
 
   @override
   State<TeacherWorkspaceEntryPage> createState() =>
@@ -51,12 +59,18 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   LearningRepository? _learningRepository;
   OrganizationManagementRepository? _organizationManagementRepository;
   OrganizationInvitationAcceptanceRepository? _invitationAcceptanceRepository;
+  OrganizationMemberProvisioningRepository?
+  _organizationMemberProvisioningRepository;
+  OrganizationMemberLifecycleRepository? _organizationMemberLifecycleRepository;
   String? _errorMessage;
   String? _activeUserId;
   bool _signedIn = false;
   bool _busy = false;
   late final UpdateService _updateService;
   late final UpdateInstaller _updateInstaller;
+  bool _checkingMembershipState = false;
+  OrganizationMembershipState? _membershipState;
+  bool _onboardingTransition = false;
 
   @override
   void initState() {
@@ -89,6 +103,10 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       _organizationManagementRepository =
           widget.organizationManagementRepository;
       _invitationAcceptanceRepository = widget.invitationAcceptanceRepository;
+      _organizationMemberProvisioningRepository =
+          widget.organizationMemberProvisioningRepository;
+      _organizationMemberLifecycleRepository =
+          widget.organizationMemberLifecycleRepository;
     } else {
       widget.config.cloudConfig.validate(
         requireConfigured: widget.config.environment.isProduction,
@@ -110,24 +128,72 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           SupabaseOrganizationInvitationAcceptanceRepository(
             CloudClient.client,
           );
+      _organizationMemberProvisioningRepository =
+          SupabaseOrganizationMemberProvisioningRepository(CloudClient.client);
+      _organizationMemberLifecycleRepository =
+          SupabaseOrganizationMemberLifecycleRepository(CloudClient.client);
     }
 
     _activeUserId = _authRepository!.currentUser?.id;
     _signedIn = _activeUserId != null;
+    if (_signedIn && _organizationMemberLifecycleRepository != null) {
+      _checkingMembershipState = true;
+      unawaited(_loadMembershipState());
+    }
     _authSubscription = _authRepository!.authStateChanges.listen((state) {
       if (!mounted) {
         return;
       }
       final nextUserId = state.session?.user.id;
       final userChanged = _activeUserId != nextUserId;
+      if (_onboardingTransition && nextUserId == null) {
+        return;
+      }
       setState(() {
         _activeUserId = nextUserId;
         _signedIn = nextUserId != null;
         if (!_signedIn || userChanged) {
           _errorMessage = null;
         }
+        if (!_signedIn) {
+          _membershipState = null;
+        }
       });
+      if (nextUserId != null &&
+          userChanged &&
+          _organizationMemberLifecycleRepository != null) {
+        unawaited(_loadMembershipState());
+      }
     });
+  }
+
+  Future<void> _loadMembershipState() async {
+    final repository = _organizationMemberLifecycleRepository;
+    if (repository == null) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _checkingMembershipState = true;
+        _membershipState = null;
+      });
+    }
+    try {
+      final state = await repository.loadCurrentMembershipState();
+      if (mounted) {
+        setState(() => _membershipState = state);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _errorMessage = _describeAuthError(error, action: '读取账号状态'),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _checkingMembershipState = false);
+      }
+    }
   }
 
   void _retryInitialization() {
@@ -159,6 +225,9 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           _activeUserId = nextUserId;
           _signedIn = true;
         });
+        if (_organizationMemberLifecycleRepository != null) {
+          unawaited(_loadMembershipState());
+        }
       }
       _passwordController.clear();
     } catch (error) {
@@ -271,10 +340,51 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
             onSubmit: _signIn,
           );
         }
+        if (_organizationMemberLifecycleRepository != null &&
+            (_checkingMembershipState || _membershipState == null)) {
+          return _WorkspaceStatusScaffold(
+            title: '教师工作台',
+            child: _checkingMembershipState
+                ? const _WorkspaceLoadingBody(message: '正在核验账号状态…')
+                : _WorkspaceErrorBody(
+                    title: '账号状态读取失败',
+                    message: _errorMessage ?? '请重试后继续。',
+                    onRetry: () => unawaited(_loadMembershipState()),
+                  ),
+          );
+        }
+        final membershipState = _membershipState;
+        if (membershipState?.isOnboarding == true) {
+          final email =
+              _authRepository!.currentUser?.email ??
+              _emailController.text.trim();
+          return MemberOnboardingPage(
+            key: ValueKey('onboarding-$_activeUserId'),
+            authRepository: _authRepository!,
+            lifecycleRepository: _organizationMemberLifecycleRepository!,
+            email: email,
+            displayName: membershipState?.displayName,
+            expiresAt: membershipState?.onboardingExpiresAt,
+            onTransitionChanged: _setOnboardingTransition,
+            onCompleted: _finishOnboarding,
+          );
+        }
+        if (membershipState?.isDisabled == true) {
+          return _WorkspaceStatusScaffold(
+            title: '账号已停用',
+            child: _WorkspaceErrorBody(
+              title: '暂时无法进入工作台',
+              message: '当前账号已被机构负责人停用，请联系负责人处理。',
+              onRetry: () => unawaited(_signOut()),
+            ),
+          );
+        }
         return TeacherWorkspacePage(
           key: ValueKey(_activeUserId),
           repository: _learningRepository!,
           managementRepository: _organizationManagementRepository,
+          memberProvisioningRepository:
+              _organizationMemberProvisioningRepository,
           invitationAcceptanceRepository: _invitationAcceptanceRepository,
           updateService: _updateService,
           updateInstaller: _updateInstaller,
@@ -283,12 +393,41 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       },
     );
   }
+
+  void _setOnboardingTransition(bool value) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _onboardingTransition = value;
+      if (!value && _authRepository?.currentUser == null) {
+        _activeUserId = null;
+        _signedIn = false;
+        _membershipState = null;
+      }
+    });
+  }
+
+  void _finishOnboarding() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _onboardingTransition = false;
+      _activeUserId = null;
+      _signedIn = false;
+      _membershipState = null;
+      _emailController.clear();
+      _passwordController.clear();
+    });
+  }
 }
 
 class TeacherWorkspacePage extends StatefulWidget {
   const TeacherWorkspacePage({
     required this.repository,
     this.managementRepository,
+    this.memberProvisioningRepository,
     this.invitationAcceptanceRepository,
     this.updateService,
     this.updateInstaller,
@@ -298,6 +437,7 @@ class TeacherWorkspacePage extends StatefulWidget {
 
   final LearningRepository repository;
   final OrganizationManagementRepository? managementRepository;
+  final OrganizationMemberProvisioningRepository? memberProvisioningRepository;
   final OrganizationInvitationAcceptanceRepository?
   invitationAcceptanceRepository;
   final UpdateService? updateService;
@@ -1021,6 +1161,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     return OrganizationManagementPage(
       repository: managementRepository,
+      provisioningRepository: widget.memberProvisioningRepository,
       organizationId: organizationId,
       organizationName: workspace.organizationName,
       roles: workspace.roles,

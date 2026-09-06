@@ -6,6 +6,7 @@ import '../../../app/layout/responsive.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
+import '../../../cloud/organization_member_provisioning_repository.dart';
 import 'organization_student_edit_dialog.dart';
 import 'organization_student_setup_dialog.dart';
 import 'organization_subject_setup_dialog.dart';
@@ -21,6 +22,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.canManageCaseTypes = false,
     this.onOpenCaseTypes,
     this.onChanged,
+    this.provisioningRepository,
     super.key,
   });
 
@@ -31,6 +33,7 @@ class OrganizationManagementPage extends StatefulWidget {
   final bool canManageCaseTypes;
   final VoidCallback? onOpenCaseTypes;
   final VoidCallback? onChanged;
+  final OrganizationMemberProvisioningRepository? provisioningRepository;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -48,6 +51,7 @@ class _OrganizationManagementPageState
   List<OrganizationInvitationRole> get _inviteRoles {
     if (_isOwner) {
       return const <OrganizationInvitationRole>[
+        OrganizationInvitationRole.owner,
         OrganizationInvitationRole.admin,
         OrganizationInvitationRole.teacher,
       ];
@@ -510,22 +514,39 @@ class _OrganizationManagementPageState
       _errorMessage = null;
     });
     try {
-      final invitation = await widget.repository.createInvitation(
-        organizationId: widget.organizationId,
-        email: draft.email,
-        role: draft.role,
-      );
-      await _refresh();
+      final provisioningRepository = widget.provisioningRepository;
+      OrganizationMemberProvisioningResult? provisioningResult;
+      OrganizationInvitation? invitation;
+      if (provisioningRepository != null) {
+        provisioningResult = await provisioningRepository.provisionMember(
+          organizationId: widget.organizationId,
+          email: draft.email,
+          role: draft.role,
+        );
+      } else {
+        invitation = await widget.repository.createInvitation(
+          organizationId: widget.organizationId,
+          email: draft.email,
+          role: draft.role,
+        );
+      }
       if (!mounted) {
         return;
       }
-      final copied = await _showInviteCode(invitation);
-      if (!mounted) {
-        return;
+      if (provisioningResult != null) {
+        await _showProvisioningResult(provisioningResult);
+      } else if (invitation != null) {
+        final copied = await _showInviteCode(invitation);
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(copied ? '邀请代码已复制。' : '邀请已创建，可在邀请列表中继续处理。')),
+        );
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(copied ? '邀请代码已复制。' : '邀请已创建，可在邀请列表中继续处理。')),
-      );
+      if (mounted) {
+        await _refresh();
+      }
     } catch (error) {
       if (mounted) {
         setState(() => _errorMessage = _describeError(error));
@@ -535,6 +556,95 @@ class _OrganizationManagementPageState
         setState(() => _busy = false);
       }
     }
+  }
+
+  Future<void> _showProvisioningResult(
+    OrganizationMemberProvisioningResult result,
+  ) async {
+    if (result.hasTemporaryPassword) {
+      await _showTemporaryPassword(result);
+      return;
+    }
+    if (result.invitation != null && result.isInviteCode) {
+      await _showInviteCode(result.invitation!);
+      return;
+    }
+    if (result.isWaitingForOwnerApproval && mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('等待负责人审批'),
+          content: Text(
+            '${result.email} 的负责人身份需要现有负责人审批。审批通过后，在邀请列表中点击“开通账号”。',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('知道了'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<bool> _showTemporaryPassword(
+    OrganizationMemberProvisioningResult result,
+  ) async {
+    final temporaryPassword = result.temporaryPassword;
+    if (temporaryPassword == null) {
+      return false;
+    }
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('账号已开通'),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '请通过可信方式把下面的临时密码交给 ${result.email}。它只显示这一次，不会保存到系统；成员首次登录后必须设置新密码。',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                SelectableText(
+                  temporaryPassword,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '接管有效期至 ${_formatDateTime(result.expiresAt)}。如果关闭后没有交付成功，请在成员列表中点击“重新发放临时密码”，不要继续使用这次密码。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: temporaryPassword));
+              if (context.mounted) {
+                Navigator.of(context).pop(true);
+              }
+            },
+            child: const Text('复制临时密码'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('完成'),
+          ),
+        ],
+      ),
+    ).then((value) => value ?? false);
   }
 
   Future<bool> _showInviteCode(OrganizationInvitation invitation) {
@@ -603,8 +713,67 @@ class _OrganizationManagementPageState
   Future<void> _approveInvitation(OrganizationInvitation invitation) async {
     await _runMutation(
       () => widget.repository.approveInvitation(invitationId: invitation.id),
-      '负责人提名已通过，现在可以由对应邮箱接受邀请。',
+      '负责人提名已通过，现在可以在邀请列表中开通账号。',
     );
+  }
+
+  Future<void> _provisionExistingInvitation(
+    OrganizationInvitation invitation,
+  ) async {
+    final provisioningRepository = widget.provisioningRepository;
+    if (_busy || provisioningRepository == null) {
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
+    try {
+      final result = await provisioningRepository.provisionExistingInvitation(
+        invitationId: invitation.id,
+      );
+      if (mounted) {
+        await _showProvisioningResult(result);
+        await _refresh();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = _describeError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _reissueMemberCredential(OrganizationMember member) async {
+    final provisioningRepository = widget.provisioningRepository;
+    if (_busy || provisioningRepository == null || !member.isOnboarding) {
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
+    try {
+      final result = await provisioningRepository.reissueMemberCredential(
+        organizationId: widget.organizationId,
+        membershipId: member.membershipId,
+      );
+      if (mounted) {
+        await _showTemporaryPassword(result);
+        await _refresh();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = _describeError(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
   }
 
   Future<void> _revokeInvitation(OrganizationInvitation invitation) async {
@@ -707,6 +876,10 @@ class _OrganizationManagementPageState
     final memberLifecycleError = organizationMemberLifecycleErrorMessage(error);
     if (memberLifecycleError != null) {
       return memberLifecycleError;
+    }
+    final provisioningError = organizationMemberProvisioningErrorMessage(error);
+    if (provisioningError != null) {
+      return provisioningError;
     }
     final invitationError = organizationInvitationErrorMessage(error);
     if (invitationError != null) {
@@ -820,8 +993,15 @@ class _OrganizationManagementPageState
                     busy: _busy,
                     onApprove: _approveInvitation,
                     onRevoke: _revokeInvitation,
+                    onProvisionInvitation: widget.provisioningRepository == null
+                        ? null
+                        : _provisionExistingInvitation,
                     onEditStudent: _editStudent,
                     onToggleMemberStatus: _toggleMemberStatus,
+                    onReissueMemberCredential:
+                        widget.provisioningRepository == null
+                        ? null
+                        : _reissueMemberCredential,
                     onAddTeacherScope: _addTeacherScope,
                     onToggleTeacherScope: _toggleTeacherScope,
                     onTransferStudentTeacherAssignment:
@@ -864,8 +1044,10 @@ class _ManagementContent extends StatelessWidget {
     required this.busy,
     required this.onApprove,
     required this.onRevoke,
+    this.onProvisionInvitation,
     required this.onEditStudent,
     required this.onToggleMemberStatus,
+    this.onReissueMemberCredential,
     required this.onAddTeacherScope,
     required this.onToggleTeacherScope,
     required this.onTransferStudentTeacherAssignment,
@@ -876,8 +1058,12 @@ class _ManagementContent extends StatelessWidget {
   final bool busy;
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
+  final Future<void> Function(OrganizationInvitation invitation)?
+  onProvisionInvitation;
   final Future<void> Function(OrganizationStudentRecord student) onEditStudent;
   final Future<void> Function(OrganizationMember member) onToggleMemberStatus;
+  final Future<void> Function(OrganizationMember member)?
+  onReissueMemberCredential;
   final VoidCallback onAddTeacherScope;
   final Future<void> Function(OrganizationTeacherSubjectScope scope)
   onToggleTeacherScope;
@@ -1056,6 +1242,9 @@ class _ManagementContent extends StatelessWidget {
                         member: member,
                         busy: busy,
                         onToggleStatus: () => onToggleMemberStatus(member),
+                        onReissueCredential: onReissueMemberCredential == null
+                            ? null
+                            : () => onReissueMemberCredential!(member),
                       ),
                   ],
                 ),
@@ -1079,6 +1268,11 @@ class _ManagementContent extends StatelessWidget {
                         busy: busy,
                         onApprove: () => onApprove(invitation),
                         onRevoke: () => onRevoke(invitation),
+                        onProvision:
+                            invitation.isPending &&
+                                onProvisionInvitation != null
+                            ? () => onProvisionInvitation!(invitation)
+                            : null,
                       ),
                   ],
                 ),
@@ -1393,11 +1587,13 @@ class _MemberTile extends StatelessWidget {
     required this.member,
     required this.busy,
     required this.onToggleStatus,
+    this.onReissueCredential,
   });
 
   final OrganizationMember member;
   final bool busy;
   final VoidCallback onToggleStatus;
+  final VoidCallback? onReissueCredential;
 
   @override
   Widget build(BuildContext context) {
@@ -1460,20 +1656,32 @@ class _MemberTile extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-                const SizedBox(height: AppSpacing.xs),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: busy ? null : onToggleStatus,
-                    icon: Icon(
-                      member.status == 'disabled'
-                          ? Icons.restore_outlined
-                          : Icons.person_off_outlined,
-                      size: 18,
+                if (member.isOnboarding && onReissueCredential != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: busy ? null : onReissueCredential,
+                      icon: const Icon(Icons.key_outlined, size: 18),
+                      label: const Text('重新发放临时密码'),
                     ),
-                    label: Text(statusAction),
                   ),
-                ),
+                ] else if (!member.isOnboarding) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: busy ? null : onToggleStatus,
+                      icon: Icon(
+                        member.status == 'disabled'
+                            ? Icons.restore_outlined
+                            : Icons.person_off_outlined,
+                        size: 18,
+                      ),
+                      label: Text(statusAction),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1490,6 +1698,7 @@ class _InvitationTile extends StatelessWidget {
     required this.busy,
     required this.onApprove,
     required this.onRevoke,
+    this.onProvision,
   });
 
   final OrganizationInvitation invitation;
@@ -1497,6 +1706,7 @@ class _InvitationTile extends StatelessWidget {
   final bool busy;
   final VoidCallback onApprove;
   final VoidCallback onRevoke;
+  final VoidCallback? onProvision;
 
   @override
   Widget build(BuildContext context) {
@@ -1506,6 +1716,14 @@ class _InvitationTile extends StatelessWidget {
         FilledButton.tonal(
           onPressed: busy ? null : onApprove,
           child: const Text('通过负责人提名'),
+        ),
+      );
+    }
+    if (invitation.isPending && onProvision != null) {
+      actions.add(
+        FilledButton.tonal(
+          onPressed: busy ? null : onProvision,
+          child: const Text('开通账号 / 重新发放'),
         ),
       );
     }
@@ -1631,7 +1849,7 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '邀请发送后，成员需要使用匹配的邮箱登录并接受邀请。',
+                  '新邮箱会由系统开通账号并生成一次性临时密码；已有账号会收到一次性邀请代码。',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: AppSpacing.md),

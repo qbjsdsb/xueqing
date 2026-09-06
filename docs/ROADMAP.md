@@ -201,6 +201,8 @@
 
 ## 0F. 零成本账号开通 Spike
 
+当前分支已加入成员开通、临时密码一次性交付、首次接管、凭据重新发放和启动授权门的实现，以及对应的数据库权限回归测试。下面的复选框仍表示必须由 CI、虚构开发项目和 Android/Windows 真实点击验收形成证据；代码存在不等于远端已部署或 Production 已获批。运行步骤见 `docs/INVITATION_PROVISIONING_RUNBOOK.md`。
+
 ### `provision_member`
 - [ ] Auth Admin createUser / 受控处理
 - [ ] 强随机临时密码
