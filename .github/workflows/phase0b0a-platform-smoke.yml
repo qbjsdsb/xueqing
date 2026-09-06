@@ -179,9 +179,9 @@ jobs:
           $env:XUEQING_UPDATER_HELPER = $testHelper
           $env:XUEQING_UPDATER_SHORT_FIXTURE = $shortFixture
           $env:XUEQING_UPDATER_LONG_FIXTURE = $longFixture
-          "$env:XUEQING_UPDATER_HELPER=$testHelper" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "$env:XUEQING_UPDATER_SHORT_FIXTURE=$shortFixture" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "$env:XUEQING_UPDATER_LONG_FIXTURE=$longFixture" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "XUEQING_UPDATER_HELPER=$testHelper" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "XUEQING_UPDATER_SHORT_FIXTURE=$shortFixture" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "XUEQING_UPDATER_LONG_FIXTURE=$longFixture" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           dart test
           $releaseDir = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release"
           $updaterPath = Join-Path $releaseDir "xueqing_updater.exe"
