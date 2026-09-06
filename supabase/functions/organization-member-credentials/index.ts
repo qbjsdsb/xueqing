@@ -422,12 +422,14 @@ function provisioningMetadata(user: JsonObject): JsonObject | null {
 
 function isMarkedProvisioningUser(
   user: JsonObject,
-  organizationId: string
+  organizationId: string,
+  invitationId: string
 ): boolean {
   const metadata = provisioningMetadata(user);
   return (
     metadata?.xueqing_provisioning === true &&
-    stringValue(metadata.xueqing_organization_id) === organizationId
+    stringValue(metadata.xueqing_organization_id) === organizationId &&
+    stringValue(metadata.xueqing_invitation_id) === invitationId
   );
 }
 
@@ -612,6 +614,12 @@ async function recoverMarkedProvisioningUser(
   // that this account belongs to this invitation. This prevents a marker (or
   // an unrelated existing membership) from causing a cross-organization
   // password reset.
+  // A marked account may have obtained a session before the business
+  // transaction outcome became ambiguous. Revoke it before issuing a fresh
+  // temporary credential.
+  await callServiceRpc(adminClient, "revoke_member_auth_sessions", {
+    p_target_auth_user_id: targetAuthUserId,
+  });
   const reset = await resetProvisioningAuthUser(
     adminClient,
     existingUser,
@@ -652,7 +660,7 @@ async function provisionInvitation(
 
   const existingUser = await findAuthUserByEmail(adminClient, email);
   if (existingUser) {
-    if (isMarkedProvisioningUser(existingUser, organizationId)) {
+    if (isMarkedProvisioningUser(existingUser, organizationId, invitationId)) {
       return recoverMarkedProvisioningUser(
         actor,
         adminClient,
