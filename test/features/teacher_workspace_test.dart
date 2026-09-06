@@ -1533,7 +1533,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '记录复发并重新打开'));
+    final firstReopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    await tester.ensureVisible(firstReopenButton);
+    await tester.tap(firstReopenButton);
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -1578,7 +1580,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '记录复发并重新打开'));
+    final restoredReopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    await tester.ensureVisible(restoredReopenButton);
+    await tester.tap(restoredReopenButton);
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(FilledButton, '重新打开 Case'), findsOneWidget);
@@ -1608,7 +1612,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '记录复发并重新打开'));
+    final reopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    await tester.ensureVisible(reopenButton);
+    await tester.tap(reopenButton);
     await tester.pumpAndSettle();
 
     await tester.enterText(
