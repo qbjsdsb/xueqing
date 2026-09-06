@@ -51,7 +51,7 @@ Auth Admin 的 `service_role` / secret key 只能配置在 Supabase Edge Functio
 
 ## 出现异常时
 
-- 账号创建成功但业务 membership 失败：不要再次创建同邮箱。系统会保留带有 `xueqing_provisioning` 标记的 Auth User，避免“业务记录已提交、Auth User 被删除”的不可恢复状态；先刷新邀请列表，使用“继续开通”或“重新发放”。只有确认没有业务记录后，维护人员才可以清理该标记账号。
+- 账号创建成功但业务 membership 失败：不要再次创建同邮箱。系统会在 Auth Admin 的 `app_metadata` 中保留 `xueqing_provisioning` 标记，避免“业务记录已提交、Auth User 被删除”的不可恢复状态；先刷新邀请列表，使用“继续开通”或“重新发放”。只有确认没有业务记录后，维护人员才可以清理该标记账号。普通 `user_metadata` 不作为恢复依据。
 - 管理员没有收到临时密码：不要查数据库或日志找密码，直接重新发放。
 - 接管失败：成员应保持 `onboarding`；先检查有效期、密码更新时间和重新登录，再尝试重新发放。
 - CI 或本地 migration 失败：停止远端部署，修复 migration/test 后重新从空库重建验证。

@@ -414,7 +414,10 @@ async function reconcileCommittedProvisioning(
 }
 
 function provisioningMetadata(user: JsonObject): JsonObject | null {
-  return objectValue(user.user_metadata);
+  // app_metadata is written through the Auth Admin API and is not editable
+  // by the account holder. Never use user_metadata as recovery evidence: the
+  // signed-in user can change it themselves.
+  return objectValue(user.app_metadata);
 }
 
 function isMarkedProvisioningUser(
@@ -460,7 +463,7 @@ async function createAuthUser(
     email,
     email_confirm: true,
     password: temporaryPassword,
-    user_metadata: {
+    app_metadata: {
       xueqing_invitation_id: invitationId,
       xueqing_organization_id: organizationId,
       xueqing_provisioning: true,
@@ -570,25 +573,14 @@ async function recoverMarkedProvisioningUser(
     existingUser.id,
     "auth_user_not_found"
   );
-  const reset = await resetProvisioningAuthUser(
-    adminClient,
-    existingUser,
-    organizationId,
-    invitationId
-  );
-
+  let businessResult: JsonObject | CommittedProvisioning;
   try {
-    const businessResult = await provisionBusinessMember(
+    businessResult = await provisionBusinessMember(
       actor,
       adminClient,
       invitationId,
       displayName,
       targetAuthUserId
-    );
-    return temporaryPasswordResult(
-      { ...invitation, email, role },
-      businessResult,
-      reset.temporaryPassword
     );
   } catch (error) {
     const committed = await reconcileCommittedProvisioning(
@@ -599,24 +591,36 @@ async function recoverMarkedProvisioningUser(
       role,
       targetAuthUserId
     );
-    if (committed) {
-      return temporaryPasswordResult(
-        { ...invitation, email, role },
-        committed,
-        reset.temporaryPassword
-      );
+    if (!committed) {
+      // The Auth account and marker are intentionally retained. A later
+      // “continue opening account” action can retry without changing a
+      // credential for an account that the RPC may reject as unrelated.
+      if (
+        error instanceof ProvisioningError &&
+        error.code !== "member_provisioning_failed"
+      ) {
+        throw error;
+      }
+      throw new ProvisioningError("provision_recovery_required");
     }
-    // The Auth account and marker are intentionally retained. A later
-    // “continue opening account” action can issue a fresh password and retry
-    // without risking a committed business transaction being orphaned.
-    if (
-      error instanceof ProvisioningError &&
-      error.code !== "member_provisioning_failed"
-    ) {
-      throw error;
-    }
-    throw new ProvisioningError("provision_recovery_required");
+    businessResult = committed;
   }
+
+  // Only reset the global Auth credential after the business RPC has proved
+  // that this account belongs to this invitation. This prevents a marker (or
+  // an unrelated existing membership) from causing a cross-organization
+  // password reset.
+  const reset = await resetProvisioningAuthUser(
+    adminClient,
+    existingUser,
+    organizationId,
+    invitationId
+  );
+  return temporaryPasswordResult(
+    { ...invitation, email, role },
+    businessResult,
+    reset.temporaryPassword
+  );
 }
 
 async function provisionInvitation(
