@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
+import 'package:xueqing_windows_updater/updater_safety.dart';
 
 const _helperFileName = 'xueqing_updater.exe';
 const _waitTimeout = Duration(seconds: 90);
+const _launchGracePeriod = Duration(seconds: 2);
 
 Future<void> main(List<String> args) async {
   try {
@@ -64,11 +66,9 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
         throw StateError('更新包没有生成主程序：${options.launchPath}');
       }
 
-      await Process.start(
+      await _launchInstalledExecutable(
         installedExecutable.path,
-        const <String>[],
-        workingDirectory: installDirectory.path,
-        mode: ProcessStartMode.detached,
+        installDirectory.path,
       );
     } catch (error) {
       if (!backupReady) {
@@ -87,6 +87,18 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
           ' 原始错误：$error；回滚错误：$restoreError',
         );
       }
+      try {
+        await _launchInstalledExecutable(
+          options.launchPath,
+          installDirectory.path,
+        );
+      } catch (relaunchError) {
+        preserveBackup = true;
+        throw StateError(
+          '更新失败，已回滚但旧版本启动失败；请保留备份目录 '
+          '${backupDirectory.path}。原始错误：$error；重启错误：$relaunchError',
+        );
+      }
       rethrow;
     }
   } finally {
@@ -94,6 +106,25 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
     if (!preserveBackup) {
       await _deleteDirectory(backupDirectory);
     }
+  }
+}
+
+Future<void> _launchInstalledExecutable(
+  String executablePath,
+  String workingDirectory,
+) async {
+  final process = await Process.start(
+    executablePath,
+    const <String>[],
+    workingDirectory: workingDirectory,
+    mode: ProcessStartMode.detached,
+  );
+  final exitCode = await Future.any<int?>(<Future<int?>>[
+    process.exitCode,
+    Future<int?>.delayed(_launchGracePeriod, () => null),
+  ]);
+  if (exitCode != null) {
+    throw StateError('更新后的程序启动后立即退出（exit code $exitCode）。');
   }
 }
 
@@ -134,9 +165,9 @@ Future<void> _verifySha256(File file, String expected) async {
 Future<void> _extractZip(File zipFile, Directory destination) async {
   final bytes = await zipFile.readAsBytes();
   final archive = ZipDecoder().decodeBytes(bytes);
+  validateUpdaterArchivePaths(archive.map((entry) => entry.name));
   for (final entry in archive) {
-    final name = entry.name.replaceAll(r'\', '/');
-    _validateArchivePath(name);
+    final name = normalizeUpdaterArchivePath(entry.name);
     final output = File(_join(destination.path, name));
     if (!entry.isFile) {
       await Directory(output.path).create(recursive: true);
@@ -148,16 +179,6 @@ Future<void> _extractZip(File zipFile, Directory destination) async {
       throw StateError('压缩包条目内容无效：$name');
     }
     await output.writeAsBytes(content, flush: true);
-  }
-}
-
-void _validateArchivePath(String path) {
-  final parts = path.split('/');
-  if (path.isEmpty ||
-      path.startsWith('/') ||
-      path.contains(':') ||
-      parts.contains('..')) {
-    throw StateError('压缩包包含不安全路径：$path');
   }
 }
 
