@@ -15,6 +15,7 @@ const _waitTimeout = Duration(seconds: 90);
 // entire startup window.
 const _launchStartupTimeout = Duration(seconds: 10);
 const _launchStabilityPeriod = Duration(seconds: 2);
+final _lastProcessProbeOutputs = <int, String>{};
 const _deleteRetryDelay = Duration(milliseconds: 250);
 const _deleteRetryCount = 20;
 
@@ -178,8 +179,10 @@ Future<int> _launchInstalledExecutable(
       }
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
+    final probeOutput = _lastProcessProbeOutputs[process.pid];
     throw StateError(
-      '更新后的程序未能在 ${_launchStartupTimeout.inSeconds} 秒内启动（pid ${process.pid}）。',
+      '更新后的程序未能在 ${_launchStartupTimeout.inSeconds} 秒内启动（pid ${process.pid}）。'
+      ' 最近一次进程检查：${probeOutput ?? '无输出'}',
     );
   } catch (error) {
     Object? terminationError;
@@ -284,6 +287,7 @@ Future<bool> _isProcessRunning(int processId) async {
     throw StateError('无法查询 Windows 进程状态：${result.stderr}');
   }
   final output = result.stdout.toString();
+  _lastProcessProbeOutputs[processId] = output.trim();
   return RegExp(r'(^|\s)$processId(\s|$)').hasMatch(output);
 }
 
