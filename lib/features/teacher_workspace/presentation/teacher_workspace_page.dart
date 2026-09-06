@@ -4279,7 +4279,8 @@ class _WorkspaceCompleteActionFormState
       }
       setState(() {
         _saving = false;
-        _saveError = _describeCaseCommandError(error) +
+        _saveError =
+            _describeCaseCommandError(error) +
             '\n本次提交内容已锁定；重试只会查询同一 operation ID。若需修改，请关闭表单并刷新后重新打开。';
       });
     }
@@ -4414,8 +4415,9 @@ class _WorkspaceCompleteActionFormState
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed:
-                              _saving || _submissionAttempted ? null : _pickDueDate,
+                          onPressed: _saving || _submissionAttempted
+                              ? null
+                              : _pickDueDate,
                           icon: const Icon(Icons.event_outlined),
                           label: Text(
                             _nextActionDueOn == null
