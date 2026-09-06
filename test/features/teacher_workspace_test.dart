@@ -488,6 +488,7 @@ Future<void> _pumpWorkspace(
     MaterialApp(
       theme: AppTheme.light(),
       home: TeacherWorkspacePage(
+        key: UniqueKey(),
         repository: repository,
         caseReopenDraftStore: draftStore,
         sessionUserId: sessionUserId,
