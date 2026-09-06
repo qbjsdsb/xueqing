@@ -229,7 +229,9 @@ Future<void> _terminateProcess(int processId) async {
     }
     await Future<void>.delayed(const Duration(milliseconds: 250));
   }
-  throw StateError('Windows 进程 $processId 在 ${_terminateTimeout.inSeconds} 秒内没有退出。');
+  throw StateError(
+    'Windows 进程 $processId 在 ${_terminateTimeout.inSeconds} 秒内没有退出。',
+  );
 }
 
 Future<void> _scheduleSelfCleanup(String path) async {
