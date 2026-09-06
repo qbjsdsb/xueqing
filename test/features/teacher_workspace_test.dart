@@ -591,7 +591,9 @@ void main() {
     final firstOperationId = repository.completeCommands.single.operationId;
     expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
 
-    await tester.tap(find.widgetWithText(FilledButton, '重试原提交'));
+    final retryButton = find.widgetWithText(FilledButton, '重试原提交');
+    await tester.ensureVisible(retryButton);
+    await tester.tap(retryButton);
     await tester.pumpAndSettle();
 
     expect(repository.completeCount, 2);
