@@ -368,7 +368,7 @@ Finalized Report ≠ Parent informed。
 - target_type / target_id
 - committed result reference/fingerprint
 - committed_at
-- receipt_claim_sequence: monotonic claim order used only to break equal committed_at values when resolving the latest committed lifecycle boundary
+- receipt_claim_sequence: monotonic lifecycle claim order; committed Case boundaries sort by it first, then committed_at and receipt id
 
 唯一 `(organization_id, operation_id)`。
 
