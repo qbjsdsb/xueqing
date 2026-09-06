@@ -1,6 +1,6 @@
 begin;
 
-select plan(58);
+select plan(60);
 
 select is(
   (select prosecdef from pg_catalog.pg_proc
@@ -511,6 +511,186 @@ select set_config(
   )::text,
   true
 );
+
+
+reset role;
+
+insert into public.students (id, organization_id, name, status)
+values (
+  '30000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '跨学生目标测试学生',
+  'active'
+);
+
+insert into public.student_enrollments (
+  id,
+  organization_id,
+  student_id,
+  grade,
+  class_name,
+  campus,
+  starts_on
+)
+values (
+  '66000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000003',
+  '初二',
+  'A班',
+  '厦门校区',
+  '2026-01-01'
+);
+
+insert into public.student_subject_profiles (
+  id,
+  organization_id,
+  student_id,
+  organization_subject_id,
+  status,
+  positioning,
+  strengths,
+  cadence_note
+)
+values (
+  '67000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000003',
+  '64000000-0000-0000-0000-000000000001',
+  'active',
+  '跨学生越权回归',
+  '虚构测试资料',
+  '仅用于权限测试'
+);
+
+insert into public.student_teacher_assignments (
+  id,
+  organization_id,
+  student_subject_profile_id,
+  membership_id,
+  assignment_role,
+  status,
+  active_from
+)
+values (
+  '68000000-0000-0000-0000-000000000004',
+  '00000000-0000-0000-0000-000000000001',
+  '67000000-0000-0000-0000-000000000003',
+  '61000000-0000-0000-0000-000000000001',
+  'lead',
+  'active',
+  '2026-01-01'
+);
+
+insert into public.learning_cases (
+  id,
+  organization_id,
+  student_subject_profile_id,
+  owner_membership_id,
+  case_type,
+  title,
+  description,
+  priority,
+  status,
+  first_observed_at,
+  stable_at,
+  closed_at,
+  version,
+  created_by_app_user_id,
+  created_by_membership_id
+)
+values (
+  '69000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000001',
+  '67000000-0000-0000-0000-000000000003',
+  '61000000-0000-0000-0000-000000000001',
+  'knowledge',
+  '跨学生目标测试',
+  '仅用于验证目标 Case 与 Evidence 的归属检查。',
+  'normal',
+  'closed',
+  timestamptz '2026-09-10 09:00:00+08',
+  timestamptz '2026-09-15 12:00:00+08',
+  timestamptz '2026-09-16 17:00:00+08',
+  1,
+  '10000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001'
+);
+
+insert into public.operation_receipts (
+  organization_id,
+  operation_id,
+  command_type,
+  target_type,
+  target_id,
+  result,
+  committed_at
+)
+values (
+  '00000000-0000-0000-0000-000000000001',
+  '74000000-0000-0000-0000-000000000018',
+  'close_case',
+  'learning_case',
+  '69000000-0000-0000-0000-000000000003',
+  jsonb_build_object(
+    'operation_id', '74000000-0000-0000-0000-000000000018',
+    'case_id', '69000000-0000-0000-0000-000000000003',
+    'status', 'closed',
+    'case_version', 1
+  ),
+  timestamptz '2026-09-16 17:01:00+08'
+);
+
+insert into public.case_events (
+  organization_id,
+  learning_case_id,
+  event_type,
+  actor_app_user_id,
+  actor_membership_id,
+  occurred_at,
+  metadata,
+  operation_id,
+  operation_event_key
+)
+values (
+  '00000000-0000-0000-0000-000000000001',
+  '69000000-0000-0000-0000-000000000003',
+  'case_closed',
+  '10000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001',
+  timestamptz '2026-09-16 17:00:00+08',
+  '{}'::jsonb,
+  '74000000-0000-0000-0000-000000000018',
+  'case_closed'
+);
+
+set local role authenticated;
+
+select throws_ok(
+  $$select public.reopen_case(
+      '74000000-0000-0000-0000-000000000019',
+      '69000000-0000-0000-0000-000000000003',
+      1,
+      array[current_setting('xueqing.reopen_evidence_id')::uuid],
+      jsonb_build_object(current_setting('xueqing.reopen_evidence_id'), 1),
+      'verify',
+      '跨学生 Evidence 不得被复用',
+      date '2026-09-18'
+    )$$,
+  'P0001',
+  null,
+  'an authorized teacher cannot reuse Evidence from another student Case'
+);
+
+select is(
+  (select status from public.learning_cases where id =
+    '69000000-0000-0000-0000-000000000003'),
+  'closed',
+  'cross-student Evidence rejection leaves the target Case closed'
+);
+
+reset role;
+set local role authenticated;
 
 select throws_ok(
   $$select public.add_case_evidence(
