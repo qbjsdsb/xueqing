@@ -2088,33 +2088,84 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
     if (_saving) {
       return;
     }
+    final strategy = _strategyController.text.trim();
+    final evidenceSummary = _evidenceController.text.trim();
+    final notes = _notesController.text.trim();
+    final nextActionTitle = _nextActionController.text.trim();
 
-    if (_submittedCommand == null) {
-      final nextActionTitle = _nextActionController.text.trim();
-      if (nextActionTitle.isEmpty) {
-        setState(() => _nextActionError = '请保留或改写下一行动');
-        return;
-      }
-      _submittedCommand = CompleteCaseActionCommand(
-        operationId: _operationId,
-        actionId: widget.action.id,
-        caseId: widget.learningCase.id,
-        expectedCaseVersion: widget.learningCase.version,
-        expectedActionVersion: widget.action.version,
-        nextActionType: _nextActionType,
-        nextActionTitle: nextActionTitle,
-        nextActionDueOn: _nextActionDueOn,
-      );
+    var valid = true;
+    if (widget.mode == _CaseCommandMode.intervention && strategy.isEmpty) {
+      _strategyError = '请写下这次实际采用的教学动作';
+      valid = false;
+    }
+    if (widget.mode == _CaseCommandMode.assessment && evidenceSummary.isEmpty) {
+      _evidenceError = '请写下本次验证中可观察到的结果';
+      valid = false;
+    }
+    if (nextActionTitle.isEmpty) {
+      _nextActionError = '请保留或改写下一行动';
+      valid = false;
+    }
+    if (!valid) {
+      setState(() {});
+      return;
     }
 
-    final command = _submittedCommand!;
     setState(() {
-      _submissionAttempted = true;
       _saving = true;
       _saveError = null;
     });
     try {
-      final receipt = await widget.repository.completeCaseAction(command);
+      late final CaseCommandReceipt receipt;
+      if (widget.mode == _CaseCommandMode.confirm) {
+        receipt = await widget.repository.confirmCase(
+          ConfirmCaseCommand(
+            operationId: _operationId,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            nextActionTitle: nextActionTitle,
+            nextActionDueAt: _nextActionDueAt,
+          ),
+        );
+      } else if (widget.mode == _CaseCommandMode.intervention) {
+        receipt = await widget.repository.recordIntervention(
+          RecordInterventionCommand(
+            operationId: _operationId,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            strategy: strategy,
+            notes: notes.isEmpty ? null : notes,
+            occurredAt: null,
+            nextActionTitle: nextActionTitle,
+            nextActionDueAt: _nextActionDueAt,
+          ),
+        );
+      } else if (widget.mode == _CaseCommandMode.stabilize) {
+        receipt = await widget.repository.stabilizeCase(
+          StabilizeCaseCommand(
+            operationId: _operationId,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            stabilizedAt: null,
+            nextActionTitle: nextActionTitle,
+            nextActionDueAt: _nextActionDueAt,
+          ),
+        );
+      } else {
+        receipt = await widget.repository.recordAssessment(
+          RecordAssessmentCommand(
+            operationId: _operationId,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            result: _assessmentResult,
+            evidenceSummary: evidenceSummary,
+            notes: notes.isEmpty ? null : notes,
+            assessedAt: null,
+            nextActionTitle: nextActionTitle,
+            nextActionDueAt: _nextActionDueAt,
+          ),
+        );
+      }
       if (!mounted) {
         return;
       }
@@ -2125,11 +2176,11 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
       }
       setState(() {
         _saving = false;
-        _saveError = _describeCaseCommandError(error) +
-            '\n本次提交内容已锁定；重试只会查询同一 operation ID。若需修改，请关闭表单并刷新后重新打开。';
+        _saveError = _describeCaseCommandError(error);
       });
     }
   }
+
   Future<void> _confirmDiscard() async {
     if (_saving) {
       return;
@@ -2280,7 +2331,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                   const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: _nextActionController,
-                    enabled: !_saving && !_submissionAttempted,
+                    enabled: !_saving,
                     textInputAction: TextInputAction.done,
                     decoration: InputDecoration(
                       labelText: '下一行动 *',
@@ -2293,8 +2344,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed:
-                              _saving || _submissionAttempted ? null : _pickDueDate,
+                          onPressed: _saving ? null : _pickDueDate,
                           icon: Icon(Icons.event_outlined),
                           label: Text(
                             _nextActionDueAt == null
@@ -2317,7 +2367,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '日期按机构时区解释；提交失败时原始内容会锁定，重试沿用同一 operation ID。',
+                    '日期按机构时区解释；提交失败时输入会保留，重试沿用同一 operation ID。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (_saveError != null) ...[
@@ -4192,29 +4242,33 @@ class _WorkspaceCompleteActionFormState
     if (_saving) {
       return;
     }
-    final nextActionTitle = _nextActionController.text.trim();
-    if (nextActionTitle.isEmpty) {
-      setState(() => _nextActionError = '请保留或改写下一行动');
-      return;
+
+    if (_submittedCommand == null) {
+      final nextActionTitle = _nextActionController.text.trim();
+      if (nextActionTitle.isEmpty) {
+        setState(() => _nextActionError = '请保留或改写下一行动');
+        return;
+      }
+      _submittedCommand = CompleteCaseActionCommand(
+        operationId: _operationId,
+        actionId: widget.action.id,
+        caseId: widget.learningCase.id,
+        expectedCaseVersion: widget.learningCase.version,
+        expectedActionVersion: widget.action.version,
+        nextActionType: _nextActionType,
+        nextActionTitle: nextActionTitle,
+        nextActionDueOn: _nextActionDueOn,
+      );
     }
 
+    final command = _submittedCommand!;
     setState(() {
+      _submissionAttempted = true;
       _saving = true;
       _saveError = null;
     });
     try {
-      final receipt = await widget.repository.completeCaseAction(
-        CompleteCaseActionCommand(
-          operationId: _operationId,
-          actionId: widget.action.id,
-          caseId: widget.learningCase.id,
-          expectedCaseVersion: widget.learningCase.version,
-          expectedActionVersion: widget.action.version,
-          nextActionType: _nextActionType,
-          nextActionTitle: nextActionTitle,
-          nextActionDueOn: _nextActionDueOn,
-        ),
-      );
+      final receipt = await widget.repository.completeCaseAction(command);
       if (!mounted) {
         return;
       }
@@ -4225,11 +4279,11 @@ class _WorkspaceCompleteActionFormState
       }
       setState(() {
         _saving = false;
-        _saveError = _describeCaseCommandError(error);
+        _saveError = _describeCaseCommandError(error) +
+            '\n本次提交内容已锁定；重试只会查询同一 operation ID。若需修改，请关闭表单并刷新后重新打开。';
       });
     }
   }
-
   Future<void> _confirmDiscard() async {
     if (_saving) {
       return;
@@ -4347,7 +4401,7 @@ class _WorkspaceCompleteActionFormState
                   TextField(
                     controller: _nextActionController,
                     autofocus: true,
-                    enabled: !_saving,
+                    enabled: !_saving && !_submissionAttempted,
                     textInputAction: TextInputAction.done,
                     decoration: InputDecoration(
                       labelText: '下一行动 *',
@@ -4360,7 +4414,8 @@ class _WorkspaceCompleteActionFormState
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _saving ? null : _pickDueDate,
+                          onPressed:
+                              _saving || _submissionAttempted ? null : _pickDueDate,
                           icon: const Icon(Icons.event_outlined),
                           label: Text(
                             _nextActionDueOn == null
@@ -4383,7 +4438,7 @@ class _WorkspaceCompleteActionFormState
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '日期按机构时区解释；提交失败时输入会保留，重试沿用同一 operation ID。',
+                    '日期按机构时区解释；提交失败时原始内容会锁定，重试沿用同一 operation ID。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (_saveError != null) ...[
