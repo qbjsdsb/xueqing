@@ -10,6 +10,8 @@ const _bootstrapHelperFileName = 'xueqing_updater_bootstrap.exe';
 const _bootstrapMigrationMarkerName = '.xueqing_updater_bootstrap_migrated';
 const _waitTimeout = Duration(seconds: 90);
 const _launchGracePeriod = Duration(seconds: 2);
+const _deleteRetryDelay = Duration(milliseconds: 250);
+const _deleteRetryCount = 20;
 
 Future<void> main(List<String> args) async {
   _UpdaterOptions? options;
@@ -351,7 +353,7 @@ Future<void> _clearInstallDirectory(
     if (_shouldSkip(_baseName(entity.path), skipFileNames)) {
       continue;
     }
-    await entity.delete(recursive: true);
+    await _deleteEntityWithRetries(entity);
   }
 }
 
@@ -392,7 +394,7 @@ Future<void> _restoreFromBackup(
     if (_shouldSkip(name, skipFileNames)) {
       continue;
     }
-    await entity.delete(recursive: true);
+    await _deleteEntityWithRetries(entity);
   }
   await _copyTree(
     backupDirectory,
@@ -405,6 +407,26 @@ Future<void> _deleteDirectory(Directory directory) async {
   if (await directory.exists()) {
     await directory.delete(recursive: true);
   }
+}
+
+Future<void> _deleteEntityWithRetries(FileSystemEntity entity) async {
+  Object? lastError;
+  for (var attempt = 0; attempt < _deleteRetryCount; attempt++) {
+    try {
+      if (!await entity.exists()) {
+        return;
+      }
+      await entity.delete(recursive: true);
+      return;
+    } on FileSystemException catch (error) {
+      lastError = error;
+      await Future<void>.delayed(_deleteRetryDelay);
+    }
+  }
+  Error.throwWithStackTrace(
+    lastError ?? StateError('Windows 文件在重试后仍无法删除：${entity.path}'),
+    StackTrace.current,
+  );
 }
 
 String _join(String parent, String child) {
