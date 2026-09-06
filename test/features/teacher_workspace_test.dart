@@ -18,6 +18,7 @@ class _FakeLearningRepository implements LearningRepository {
   bool failFirstSave = false;
   bool failFirstClose = false;
   bool failFirstReschedule = false;
+  bool failFirstComplete = false;
   final List<QuickCaptureCommand> commands = <QuickCaptureCommand>[];
   int confirmCount = 0;
   int interventionCount = 0;
@@ -25,6 +26,7 @@ class _FakeLearningRepository implements LearningRepository {
   int stabilizeCount = 0;
   int closeCount = 0;
   int rescheduleCount = 0;
+  int completeCount = 0;
   final List<CloseCaseCommand> closeCommands = <CloseCaseCommand>[];
   final List<ConfirmCaseCommand> confirmCommands = <ConfirmCaseCommand>[];
   final List<RecordInterventionCommand> interventionCommands =
@@ -33,6 +35,8 @@ class _FakeLearningRepository implements LearningRepository {
       <RecordAssessmentCommand>[];
   final List<RescheduleCaseActionCommand> rescheduleCommands =
       <RescheduleCaseActionCommand>[];
+  final List<CompleteCaseActionCommand> completeCommands =
+      <CompleteCaseActionCommand>[];
 
   @override
   Future<TeacherWorkspace> loadWorkspace() async {
@@ -190,6 +194,23 @@ class _FakeLearningRepository implements LearningRepository {
     rescheduleCount++;
     rescheduleCommands.add(command);
     if (failFirstReschedule && rescheduleCount == 1) {
+      throw StateError('network unavailable');
+    }
+    return _caseReceipt(
+      command.operationId,
+      command.caseId,
+      'confirmed',
+      command.expectedCaseVersion + 1,
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> completeCaseAction(
+    CompleteCaseActionCommand command,
+  ) async {
+    completeCount++;
+    completeCommands.add(command);
+    if (failFirstComplete && completeCount == 1) {
       throw StateError('network unavailable');
     }
     return _caseReceipt(
@@ -473,6 +494,65 @@ void main() {
     expect(repository.rescheduleCommands.single.expectedActionVersion, 1);
     expect(repository.rescheduleCommands.single.dueOn, isNotNull);
     expect(find.textContaining('行动已安排在'), findsOneWidget);
+  });
+
+  testWidgets('completes an action and asks for the next action', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    await _pumpWorkspace(tester, repository);
+
+    final completeButton = find.widgetWithText(FilledButton, '完成行动');
+    expect(completeButton, findsOneWidget);
+    await tester.tap(completeButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('完成“补充一次课堂证据”后安排下一步。正式 Case 不会因为勾选完成就失去后续跟进。'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('complete-action-type-dropdown')),
+      findsOneWidget,
+    );
+    final saveButton = find.widgetWithText(FilledButton, '完成并安排下一步');
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.completeCount, 1);
+    expect(repository.completeCommands.single.actionId, 'action-1');
+    expect(repository.completeCommands.single.caseId, 'case-1');
+    expect(repository.completeCommands.single.expectedCaseVersion, 1);
+    expect(repository.completeCommands.single.expectedActionVersion, 1);
+    expect(
+      repository.completeCommands.single.nextActionType,
+      CaseActionType.verify,
+    );
+    expect(repository.completeCommands.single.nextActionTitle, '安排下一次验证');
+    expect(find.text('行动已完成，并已安排下一步。'), findsOneWidget);
+  });
+
+  testWidgets('reuses operation id after a completion response is lost', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace())
+      ..failFirstComplete = true;
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.widgetWithText(FilledButton, '完成行动'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '完成并安排下一步'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('网络暂时不可用'), findsOneWidget);
+    expect(repository.completeCount, 1);
+    final firstOperationId = repository.completeCommands.single.operationId;
+
+    await tester.tap(find.widgetWithText(FilledButton, '完成并安排下一步'));
+    await tester.pumpAndSettle();
+
+    expect(repository.completeCount, 2);
+    expect(repository.completeCommands[1].operationId, firstOperationId);
   });
 
   testWidgets('keeps the current workspace visible while refreshing', (
