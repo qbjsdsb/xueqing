@@ -1526,7 +1526,9 @@ void main() {
       draftStore: store,
       sessionUserId: 'user-1',
     );
-    await tester.tap(find.text('示例学生甲').first);
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
@@ -1564,7 +1566,9 @@ void main() {
       draftStore: store,
       sessionUserId: 'user-1',
     );
-    await tester.tap(find.text('示例学生甲').first);
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
@@ -1590,7 +1594,9 @@ void main() {
     )..failFirstEvidence = true;
     await _pumpWorkspace(tester, repository);
 
-    await tester.tap(find.text('示例学生甲').first);
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
