@@ -21,6 +21,7 @@ Auth Admin 的 `service_role` / secret key 只能配置在 Supabase Edge Functio
 在工作台进入「机构管理 → 邀请成员」：
 
 - 新邮箱没有 Auth 账号：系统创建 Auth User，建立 `onboarding` membership，临时密码只在成功响应中显示一次。管理员应通过可信渠道交付邮箱、临时密码和有效期。
+- 如果业务事务已经提交但网络响应丢失，系统会先核对邀请、账号和 `onboarding` membership；核对一致时直接恢复成功结果，不会删除 Auth User。
 - 邮箱已有 Auth 账号：系统不触碰原密码，只返回一次性邀请代码；受邀人必须用完全匹配的邮箱登录后接受代码。
 - 管理员不能直接把 `onboarding` 成员改成 `active`；受邀人必须先完成首次接管。
 - 负责人角色由管理员提名后，必须由现有负责人审批，审批后才能开通。
@@ -42,7 +43,7 @@ Auth Admin 的 `service_role` / secret key 只能配置在 Supabase Edge Functio
 - [ ] 新密码更新后必须重新登录；完成接管后才进入工作台。
 - [ ] 保存接管前旧 Access Token，接管后调用学生业务 API 必须被 live-session guard 拒绝。
 - [ ] 重复开通同一邮箱、跨机构 active/onboarding、停用成员绕过接管均被拒绝。
-- [ ] 响应丢失后重新发放新密码，旧密码不能登录，新密码可以接管。
+- [ ] 响应丢失后，系统先自动核对已提交事务；若仍不确定，邀请列表可以继续开通或重新发放新密码，旧密码不能登录，新密码可以接管。
 - [ ] 已有 Auth 用户走邀请代码，原密码未被修改。
 - [ ] 负责人提名在审批前不能开通；撤销、过期邀请不能接受。
 - [ ] 全局退出、应用重启、网络失败和账号切换后，不闪现学生页面或其他账号数据。
@@ -50,7 +51,7 @@ Auth Admin 的 `service_role` / secret key 只能配置在 Supabase Edge Functio
 
 ## 出现异常时
 
-- 账号创建成功但业务 membership 失败：不要继续重复创建同邮箱，先检查 Edge Function 的清理结果；必要时由维护人员清理带有 `xueqing_provisioning` 标记的孤立 Auth User。
+- 账号创建成功但业务 membership 失败：不要再次创建同邮箱。系统会在 Auth Admin 的 `app_metadata` 中保留 `xueqing_provisioning` 标记，避免“业务记录已提交、Auth User 被删除”的不可恢复状态；先刷新邀请列表，使用“继续开通”或“重新发放”。只有确认没有业务记录后，维护人员才可以清理该标记账号。普通 `user_metadata` 不作为恢复依据。
 - 管理员没有收到临时密码：不要查数据库或日志找密码，直接重新发放。
 - 接管失败：成员应保持 `onboarding`；先检查有效期、密码更新时间和重新登录，再尝试重新发放。
 - CI 或本地 migration 失败：停止远端部署，修复 migration/test 后重新从空库重建验证。
