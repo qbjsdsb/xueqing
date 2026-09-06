@@ -42,9 +42,8 @@ void main() {
 
     try {
       await File(launchPath).writeAsBytes(oldExecutableBytes, flush: true);
-      await File(
-        _join(installDirectory.path, 'old-version.txt'),
-      ).writeAsString('old\n', flush: true);
+      await File(_join(installDirectory.path, 'old-version.txt'))
+          .writeAsString('old\n', flush: true);
 
       final rollbackPackage = await _createPackage(
         root: root,
@@ -71,15 +70,12 @@ void main() {
         reason: 'Rollback must restore the previous executable.',
       );
       expect(
-        await File(
-          _join(installDirectory.path, 'old-version.txt'),
-        ).readAsString(),
+        await File(_join(installDirectory.path, 'old-version.txt'))
+            .readAsString(),
         'old\n',
       );
       expect(
-        await File(
-          _join(installDirectory.path, 'new-version.txt'),
-        ).exists(),
+        await File(_join(installDirectory.path, 'new-version.txt')).exists(),
         isFalse,
         reason: 'Rollback must remove files from the failed package.',
       );
@@ -105,15 +101,12 @@ void main() {
         reason: 'A stable replacement should complete successfully.',
       );
       expect(
-        await File(
-          _join(installDirectory.path, 'new-version.txt'),
-        ).readAsString(),
+        await File(_join(installDirectory.path, 'new-version.txt'))
+            .readAsString(),
         'installed\n',
       );
       expect(
-        await File(
-          _join(installDirectory.path, 'old-version.txt'),
-        ).exists(),
+        await File(_join(installDirectory.path, 'old-version.txt')).exists(),
         isFalse,
         reason: 'A successful replacement must remove old files.',
       );
@@ -135,18 +128,10 @@ Future<File> _createPackage({
 }) async {
   final archive = Archive()
     ..addFile(
-      ArchiveFile(
-        'xueqing.exe',
-        executableBytes.length,
-        executableBytes,
-      ),
+      ArchiveFile('xueqing.exe', executableBytes.length, executableBytes),
     )
     ..addFile(
-      ArchiveFile(
-        'xueqing_updater.exe',
-        helperBytes.length,
-        helperBytes,
-      ),
+      ArchiveFile('xueqing_updater.exe', helperBytes.length, helperBytes),
     )
     ..addFile(
       ArchiveFile(
@@ -172,21 +157,18 @@ Future<ProcessResult> _runUpdater({
   required String launchPath,
 }) async {
   final packageBytes = await packageFile.readAsBytes();
-  return Process.run(
-    helperPath,
-    <String>[
-      '--pid',
-      '2147483647',
-      '--package',
-      packageFile.path,
-      '--install-dir',
-      installDirectory.path,
-      '--launch',
-      launchPath,
-      '--sha256',
-      sha256.convert(packageBytes).toString(),
-    ],
-  );
+  return Process.run(helperPath, <String>[
+    '--pid',
+    '2147483647',
+    '--package',
+    packageFile.path,
+    '--install-dir',
+    installDirectory.path,
+    '--launch',
+    launchPath,
+    '--sha256',
+    sha256.convert(packageBytes).toString(),
+  ]);
 }
 
 String _join(String parent, String child) {
