@@ -25,7 +25,7 @@ Foundation v0.3 的产品边界、核心数据模型、Auth / 权限、安全、
 
 - 文档同步前的 `main` 收口基线为 `c311927`；已包含 PR #53 的成员开通异常恢复、PR #58 的服务端权威 Case reopen，以及 PR #54 的 tag commit 不可变发布构建校验。
 - `xueqing-dev`（ap-southeast-1）已应用 `phase_0b_0_z_member_provisioning`；`organization-member-credentials` Edge Function v2 已部署并保持 `verify_jwt=true`。
-- PR #51 已重基为集成分支并通过代码审计：上传中账号切换会中止，失败重试复用同一 attachment ID；其自动化 CI 需通过，Android / Windows 真实设备 gate 仍未在本环境执行。旧的堆叠 Draft PR #20–#45 已关闭，原分支保留用于追溯。
+- PR #51 最终集成 head 为 `c0e9a58`：上传中账号切换会中止，失败重试复用同一 attachment ID；Flutter run `589`、Supabase run `341`（696 项）和 platform smoke run `240` 均通过，`git diff --check` clean。Android / Windows 归档仅证明包已构建，真实设备 gate 仍未在本环境执行。旧的堆叠 Draft PR #20–#45 已关闭，原分支保留用于追溯。
 - 仓库保持公开是当前零成本 CI 的明确选择；公开期间不得提交 service key、访问令牌、真实学生 / 家长 / 教师资料或可回溯的敏感导出。
 - 当前所有远端数据仍为虚构开发数据；未发布正式安装包，也未开启 Production 数据承载。
 
@@ -338,11 +338,11 @@ Pilot 默认目标 RPO ≤ 一个教学日；如果机构不能接受这个恢�
 
 ## 当前推进顺序
 
-1. 完成 PR #51 集成分支的 Flutter / Supabase / Android / Windows build smoke，并在真实 Android / Windows 设备上验收图片附件；未通过前不把图片功能视为主线能力。
-2. 用虚构账号完成完整验收矩阵：登录与启动门、邀请接管、权限隔离、学生交接、Case 全闭环与 reopen、图片、网络失败、软件更新、失败回滚和旧 Session 拒绝。
-3. 基于“已验证 tag commit”构建并发布新的开发测试版；逐项核对版本、更新包、manifest/hash/size、Windows 安全解包、备份与回滚，不把未验证包当作自更新基线。
-4. 记录 Android / Windows 设备型号、系统版本、构建 SHA、网络条件、测试账号和每条结果；所有账号与图片必须是虚构或非敏感数据。
-5. 完成 DB / Auth / Storage recovery drill 与 Production Go / No-Go；在此之前不接入真实未成年人数据，也不扩展到 AI、家校和大型报表。
+1. [x] PR #51 集成分支的 Flutter / Supabase / Android / Windows build smoke 已通过；[ ] 在真实 Android / Windows 设备上验收图片附件，未通过前不把图片功能视为主线能力。
+2. [ ] 用虚构账号完成完整验收矩阵：登录与启动门、邀请接管、权限隔离、学生交接、Case 全闭环与 reopen、图片、网络失败、软件更新、失败回滚和旧 Session 拒绝。
+3. [ ] 基于“已验证 tag commit”构建并发布新的开发测试版；逐项核对版本、更新包、manifest/hash/size、Windows 安全解包、备份与回滚，不把未验证包当作自更新基线。
+4. [ ] 记录 Android / Windows 设备型号、系统版本、构建 SHA、网络条件、测试账号和每条结果；所有账号与图片必须是虚构或非敏感数据。
+5. [ ] 完成 DB / Auth / Storage recovery drill 与 Production Go / No-Go；在此之前不接入真实未成年人数据，也不扩展到 AI、家校和大型报表。
 
 当前阶段的主要质量增量是可复核执行证据和完整人工闭环，而不是继续堆叠页面或复杂后台。
 
