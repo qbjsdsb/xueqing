@@ -275,7 +275,7 @@ grant execute on function public.get_my_membership_state() to service_role, auth
 create or replace function public.list_organization_invitations(p_organization_id uuid)
 returns setof jsonb
 language sql
-stable
+volatile
 security invoker
 set search_path = ''
 as $function$

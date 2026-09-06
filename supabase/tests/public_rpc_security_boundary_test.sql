@@ -128,7 +128,6 @@ select ok(
     from (
       values
         ('public.get_my_membership_state()'::regprocedure),
-        ('public.list_organization_invitations(uuid)'::regprocedure),
         ('public.list_organization_members(uuid)'::regprocedure),
         ('public.list_organization_setup_options(uuid)'::regprocedure),
         ('public.list_organization_student_teacher_assignments(uuid)'::regprocedure),
