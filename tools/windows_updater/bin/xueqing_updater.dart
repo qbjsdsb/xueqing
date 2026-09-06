@@ -363,10 +363,10 @@ Future<void> _copyTree(
   await destination.create(recursive: true);
   await for (final entity in source.list(followLinks: false)) {
     final name = _baseName(entity.path);
+    if (_shouldSkip(name, skipFileNames)) {
+      continue;
+    }
     if (entity is File) {
-      if (_shouldSkip(name, skipFileNames)) {
-        continue;
-      }
       final target = File(_join(destination.path, name));
       await target.parent.create(recursive: true);
       await entity.copy(target.path);
