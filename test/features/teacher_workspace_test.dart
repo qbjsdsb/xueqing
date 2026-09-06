@@ -1666,4 +1666,30 @@ void main() {
     expect(find.text('当前账号没有可用的教师教学范围'), findsOneWidget);
     expect(find.text('示例学生甲'), findsNothing);
   });
+  testWidgets(
+    'renders management-only accounts without a navigation assertion',
+    (tester) async {
+      final workspace = _fixtureWorkspace();
+      final repository = _FakeLearningRepository(
+        TeacherWorkspace(
+          viewerName: workspace.viewerName,
+          organizationName: workspace.organizationName,
+          organizationTimeZone: workspace.organizationTimeZone,
+          hasTeachingAccess: false,
+          organizationId: 'org-1',
+          roles: const <String>['org_admin'],
+          canManageOrganization: true,
+          students: const <WorkspaceStudent>[],
+          loadedAt: workspace.loadedAt,
+        ),
+      );
+
+      await _pumpWorkspace(tester, repository);
+
+      expect(find.text('机构管理尚未接通'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(NavigationRail), findsNothing);
+    },
+  );
+
 }
