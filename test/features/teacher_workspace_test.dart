@@ -499,7 +499,9 @@ void main() {
   testWidgets('completes an action and asks for the next action', (
     tester,
   ) async {
-    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.confirmed),
+    );
     await _pumpWorkspace(tester, repository);
 
     final completeButton = find.widgetWithText(FilledButton, '完成行动');
@@ -535,8 +537,9 @@ void main() {
   testWidgets('reuses operation id after a completion response is lost', (
     tester,
   ) async {
-    final repository = _FakeLearningRepository(_fixtureWorkspace())
-      ..failFirstComplete = true;
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.confirmed),
+    )..failFirstComplete = true;
     await _pumpWorkspace(tester, repository);
 
     await tester.tap(find.widgetWithText(FilledButton, '完成行动'));

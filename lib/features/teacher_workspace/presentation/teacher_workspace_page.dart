@@ -4109,13 +4109,15 @@ class _WorkspaceActionGroup extends StatelessWidget {
                       spacing: AppSpacing.xs,
                       runSpacing: AppSpacing.xs,
                       children: [
-                        FilledButton.icon(
-                          onPressed: completingActionId == item.action.id
-                              ? null
-                              : () => onComplete(item),
-                          icon: const Icon(Icons.check),
-                          label: const Text('完成行动'),
-                        ),
+                        if (item.learningCase.status !=
+                            LearningCaseStatus.newCase)
+                          FilledButton.icon(
+                            onPressed: completingActionId == item.action.id
+                                ? null
+                                : () => onComplete(item),
+                            icon: const Icon(Icons.check),
+                            label: const Text('完成行动'),
+                          ),
                         OutlinedButton(
                           onPressed: () => onOpenCase(item.learningCase),
                           child: const Text('查看 Case'),
