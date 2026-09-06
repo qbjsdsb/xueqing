@@ -9,6 +9,7 @@ on:
       - "pubspec.yaml"
       - "pubspec.lock"
       - "windows/**"
+      - "tools/windows_updater/**"
   workflow_dispatch:
     inputs:
       supabase_url:
@@ -160,6 +161,20 @@ jobs:
               throw "Missing bundled runtime: $runtimeName"
             }
           }
+
+      - name: Build Windows updater helper smoke
+        shell: pwsh
+        working-directory: tools/windows_updater
+        run: |
+          dart pub get
+          dart analyze
+          dart test
+          $updaterPath = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release/xueqing_updater.exe"
+          dart compile exe bin/xueqing_updater.dart -o $updaterPath
+          if (-not (Test-Path $updaterPath)) {
+            throw "Windows updater helper was not produced."
+          }
+
       - name: Upload Windows release bundle
         uses: actions/upload-artifact@v4
         with:

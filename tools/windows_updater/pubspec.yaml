@@ -1,0 +1,13 @@
+name: xueqing_windows_updater
+description: Safe updater helper for Xueqing Windows bundles.
+publish_to: "none"
+
+environment:
+  sdk: ">=3.13.0 <4.0.0"
+
+dependencies:
+  archive: ^4.0.7
+  crypto: ^3.0.7
+
+dev_dependencies:
+  test: ^1.25.15

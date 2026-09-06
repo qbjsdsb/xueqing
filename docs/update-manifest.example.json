@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "channel": "stable",
+  "version": "0.2.0+2",
+  "minimum_supported": "0.1.0+1",
+  "notes": [
+    "改进教师工作台加载速度",
+    "修复若干稳定性问题"
+  ],
+  "platforms": {
+    "windows": {
+      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.2.0/xueqing-v0.2.0-windows.zip",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 123456789,
+      "format": "zip",
+      "file_name": "xueqing-v0.2.0-windows.zip"
+    },
+    "android": {
+      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.2.0/xueqing-v0.2.0-android.apk",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 45678901,
+      "format": "apk",
+      "file_name": "xueqing-v0.2.0-android.apk"
+    }
+  }
+}

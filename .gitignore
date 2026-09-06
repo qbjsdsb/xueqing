@@ -17,6 +17,7 @@ coverage/
 # Platform build output
 android/.gradle/
 android/local.properties
+android/key.properties
 ios/Pods/
 macos/Pods/
 windows/flutter/ephemeral/

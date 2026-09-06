@@ -1,7 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val signingPropertiesFile = rootProject.file("key.properties")
+val signingProperties = Properties()
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.inputStream().use { signingProperties.load(it) }
+}
+val requireReleaseSigning = System.getenv("XUEQING_REQUIRE_RELEASE_SIGNING") == "true"
+if (requireReleaseSigning && !signingPropertiesFile.exists()) {
+    throw GradleException(
+        "Release signing is required, but android/key.properties was not provided."
+    )
 }
 
 android {
@@ -23,12 +37,39 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // Release signing is intentionally deferred until the release workflow.
-            signingConfig = signingConfigs.getByName("debug")
+    signingConfigs {
+        if (signingPropertiesFile.exists()) {
+            create("xueqingRelease") {
+                keyAlias = signingProperties.getProperty("keyAlias")
+                    ?: throw GradleException("Android signing keyAlias is missing.")
+                keyPassword = signingProperties.getProperty("keyPassword")
+                    ?: throw GradleException("Android signing keyPassword is missing.")
+                storeFile = rootProject.file(
+                    signingProperties.getProperty("storeFile")
+                        ?: throw GradleException("Android signing storeFile is missing.")
+                )
+                storePassword = signingProperties.getProperty("storePassword")
+                    ?: throw GradleException(
+                        "Android signing storePassword is missing."
+                    )
+            }
         }
     }
+
+    buildTypes {
+        release {
+            signingConfig = if (signingPropertiesFile.exists()) {
+                signingConfigs.getByName("xueqingRelease")
+            } else {
+                // Debug signing remains available for local smoke builds only.
+                signingConfigs.getByName("debug")
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation("androidx.core:core:1.15.0")
 }
 
 kotlin {
