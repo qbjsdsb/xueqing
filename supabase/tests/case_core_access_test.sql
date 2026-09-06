@@ -62,8 +62,8 @@ select is(
     where pg_namespace.nspname = 'public'
       and pg_proc.proname = 'quick_capture_case'
   ),
-  true,
-  'Quick Capture is a security-definer server command'
+  false,
+  'Quick Capture is a security-invoker wrapper server command'
 );
 
 select is(

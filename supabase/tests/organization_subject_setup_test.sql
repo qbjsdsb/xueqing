@@ -16,8 +16,8 @@ select is(
       'public.list_organization_subject_catalog(uuid)'
     )
   ),
-  true,
-  'subject catalog function is security definer'
+  false,
+  'subject catalog function is security-invoker wrapper'
 );
 
 select is(
@@ -34,8 +34,8 @@ select is(
       'public.create_organization_subject(uuid,uuid,uuid)'
     )
   ),
-  true,
-  'organization subject setup function is security definer'
+  false,
+  'organization subject setup function is security-invoker wrapper'
 );
 
 select is(

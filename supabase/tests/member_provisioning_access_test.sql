@@ -36,8 +36,8 @@ select is(
     from pg_proc
     where oid = to_regprocedure('public.get_my_membership_state()')
   ),
-  true,
-  'account state lookup is security definer'
+  false,
+  'account state lookup is security-invoker wrapper'
 );
 
 select is(
@@ -46,8 +46,8 @@ select is(
     from pg_proc
     where oid = to_regprocedure('public.complete_member_onboarding()')
   ),
-  true,
-  'onboarding completion is security definer'
+  false,
+  'onboarding completion is security-invoker wrapper'
 );
 
 select is(
