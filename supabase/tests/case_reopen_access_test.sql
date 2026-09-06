@@ -235,7 +235,7 @@ select throws_ok(
       6,
       array[(select id from public.case_evidence where title = '关闭后复发闭环测试')],
       jsonb_build_object(
-        (select id::text from public.case_evidence where title = '初始课堂证据。'),
+        (select id::text from public.case_evidence where title = '关闭后复发闭环测试'),
         1
       ),
       'verify',
