@@ -57,6 +57,13 @@ alter table public.case_events
     'case_reopened'
   ));
 
+alter table public.case_actions
+  drop constraint if exists case_actions_review_due_check;
+
+alter table public.case_actions
+  add constraint case_actions_review_due_check
+  check (action_type <> 'review' or due_at is not null);
+
 create or replace function private.add_case_evidence(
   p_operation_id uuid,
   p_case_id uuid,
@@ -158,7 +165,7 @@ begin
       and event.event_type = 'case_closed'
       and event.operation_id is not null
       and event.operation_event_key = 'case_closed'
-    order by event.occurred_at desc, event.id desc
+    order by receipt.committed_at desc, receipt.id desc
     limit 1
     for update of event;
 
@@ -345,6 +352,13 @@ begin
       message = 'invalid_recurrence_evidence';
   end if;
 
+  if p_next_action_type = 'review'
+    and p_next_action_due_on is null then
+    raise exception using
+      errcode = 'P0001',
+      message = 'review_due_date_required';
+  end if;
+
   if exists (
     select 1
     from unnest(p_recurrence_evidence_ids) as selected(evidence_id)
@@ -392,17 +406,12 @@ begin
 
   select
     learning_case.organization_id,
-    learning_case.student_subject_profile_id,
-    learning_case.status,
-    learning_case.version
+    learning_case.student_subject_profile_id
   into
     v_organization_id,
-    v_profile_id,
-    v_case_status,
-    v_case_version
+    v_profile_id
   from public.learning_cases as learning_case
-  where learning_case.id = p_case_id
-  for update;
+  where learning_case.id = p_case_id;
 
   if v_organization_id is null then
     raise exception using
@@ -421,6 +430,12 @@ begin
       errcode = 'P0001',
       message = 'case_not_found';
   end if;
+
+  select learning_case.status, learning_case.version
+  into v_case_status, v_case_version
+  from public.learning_cases as learning_case
+  where learning_case.id = p_case_id
+  for update;
 
   v_membership_id := (
     select private.current_teaching_membership_for_profile_v2(v_profile_id)
@@ -512,7 +527,7 @@ begin
     and event.event_type = 'case_closed'
     and event.operation_id is not null
     and event.operation_event_key = 'case_closed'
-  order by event.occurred_at desc, event.id desc
+  order by receipt.committed_at desc, receipt.id desc
   limit 1
   for update of event;
 
