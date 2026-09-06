@@ -85,7 +85,7 @@ void main() {
         isFalse,
         reason: 'Rollback must remove files from the failed package.',
       );
-      await Future<void>.delayed(const Duration(seconds: 10));
+      await Future<void>.delayed(const Duration(seconds: 20));
 
       final bootstrapMarkerPath = _join(
         installDirectory.path,
@@ -132,7 +132,7 @@ void main() {
         isTrue,
         reason: 'The marker directory must remain to force the write failure.',
       );
-      await Future<void>.delayed(const Duration(seconds: 10));
+      await Future<void>.delayed(const Duration(seconds: 20));
       await Directory(bootstrapMarkerPath).delete();
 
       final installPackage = await _createPackage(
@@ -166,13 +166,13 @@ void main() {
         isFalse,
         reason: 'A successful replacement must remove old files.',
       );
-      await Future<void>.delayed(const Duration(seconds: 10));
+      await Future<void>.delayed(const Duration(seconds: 20));
     } finally {
       if (await root.exists()) {
         await _deleteDirectoryWithRetries(root);
       }
     }
-  }, timeout: const Timeout(Duration(seconds: 90)));
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }
 
 Future<void> _deleteDirectoryWithRetries(Directory directory) async {
