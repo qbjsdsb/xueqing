@@ -32,7 +32,12 @@ jobs:
         run: git diff --exit-code -- pubspec.lock
 
       - name: Check Dart formatting
-        run: dart format --output=none --set-exit-if-changed .
+        run: |
+          dart format --output=none --set-exit-if-changed . || (
+            dart format .
+            git diff -- tools/windows_updater/bin/xueqing_updater.dart
+            exit 1
+          )
 
       - name: Analyze
         run: flutter analyze
