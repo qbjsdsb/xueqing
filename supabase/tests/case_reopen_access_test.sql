@@ -233,7 +233,7 @@ select throws_ok(
       '74000000-0000-0000-0000-000000000009',
       (select id from public.learning_cases where title = '关闭后复发闭环测试'),
       6,
-      array[(select id from public.case_evidence where title = '初始课堂证据。')],
+      array[(select id from public.case_evidence where title = '关闭后复发闭环测试')],
       jsonb_build_object(
         (select id::text from public.case_evidence where title = '初始课堂证据。'),
         1
