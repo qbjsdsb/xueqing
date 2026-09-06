@@ -175,6 +175,7 @@ class WorkspaceEvidence {
     required this.observedAt,
     required this.summary,
     required this.status,
+    this.version = 1,
   });
 
   final String id;
@@ -183,6 +184,7 @@ class WorkspaceEvidence {
   final DateTime observedAt;
   final String summary;
   final String status;
+  final int version;
 }
 
 class WorkspaceIntervention {
@@ -619,6 +621,97 @@ class CloseCaseCommand {
   }
 }
 
+class AddCaseEvidenceCommand {
+  const AddCaseEvidenceCommand({
+    required this.operationId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.sourceType,
+    required this.title,
+    required this.observedAt,
+    required this.summary,
+  });
+
+  final String operationId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final String sourceType;
+  final String title;
+  final DateTime observedAt;
+  final String summary;
+
+  void validate() {
+    _validateCaseCommandIdentity(
+      operationId: operationId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+    );
+    if (!const <String>{
+      'exam',
+      'homework',
+      'essay',
+      'classwork',
+      'quiz',
+      'observation',
+      'guardian_report',
+      'other',
+    }.contains(sourceType)) {
+      throw ArgumentError('sourceType is not supported.');
+    }
+    if (title.trim().isEmpty) {
+      throw ArgumentError('title cannot be empty.');
+    }
+    if (summary.trim().isEmpty) {
+      throw ArgumentError('summary cannot be empty.');
+    }
+  }
+}
+
+class ReopenCaseCommand {
+  const ReopenCaseCommand({
+    required this.operationId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.recurrenceEvidenceIds,
+    required this.expectedEvidenceVersions,
+    required this.nextActionType,
+    required this.nextActionTitle,
+    required this.nextActionDueOn,
+  });
+
+  final String operationId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final List<String> recurrenceEvidenceIds;
+  final Map<String, int> expectedEvidenceVersions;
+  final CaseActionType nextActionType;
+  final String nextActionTitle;
+  final DateTime? nextActionDueOn;
+
+  void validate() {
+    _validateCaseCommandIdentity(
+      operationId: operationId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+    );
+    if (recurrenceEvidenceIds.isEmpty ||
+        recurrenceEvidenceIds.any((id) => id.trim().isEmpty) ||
+        recurrenceEvidenceIds.toSet().length != recurrenceEvidenceIds.length) {
+      throw ArgumentError('recurrenceEvidenceIds must be unique and non-empty.');
+    }
+    if (expectedEvidenceVersions.length != recurrenceEvidenceIds.length ||
+        expectedEvidenceVersions.keys.toSet().length !=
+            expectedEvidenceVersions.length ||
+        expectedEvidenceVersions.keys.any(
+          (id) => !recurrenceEvidenceIds.contains(id),
+        ) ||
+        expectedEvidenceVersions.values.any((version) => version <= 0)) {
+      throw ArgumentError('expectedEvidenceVersions does not match Evidence.');
+    }
+    _validateNextActionTitle(nextActionTitle);
+  }
+}
+
 class RescheduleCaseActionCommand {
   const RescheduleCaseActionCommand({
     required this.operationId,
@@ -713,6 +806,10 @@ abstract interface class LearningRepository {
   Future<CaseCommandReceipt> stabilizeCase(StabilizeCaseCommand command);
 
   Future<CaseCommandReceipt> closeCase(CloseCaseCommand command);
+
+  Future<CaseCommandReceipt> addCaseEvidence(AddCaseEvidenceCommand command);
+
+  Future<CaseCommandReceipt> reopenCase(ReopenCaseCommand command);
 
   Future<CaseCommandReceipt> rescheduleCaseAction(
     RescheduleCaseActionCommand command,
@@ -937,7 +1034,7 @@ class SupabaseLearningRepository implements LearningRepository {
         (from, to) => _client
             .from('case_evidence')
             .select(
-              'id,learning_case_id,source_type,title,observed_at,summary,status',
+              'id,learning_case_id,source_type,title,observed_at,summary,status,version',
             )
             .eq('organization_id', organizationId)
             .order('id')
@@ -1291,6 +1388,43 @@ class SupabaseLearningRepository implements LearningRepository {
   }
 
   @override
+  Future<CaseCommandReceipt> addCaseEvidence(
+    AddCaseEvidenceCommand command,
+  ) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'add_case_evidence',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_source_type': command.sourceType,
+        'p_title': command.title.trim(),
+        'p_observed_at': _utcIso8601(command.observedAt),
+        'p_summary': command.summary.trim(),
+      },
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> reopenCase(ReopenCaseCommand command) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'reopen_case',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_recurrence_evidence_ids': command.recurrenceEvidenceIds,
+        'p_expected_evidence_versions': command.expectedEvidenceVersions,
+        'p_next_action_type': command.nextActionType.wireValue,
+        'p_next_action_title': command.nextActionTitle.trim(),
+        'p_next_action_due_on': _dateOnlyString(command.nextActionDueOn),
+      },
+    );
+  }
+
+  @override
   Future<CaseCommandReceipt> rescheduleCaseAction(
     RescheduleCaseActionCommand command,
   ) async {
@@ -1412,6 +1546,7 @@ class SupabaseLearningRepository implements LearningRepository {
           ),
           summary: _requiredString(evidenceRow['summary'], 'evidence_summary'),
           status: _stringValue(evidenceRow['status']) ?? 'finalized',
+          version: _intValue(evidenceRow['version']) ?? 1,
         ),
       );
     }
@@ -1762,6 +1897,7 @@ String _eventTypeLabel(String value) {
     'assessment_recorded' => 'Assessment / 验证',
     'case_stabilized' => 'Case / 稳定',
     'case_closed' => 'Case / 关闭',
+    'case_reopened' => 'Case / 重新打开',
     'action_completed' => 'Action / 完成',
     'action_rescheduled' => 'Action / 改期',
     _ => '记录',
@@ -1781,6 +1917,7 @@ String _eventText(String eventType, dynamic rawMetadata) {
       '记录了一次验证：${_assessmentResultLabel(metadata['result'])}。',
     'case_stabilized' => '教师确认 Case 已稳定，仍可安排复查。',
     'case_closed' => 'Case 已关闭。',
+    'case_reopened' => 'Case 因关闭后的新复发证据重新打开。',
     'action_completed' => '完成了当前行动，并安排了下一步。',
     'action_rescheduled' => '调整了下一行动的日期。',
     _ => '记录了一条 Case 事件。',

@@ -847,6 +847,37 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           );
   }
 
+  Future<CaseCommandReceipt?> _showReopenForm({
+    required WorkspaceCase learningCase,
+  }) {
+    final sizeClass = ResponsiveBreakpoints.classify(
+      MediaQuery.sizeOf(context).width,
+    );
+    final form = _WorkspaceReopenCaseForm(
+      learningCase: learningCase,
+      repository: widget.repository,
+      businessDate: null,
+    );
+    return sizeClass == WindowSizeClass.compact
+        ? showModalBottomSheet<CaseCommandReceipt>(
+            context: context,
+            isScrollControlled: true,
+            isDismissible: false,
+            enableDrag: false,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            builder: (_) => form,
+          )
+        : showDialog<CaseCommandReceipt>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => Dialog(child: form),
+          );
+  }
+
   Future<void> _showCaseCommand(
     WorkspaceStudent student,
     WorkspaceCase learningCase,
@@ -901,6 +932,27 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+      ),
+    );
+  }
+
+  Future<void> _showReopenCase(
+    WorkspaceStudent student,
+    WorkspaceCase learningCase,
+  ) async {
+    final result = await _showReopenForm(learningCase: learningCase);
+    if (!mounted || result == null) {
+      return;
+    }
+    await _reload(preserveStudent: student, preserveCaseId: learningCase.id);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '已保存，Case 进入' + _caseStatusLabelFromWire(result.status) + '。',
+        ),
       ),
     );
   }
@@ -1874,6 +1926,15 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             onPressed: () => _closeCase(student, learningCase),
           ),
         ],
+        if (learningCase.status == LearningCaseStatus.closed) ...[
+          const SizedBox(height: AppSpacing.md),
+          _WorkspaceCaseCommandSection(
+            title: '记录复发并重新打开',
+            message: '只有关闭后的新 Evidence 才能重新打开；系统会保留原来的关闭历史。',
+            buttonLabel: '记录复发并重新打开',
+            onPressed: () => _showReopenCase(student, learningCase),
+          ),
+        ],
         const SizedBox(height: AppSpacing.lg),
         _WorkspaceNarrativeSection(
           title: '问题',
@@ -1936,6 +1997,528 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+
+class _WorkspaceReopenCaseForm extends StatefulWidget {
+  const _WorkspaceReopenCaseForm({
+    required this.learningCase,
+    required this.repository,
+    this.businessDate,
+  });
+
+  final WorkspaceCase learningCase;
+  final LearningRepository repository;
+  final DateTime? businessDate;
+
+  @override
+  State<_WorkspaceReopenCaseForm> createState() =>
+      _WorkspaceReopenCaseFormState();
+}
+
+class _WorkspaceReopenCaseFormState
+    extends State<_WorkspaceReopenCaseForm> {
+  static const Map<String, String> _sourceTypeLabels = <String, String>{
+    'observation': '课堂观察',
+    'homework': '作业',
+    'quiz': '小测',
+    'exam': '考试',
+    'essay': '作文',
+    'classwork': '课堂练习',
+    'guardian_report': '家长反馈',
+    'other': '其他',
+  };
+
+  late final TextEditingController _evidenceTitleController;
+  late final TextEditingController _evidenceSummaryController;
+  late final TextEditingController _nextActionController;
+  late final String _evidenceOperationId;
+  late final String _reopenOperationId;
+
+  String _sourceType = 'observation';
+  CaseActionType _nextActionType = CaseActionType.verify;
+  DateTime _observedAt = DateTime.now();
+  DateTime? _nextActionDueOn;
+  String? _evidenceId;
+  int _evidenceVersion = 1;
+  String? _evidenceTitleError;
+  String? _evidenceSummaryError;
+  String? _nextActionError;
+  String? _saveError;
+  bool _submissionStarted = false;
+  bool _saving = false;
+
+  bool get _inputsLocked => _submissionStarted;
+  bool get _isDirty =>
+      _submissionStarted ||
+      _evidenceTitleController.text.trim().isNotEmpty ||
+      _evidenceSummaryController.text.trim().isNotEmpty ||
+      _nextActionController.text.trim() != '复发后安排验证' ||
+      _nextActionDueOn != null ||
+      _sourceType != 'observation';
+
+  @override
+  void initState() {
+    super.initState();
+    _evidenceOperationId = createOperationId();
+    _reopenOperationId = createOperationId();
+    _evidenceTitleController = TextEditingController();
+    _evidenceSummaryController = TextEditingController();
+    _nextActionController = TextEditingController(text: '复发后安排验证');
+    _evidenceTitleController.addListener(_clearInlineErrors);
+    _evidenceSummaryController.addListener(_clearInlineErrors);
+    _nextActionController.addListener(_clearInlineErrors);
+  }
+
+  @override
+  void dispose() {
+    _evidenceTitleController
+      ..removeListener(_clearInlineErrors)
+      ..dispose();
+    _evidenceSummaryController
+      ..removeListener(_clearInlineErrors)
+      ..dispose();
+    _nextActionController
+      ..removeListener(_clearInlineErrors)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _clearInlineErrors() {
+    if (!mounted) {
+      return;
+    }
+    final titleReady =
+        _evidenceTitleError != null &&
+        _evidenceTitleController.text.trim().isNotEmpty;
+    final summaryReady =
+        _evidenceSummaryError != null &&
+        _evidenceSummaryController.text.trim().isNotEmpty;
+    final actionReady =
+        _nextActionError != null &&
+        _nextActionController.text.trim().isNotEmpty;
+    if (titleReady || summaryReady || actionReady) {
+      setState(() {
+        if (titleReady) {
+          _evidenceTitleError = null;
+        }
+        if (summaryReady) {
+          _evidenceSummaryError = null;
+        }
+        if (actionReady) {
+          _nextActionError = null;
+        }
+      });
+    }
+  }
+
+  Future<void> _pickObservedAt() async {
+    if (_inputsLocked) {
+      return;
+    }
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime(
+        _observedAt.year,
+        _observedAt.month,
+        _observedAt.day,
+      ),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year + 2, 12, 31),
+      helpText: '选择实际观察日期',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (!mounted || pickedDate == null) {
+      return;
+    }
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_observedAt),
+      helpText: '选择实际观察时间',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (!mounted || pickedTime == null) {
+      return;
+    }
+    setState(() {
+      _observedAt = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+    });
+  }
+
+  Future<void> _pickDueDate() async {
+    if (_inputsLocked) {
+      return;
+    }
+    final businessNow = widget.businessDate ?? DateTime.now();
+    final today = DateTime(
+      businessNow.year,
+      businessNow.month,
+      businessNow.day,
+    );
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _nextActionDueOn ?? today,
+      firstDate: today,
+      lastDate: DateTime(today.year + 2, 12, 31),
+      helpText: '选择下一行动日期',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    setState(() {
+      _nextActionDueOn = DateTime(selected.year, selected.month, selected.day);
+    });
+  }
+
+  Future<void> _save() async {
+    if (_saving) {
+      return;
+    }
+    final title = _evidenceTitleController.text.trim();
+    final summary = _evidenceSummaryController.text.trim();
+    final nextActionTitle = _nextActionController.text.trim();
+    var valid = true;
+    if (title.isEmpty) {
+      _evidenceTitleError = '请写下这次复发证据的标题';
+      valid = false;
+    }
+    if (summary.isEmpty) {
+      _evidenceSummaryError = '请写下可观察到的复发表现';
+      valid = false;
+    }
+    if (nextActionTitle.isEmpty) {
+      _nextActionError = '请保留或改写下一行动';
+      valid = false;
+    }
+    if (!valid) {
+      setState(() {});
+      return;
+    }
+
+    setState(() {
+      _submissionStarted = true;
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      if (_evidenceId == null) {
+        final evidenceReceipt = await widget.repository.addCaseEvidence(
+          AddCaseEvidenceCommand(
+            operationId: _evidenceOperationId,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            sourceType: _sourceType,
+            title: title,
+            observedAt: _observedAt,
+            summary: summary,
+          ),
+        );
+        final evidenceId = evidenceReceipt.recordId;
+        if (evidenceId == null || evidenceId.trim().isEmpty) {
+          throw const FormatException(
+            'add_case_evidence returned no evidence id.',
+          );
+        }
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _evidenceId = evidenceId;
+          _evidenceVersion = 1;
+        });
+      }
+      final evidenceId = _evidenceId;
+      if (evidenceId == null) {
+        throw const FormatException('Missing committed Evidence id.');
+      }
+      final receipt = await widget.repository.reopenCase(
+        ReopenCaseCommand(
+          operationId: _reopenOperationId,
+          caseId: widget.learningCase.id,
+          expectedCaseVersion: widget.learningCase.version,
+          recurrenceEvidenceIds: <String>[evidenceId],
+          expectedEvidenceVersions: <String, int>{
+            evidenceId: _evidenceVersion,
+          },
+          nextActionType: _nextActionType,
+          nextActionTitle: nextActionTitle,
+          nextActionDueOn: _nextActionDueOn,
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(receipt);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _saving = false;
+        _saveError = _describeCaseCommandError(error);
+      });
+    }
+  }
+
+  Future<void> _confirmDiscard() async {
+    if (_submissionStarted || _saving) {
+      return;
+    }
+    if (!_isDirty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('放弃这次复发记录？'),
+        content: const Text('当前输入还没有保存。放弃后不会产生新的 Evidence。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('继续编辑'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('放弃记录'),
+          ),
+        ],
+      ),
+    );
+    if (mounted && discard == true) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final caseContext =
+        widget.learningCase.typeLabel +
+        ' · ' +
+        widget.learningCase.status.label +
+        ' · version ' +
+        widget.learningCase.version.toString();
+    return PopScope<void>(
+      canPop: !_submissionStarted && !_saving,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_submissionStarted && !_saving) {
+          _confirmDiscard();
+        }
+      },
+      child: SafeArea(
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '记录复发并重新打开',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '关闭',
+                        onPressed: _submissionStarted || _saving
+                            ? null
+                            : _confirmDiscard,
+                        icon: Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '先保存关闭后的新 Evidence，再重新打开 Case；两步各自可安全重试。',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _WorkspaceContextLine(label: '当前 Case', value: caseContext),
+                  const SizedBox(height: AppSpacing.md),
+                  DropdownButtonFormField<String>(
+                    initialValue: _sourceType,
+                    decoration: const InputDecoration(labelText: '证据来源 *'),
+                    items: [
+                      for (final entry in _sourceTypeLabels.entries)
+                        DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        ),
+                    ],
+                    onChanged: _inputsLocked
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() => _sourceType = value);
+                            }
+                          },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    key: const Key('reopen-evidence-title'),
+                    controller: _evidenceTitleController,
+                    autofocus: true,
+                    enabled: !_inputsLocked,
+                    decoration: InputDecoration(
+                      labelText: '复发证据标题 *',
+                      hintText: '例如：关闭后再次跳过通分步骤',
+                      errorText: _evidenceTitleError,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    key: const Key('reopen-evidence-summary'),
+                    controller: _evidenceSummaryController,
+                    enabled: !_inputsLocked,
+                    minLines: 3,
+                    maxLines: 6,
+                    textInputAction: TextInputAction.newline,
+                    decoration: InputDecoration(
+                      labelText: '可观察表现 *',
+                      hintText: '写下这次实际看到的复发，而不是只写“又出现了”',
+                      errorText: _evidenceSummaryError,
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  OutlinedButton.icon(
+                    onPressed: _inputsLocked ? null : _pickObservedAt,
+                    icon: Icon(Icons.schedule_outlined),
+                    label: Text(
+                      '观察时间：' + _formatDateTimeForReopen(_observedAt),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  DropdownButtonFormField<CaseActionType>(
+                    initialValue: _nextActionType,
+                    decoration: const InputDecoration(labelText: '重新打开后的行动类型'),
+                    items: [
+                      for (final type in CaseActionType.values)
+                        DropdownMenuItem<CaseActionType>(
+                          value: type,
+                          child: Text(type.label),
+                        ),
+                    ],
+                    onChanged: _inputsLocked
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() => _nextActionType = value);
+                            }
+                          },
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    key: const Key('reopen-next-action'),
+                    controller: _nextActionController,
+                    enabled: !_inputsLocked,
+                    textInputAction: TextInputAction.done,
+                    decoration: InputDecoration(
+                      labelText: '重新打开后的下一行动 *',
+                      hintText: '例如：复核复发原因并安排验证',
+                      errorText: _nextActionError,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _inputsLocked ? null : _pickDueDate,
+                          icon: Icon(Icons.event_outlined),
+                          label: Text(
+                            _nextActionDueOn == null
+                                ? '安排日期（可选）'
+                                : '行动日期：' +
+                                    _formatDateOnly(_nextActionDueOn!),
+                          ),
+                        ),
+                      ),
+                      if (_nextActionDueOn != null) ...[
+                        const SizedBox(width: AppSpacing.xs),
+                        IconButton(
+                          tooltip: '清除日期',
+                          onPressed: _inputsLocked
+                              ? null
+                              : () => setState(() => _nextActionDueOn = null),
+                          icon: Icon(Icons.close),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '服务器会把观察时间和最新关闭边界比较；提交开始后输入会锁定，重试沿用原 operation ID。',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (_evidenceId != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Evidence 已保存，正在等待重新打开；请继续重试完成第二步。',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                  if (_saveError != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _WorkspaceErrorText(message: _saveError!),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _submissionStarted || _saving
+                              ? null
+                              : _confirmDiscard,
+                          child: const Text('取消'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _saving ? null : _save,
+                          child: Text(
+                            _saving
+                                ? '保存中…'
+                                : _evidenceId == null
+                                ? '保存 Evidence'
+                                : '重新打开 Case',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -5202,8 +5785,17 @@ String _describeCaseCommandError(Object error) {
   if (detail.contains('latest_assessment_not_passed')) {
     return '最新验证还没有通过，暂时不能标记为稳定。';
   }
+  if (detail.contains('case_recurrence_before_close')) {
+    return '观察时间必须晚于最近一次关闭时间；请调整实际观察时间后重试。';
+  }
+  if (detail.contains('evidence_not_finalized')) {
+    return '这条 Evidence 还没有完成保存，不能用于重新打开 Case。';
+  }
+  if (detail.contains('evidence_version_conflict')) {
+    return '复发 Evidence 已经发生变化，请刷新 Case 后重新选择。';
+  }
   if (detail.contains('owner_permission_required')) {
-    return '只有这条 Case 的负责教师可以关闭它。';
+    return '只有这条 Case 的负责教师可以执行重新打开。';
   }
   if (detail.contains('case_transition_not_allowed')) {
     return 'Case 状态已经变化，请刷新后再试。';
@@ -5265,6 +5857,22 @@ String _defaultNextActionTitle(CaseActionType type) {
     CaseActionType.review => '安排一次复查',
     CaseActionType.other => '安排下一步跟进',
   };
+}
+
+String _formatDateTimeForReopen(DateTime value) {
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  return value.year.toString() +
+      '-' +
+      month +
+      '-' +
+      day +
+      ' ' +
+      hour +
+      ':' +
+      minute;
 }
 
 String _formatDateOnly(DateTime value) {
