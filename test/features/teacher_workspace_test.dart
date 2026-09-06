@@ -1582,7 +1582,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(FilledButton, '重新打开 Case'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '重新打开 Case'));
+    final reopenCaseButton = find.widgetWithText(FilledButton, '重新打开 Case');
+    await tester.ensureVisible(reopenCaseButton);
+    await tester.tap(reopenCaseButton);
     await tester.pumpAndSettle();
 
     expect(repository.addEvidenceCount, 1);
