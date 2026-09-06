@@ -1,6 +1,6 @@
 begin;
 
-select plan(52);
+select plan(50);
 
 select is(
   (select prosecdef from pg_catalog.pg_proc
