@@ -389,18 +389,30 @@ Future<void> _restoreFromBackup(
   Directory backupDirectory, {
   required Set<String> skipFileNames,
 }) async {
+  Object? firstError;
   await for (final entity in installDirectory.list(followLinks: false)) {
     final name = _baseName(entity.path);
     if (_shouldSkip(name, skipFileNames)) {
       continue;
     }
-    await _deleteEntityWithRetries(entity);
+    try {
+      await _deleteEntityWithRetries(entity);
+    } on Object catch (error) {
+      firstError ??= error;
+    }
   }
-  await _copyTree(
-    backupDirectory,
-    installDirectory,
-    skipFileNames: skipFileNames,
-  );
+  try {
+    await _copyTree(
+      backupDirectory,
+      installDirectory,
+      skipFileNames: skipFileNames,
+    );
+  } on Object catch (error) {
+    firstError ??= error;
+  }
+  if (firstError != null) {
+    Error.throwWithStackTrace(firstError!, StackTrace.current);
+  }
 }
 
 Future<void> _deleteDirectory(Directory directory) async {
