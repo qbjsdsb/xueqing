@@ -9,7 +9,7 @@ select is(
      and pg_catalog.pg_proc.proname = 'reopen_case'),
   false,
   'public reopen_case is an invoker wrapper'
-)
+);
 
 select is(
   (select prosecdef from pg_catalog.pg_proc
@@ -18,7 +18,7 @@ select is(
      and pg_catalog.pg_proc.proname = 'reopen_case_v2'),
   true,
   'private reopen_case_v2 is security definer'
-)
+);
 
 select is(
   has_function_privilege(
@@ -28,7 +28,7 @@ select is(
   ),
   false,
   'anonymous clients cannot execute reopen_case'
-)
+);
 
 select is(
   has_function_privilege(
@@ -38,7 +38,7 @@ select is(
   ),
   true,
   'authenticated teachers can execute reopen_case'
-)
+);
 
 select is(
   has_function_privilege(
@@ -48,7 +48,7 @@ select is(
   ),
   true,
   'authenticated teachers can reach the private reopen implementation'
-)
+);
 
 select is(
   has_function_privilege(
@@ -58,7 +58,7 @@ select is(
   ),
   false,
   'anonymous clients cannot reach the private reopen implementation'
-)
+);
 
 set local role authenticated;
 
@@ -92,7 +92,7 @@ select lives_ok(
       timestamptz '2026-09-11 09:00:00+08'
     )$$,
   'create the Case used by reopen tests'
-)
+);
 
 select lives_ok(
   $$select public.confirm_case(
@@ -103,7 +103,7 @@ select lives_ok(
       timestamptz '2026-09-11 09:00:00+08'
     )$$,
   'confirm the Case'
-)
+);
 
 select lives_ok(
   $$select public.record_intervention(
@@ -117,7 +117,7 @@ select lives_ok(
       timestamptz '2026-09-13 09:00:00+08'
     )$$,
   'record the first Intervention'
-)
+);
 
 select lives_ok(
   $$select public.record_assessment(
@@ -132,7 +132,7 @@ select lives_ok(
       timestamptz '2026-09-15 09:00:00+08'
     )$$,
   'record the first Assessment'
-)
+);
 
 select lives_ok(
   $$select public.stabilize_case(
@@ -144,7 +144,7 @@ select lives_ok(
       timestamptz '2026-09-16 09:00:00+08'
     )$$,
   'stabilize the first Case'
-)
+);
 
 select lives_ok(
   $$select public.close_case(
@@ -154,19 +154,19 @@ select lives_ok(
       timestamptz '2026-09-16 17:00:00+08'
     )$$,
   'close the first Case'
-)
+);
 
 select is(
   (select status from public.learning_cases where title = '关闭后复发闭环测试'),
   'closed',
   'the Case is closed before recurrence'
-)
+);
 
 select is(
   (select version from public.learning_cases where title = '关闭后复发闭环测试'),
   6,
   'the first close ends at Case version six'
-)
+);
 
 select is(
   (select count(*)::int
@@ -176,7 +176,7 @@ select is(
      and operation_id = '74000000-0000-0000-0000-000000000006'),
   1,
   'the first close creates one committed close boundary'
-)
+);
 
 select throws_ok(
   $$select public.add_case_evidence(
@@ -191,7 +191,7 @@ select throws_ok(
   'P0001',
   null,
   'evidence observed before close cannot be appended to a closed Case'
-)
+);
 
 select is(
   (select count(*)::int
@@ -199,7 +199,7 @@ select is(
    where learning_case_id = (select id from public.learning_cases where title = '关闭后复发闭环测试')),
   1,
   'the rejected pre-close Evidence leaves no side effect'
-)
+);
 
 select lives_ok(
   $$select public.add_case_evidence(
@@ -212,7 +212,7 @@ select lives_ok(
       '关闭后再次观察到同类表现。'
     )$$,
   'late Evidence can be appended after close'
-)
+);
 
 select is(
   (select count(*)::int
@@ -220,13 +220,13 @@ select is(
    where learning_case_id = (select id from public.learning_cases where title = '关闭后复发闭环测试')),
   2,
   'late Evidence is committed exactly once'
-)
+);
 
 select is(
   (select version from public.learning_cases where title = '关闭后复发闭环测试'),
   6,
   'appending Evidence does not mutate the Case version'
-)
+);
 
 select throws_ok(
   $$select public.reopen_case(
@@ -245,13 +245,13 @@ select throws_ok(
   'P0001',
   null,
   'old Evidence alone cannot reopen a Case'
-)
+);
 
 select is(
   (select status from public.learning_cases where title = '关闭后复发闭环测试'),
   'closed',
   'a rejected reopen leaves the Case closed'
-)
+);
 
 select lives_ok(
   $$select public.reopen_case(
@@ -268,32 +268,32 @@ select lives_ok(
       date '2026-09-18'
     )$$,
   'a fresh post-close Evidence reopens the Case'
-)
+);
 
 select is(
   (select status from public.learning_cases where title = '关闭后复发闭环测试'),
   'confirmed',
   'reopen_case returns the Case to confirmed'
-)
+);
 
 select is(
   (select version from public.learning_cases where title = '关闭后复发闭环测试'),
   7,
   'reopen_case increments the Case version once'
-)
+);
 
 select is(
   (select reopened_count from public.learning_cases where title = '关闭后复发闭环测试'),
   1,
   'reopen_case increments reopened_count'
-)
+);
 
 select is(
   (select closed_at is null and stable_at is null
    from public.learning_cases where title = '关闭后复发闭环测试'),
   true,
   'reopen_case clears closed and stable timestamps'
-)
+);
 
 select is(
   (select count(*)::int
@@ -303,7 +303,7 @@ select is(
      and is_primary),
   1,
   'reopen_case creates exactly one pending primary Action'
-)
+);
 
 select is(
   (select title
@@ -312,7 +312,7 @@ select is(
      and status = 'pending' and is_primary),
   '复发后安排验证',
   'reopen_case stores the new primary Action'
-)
+);
 
 select is(
   (select count(*)::int
@@ -321,7 +321,7 @@ select is(
      and event_type = 'case_reopened'),
   1,
   'reopen_case writes one immutable reopen event'
-)
+);
 
 select is(
   (select metadata->>'previous_close_event_id'
@@ -335,7 +335,7 @@ select is(
    order by occurred_at desc, id desc
    limit 1),
   'reopen event points to the committed close boundary'
-)
+);
 
 select is(
   (select metadata->'recurrence_evidence_ids'
@@ -347,7 +347,7 @@ select is(
     (select id::text from public.case_evidence where title = '关闭后真实复发')
   ),
   'reopen event records the selected recurrence Evidence'
-)
+);
 
 select lives_ok(
   $$select public.reopen_case(
@@ -364,7 +364,7 @@ select lives_ok(
       date '2026-09-19'
     )$$,
   'replaying reopen_case is exactly once'
-)
+);
 
 select is(
   (select count(*)::int
@@ -373,7 +373,7 @@ select is(
      and event_type = 'case_reopened'),
   1,
   'reopen retry does not duplicate the event'
-)
+);
 
 select is(
   (select count(*)::int
@@ -382,13 +382,13 @@ select is(
      and status = 'pending' and is_primary),
   1,
   'reopen retry does not create a second primary Action'
-)
+);
 
 select is(
   (select version from public.learning_cases where title = '关闭后复发闭环测试'),
   7,
   'reopen retry does not increment the Case version again'
-)
+);
 
 select lives_ok(
   $$select public.record_intervention(
@@ -402,7 +402,7 @@ select lives_ok(
       timestamptz '2026-09-20 09:00:00+08'
     )$$,
   'a reopened Case can continue through Intervention'
-)
+);
 
 select lives_ok(
   $$select public.record_assessment(
@@ -417,7 +417,7 @@ select lives_ok(
       timestamptz '2026-09-22 09:00:00+08'
     )$$,
   'a reopened Case can continue through Assessment'
-)
+);
 
 select lives_ok(
   $$select public.stabilize_case(
@@ -429,7 +429,7 @@ select lives_ok(
       timestamptz '2026-09-23 09:00:00+08'
     )$$,
   'a reopened Case can become stable again'
-)
+);
 
 select lives_ok(
   $$select public.close_case(
@@ -439,13 +439,13 @@ select lives_ok(
       timestamptz '2026-09-22 17:00:00+08'
     )$$,
   'the reopened Case can be closed again'
-)
+);
 
 select is(
   (select version from public.learning_cases where title = '关闭后复发闭环测试'),
   11,
   'the second close increments the Case version once'
-)
+);
 
 select throws_ok(
   $$select public.reopen_case(
@@ -464,13 +464,13 @@ select throws_ok(
   'P0001',
   null,
   'Evidence from the previous close cycle cannot reopen after a later close'
-)
+);
 
 select is(
   (select status from public.learning_cases where title = '关闭后复发闭环测试'),
   'closed',
   'the second-cycle rejection leaves the Case closed'
-)
+);
 
 select lives_ok(
   $$select public.add_case_evidence(
@@ -483,7 +483,7 @@ select lives_ok(
       '第二次关闭后再次观察到同类表现。'
     )$$,
   'a second-cycle late Evidence can be appended'
-)
+);
 
 select lives_ok(
   $$select public.reopen_case(
@@ -500,25 +500,25 @@ select lives_ok(
       date '2026-09-25'
     )$$,
   'fresh Evidence can reopen the second close cycle'
-)
+);
 
 select is(
   (select status from public.learning_cases where title = '关闭后复发闭环测试'),
   'confirmed',
   'the second reopen returns the Case to confirmed'
-)
+);
 
 select is(
   (select version from public.learning_cases where title = '关闭后复发闭环测试'),
   12,
   'the second reopen increments the Case version once'
-)
+);
 
 select is(
   (select reopened_count from public.learning_cases where title = '关闭后复发闭环测试'),
   2,
   'reopened_count records both close cycles'
-)
+);
 
 select is(
   (select count(*)::int
@@ -527,7 +527,7 @@ select is(
      and event_type = 'case_reopened'),
   2,
   'there are two immutable reopen events after two cycles'
-)
+);
 
 select is(
   (select count(*)::int
@@ -536,7 +536,7 @@ select is(
      and status = 'pending' and is_primary),
   1,
   'the second reopen also leaves one pending primary Action'
-)
+);
 
 reset role;
 
