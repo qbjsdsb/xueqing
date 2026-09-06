@@ -15,6 +15,27 @@
 
 ---
 
+## 当前收口状态（2026-09-06）
+
+本节记录的是本次收口的事实基线；实时状态以 GitHub 的 `main` 和对应 PR CI 为准。文中 [x] 只表示已有实现或自动化证据，不表示真实设备、无代理网络、恢复演练或 Production Go / No-Go 已通过。
+
+- `main` 本次收口基线为 `c311927`：PR #53（成员开通异常恢复）、PR #58（服务端权威 Case reopen）和 PR #54（按已验证 tag commit 构建发布包）已合并。
+- 旧的堆叠 Draft PR #20–#45 已关闭；源分支保留，便于审计与追溯，不再作为独立功能排期。
+- 图片附件 PR #51 已重基到该主线，并补上上传中会话切换保护、失败重试复用同一 attachment ID、以及附件注册 RPC 的 public/private 安全边界。它仍需集成 CI 和 Android / Windows 真实设备 gate，未通过前不视为主线能力。
+- 已发布的 `v0.1.0-test.1` 指向旧基线 `b5e0dd4`，不包含本次收口；新的测试版必须从后续已验证 tag commit 生成。
+
+### 本次验收口径
+
+- [ ] 登录、启动授权门、邀请接管、全局退出与旧 Session 拒绝：虚构账号真实点击验收。
+- [ ] 机构 / 角色 / 学科 / 学生分配权限隔离：包含跨机构、无 assignment、撤销后访问和 closed Case。
+- [ ] 学生交接：历史保留、新教师合法接管、旧教师停止写入。
+- [ ] Case 完整闭环：快速捕捉 → Evidence → Intervention → Assessment → Next Action → stable / close → 新 Evidence → reopen。
+- [ ] 图片：拍照/选图、大小与类型限制、私有 Storage、签名预览、失败重试、断网恢复和权限拒绝。
+- [ ] 网络失败：输入不丢、响应丢失可查询、重复提交不重复副作用、账号切换不串数据。
+- [ ] 软件更新与回滚：tag commit、manifest/hash/size、Windows 安全解包、备份、失败回滚和旧版本恢复。
+- [ ] 以上证据完成后，才发布新的开发测试版；任何真实学生、家长或教师隐私数据仍禁止进入环境。
+
+
 # Phase 0｜工程与风险验证
 
 目标：在任何真实学生数据进入前，先以 Supabase reference candidate 验证 Windows + Android + 零成本认证 + 本地安全 + 恢复方案；Supabase 不是无条件 production provider，正式 production business migrations/Auth/RLS/CRUD 仍受 P0 Gate A/B 阻止。
@@ -99,10 +120,11 @@
 - [x] supabase/、migrations、fictional seed、DB / RLS / function tests 已在开发线建立并通过冷重建
 - [x] workspace read model、custom case types、organization leadership / invites、invitation expiry / re-invite 已在开发线建立；远端当前应用到 migration J
 - [x] 普通业务的 live-session / membership / role / assignment 授权回归已存在
-- [x] PR #39 已形成教师学科范围与成员管理能力（仍待串联审阅 / 合并）
-- [x] PR #40 已形成学生任课关系原子交接：数据库命令、版本并发、幂等、权限负面测试和 Flutter 管理入口（Flutter / Supabase CI 通过；仍待合并和远端 migration）
-- [x] PR #41 已形成 release 环境显式声明、Production HTTPS + exact host allowlist、开发 release 显式 opt-in 和配置 / bootstrap 回归测试（Flutter CI 通过；平台 smoke 待 artifact 核验）
-- [ ] PR #39 → PR #40 → PR #41 审阅、合并和远端 migration drift 复核
+- [x] PR #39 / #40 / #41 的教师范围、学生交接和运行边界实现已在当前主线代码中可追溯；原 PR 已关闭，不再把旧 PR 状态当成待合并功能。
+- [x] PR #53 已合并：成员开通成功 / 失败 / 响应不确定时的恢复与重新发放边界已加入主线。
+- [x] PR #58 已合并：Case reopen 为服务端权威、受控且可审计的 command，并保留 close 后历史。
+- [x] PR #54 已合并：release workflow 只 checkout 已验证的 tag commit，并校验其可达 `main`。
+- [ ] PR #51 图片附件：集成 CI、真实设备 / 网络和签名预览 gate 全部通过后再合入主线。
 - [ ] 逐函数复核 SECURITY DEFINER、开启 leaked password protection、解释 3 个 intentional no-policy 表
 - [ ] 根据真实规模虚构数据和执行计划决定是否补外键索引；不机械处理 38 个 Advisor INFO
 - [ ] Production provider / region / session strategy 最终冻结
@@ -360,7 +382,7 @@
 - [ ] active lead 唯一性
 - [ ] 学生搜索 / 重复提示
 - [ ] 当前 / 历史负责人
-- [x] 教师交接（开发线 PR #40；待审阅、合并、远端 migration 和设备验收）
+- [x] 教师交接实现与权限回归已在当前主线代码中；真实 Android / Windows 点击、无代理网络和完整交接证据仍属于本次总验收
 - [ ] student merge record
 
 验收：同一真实学生只有一个 student_id；升年级 / 换老师不丢历史；学管不伪装成学科教师。
