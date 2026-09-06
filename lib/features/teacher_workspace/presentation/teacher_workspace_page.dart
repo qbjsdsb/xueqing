@@ -2522,8 +2522,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                   const SizedBox(height: AppSpacing.md),
                   _WorkspaceContextLine(label: '当前 Case', value: caseContext),
                   const SizedBox(height: AppSpacing.md),
-                  if (_restoring)
-                    const Text('正在恢复未完成的复发记录…'),
+                  if (_restoring) const Text('正在恢复未完成的复发记录…'),
                   const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<String>(
                     initialValue: _sourceType,
@@ -2674,7 +2673,10 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: FilledButton(
-                          onPressed: _saving || _restoring || _draftStorageFailed ? null : _save,
+                          onPressed:
+                              _saving || _restoring || _draftStorageFailed
+                              ? null
+                              : _save,
                           child: Text(
                             _saving
                                 ? '保存中…'
