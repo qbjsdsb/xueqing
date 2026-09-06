@@ -9,7 +9,10 @@ const _canonicalHelperFileName = 'xueqing_updater.exe';
 const _bootstrapHelperFileName = 'xueqing_updater_bootstrap.exe';
 const _bootstrapMigrationMarkerName = '.xueqing_updater_bootstrap_migrated';
 const _waitTimeout = Duration(seconds: 90);
-const _launchGracePeriod = Duration(seconds: 2);
+// Flutter Windows cold starts can take several seconds while the process
+// initializes plugins and the embedded engine. Keep observing long enough to
+// distinguish a slow healthy start from a process that exits immediately.
+const _launchGracePeriod = Duration(seconds: 10);
 const _deleteRetryDelay = Duration(milliseconds: 250);
 const _deleteRetryCount = 20;
 
