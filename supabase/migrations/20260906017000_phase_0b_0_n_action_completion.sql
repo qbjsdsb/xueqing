@@ -63,7 +63,7 @@ set search_path = ''
 as $function$
 declare
   app_user_id uuid;
-  organization_id uuid;
+  v_organization_id uuid;
   profile_id uuid;
   organization_time_zone text;
   membership_id uuid;
@@ -119,7 +119,7 @@ begin
     action.is_primary,
     organization.time_zone
   into
-    organization_id,
+    v_organization_id,
     profile_id,
     case_status,
     case_version,
@@ -137,7 +137,7 @@ begin
     and action.learning_case_id = p_case_id
   for update of action, learning_case;
 
-  if organization_id is null then
+  if v_organization_id is null then
     raise exception using
       errcode = 'P0001',
       message = 'action_not_found';
@@ -146,7 +146,7 @@ begin
   perform 1
   from public.student_subject_profiles as profile
   where profile.id = profile_id
-    and profile.organization_id = organization_id
+    and profile.organization_id = v_organization_id
   for update;
 
   if not found then
@@ -167,7 +167,7 @@ begin
   select claimed, result
   into is_claimed, existing_result
   from private.claim_case_operation_v2(
-    organization_id,
+    v_organization_id,
     p_operation_id,
     'complete_case_action',
     'case_action',
@@ -219,7 +219,7 @@ begin
 
   next_action_id := (
     select private.create_primary_case_action_v2(
-      organization_id,
+      v_organization_id,
       p_case_id,
       membership_id,
       p_next_action_type,
@@ -250,7 +250,7 @@ begin
     operation_event_key
   )
   values (
-    organization_id,
+    v_organization_id,
     p_case_id,
     'action_completed',
     app_user_id,
@@ -279,7 +279,7 @@ begin
   );
 
   perform private.finish_case_operation_v2(
-    organization_id,
+    v_organization_id,
     p_operation_id,
     command_result
   );
