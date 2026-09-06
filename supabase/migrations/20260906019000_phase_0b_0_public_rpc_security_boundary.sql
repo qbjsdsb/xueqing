@@ -262,7 +262,7 @@ grant execute on function public.create_organization_subject(uuid, uuid, uuid) t
 create or replace function public.get_my_membership_state()
 returns jsonb
 language sql
-volatile
+stable
 security invoker
 set search_path = ''
 as $function$
@@ -275,7 +275,7 @@ grant execute on function public.get_my_membership_state() to service_role, auth
 create or replace function public.list_organization_invitations(p_organization_id uuid)
 returns setof jsonb
 language sql
-volatile
+stable
 security invoker
 set search_path = ''
 as $function$
@@ -289,7 +289,7 @@ grant execute on function public.list_organization_invitations(uuid) to service_
 create or replace function public.list_organization_members(p_organization_id uuid)
 returns setof jsonb
 language sql
-volatile
+stable
 security invoker
 set search_path = ''
 as $function$
@@ -303,7 +303,7 @@ grant execute on function public.list_organization_members(uuid) to service_role
 create or replace function public.list_organization_setup_options(p_organization_id uuid)
 returns jsonb
 language sql
-volatile
+stable
 security invoker
 set search_path = ''
 as $function$
@@ -316,7 +316,7 @@ grant execute on function public.list_organization_setup_options(uuid) to servic
 create or replace function public.list_organization_student_teacher_assignments(p_organization_id uuid)
 returns setof jsonb
 language sql
-volatile
+stable
 security invoker
 set search_path = ''
 as $function$
@@ -330,7 +330,7 @@ grant execute on function public.list_organization_student_teacher_assignments(u
 create or replace function public.list_organization_students(p_organization_id uuid)
 returns setof jsonb
 language sql
-volatile
+stable
 security invoker
 set search_path = ''
 as $function$
@@ -344,7 +344,7 @@ grant execute on function public.list_organization_students(uuid) to service_rol
 create or replace function public.list_organization_subject_catalog(p_organization_id uuid)
 returns jsonb
 language sql
-volatile
+stable
 security invoker
 set search_path = ''
 as $function$
@@ -357,7 +357,7 @@ grant execute on function public.list_organization_subject_catalog(uuid) to serv
 create or replace function public.list_organization_teacher_subject_scopes(p_organization_id uuid)
 returns setof jsonb
 language sql
-volatile
+stable
 security invoker
 set search_path = ''
 as $function$
