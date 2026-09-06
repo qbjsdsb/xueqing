@@ -152,7 +152,8 @@ void main() {
       expect(
         installResult.exitCode,
         0,
-        reason: 'A stable replacement should complete successfully. '
+        reason:
+            'A stable replacement should complete successfully. '
             'stdout: ${installResult.stdout} stderr: ${installResult.stderr}',
       );
       expect(
