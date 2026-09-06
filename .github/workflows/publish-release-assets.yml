@@ -51,6 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      release_commit: ${{ steps.release.outputs.release_commit }}
       version_name: ${{ steps.release.outputs.version_name }}
       build_number: ${{ steps.release.outputs.build_number }}
     steps:
@@ -89,6 +90,16 @@ jobs:
           if release["isDraft"] or release["isPrerelease"]:
               raise SystemExit("The target Release must be published and non-prerelease.")
           PY
+          release_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          compare_status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$release_commit...main" --jq '.status')"
+          compare_behind_by="$(gh api "repos/$GITHUB_REPOSITORY/compare/$release_commit...main" --jq '.behind_by')"
+          if [[ "$compare_behind_by" != "0" ]] ||
+             [[ "$compare_status" != "ahead" && "$compare_status" != "identical" ]]; then
+            echo "The release tag must point to a commit reachable from main."
+            exit 1
+          fi
+          echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
+          echo "release_commit=$release_commit (reachable from main)"
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
 
@@ -100,6 +111,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_commit }}
+          persist-credentials: false
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -178,6 +192,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.release_commit }}
+          persist-credentials: false
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -263,15 +280,10 @@ jobs:
           dart pub get
           dart analyze
           dart test
-          $releaseDir = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release"
-          $updaterPath = Join-Path $releaseDir "xueqing_updater.exe"
-          $bootstrapPath = Join-Path $releaseDir "xueqing_updater_bootstrap.exe"
+          $updaterPath = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release/xueqing_updater.exe"
           dart compile exe bin/xueqing_updater.dart -o $updaterPath
-          dart compile exe bin/xueqing_updater.dart -o $bootstrapPath
-          foreach ($helperPath in @($updaterPath, $bootstrapPath)) {
-            if (-not (Test-Path $helperPath)) {
-              throw "Windows updater helper was not produced: $helperPath"
-            }
+          if (-not (Test-Path $updaterPath)) {
+            throw "Windows updater helper was not produced."
           }
 
       - name: Upload Windows release build
@@ -313,7 +325,6 @@ jobs:
           cp release-input/android/app-release.apk "release-assets/$android_asset"
           test -f release-input/windows/xueqing.exe
           test -f release-input/windows/xueqing_updater.exe
-          test -f release-input/windows/xueqing_updater_bootstrap.exe
           (cd release-input/windows && zip -q -r "$GITHUB_WORKSPACE/release-assets/$windows_asset" .)
           export ANDROID_ASSET="$android_asset"
           export WINDOWS_ASSET="$windows_asset"
