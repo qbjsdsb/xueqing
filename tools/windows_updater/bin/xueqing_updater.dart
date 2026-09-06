@@ -10,9 +10,11 @@ const _bootstrapHelperFileName = 'xueqing_updater_bootstrap.exe';
 const _bootstrapMigrationMarkerName = '.xueqing_updater_bootstrap_migrated';
 const _waitTimeout = Duration(seconds: 90);
 // Flutter Windows cold starts can take several seconds while the process
-// initializes plugins and the embedded engine. Keep observing long enough to
-// distinguish a slow healthy start from a process that exits immediately.
-const _launchGracePeriod = Duration(seconds: 10);
+// initializes plugins and the embedded engine. Separate the startup wait from
+// the shorter stability check so a healthy test process need not run for the
+// entire startup window.
+const _launchStartupTimeout = Duration(seconds: 10);
+const _launchStabilityPeriod = Duration(seconds: 2);
 const _deleteRetryDelay = Duration(milliseconds: 250);
 const _deleteRetryCount = 20;
 
@@ -159,20 +161,26 @@ Future<int> _launchInstalledExecutable(
     mode: ProcessStartMode.detached,
   );
   try {
-    final deadline = DateTime.now().add(_launchGracePeriod);
-    var observedRunning = false;
-    while (DateTime.now().isBefore(deadline)) {
+    final startupDeadline = DateTime.now().add(_launchStartupTimeout);
+    while (DateTime.now().isBefore(startupDeadline)) {
       if (await _isProcessRunning(process.pid)) {
-        observedRunning = true;
-      } else if (observedRunning) {
-        throw StateError('更新后的程序启动后立即退出（pid ${process.pid}）。');
+        final stabilityDeadline = DateTime.now().add(_launchStabilityPeriod);
+        while (DateTime.now().isBefore(stabilityDeadline)) {
+          if (!await _isProcessRunning(process.pid)) {
+            throw StateError('更新后的程序启动后立即退出（pid ${process.pid}）。');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+        }
+        if (!await _isProcessRunning(process.pid)) {
+          throw StateError('更新后的程序未能保持运行（pid ${process.pid}）。');
+        }
+        return process.pid;
       }
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
-    if (!observedRunning || !await _isProcessRunning(process.pid)) {
-      throw StateError('更新后的程序未能在宽限期内保持运行（pid ${process.pid}）。');
-    }
-    return process.pid;
+    throw StateError(
+      '更新后的程序未能在 ${_launchStartupTimeout.inSeconds} 秒内启动（pid ${process.pid}）。',
+    );
   } catch (error) {
     Object? terminationError;
     try {
