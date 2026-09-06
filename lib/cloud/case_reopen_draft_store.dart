@@ -165,7 +165,7 @@ class SecureCaseReopenDraftStore implements CaseReopenDraftStore {
       );
     } on Object {
       await _storage.delete(key: key);
-      return null;
+      rethrow;
     }
   }
 
