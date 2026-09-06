@@ -51,6 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      release_commit: ${{ steps.release.outputs.release_commit }}
       version_name: ${{ steps.release.outputs.version_name }}
       build_number: ${{ steps.release.outputs.build_number }}
     steps:
@@ -97,6 +98,7 @@ jobs:
             echo "The release tag must point to a commit reachable from main."
             exit 1
           fi
+          echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
           echo "release_commit=$release_commit (reachable from main)"
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
@@ -110,7 +112,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_tag }}
+          ref: ${{ needs.validate.outputs.release_commit }}
           persist-credentials: false
 
       - name: Set up Flutter
@@ -191,7 +193,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_tag }}
+          ref: ${{ needs.validate.outputs.release_commit }}
           persist-credentials: false
 
       - name: Set up Flutter
