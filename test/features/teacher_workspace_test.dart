@@ -595,7 +595,10 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, '继续查看'));
     await tester.pumpAndSettle();
     expect(find.text('提交结果未确认'), findsNothing);
-    expect(find.text('完成行动'), findsOneWidget);
+    expect(
+      find.byKey(const Key('complete-action-type-dropdown')),
+      findsOneWidget,
+    );
 
     final retryButton = find.widgetWithText(FilledButton, '重试原提交');
     await tester.ensureVisible(retryButton);
