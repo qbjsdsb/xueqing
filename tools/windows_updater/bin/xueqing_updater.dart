@@ -5,6 +5,8 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:xueqing_windows_updater/updater_safety.dart';
 
+// Temporary formatter probe marker.
+
 const _canonicalHelperFileName = 'xueqing_updater.exe';
 const _bootstrapHelperFileName = 'xueqing_updater_bootstrap.exe';
 const _bootstrapMigrationMarkerName = '.xueqing_updater_bootstrap_migrated';
