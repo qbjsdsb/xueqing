@@ -119,6 +119,28 @@ extension WorkspaceActionBucketPresentation on WorkspaceActionBucket {
 
 enum WorkspaceActionStatus { pending, done, cancelled }
 
+enum CaseActionType { reteach, practice, verify, communicate, review, other }
+
+extension CaseActionTypePresentation on CaseActionType {
+  String get wireValue => switch (this) {
+    CaseActionType.reteach => 'reteach',
+    CaseActionType.practice => 'practice',
+    CaseActionType.verify => 'verify',
+    CaseActionType.communicate => 'communicate',
+    CaseActionType.review => 'review',
+    CaseActionType.other => 'other',
+  };
+
+  String get label => switch (this) {
+    CaseActionType.reteach => '再教一次',
+    CaseActionType.practice => '练习',
+    CaseActionType.verify => '验证',
+    CaseActionType.communicate => '家校沟通',
+    CaseActionType.review => '复查',
+    CaseActionType.other => '其他',
+  };
+}
+
 class WorkspaceAction {
   const WorkspaceAction({
     required this.id,
@@ -625,6 +647,39 @@ class RescheduleCaseActionCommand {
   }
 }
 
+class CompleteCaseActionCommand {
+  const CompleteCaseActionCommand({
+    required this.operationId,
+    required this.actionId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.expectedActionVersion,
+    required this.nextActionType,
+    required this.nextActionTitle,
+    required this.nextActionDueOn,
+  });
+
+  final String operationId;
+  final String actionId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final int expectedActionVersion;
+  final CaseActionType nextActionType;
+  final String nextActionTitle;
+  final DateTime? nextActionDueOn;
+
+  void validate() {
+    _validateActionCommandIdentity(
+      operationId: operationId,
+      actionId: actionId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+      expectedActionVersion: expectedActionVersion,
+    );
+    _validateNextActionTitle(nextActionTitle);
+  }
+}
+
 abstract interface class LearningRepository {
   Future<TeacherWorkspace> loadWorkspace();
 
@@ -661,6 +716,10 @@ abstract interface class LearningRepository {
 
   Future<CaseCommandReceipt> rescheduleCaseAction(
     RescheduleCaseActionCommand command,
+  );
+
+  Future<CaseCommandReceipt> completeCaseAction(
+    CompleteCaseActionCommand command,
   );
 }
 
@@ -1249,6 +1308,26 @@ class SupabaseLearningRepository implements LearningRepository {
     );
   }
 
+  @override
+  Future<CaseCommandReceipt> completeCaseAction(
+    CompleteCaseActionCommand command,
+  ) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'complete_case_action',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_action_id': command.actionId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_expected_action_version': command.expectedActionVersion,
+        'p_next_action_type': command.nextActionType.wireValue,
+        'p_next_action_title': command.nextActionTitle.trim(),
+        'p_next_action_due_on': _dateOnlyString(command.nextActionDueOn),
+      },
+    );
+  }
+
   Future<CaseCommandReceipt> _invokeCaseCommand({
     required String functionName,
     required Map<String, dynamic> params,
@@ -1683,6 +1762,8 @@ String _eventTypeLabel(String value) {
     'assessment_recorded' => 'Assessment / 验证',
     'case_stabilized' => 'Case / 稳定',
     'case_closed' => 'Case / 关闭',
+    'action_completed' => 'Action / 完成',
+    'action_rescheduled' => 'Action / 改期',
     _ => '记录',
   };
 }
@@ -1700,6 +1781,8 @@ String _eventText(String eventType, dynamic rawMetadata) {
       '记录了一次验证：${_assessmentResultLabel(metadata['result'])}。',
     'case_stabilized' => '教师确认 Case 已稳定，仍可安排复查。',
     'case_closed' => 'Case 已关闭。',
+    'action_completed' => '完成了当前行动，并安排了下一步。',
+    'action_rescheduled' => '调整了下一行动的日期。',
     _ => '记录了一条 Case 事件。',
   };
 }
