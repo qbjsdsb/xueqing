@@ -4285,8 +4285,7 @@ class _WorkspaceCompleteActionFormState
       setState(() {
         _saving = false;
         _saveError =
-            _describeCaseCommandError(error) +
-            '\n本次提交内容已锁定；重试只会查询同一 operation ID。若需修改，请关闭表单并刷新后重新打开。';
+            '${_describeCaseCommandError(error)}\n本次提交内容已锁定；重试只会查询同一 operation ID。若需修改，请关闭表单并刷新后重新打开。';
       });
     }
   }
