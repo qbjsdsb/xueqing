@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xueqing/app/theme/app_theme.dart';
+import 'package:xueqing/cloud/case_reopen_draft_store.dart';
 import 'package:xueqing/cloud/learning_repository.dart';
 import 'package:xueqing/features/teacher_workspace/presentation/'
     'teacher_workspace_page.dart';
@@ -19,6 +20,8 @@ class _FakeLearningRepository implements LearningRepository {
   bool failFirstClose = false;
   bool failFirstReschedule = false;
   bool failFirstComplete = false;
+  bool failFirstEvidence = false;
+  bool failFirstReopen = false;
   int addEvidenceCount = 0;
   int reopenCount = 0;
   final List<QuickCaptureCommand> commands = <QuickCaptureCommand>[];
@@ -198,6 +201,9 @@ class _FakeLearningRepository implements LearningRepository {
   ) async {
     addEvidenceCount++;
     addEvidenceCommands.add(command);
+    if (failFirstEvidence && addEvidenceCount == 1) {
+      throw StateError('case_recurrence_before_close');
+    }
     return CaseCommandReceipt(
       operationId: command.operationId,
       caseId: command.caseId,
@@ -213,6 +219,9 @@ class _FakeLearningRepository implements LearningRepository {
   Future<CaseCommandReceipt> reopenCase(ReopenCaseCommand command) async {
     reopenCount++;
     reopenCommands.add(command);
+    if (failFirstReopen && reopenCount == 1) {
+      throw StateError('network unavailable');
+    }
     return CaseCommandReceipt(
       operationId: command.operationId,
       caseId: command.caseId,
@@ -471,12 +480,18 @@ TeacherWorkspace _workspaceWithStudents(List<WorkspaceStudent> students) {
 
 Future<void> _pumpWorkspace(
   WidgetTester tester,
-  _FakeLearningRepository repository,
-) async {
+  _FakeLearningRepository repository, {
+  CaseReopenDraftStore? draftStore,
+  String? sessionUserId,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light(),
-      home: TeacherWorkspacePage(repository: repository),
+      home: TeacherWorkspacePage(
+        repository: repository,
+        caseReopenDraftStore: draftStore,
+        sessionUserId: sessionUserId,
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -1494,6 +1509,122 @@ void main() {
       <String, int>{'evidence-recurrence': 1},
     );
     expect(find.textContaining('Case 进入已确认'), findsOneWidget);
+  });
+
+
+  testWidgets('restores an unfinished reopen after the page is recreated', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.closed),
+    )..failFirstReopen = true;
+    final store = InMemoryCaseReopenDraftStore();
+    const scope = 'user:user-1|organization:org-1|case:case-1';
+
+    await _pumpWorkspace(
+      tester,
+      repository,
+      draftStore: store,
+      sessionUserId: 'user-1',
+    );
+    await tester.tap(find.text('示例学生甲').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '记录复发并重新打开'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-title')),
+      '关闭后再次出现同类表现',
+    );
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-summary')),
+      '学生再次跳过通分步骤，需要重新安排验证。',
+    );
+    await tester.enterText(
+      find.byKey(const Key('reopen-next-action')),
+      '复核复发原因并安排验证',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '保存 Evidence'));
+    await tester.pumpAndSettle();
+
+    expect(repository.addEvidenceCount, 1);
+    expect(repository.reopenCount, 1);
+    final firstEvidenceOperationId =
+        repository.addEvidenceCommands.single.operationId;
+    final firstReopenOperationId = repository.reopenCommands.single.operationId;
+    final draft = await store.load(scope);
+    expect(draft?.evidenceId, 'evidence-recurrence');
+    expect(draft?.evidenceOperationId, firstEvidenceOperationId);
+    expect(draft?.reopenOperationId, firstReopenOperationId);
+
+    await _pumpWorkspace(
+      tester,
+      repository,
+      draftStore: store,
+      sessionUserId: 'user-1',
+    );
+    await tester.tap(find.text('示例学生甲').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '记录复发并重新打开'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, '重新打开 Case'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '重新打开 Case'));
+    await tester.pumpAndSettle();
+
+    expect(repository.addEvidenceCount, 1);
+    expect(repository.reopenCount, 2);
+    expect(
+      repository.reopenCommands[1].operationId,
+      firstReopenOperationId,
+    );
+    expect(await store.load(scope), isNull);
+    expect(find.textContaining('Case 进入已确认'), findsOneWidget);
+  });
+
+  testWidgets('unlocks a reopen form after a deterministic Evidence failure', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.closed),
+    )..failFirstEvidence = true;
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.text('示例学生甲').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '记录复发并重新打开'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-title')),
+      '关闭后再次出现同类表现',
+    );
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-summary')),
+      '学生再次跳过通分步骤，需要重新安排验证。',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '保存 Evidence'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('观察时间必须晚于最近一次关闭时间'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(
+        find.byKey(const Key('reopen-evidence-title')),
+      ).enabled,
+      isTrue,
+    );
+    expect(
+      tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, '取消').last,
+      ).onPressed,
+      isNotNull,
+    );
   });
 
   testWidgets('does not expose student data without teaching access', (
