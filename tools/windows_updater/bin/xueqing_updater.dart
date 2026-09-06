@@ -365,7 +365,19 @@ class _UpdaterOptions {
         installDirectory == null ||
         launchPath == null ||
         sha256Value == null ||
-        !RegExp(r'^[0-9a-f]{64}
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(sha256Value) ||
+        (cleanupPath != null && !_isSafeCleanupPath(cleanupPath))) {
+      throw const FormatException('更新参数缺失、临时组件路径无效或 SHA-256 无效。');
+    }
+
+    return _UpdaterOptions(
+      pid: pid,
+      packagePath: packagePath,
+      installDirectory: installDirectory,
+      launchPath: launchPath,
+      sha256: sha256Value,
+      cleanupPath: cleanupPath,
+    );
   }
 
   final int pid;
@@ -388,27 +400,4 @@ bool _isSafeCleanupPath(String path) {
   return candidate.toLowerCase().startsWith(prefix.toLowerCase()) &&
       fileName.startsWith('xueqing-updater-') &&
       fileName.endsWith('.exe');
-}
-).hasMatch(sha256Value) ||
-        (cleanupPath != null && !_isSafeCleanupPath(cleanupPath))) {
-      throw const FormatException('更新参数缺失、临时组件路径无效或 SHA-256 无效。');
-    }
-
-    return _UpdaterOptions(
-      pid: pid,
-      packagePath: packagePath,
-      installDirectory: installDirectory,
-      launchPath: launchPath,
-      sha256: sha256Value,
-      cleanupPath: cleanupPath,
-    );
-  }
-
-  final int pid;
-  final String packagePath;
-  final String installDirectory;
-  final String launchPath;
-  final String sha256;
-
-  File get packageFile => File(packagePath);
 }
