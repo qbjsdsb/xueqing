@@ -5,13 +5,16 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:xueqing_windows_updater/updater_safety.dart';
 
-const _helperFileName = 'xueqing_updater.exe';
+const _canonicalHelperFileName = 'xueqing_updater.exe';
+const _bootstrapHelperFileName = 'xueqing_updater_bootstrap.exe';
+const _bootstrapMigrationMarkerName = '.xueqing_updater_bootstrap_migrated';
 const _waitTimeout = Duration(seconds: 90);
 const _launchGracePeriod = Duration(seconds: 2);
 
 Future<void> main(List<String> args) async {
+  _UpdaterOptions? options;
   try {
-    final options = _UpdaterOptions.parse(args);
+    options = _UpdaterOptions.parse(args);
     await _runUpdate(options);
     stdout.writeln('Xueqing update installed successfully.');
     exitCode = 0;
@@ -19,9 +22,13 @@ Future<void> main(List<String> args) async {
     stderr.writeln('Xueqing update failed: $error');
     stderr.writeln(stackTrace);
     exitCode = 1;
+  } finally {
+    final cleanupPath = options?.cleanupPath;
+    if (cleanupPath != null) {
+      await _scheduleSelfCleanup(cleanupPath);
+    }
   }
 }
-
 Future<void> _runUpdate(_UpdaterOptions options) async {
   await _waitForProcessToExit(options.pid);
   await _verifySha256(options.packageFile, options.sha256);
@@ -34,10 +41,15 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
   );
   var backupReady = false;
   var preserveBackup = false;
+  final skipFileNames = <String>{
+    _baseName(Platform.resolvedExecutable),
+    _bootstrapMigrationMarkerName,
+  };
 
   try {
     await _extractZip(options.packageFile, stagingDirectory);
     _requireStagedExecutable(stagingDirectory, options.launchPath);
+    _requireStagedUpdater(stagingDirectory);
 
     final installDirectory = Directory(options.installDirectory);
     if (!await installDirectory.exists()) {
@@ -47,19 +59,19 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
     await _copyTree(
       installDirectory,
       backupDirectory,
-      skipFileName: _helperFileName,
+      skipFileNames: skipFileNames,
     );
     backupReady = true;
 
     try {
       await _clearInstallDirectory(
         installDirectory,
-        skipFileName: _helperFileName,
+        skipFileNames: skipFileNames,
       );
       await _copyTree(
         stagingDirectory,
         installDirectory,
-        skipFileName: _helperFileName,
+        skipFileNames: skipFileNames,
       );
       final installedExecutable = File(options.launchPath);
       if (!await installedExecutable.exists()) {
@@ -70,6 +82,7 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
         installedExecutable.path,
         installDirectory.path,
       );
+      await _markBootstrapMigrationComplete(installDirectory);
     } catch (error) {
       if (!backupReady) {
         rethrow;
@@ -78,7 +91,7 @@ Future<void> _runUpdate(_UpdaterOptions options) async {
         await _restoreFromBackup(
           installDirectory,
           backupDirectory,
-          skipFileName: _helperFileName,
+          skipFileNames: skipFileNames,
         );
       } catch (restoreError) {
         preserveBackup = true;
@@ -134,6 +147,25 @@ Future<void> _launchInstalledExecutable(
   }
 }
 
+Future<void> _scheduleSelfCleanup(String path) async {
+  if (!Platform.isWindows) {
+    return;
+  }
+  try {
+    final escapedPath = path.replaceAll('"', '""');
+    await Process.start(
+      'cmd.exe',
+      <String>[
+        '/d',
+        '/c',
+        'ping.exe 127.0.0.1 -n 3 > nul & del /f /q "$escapedPath"',
+      ],
+      mode: ProcessStartMode.detached,
+    );
+  } on Object catch (error) {
+    stderr.writeln('无法清理临时更新组件：$error');
+  }
+}
 Future<void> _waitForProcessToExit(int processId) async {
   final deadline = DateTime.now().add(_waitTimeout);
   while (DateTime.now().isBefore(deadline)) {
@@ -196,12 +228,45 @@ void _requireStagedExecutable(Directory stagingDirectory, String launchPath) {
   }
 }
 
+void _requireStagedUpdater(Directory stagingDirectory) {
+  final canonicalHelper = File(
+    _join(stagingDirectory.path, _canonicalHelperFileName),
+  );
+  final bootstrapHelper = File(
+    _join(stagingDirectory.path, _bootstrapHelperFileName),
+  );
+  if (!canonicalHelper.existsSync() && !bootstrapHelper.existsSync()) {
+    throw StateError(
+      '压缩包缺少 Windows 更新组件：$_canonicalHelperFileName 或 '
+      '$_bootstrapHelperFileName',
+    );
+  }
+}
+
+Future<void> _markBootstrapMigrationComplete(
+  Directory installDirectory,
+) async {
+  if (_baseName(Platform.resolvedExecutable).toLowerCase() !=
+      _bootstrapHelperFileName) {
+    return;
+  }
+  final marker = File(
+    _join(installDirectory.path, _bootstrapMigrationMarkerName),
+  );
+  await marker.writeAsString('migrated\n', flush: true);
+}
+
+bool _shouldSkip(String name, Set<String> skipFileNames) {
+  final lowerName = name.toLowerCase();
+  return skipFileNames.any((candidate) => candidate.toLowerCase() == lowerName);
+}
+
 Future<void> _clearInstallDirectory(
   Directory installDirectory, {
-  required String skipFileName,
+  required Set<String> skipFileNames,
 }) async {
   await for (final entity in installDirectory.list(followLinks: false)) {
-    if (_baseName(entity.path) == skipFileName) {
+    if (_shouldSkip(_baseName(entity.path), skipFileNames)) {
       continue;
     }
     await entity.delete(recursive: true);
@@ -211,7 +276,7 @@ Future<void> _clearInstallDirectory(
 Future<void> _copyTree(
   Directory source,
   Directory destination, {
-  required String skipFileName,
+  required Set<String> skipFileNames,
 }) async {
   await destination.create(recursive: true);
   await for (final entity in source.list(followLinks: false)) {
@@ -227,7 +292,7 @@ Future<void> _copyTree(
       await _copyTree(
         entity,
         Directory(_join(destination.path, name)),
-        skipFileName: skipFileName,
+        skipFileNames: skipFileNames,
       );
     } else if (entity is Link) {
       throw StateError('安装目录包含不支持的符号链接：${entity.path}');
@@ -238,7 +303,7 @@ Future<void> _copyTree(
 Future<void> _restoreFromBackup(
   Directory installDirectory,
   Directory backupDirectory, {
-  required String skipFileName,
+  required Set<String> skipFileNames,
 }) async {
   await for (final entity in installDirectory.list(followLinks: false)) {
     final name = _baseName(entity.path);
@@ -275,6 +340,7 @@ class _UpdaterOptions {
     required this.installDirectory,
     required this.launchPath,
     required this.sha256,
+    this.cleanupPath,
   });
 
   factory _UpdaterOptions.parse(List<String> args) {
@@ -294,12 +360,38 @@ class _UpdaterOptions {
     final installDirectory = values['install-dir'];
     final launchPath = values['launch'];
     final sha256Value = values['sha256']?.toLowerCase();
+    final cleanupPath = values['cleanup-path'];
     if (packagePath == null ||
         installDirectory == null ||
         launchPath == null ||
         sha256Value == null ||
-        !RegExp(r'^[0-9a-f]{64}$').hasMatch(sha256Value)) {
-      throw const FormatException('更新参数缺失或 SHA-256 无效。');
+        !RegExp(r'^[0-9a-f]{64}
+  }
+
+  final int pid;
+  final String packagePath;
+  final String installDirectory;
+  final String launchPath;
+  final String sha256;
+  final String? cleanupPath;
+
+  File get packageFile => File(packagePath);
+}
+
+bool _isSafeCleanupPath(String path) {
+  final tempDirectory = Directory.systemTemp.absolute.path;
+  final candidate = File(path).absolute.path;
+  final prefix = tempDirectory.endsWith(Platform.pathSeparator)
+      ? tempDirectory
+      : '$tempDirectory${Platform.pathSeparator}';
+  final fileName = _baseName(candidate).toLowerCase();
+  return candidate.toLowerCase().startsWith(prefix.toLowerCase()) &&
+      fileName.startsWith('xueqing-updater-') &&
+      fileName.endsWith('.exe');
+}
+).hasMatch(sha256Value) ||
+        (cleanupPath != null && !_isSafeCleanupPath(cleanupPath))) {
+      throw const FormatException('更新参数缺失、临时组件路径无效或 SHA-256 无效。');
     }
 
     return _UpdaterOptions(
@@ -308,6 +400,7 @@ class _UpdaterOptions {
       installDirectory: installDirectory,
       launchPath: launchPath,
       sha256: sha256Value,
+      cleanupPath: cleanupPath,
     );
   }
 

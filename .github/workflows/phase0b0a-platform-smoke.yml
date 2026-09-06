@@ -169,10 +169,15 @@ jobs:
           dart pub get
           dart analyze
           dart test
-          $updaterPath = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release/xueqing_updater.exe"
+          $releaseDir = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release"
+          $updaterPath = Join-Path $releaseDir "xueqing_updater.exe"
+          $bootstrapPath = Join-Path $releaseDir "xueqing_updater_bootstrap.exe"
           dart compile exe bin/xueqing_updater.dart -o $updaterPath
-          if (-not (Test-Path $updaterPath)) {
-            throw "Windows updater helper was not produced."
+          dart compile exe bin/xueqing_updater.dart -o $bootstrapPath
+          foreach ($helperPath in @($updaterPath, $bootstrapPath)) {
+            if (-not (Test-Path $helperPath)) {
+              throw "Windows updater helper was not produced: $helperPath"
+            }
           }
 
       - name: Upload Windows release bundle
