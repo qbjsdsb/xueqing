@@ -1566,9 +1566,9 @@ void main() {
       draftStore: store,
       sessionUserId: 'user-1',
     );
-    final studentRow = find.text('示例学生甲').first;
-    await tester.ensureVisible(studentRow);
-    await tester.tap(studentRow);
+    final restoredStudentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(restoredStudentRow);
+    await tester.tap(restoredStudentRow);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
