@@ -9,6 +9,8 @@ with expected(signature, authenticated_allowed) as (
     ('public.approve_organization_invitation(uuid)'::regprocedure, true),
     ('public.archive_organization_case_type(uuid, integer)'::regprocedure, true),
     ('public.close_case(uuid, uuid, integer, timestamp with time zone)'::regprocedure, true),
+    ('public.complete_case_action(uuid, uuid, uuid, integer, integer, text, text, date)'::regprocedure, true),
+    ('public.reopen_case(uuid, uuid, integer, uuid[], jsonb, text, text, date)'::regprocedure, true),
     ('public.complete_member_onboarding()'::regprocedure, true),
     ('public.confirm_case(uuid, uuid, integer, text, timestamp with time zone)'::regprocedure, true),
     ('public.create_organization_case_type(uuid, text, text)'::regprocedure, true),
@@ -51,7 +53,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 35
+  (select count(*) from found) = 37
   and not exists (
     select 1
     from found
@@ -69,6 +71,8 @@ with expected(signature, authenticated_allowed) as (
     ('private.approve_organization_invitation(uuid)'::regprocedure, true),
     ('private.archive_organization_case_type(uuid, integer)'::regprocedure, true),
     ('private.close_case(uuid, uuid, integer, timestamp with time zone)'::regprocedure, true),
+    ('private.complete_case_action_v2(uuid, uuid, uuid, integer, integer, text, text, date)'::regprocedure, true),
+    ('private.reopen_case_v2(uuid, uuid, integer, uuid[], jsonb, text, text, date)'::regprocedure, true),
     ('private.complete_member_onboarding()'::regprocedure, true),
     ('private.confirm_case(uuid, uuid, integer, text, timestamp with time zone)'::regprocedure, true),
     ('private.create_organization_case_type(uuid, text, text)'::regprocedure, true),
@@ -111,7 +115,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 35
+  (select count(*) from found) = 37
   and not exists (
     select 1
     from found
