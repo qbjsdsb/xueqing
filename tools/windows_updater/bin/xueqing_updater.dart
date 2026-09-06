@@ -282,7 +282,7 @@ Future<void> _copyTree(
   await for (final entity in source.list(followLinks: false)) {
     final name = _baseName(entity.path);
     if (entity is File) {
-      if (name == skipFileName) {
+      if (_shouldSkip(name, skipFileNames)) {
         continue;
       }
       final target = File(_join(destination.path, name));
@@ -315,7 +315,7 @@ Future<void> _restoreFromBackup(
   await _copyTree(
     backupDirectory,
     installDirectory,
-    skipFileName: skipFileName,
+    skipFileNames: skipFileNames,
   );
 }
 
