@@ -20,6 +20,8 @@ Case 的 Evidence 区补充一张现场图片。图片只是 Evidence 的补充�
 - Android 从相机返回时尝试恢复系统因内存压力暂存的选图结果；
 - Quick Capture 在文字 Case 成功后登记图片，登记失败会保留窗口和输入供重试；
 - Case 详情按 Evidence 显示缩略图，点击后用短时 signed URL 查看大图。
+- Storage 上传策略通过已授权的 `private.can_write_case_evidence_attachment_v2` 包装函数执行教学范围校验，避免 authenticated 用户直接调用内部函数导致 403；
+- 上传失败提示区分权限、网络、格式和 Case 责任状态，保留当前窗口中的图片供重试。
 
 ## 为什么采用两阶段上传
 
@@ -32,10 +34,11 @@ Supabase Storage 的对象写入和业务元数据写入不是同一个数据库
 
 ## 验证状态
 
-- `xueqing-dev` 已应用 `phase_0b_1_e_case_evidence_attachments` 和后续路径字面量修正迁移；
+- `xueqing-dev` 已应用附件基础、路径/文件名修正、附件注册 RPC 安全边界和 Storage 权限修正迁移；
 - 远端结构核验：私有 bucket、10 MB 限制、附件表、元数据读取策略、Storage 三条策略和 RPC 均存在；
-- Flutter/Dart 静态分析：通过；
-- 真实 Android 相机、Windows 选择器、真实图片上传和 signed URL 访问：待在设备 / 可访问远端网络上执行；
+- 虚构教师账号的真实远端 API 上传、附件登记和 signed URL 读取：通过；
+- Flutter/Dart 静态分析和全量测试：以候选分支 CI 为准；
+- 真实 Android 相机、Windows 选择器、无代理网络、跨机构拒绝和 closed Case 拒绝：待设备验收；
 - 本地 Supabase 全量重建测试：待 CI 或具备 Supabase CLI 的环境执行。
 
 ## 运行边界

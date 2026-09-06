@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(17);
 
 select is(
   (
@@ -128,6 +128,52 @@ select is(
   ),
   1,
   'Storage upload is limited to assigned teachers and canonical Evidence paths'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'private.can_write_case_evidence_attachment_v2(uuid)',
+    'execute'
+  ),
+  true,
+  'authenticated users can evaluate the granted Storage write wrapper'
+);
+
+select is(
+  position(
+    'can_write_case_evidence_attachment_v2' in
+      coalesce(
+        (
+          select with_check
+          from pg_policies
+          where schemaname = 'storage'
+            and tablename = 'objects'
+            and policyname = 'teachers can upload case evidence attachments'
+        ),
+        ''
+      )
+  ) > 0,
+  true,
+  'Storage upload policy calls the granted write wrapper'
+);
+
+select is(
+  position(
+    'current_teaching_membership_for_profile_v2' in
+      coalesce(
+        (
+          select with_check
+          from pg_policies
+          where schemaname = 'storage'
+            and tablename = 'objects'
+            and policyname = 'teachers can upload case evidence attachments'
+        ),
+        ''
+      )
+  ),
+  0,
+  'Storage upload policy does not call the ungranted internal helper'
 );
 
 select is(

@@ -10,6 +10,7 @@ const corsHeaders = {
 const publicErrorCodes = new Set([
   "app_user_disabled",
   "auth_user_not_found",
+  "credential_update_failed",
   "current_membership_immutable",
   "invalid_invitation_input",
   "invalid_live_session",
@@ -21,6 +22,8 @@ const publicErrorCodes = new Set([
   "invitation_not_found",
   "invitation_not_revocable",
   "member_not_onboarding",
+  "member_provisioning_failed",
+  "member_provisioning_unavailable",
   "membership_not_found",
   "organization_manager_required",
   "organization_not_available",
@@ -31,11 +34,16 @@ const publicErrorCodes = new Set([
   "onboarding_not_required",
   "provision_cleanup_required",
   "provision_recovery_required",
+  "role_not_allowed",
   "user_already_member_elsewhere",
 ]);
 
+// Validate the canonical UUID shape, but do not treat the version/variant
+// bits as an authorization condition. The deterministic fictional seed data
+// intentionally uses UUID-shaped identifiers with version 0; database
+// membership and organization checks remain the actual security boundary.
 const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 class ProvisioningError extends Error {
   readonly code: string;
@@ -165,9 +173,24 @@ function normalizedRole(value: unknown): string {
 
 function errorCode(error: unknown, fallback: string): string {
   if (error instanceof ProvisioningError) return error.code;
-  const message = error instanceof Error ? error.message.trim() : "";
+  let message = "";
+  if (error instanceof Error) {
+    message = error.message.trim();
+  } else if (error && typeof error === "object") {
+    const object = error as Record<string, unknown>;
+    message = [object.message, object.details, object.hint, object.code]
+      .filter((value): value is string => typeof value === "string")
+      .join("\n")
+      .trim();
+  } else {
+    message = String(error ?? "").trim();
+  }
   const firstLine = message.split("\n", 1)[0]?.trim() ?? "";
-  return publicErrorCodes.has(firstLine) ? firstLine : fallback;
+  if (publicErrorCodes.has(firstLine)) return firstLine;
+  for (const code of publicErrorCodes) {
+    if (message.includes(code)) return code;
+  }
+  return fallback;
 }
 
 function asObject(value: unknown): JsonObject {

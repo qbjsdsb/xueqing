@@ -3322,14 +3322,7 @@ class _WorkspaceQuickCaptureFormState
   }
 
   String _describeAttachmentError(Object error) {
-    final detail = error.toString().toLowerCase();
-    if (detail.contains('10 mb') || detail.contains('too large')) {
-      return '图片不能超过 10 MB。';
-    }
-    if (detail.contains('cancel') || detail.contains('cancelled')) {
-      return '已取消选择图片。';
-    }
-    return '图片读取失败，请换一张 JPG、PNG 或 WEBP 图片后重试。';
+    return describeEvidenceAttachmentError(error);
   }
 
   Future<void> _save() async {
@@ -3395,8 +3388,8 @@ class _WorkspaceQuickCaptureFormState
           }
           setState(() {
             _saving = false;
-            _saveError =
-                '文字已保存，但图片上传失败：${_describeAttachmentError(error)} '
+            _saveError = '文字已保存，但图片上传失败：'
+                '${describeEvidenceAttachmentError(error, duringUpload: true)} '
                 '请保持当前窗口打开后重试。';
           });
           return;
@@ -5837,19 +5830,7 @@ class _EvidenceAttachmentPreview {
 }
 
 String _describeAttachmentUiError(Object error) {
-  final detail = error.toString().toLowerCase();
-  if (detail.contains('10 mb') || detail.contains('too large')) {
-    return '图片不能超过 10 MB。';
-  }
-  if (detail.contains('invalid_live_session') || detail.contains('session')) {
-    return '登录状态已变化，请重新登录后再添加图片。';
-  }
-  if (detail.contains('network') ||
-      detail.contains('socket') ||
-      detail.contains('timeout')) {
-    return '网络暂时不可用，请检查网络后重试。';
-  }
-  return '图片上传失败，请换一张 JPG、PNG 或 WEBP 图片后重试。';
+  return describeEvidenceAttachmentError(error, duringUpload: true);
 }
 
 class _WorkspaceTimelineItem extends StatelessWidget {

@@ -12,7 +12,7 @@ Auth Admin 的 `service_role` / secret key 只能配置在 Supabase Edge Functio
 
 1. 合并成员开通 PR，并等待 Flutter 与 Supabase CI 通过。
 2. 在 Supabase 项目设置中关闭公开自注册；客户端账号只能由受控的成员开通流程创建。远端项目设置不会因为本地 `supabase/config.toml` 自动改变，需要在项目设置中单独核对。
-3. 先在开发项目应用数据库 migration，再部署 `organization-member-credentials` Edge Function。
+3. 先在开发项目应用数据库 migration（包括成员开通、Case reopen、附件注册安全边界和 Storage 权限修正），再部署最新的 `organization-member-credentials` Edge Function。
 4. 给 Edge Function 配置 Supabase URL、publishable key 和 service key。service key 只通过 Supabase Secrets/环境变量配置，不要写入命令历史、聊天或代码。
 5. 用虚构的负责人、管理员和老师账号完成下面的验收清单；通过前不发布安装包，也不切换生产项目。
 
@@ -25,6 +25,7 @@ Auth Admin 的 `service_role` / secret key 只能配置在 Supabase Edge Functio
 - 邮箱已有 Auth 账号：系统不触碰原密码，只返回一次性邀请代码；受邀人必须用完全匹配的邮箱登录后接受代码。
 - 管理员不能直接把 `onboarding` 成员改成 `active`；受邀人必须先完成首次接管。
 - 负责人角色由管理员提名后，必须由现有负责人审批，审批后才能开通。
+- 如果页面提示“机构暂不可用”，先刷新并确认 Edge Function 与当前 migration 同步；开发种子的 UUID 只要求完整结构，不要求版本位必须为 1–5。
 
 ## 受邀人首次接管
 

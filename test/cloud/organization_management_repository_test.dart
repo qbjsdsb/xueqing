@@ -110,6 +110,31 @@ void main() {
     );
   });
 
+  test('maps provisioning service failures to actionable copy', () {
+    expect(
+      organizationMemberProvisioningErrorMessage(
+        const OrganizationMemberProvisioningException(
+          'organization_not_available',
+        ),
+      ),
+      '当前机构暂不可用，请刷新页面后重试。',
+    );
+    expect(
+      organizationMemberProvisioningErrorMessage(
+        const OrganizationMemberProvisioningException(
+          'member_provisioning_unavailable',
+        ),
+      ),
+      '成员开通服务暂时不可用，请稍后重试；原邀请不会重复创建。',
+    );
+    expect(
+      organizationMemberProvisioningErrorMessage(
+        const OrganizationMemberProvisioningException('invalid_live_session'),
+      ),
+      '登录状态已失效，请重新登录后再试。',
+    );
+  });
+
   test('parses and filters effective teacher subject setup options', () {
     final options = OrganizationSetupOptions.fromJson({
       'subjects': [

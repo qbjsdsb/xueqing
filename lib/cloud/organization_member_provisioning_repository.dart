@@ -130,25 +130,34 @@ class SupabaseOrganizationMemberProvisioningRepository
       throw const AuthException('No active session.');
     }
 
-    final response = await _client.functions.invoke(
-      'organization-member-credentials',
-      body: body,
-      headers: <String, String>{'Authorization': 'Bearer $accessToken'},
-    );
-    _assertSameSession(authUser.id);
-    final raw = response.data;
-    if (raw is! Map) {
-      throw const FormatException(
-        'Member provisioning returned an invalid result.',
+    try {
+      final response = await _client.functions.invoke(
+        'organization-member-credentials',
+        body: body,
+        headers: <String, String>{'Authorization': 'Bearer $accessToken'},
       );
+      _assertSameSession(authUser.id);
+      final raw = response.data;
+      if (raw is! Map) {
+        throw const FormatException(
+          'Member provisioning returned an invalid result.',
+        );
+      }
+      final json = Map<String, dynamic>.from(raw);
+      if (json['ok'] == false) {
+        throw OrganizationMemberProvisioningException(
+          _stringValue(json['error']) ?? 'member_provisioning_failed',
+        );
+      }
+      return OrganizationMemberProvisioningResult.fromJson(json);
+    } catch (error) {
+      _assertSameSession(authUser.id);
+      final code = _knownProvisioningErrorCode(error);
+      if (code != null) {
+        throw OrganizationMemberProvisioningException(code);
+      }
+      rethrow;
     }
-    final json = Map<String, dynamic>.from(raw);
-    if (json['ok'] == false) {
-      throw OrganizationMemberProvisioningException(
-        _stringValue(json['error']) ?? 'member_provisioning_failed',
-      );
-    }
-    return OrganizationMemberProvisioningResult.fromJson(json);
   }
 
   void _assertSameSession(String userId) {
@@ -264,17 +273,71 @@ String? organizationMemberProvisioningErrorMessage(Object error) {
     'invitation_not_found' => '邀请已不存在，请刷新后重试。',
     'member_not_onboarding' => '该成员已经完成接管或当前不在待接管状态。',
     'member_provisioning_failed' => '账号开通未完成，成员没有获得学生业务权限，请稍后重试。',
+    'member_provisioning_unavailable' => '成员开通服务暂时不可用，请稍后重试；原邀请不会重复创建。',
+    'invalid_live_session' => '登录状态已失效，请重新登录后再试。',
+    'organization_not_available' => '当前机构暂不可用，请刷新页面后重试。',
+    'invitation_email_mismatch' => '当前登录邮箱与邀请邮箱不一致。',
+    'invitation_expired' => '邀请已过期，请重新发放邀请。',
+    'invitation_not_revocable' => '这条邀请当前不能撤销，请刷新后重试。',
+    'membership_not_found' => '成员记录已不存在，请刷新成员列表后重试。',
     'onboarding_completion_required' => '成员仍需完成首次接管，不能由管理员直接激活。',
     'onboarding_expired' => '接管凭据已过期，请让管理员重新发放临时密码。',
     'onboarding_relogin_required' => '请先用新密码重新登录，再完成账号接管。',
     'organization_manager_required' => '当前账号没有本机构成员管理权限。',
     'organization_owner_required' => '这项操作需要负责人确认。',
+    'role_not_allowed' => '当前账号不能邀请这个成员角色。',
     'provision_cleanup_required' => '账号开通遇到恢复异常，请暂时不要重复创建同邮箱账号，并联系维护人员处理。',
     'provision_recovery_required' =>
       '账号开通结果正在恢复中；请刷新邀请列表后点击“继续开通”或“重新发放临时密码”，不要再次创建同邮箱邀请。',
     'user_already_member_elsewhere' => '该账号已经加入其他机构，暂不能重复开通。',
     _ => null,
   };
+}
+
+String? _knownProvisioningErrorCode(Object error) {
+  final detail = error.toString().toLowerCase();
+  const codes = <String>[
+    'app_user_disabled',
+    'auth_user_not_found',
+    'credential_update_failed',
+    'current_membership_immutable',
+    'invalid_invitation_input',
+    'invalid_live_session',
+    'invitation_already_exists',
+    'invitation_email_mismatch',
+    'invitation_expired',
+    'invitation_not_approved',
+    'invitation_not_available',
+    'invitation_not_found',
+    'invitation_not_revocable',
+    'member_not_onboarding',
+    'member_provisioning_failed',
+    'membership_not_found',
+    'organization_manager_required',
+    'organization_not_available',
+    'organization_owner_required',
+    'onboarding_completion_required',
+    'onboarding_expired',
+    'onboarding_relogin_required',
+    'provision_cleanup_required',
+    'provision_recovery_required',
+    'role_not_allowed',
+    'user_already_member_elsewhere',
+  ];
+  for (final code in codes) {
+    if (detail.contains(code)) {
+      return code;
+    }
+  }
+  if (detail.contains('functionshttpexception') ||
+      detail.contains('functionsrelayexception') ||
+      detail.contains('network') ||
+      detail.contains('socket') ||
+      detail.contains('timeout') ||
+      detail.contains('connection')) {
+    return 'member_provisioning_unavailable';
+  }
+  return null;
 }
 
 Map<String, dynamic> _mapResponse(dynamic response) {

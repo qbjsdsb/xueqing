@@ -19,9 +19,9 @@
 
 本节记录的是本次收口的事实基线；实时状态以 GitHub 的 `main` 和对应 PR CI 为准。文中 [x] 只表示已有实现或自动化证据，不表示真实设备、无代理网络、恢复演练或 Production Go / No-Go 已通过。
 
-- `main` 本次收口基线为 `c311927`：PR #53（成员开通异常恢复）、PR #58（服务端权威 Case reopen）和 PR #54（按已验证 tag commit 构建发布包）已合并。
+- `main` 当前功能基线为 `53a3fdf`：PR #53（成员开通异常恢复）、PR #58（服务端权威 Case reopen）和 PR #54（按已验证 tag commit 构建发布包）已合并。
 - 旧的堆叠 Draft PR #20–#45 已关闭；源分支保留，便于审计与追溯，不再作为独立功能排期。
-- 图片附件 PR #51 已重基到该主线，并补上上传中会话切换保护、失败重试复用同一 attachment ID、以及附件注册 RPC 的 public/private 安全边界；最终验证 head `299aafb` 的集成 CI 已通过（Flutter 592、Supabase 342、platform smoke 241）。Android / Windows 归档只证明包已构建，真实设备 gate 仍未完成，未通过前不视为主线能力。
+- 图片附件 PR #51 的候选修复补上上传中会话切换保护、失败重试复用同一 attachment ID、附件注册 RPC 的 public/private 安全边界，以及 Storage 上传策略的 authenticated 权限包装；远端 API 的上传、登记、signed URL、邀请开通和重新发放已通过，Android / Windows 归档只证明包已构建，真实设备 gate 仍未完成，未通过前不视为主线能力。
 - 已发布的 `v0.1.0-test.1` 指向旧基线 `b5e0dd4`，不包含本次收口；新的测试版必须从后续已验证 tag commit 生成。
 
 ### 本次验收口径
@@ -124,7 +124,7 @@
 - [x] PR #53 已合并：成员开通成功 / 失败 / 响应不确定时的恢复与重新发放边界已加入主线。
 - [x] PR #58 已合并：Case reopen 为服务端权威、受控且可审计的 command，并保留 close 后历史。
 - [x] PR #54 已合并：release workflow 只 checkout 已验证的 tag commit，并校验其可达 `main`。
-- [x] PR #51 图片附件：最终验证 head `299aafb` 的 Flutter / Supabase / platform CI 已通过（run `592` / `342` / `241`）；[ ] 真实 Android / Windows、无代理网络、签名预览和远端开发迁移 gate 全部通过后再合入主线。
+- [x] PR #51 图片附件：Flutter / Supabase / platform build smoke 和远端开发 API 链路已通过；[ ] 真实 Android / Windows、无代理网络、签名预览和跨机构/closed Case 拒绝 gate 全部通过后再合入主线。
 - [ ] 逐函数复核 SECURITY DEFINER、开启 leaked password protection、解释 3 个 intentional no-policy 表
 - [ ] 根据真实规模虚构数据和执行计划决定是否补外键索引；不机械处理 38 个 Advisor INFO
 - [ ] Production provider / region / session strategy 最终冻结
