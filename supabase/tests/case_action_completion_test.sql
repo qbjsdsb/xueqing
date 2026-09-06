@@ -1,6 +1,6 @@
 begin;
 
-select plan(31);
+select plan(35);
 
 select is(
   (
@@ -13,6 +13,32 @@ select is(
   ),
   1,
   'complete command exists'
+);
+
+select is(
+  (
+    select count(*)::int
+    from pg_proc
+    join pg_namespace
+      on pg_namespace.oid = pg_proc.pronamespace
+    where pg_namespace.nspname = 'private'
+      and pg_proc.proname = 'complete_case_action_v2'
+  ),
+  1,
+  'privileged completion implementation is kept in private schema'
+);
+
+select is(
+  (
+    select prosecdef
+    from pg_proc
+    join pg_namespace
+      on pg_namespace.oid = pg_proc.pronamespace
+    where pg_namespace.nspname = 'private'
+      and pg_proc.proname = 'complete_case_action_v2'
+  ),
+  true,
+  'private completion implementation is security definer'
 );
 
 select is(
@@ -31,7 +57,7 @@ select is(
 select is(
   has_function_privilege(
     'anon',
-    'public.complete_case_action(uuid,uuid,uuid,integer,integer,text,text,timestamptz)',
+    'public.complete_case_action(uuid,uuid,uuid,integer,integer,text,text,date)',
     'execute'
   ),
   false,
@@ -41,7 +67,7 @@ select is(
 select is(
   has_function_privilege(
     'authenticated',
-    'public.complete_case_action(uuid,uuid,uuid,integer,integer,text,text,timestamptz)',
+    'public.complete_case_action(uuid,uuid,uuid,integer,integer,text,text,date)',
     'execute'
   ),
   true,
@@ -166,7 +192,7 @@ select lives_ok(
       1,
       'verify',
       '完成后安排一次验证',
-      timestamptz '2026-09-10 12:00:00+08'
+      date '2026-09-10'
     )$$,
   'Teacher A can complete a primary Action and schedule its successor'
 );
@@ -315,7 +341,7 @@ select lives_ok(
       1,
       'practice',
       '这次重试不应覆盖下一行动',
-      timestamptz '2026-09-11 12:00:00+08'
+      date '2026-09-11'
     )$$,
   'repeating the same operation id returns the committed completion result'
 );
@@ -436,6 +462,63 @@ select throws_ok(
 );
 
 reset role;
+
+update public.organizations
+set time_zone = 'Pacific/Kiritimati'
+where id = '7a000000-0000-0000-0000-000000000005';
+
+set local role authenticated;
+
+select set_config(
+  'request.jwt.claim.sub',
+  '20000000-0000-0000-0000-000000000001',
+  true
+);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+
+select lives_ok(
+  $select public.complete_case_action(
+      '73000000-0000-0000-0000-000000000006',
+      (
+        select id
+        from public.case_actions
+        where learning_case_id = (
+          select id from public.learning_cases where title = 'Action 完成闭环测试'
+        )
+          and title = '完成后安排一次验证'
+      ),
+      (select id from public.learning_cases where title = 'Action 完成闭环测试'),
+      3,
+      1,
+      'review',
+      '高时区下的下一步',
+      date '2026-09-10'
+    )$,
+  'the organization date is converted server-side for UTC+14'
+);
+
+select is(
+  (
+    select (due_at at time zone 'Pacific/Kiritimati')::date
+    from public.case_actions
+    where learning_case_id = (
+      select id from public.learning_cases where title = 'Action 完成闭环测试'
+    )
+      and title = '高时区下的下一步'
+  ),
+  date '2026-09-10',
+  'a selected local date remains the same date in a UTC+14 organization'
+);
+
 set local role authenticated;
 
 select throws_ok(

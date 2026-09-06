@@ -4167,7 +4167,7 @@ class _WorkspaceCompleteActionFormState
   late final TextEditingController _nextActionController;
   late final String _operationId;
   late CaseActionType _nextActionType;
-  DateTime? _nextActionDueAt;
+  DateTime? _nextActionDueOn;
   String? _nextActionError;
   String? _saveError;
   bool _saving = false;
@@ -4193,7 +4193,7 @@ class _WorkspaceCompleteActionFormState
   bool get _isDirty =>
       _nextActionController.text.trim() !=
           _defaultNextActionTitle(_nextActionType) ||
-      _nextActionDueAt != null;
+      _nextActionDueOn != null;
 
   void _clearInlineError() {
     if (_nextActionError == null ||
@@ -4211,7 +4211,7 @@ class _WorkspaceCompleteActionFormState
       businessNow.month,
       businessNow.day,
     );
-    final current = _nextActionDueAt ?? today;
+    final current = _nextActionDueOn ?? today;
     final selected = await showDatePicker(
       context: context,
       initialDate: DateTime(current.year, current.month, current.day),
@@ -4225,7 +4225,7 @@ class _WorkspaceCompleteActionFormState
       return;
     }
     setState(() {
-      _nextActionDueAt = DateTime.utc(
+      _nextActionDueOn = DateTime.utc(
         selected.year,
         selected.month,
         selected.day,
@@ -4258,7 +4258,7 @@ class _WorkspaceCompleteActionFormState
           expectedActionVersion: widget.action.version,
           nextActionType: _nextActionType,
           nextActionTitle: nextActionTitle,
-          nextActionDueAt: _nextActionDueAt,
+          nextActionDueOn: _nextActionDueOn,
         ),
       );
       if (!mounted) {
@@ -4408,19 +4408,19 @@ class _WorkspaceCompleteActionFormState
                           onPressed: _saving ? null : _pickDueDate,
                           icon: const Icon(Icons.event_outlined),
                           label: Text(
-                            _nextActionDueAt == null
+                            _nextActionDueOn == null
                                 ? '安排日期（可选）'
-                                : '行动日期：${_formatDateOnly(_nextActionDueAt!)}',
+                                : '行动日期：${_formatDateOnly(_nextActionDueOn!)}',
                           ),
                         ),
                       ),
-                      if (_nextActionDueAt != null) ...[
+                      if (_nextActionDueOn != null) ...[
                         const SizedBox(width: AppSpacing.xs),
                         IconButton(
                           tooltip: '清除日期',
                           onPressed: _saving
                               ? null
-                              : () => setState(() => _nextActionDueAt = null),
+                              : () => setState(() => _nextActionDueOn = null),
                           icon: const Icon(Icons.close),
                         ),
                       ],

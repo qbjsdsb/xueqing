@@ -656,7 +656,7 @@ class CompleteCaseActionCommand {
     required this.expectedActionVersion,
     required this.nextActionType,
     required this.nextActionTitle,
-    required this.nextActionDueAt,
+    required this.nextActionDueOn,
   });
 
   final String operationId;
@@ -666,7 +666,7 @@ class CompleteCaseActionCommand {
   final int expectedActionVersion;
   final CaseActionType nextActionType;
   final String nextActionTitle;
-  final DateTime? nextActionDueAt;
+  final DateTime? nextActionDueOn;
 
   void validate() {
     _validateActionCommandIdentity(
@@ -1323,7 +1323,7 @@ class SupabaseLearningRepository implements LearningRepository {
         'p_expected_action_version': command.expectedActionVersion,
         'p_next_action_type': command.nextActionType.wireValue,
         'p_next_action_title': command.nextActionTitle.trim(),
-        'p_next_action_due_at': _utcIso8601(command.nextActionDueAt),
+        'p_next_action_due_on': _utcIso8601(command.nextActionDueOn),
       },
     );
   }

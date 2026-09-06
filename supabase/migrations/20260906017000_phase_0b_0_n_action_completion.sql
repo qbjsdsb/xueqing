@@ -19,6 +19,12 @@ alter table public.operation_receipts
     'stabilize_case',
     'close_case',
     'reschedule_case_action',
+    'create_organization_student',
+    'create_organization_subject',
+    'update_organization_student',
+    'update_organization_membership_status',
+    'update_organization_teacher_subject_scope',
+    'transfer_organization_student_teacher_assignment',
     'complete_case_action'
   ));
 
@@ -39,7 +45,7 @@ alter table public.case_events
     'action_completed'
   ));
 
-create or replace function public.complete_case_action(
+create or replace function private.complete_case_action_v2(
   p_operation_id uuid,
   p_action_id uuid,
   p_case_id uuid,
@@ -47,7 +53,7 @@ create or replace function public.complete_case_action(
   p_expected_action_version integer,
   p_next_action_type text,
   p_next_action_title text,
-  p_next_action_due_at timestamptz
+  p_next_action_due_on date
 )
 returns jsonb
 language plpgsql
@@ -59,6 +65,7 @@ declare
   app_user_id uuid;
   organization_id uuid;
   profile_id uuid;
+  organization_time_zone text;
   membership_id uuid;
   case_status text;
   case_version integer;
@@ -109,7 +116,8 @@ begin
     learning_case.version,
     action.version,
     action.status,
-    action.is_primary
+    action.is_primary,
+    organization.time_zone
   into
     organization_id,
     profile_id,
@@ -117,11 +125,14 @@ begin
     case_version,
     action_version,
     action_status,
-    action_is_primary
+    action_is_primary,
+    organization_time_zone
   from public.case_actions as action
   join public.learning_cases as learning_case
     on learning_case.id = action.learning_case_id
    and learning_case.organization_id = action.organization_id
+  join public.organizations as organization
+    on organization.id = action.organization_id
   where action.id = p_action_id
     and action.learning_case_id = p_case_id
   for update of action, learning_case;
@@ -213,7 +224,13 @@ begin
       membership_id,
       p_next_action_type,
       btrim(p_next_action_title),
-      p_next_action_due_at
+      case
+        when p_next_action_due_on is null then null
+        else (
+          p_next_action_due_on::timestamp without time zone
+          at time zone organization_time_zone
+        )
+      end
     )
   );
 
@@ -271,6 +288,47 @@ begin
 end
 $function$;
 
+revoke all on function private.complete_case_action_v2(
+  uuid,
+  uuid,
+  uuid,
+  integer,
+  integer,
+  text,
+  text,
+  date
+) from public;
+
+create or replace function public.complete_case_action(
+  p_operation_id uuid,
+  p_action_id uuid,
+  p_case_id uuid,
+  p_expected_case_version integer,
+  p_expected_action_version integer,
+  p_next_action_type text,
+  p_next_action_title text,
+  p_next_action_due_on date
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $function$
+begin
+  return private.complete_case_action_v2(
+    p_operation_id,
+    p_action_id,
+    p_case_id,
+    p_expected_case_version,
+    p_expected_action_version,
+    p_next_action_type,
+    p_next_action_title,
+    p_next_action_due_on
+  );
+end
+$function$;
+
 revoke all on function public.complete_case_action(
   uuid,
   uuid,
@@ -279,7 +337,7 @@ revoke all on function public.complete_case_action(
   integer,
   text,
   text,
-  timestamptz
+  date
 ) from public;
 
 grant execute on function public.complete_case_action(
@@ -290,7 +348,7 @@ grant execute on function public.complete_case_action(
   integer,
   text,
   text,
-  timestamptz
+  date
 ) to authenticated;
 
 revoke execute on function public.complete_case_action(
@@ -301,5 +359,5 @@ revoke execute on function public.complete_case_action(
   integer,
   text,
   text,
-  timestamptz
+  date
 ) from anon;

@@ -1129,7 +1129,7 @@ void main() {
         caseId: 'case-1',
         expectedCaseVersion: 1,
         nextActionTitle: '下一步',
-        nextActionDueAt: null,
+        nextActionDueOn: null,
       ).validate(),
       throwsArgumentError,
     );
@@ -1143,7 +1143,7 @@ void main() {
         notes: null,
         assessedAt: null,
         nextActionTitle: '下一步',
-        nextActionDueAt: null,
+        nextActionDueOn: null,
       ).validate(),
       throwsArgumentError,
     );
