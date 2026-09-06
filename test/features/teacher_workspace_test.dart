@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xueqing/app/theme/app_theme.dart';
+import 'package:xueqing/cloud/case_reopen_draft_store.dart';
 import 'package:xueqing/cloud/learning_repository.dart';
 import 'package:xueqing/features/teacher_workspace/presentation/'
     'teacher_workspace_page.dart';
@@ -19,6 +20,10 @@ class _FakeLearningRepository implements LearningRepository {
   bool failFirstClose = false;
   bool failFirstReschedule = false;
   bool failFirstComplete = false;
+  bool failFirstEvidence = false;
+  bool failFirstReopen = false;
+  int addEvidenceCount = 0;
+  int reopenCount = 0;
   final List<QuickCaptureCommand> commands = <QuickCaptureCommand>[];
   int confirmCount = 0;
   int interventionCount = 0;
@@ -27,6 +32,9 @@ class _FakeLearningRepository implements LearningRepository {
   int closeCount = 0;
   int rescheduleCount = 0;
   int completeCount = 0;
+  final List<AddCaseEvidenceCommand> addEvidenceCommands =
+      <AddCaseEvidenceCommand>[];
+  final List<ReopenCaseCommand> reopenCommands = <ReopenCaseCommand>[];
   final List<CloseCaseCommand> closeCommands = <CloseCaseCommand>[];
   final List<ConfirmCaseCommand> confirmCommands = <ConfirmCaseCommand>[];
   final List<RecordInterventionCommand> interventionCommands =
@@ -188,6 +196,43 @@ class _FakeLearningRepository implements LearningRepository {
   }
 
   @override
+  Future<CaseCommandReceipt> addCaseEvidence(
+    AddCaseEvidenceCommand command,
+  ) async {
+    addEvidenceCount++;
+    addEvidenceCommands.add(command);
+    if (failFirstEvidence && addEvidenceCount == 1) {
+      throw StateError('case_recurrence_before_close');
+    }
+    return CaseCommandReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      actionId: null,
+      eventId: 'event-evidence',
+      status: 'closed',
+      caseVersion: command.expectedCaseVersion,
+      recordId: 'evidence-recurrence',
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> reopenCase(ReopenCaseCommand command) async {
+    reopenCount++;
+    reopenCommands.add(command);
+    if (failFirstReopen && reopenCount == 1) {
+      throw StateError('network unavailable');
+    }
+    return CaseCommandReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      actionId: 'action-reopened',
+      eventId: 'event-reopened',
+      status: 'confirmed',
+      caseVersion: command.expectedCaseVersion + 1,
+    );
+  }
+
+  @override
   Future<CaseCommandReceipt> rescheduleCaseAction(
     RescheduleCaseActionCommand command,
   ) async {
@@ -283,7 +328,9 @@ TeacherWorkspace _fixtureWorkspace({
               assessedAt: DateTime(2026, 9, 3),
             ),
           ],
-    actions: <WorkspaceAction>[action],
+    actions: status == LearningCaseStatus.closed
+        ? const <WorkspaceAction>[]
+        : <WorkspaceAction>[action],
     timeline: const <WorkspaceTimelineEvent>[],
   );
   return TeacherWorkspace(
@@ -433,12 +480,19 @@ TeacherWorkspace _workspaceWithStudents(List<WorkspaceStudent> students) {
 
 Future<void> _pumpWorkspace(
   WidgetTester tester,
-  _FakeLearningRepository repository,
-) async {
+  _FakeLearningRepository repository, {
+  CaseReopenDraftStore? draftStore,
+  String? sessionUserId,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light(),
-      home: TeacherWorkspacePage(repository: repository),
+      home: TeacherWorkspacePage(
+        key: UniqueKey(),
+        repository: repository,
+        caseReopenDraftStore: draftStore,
+        sessionUserId: sessionUserId,
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -1271,6 +1325,47 @@ void main() {
     expect(closeReceipt.actionId, isNull);
   });
 
+  test('validates Evidence and reopen command payloads', () {
+    expect(
+      () => AddCaseEvidenceCommand(
+        operationId: 'op-1',
+        caseId: 'case-1',
+        expectedCaseVersion: 1,
+        sourceType: 'unsupported',
+        title: '标题',
+        observedAt: DateTime(2026, 9, 3),
+        summary: '表现',
+      ).validate(),
+      throwsArgumentError,
+    );
+    expect(
+      () => ReopenCaseCommand(
+        operationId: 'op-1',
+        caseId: 'case-1',
+        expectedCaseVersion: 1,
+        recurrenceEvidenceIds: <String>['evidence-1', 'evidence-1'],
+        expectedEvidenceVersions: <String, int>{'evidence-1': 1},
+        nextActionType: CaseActionType.verify,
+        nextActionTitle: '下一步',
+        nextActionDueOn: null,
+      ).validate(),
+      throwsArgumentError,
+    );
+    expect(
+      () => ReopenCaseCommand(
+        operationId: 'op-1',
+        caseId: 'case-1',
+        expectedCaseVersion: 1,
+        recurrenceEvidenceIds: <String>['evidence-1'],
+        expectedEvidenceVersions: <String, int>{'evidence-1': 1},
+        nextActionType: CaseActionType.review,
+        nextActionTitle: '安排复查',
+        nextActionDueOn: null,
+      ).validate(),
+      throwsArgumentError,
+    );
+  });
+
   testWidgets('stabilizes a Case after a passed verification', (tester) async {
     final repository = _FakeLearningRepository(
       _fixtureWorkspace(
@@ -1364,6 +1459,192 @@ void main() {
 
     expect(repository.closeCount, 2);
     expect(repository.closeCommands[1].operationId, firstOperationId);
+  });
+
+  testWidgets('records recurrence Evidence before reopening a closed Case', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.closed),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    await tester.ensureVisible(caseButton);
+    await tester.tap(caseButton);
+    await tester.pumpAndSettle();
+
+    final reopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    await tester.ensureVisible(reopenButton);
+    await tester.tap(reopenButton);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-title')),
+      '关闭后再次出现同类表现',
+    );
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-summary')),
+      '学生再次跳过通分步骤，需要重新安排验证。',
+    );
+    await tester.enterText(
+      find.byKey(const Key('reopen-next-action')),
+      '复核复发原因并安排验证',
+    );
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存 Evidence');
+    await tester.ensureVisible(saveEvidenceButton);
+    await tester.tap(saveEvidenceButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.addEvidenceCount, 1);
+    expect(repository.reopenCount, 1);
+    expect(repository.reopenCommands.single.recurrenceEvidenceIds, <String>[
+      'evidence-recurrence',
+    ]);
+    expect(
+      repository.reopenCommands.single.expectedEvidenceVersions,
+      <String, int>{'evidence-recurrence': 1},
+    );
+    expect(find.textContaining('Case 进入已确认'), findsOneWidget);
+  });
+
+  testWidgets('restores an unfinished reopen after the page is recreated', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.closed),
+    )..failFirstReopen = true;
+    final store = InMemoryCaseReopenDraftStore();
+    const scope = 'user:user-1|organization:org-1|case:case-1';
+
+    await _pumpWorkspace(
+      tester,
+      repository,
+      draftStore: store,
+      sessionUserId: 'user-1',
+    );
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    await tester.pumpAndSettle();
+    final firstReopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    await tester.ensureVisible(firstReopenButton);
+    await tester.tap(firstReopenButton);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-title')),
+      '关闭后再次出现同类表现',
+    );
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-summary')),
+      '学生再次跳过通分步骤，需要重新安排验证。',
+    );
+    await tester.enterText(
+      find.byKey(const Key('reopen-next-action')),
+      '复核复发原因并安排验证',
+    );
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存 Evidence');
+    await tester.ensureVisible(saveEvidenceButton);
+    await tester.tap(saveEvidenceButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.addEvidenceCount, 1);
+    expect(repository.reopenCount, 1);
+    final firstEvidenceOperationId =
+        repository.addEvidenceCommands.single.operationId;
+    final firstReopenOperationId = repository.reopenCommands.single.operationId;
+    final draft = await store.load(scope);
+    expect(draft?.evidenceId, 'evidence-recurrence');
+    expect(draft?.evidenceOperationId, firstEvidenceOperationId);
+    expect(draft?.reopenOperationId, firstReopenOperationId);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    await _pumpWorkspace(
+      tester,
+      repository,
+      draftStore: store,
+      sessionUserId: 'user-1',
+    );
+    final restoredStudentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(restoredStudentRow);
+    await tester.tap(restoredStudentRow);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    await tester.pumpAndSettle();
+    final restoredReopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    await tester.ensureVisible(restoredReopenButton);
+    await tester.tap(restoredReopenButton);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, '重新打开 Case'), findsOneWidget);
+    final reopenCaseButton = find.widgetWithText(FilledButton, '重新打开 Case');
+    await tester.ensureVisible(reopenCaseButton);
+    await tester.tap(reopenCaseButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.addEvidenceCount, 1);
+    expect(repository.reopenCount, 2);
+    expect(repository.reopenCommands[1].operationId, firstReopenOperationId);
+    expect(await store.load(scope), isNull);
+    expect(find.textContaining('Case 进入已确认'), findsOneWidget);
+  });
+
+  testWidgets('unlocks a reopen form after a deterministic Evidence failure', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.closed),
+    )..failFirstEvidence = true;
+    await _pumpWorkspace(tester, repository);
+
+    final studentRow = find.text('示例学生甲').first;
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    await tester.pumpAndSettle();
+    final reopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    await tester.ensureVisible(reopenButton);
+    await tester.tap(reopenButton);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-title')),
+      '关闭后再次出现同类表现',
+    );
+    await tester.enterText(
+      find.byKey(const Key('reopen-evidence-summary')),
+      '学生再次跳过通分步骤，需要重新安排验证。',
+    );
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存 Evidence');
+    await tester.ensureVisible(saveEvidenceButton);
+    await tester.tap(saveEvidenceButton);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('观察时间必须晚于最近一次关闭时间'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('reopen-evidence-title')))
+          .enabled,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, '取消').last,
+          )
+          .onPressed,
+      isNotNull,
+    );
   });
 
   testWidgets('does not expose student data without teaching access', (
