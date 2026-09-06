@@ -3,17 +3,20 @@ import 'package:xueqing/features/teacher_workspace/presentation/'
     'evidence_attachment_picker.dart';
 
 void main() {
-  test('explains Storage permission failures instead of calling them read errors', () {
-    expect(
-      describeEvidenceAttachmentError(
-        StateError(
-          'StorageException: permission denied for function current_teaching_membership_for_profile_v2; statusCode: 403',
+  test(
+    'explains Storage permission failures instead of calling them read errors',
+    () {
+      expect(
+        describeEvidenceAttachmentError(
+          StateError(
+            'StorageException: permission denied for function current_teaching_membership_for_profile_v2; statusCode: 403',
+          ),
+          duringUpload: true,
         ),
-        duringUpload: true,
-      ),
-      '当前账号没有附件上传权限，请确认仍负责该学生后重试。',
-    );
-  });
+        '当前账号没有附件上传权限，请确认仍负责该学生后重试。',
+      );
+    },
+  );
 
   test('keeps a picked image retryable when the network is unavailable', () {
     expect(

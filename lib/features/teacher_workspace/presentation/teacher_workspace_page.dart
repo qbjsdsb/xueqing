@@ -3388,7 +3388,8 @@ class _WorkspaceQuickCaptureFormState
           }
           setState(() {
             _saving = false;
-            _saveError = '文字已保存，但图片上传失败：'
+            _saveError =
+                '文字已保存，但图片上传失败：'
                 '${describeEvidenceAttachmentError(error, duringUpload: true)} '
                 '请保持当前窗口打开后重试。';
           });
