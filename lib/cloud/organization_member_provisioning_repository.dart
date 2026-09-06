@@ -270,7 +270,8 @@ String? organizationMemberProvisioningErrorMessage(Object error) {
     'organization_manager_required' => '当前账号没有本机构成员管理权限。',
     'organization_owner_required' => '这项操作需要负责人确认。',
     'provision_cleanup_required' => '账号开通遇到恢复异常，请暂时不要重复创建同邮箱账号，并联系维护人员处理。',
-    'provision_recovery_required' => '账号开通结果正在恢复中；请刷新邀请列表后点击“继续开通”或“重新发放临时密码”，不要再次创建同邮箱邀请。',
+    'provision_recovery_required' =>
+      '账号开通结果正在恢复中；请刷新邀请列表后点击“继续开通”或“重新发放临时密码”，不要再次创建同邮箱邀请。',
     'user_already_member_elsewhere' => '该账号已经加入其他机构，暂不能重复开通。',
     _ => null,
   };
