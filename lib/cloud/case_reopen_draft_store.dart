@@ -65,7 +65,10 @@ class CaseReopenDraft {
   }
 
   factory CaseReopenDraft.fromJson(Map<String, dynamic> json) {
-    final schemaVersion = _positiveInt(json['schema_version'], 'schema_version');
+    final schemaVersion = _positiveInt(
+      json['schema_version'],
+      'schema_version',
+    );
     if (schemaVersion != currentSchemaVersion) {
       throw FormatException('Unsupported case reopen draft schema: $schemaVersion.');
     }
