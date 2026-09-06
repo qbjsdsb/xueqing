@@ -26,7 +26,7 @@ on:
         description: "Optional app version, including Android build number"
         required: false
         type: string
-        default: 0.1.0+2
+        default: 0.1.0+3
 
 permissions:
   contents: read
@@ -37,7 +37,7 @@ concurrency:
 
 env:
   XUEQING_ENV: development
-  XUEQING_APP_VERSION: ${{ github.event.inputs.app_version || '0.1.0+2' }}
+  XUEQING_APP_VERSION: ${{ github.event.inputs.app_version || '0.1.0+3' }}
   XUEQING_SUPABASE_URL: ${{ github.event.inputs.supabase_url || 'https://czuctoulgnfytcfonkhc.supabase.co' }}
   XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}
 
