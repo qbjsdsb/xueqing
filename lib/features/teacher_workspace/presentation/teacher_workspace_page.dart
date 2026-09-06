@@ -591,13 +591,13 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
   }
 
-  Future<void> _reload({
+  Future<bool> _reload({
     WorkspaceStudent? preserveStudent,
     String? preserveCaseId,
   }) async {
     final nextFuture = _loadWorkspace();
     if (!mounted) {
-      return;
+      return false;
     }
     setState(() {
       _workspaceFuture = nextFuture;
@@ -606,7 +606,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     try {
       final workspace = await nextFuture;
       if (!mounted || preserveStudent == null) {
-        return;
+        return true;
       }
       WorkspaceStudent? matchingStudent;
       for (final student in workspace.students) {
@@ -632,11 +632,18 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           }
         });
       }
+      return true;
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('刷新失败，当前仍显示上一次数据。')));
+        setState(() {
+          // Never leave a write result hidden behind stale workspace data.
+          _lastWorkspace = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('刷新失败，请点击重试确认最新数据。')),
+        );
       }
+      return false;
     } finally {
       if (mounted) {
         setState(() {
@@ -1054,7 +1061,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (!mounted || result == null) {
         return;
       }
-      await _reload();
+      if (!await _reload()) {
+        return;
+      }
       if (!mounted) {
         return;
       }
@@ -4229,11 +4238,12 @@ class _WorkspaceCompleteActionFormState
       return;
     }
     setState(() {
-      _nextActionDueOn = DateTime.utc(
+      // Keep this as a calendar date; the repository serializes it without
+      // applying the device time zone.
+      _nextActionDueOn = DateTime(
         selected.year,
         selected.month,
         selected.day,
-        12,
       );
     });
   }
