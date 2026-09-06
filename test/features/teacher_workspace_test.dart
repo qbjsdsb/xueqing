@@ -572,6 +572,39 @@ void main() {
     },
   );
 
+  testWidgets('keeps an ambiguous completion open until it is reconciled', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.confirmed),
+    )..failFirstComplete = true;
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.widgetWithText(FilledButton, '完成行动'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '完成并安排下一步'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('提交内容已锁定'), findsOneWidget);
+    final cancelButton = find.widgetWithText(OutlinedButton, '取消');
+    await tester.ensureVisible(cancelButton);
+    await tester.tap(cancelButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('提交结果未确认'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '继续查看'));
+    await tester.pumpAndSettle();
+    expect(find.text('提交结果未确认'), findsNothing);
+    expect(find.text('完成行动'), findsOneWidget);
+
+    final retryButton = find.widgetWithText(FilledButton, '重试原提交');
+    await tester.ensureVisible(retryButton);
+    await tester.tap(retryButton);
+    await tester.pumpAndSettle();
+
+    expect(repository.completeCount, 2);
+  });
+
   testWidgets('reuses operation id after a completion response is lost', (
     tester,
   ) async {

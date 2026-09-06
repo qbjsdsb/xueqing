@@ -4294,6 +4294,31 @@ class _WorkspaceCompleteActionFormState
     if (_saving) {
       return;
     }
+    if (_submissionAttempted) {
+      final retry = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('提交结果未确认'),
+          content: const Text(
+            '上一次提交可能已在服务器完成。请先重试原提交；重试会沿用原内容和 operation ID。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('继续查看'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('重试原提交'),
+            ),
+          ],
+        ),
+      );
+      if (mounted && retry == true) {
+        await _save();
+      }
+      return;
+    }
     if (!_isDirty) {
       Navigator.of(context).pop();
       return;
@@ -4327,7 +4352,7 @@ class _WorkspaceCompleteActionFormState
         '${widget.learningCase.title} · ${widget.learningCase.status.label} · '
         'version ${widget.learningCase.version}';
     return PopScope<void>(
-      canPop: !_isDirty && !_saving,
+      canPop: !_isDirty && !_saving && !_submissionAttempted,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !_saving) {
           _confirmDiscard();
