@@ -921,8 +921,7 @@ class SupabaseLearningRepository implements LearningRepository {
         if (row['role'] is String) row['role'] as String,
     ];
     final hasTeachingAccess = roles.any(
-      (role) =>
-          role == 'org_owner' || role == 'org_admin' || role == 'teacher',
+      (role) => role == 'org_owner' || role == 'org_admin' || role == 'teacher',
     );
     final canManageOrganization = roles.any(
       (role) => role == 'org_owner' || role == 'org_admin',
