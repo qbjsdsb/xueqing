@@ -107,6 +107,7 @@ class _InvitationTile extends StatelessWidget {
   const _InvitationTile({
     required this.invitation,
     required this.isOwner,
+    required this.canRevoke,
     required this.busy,
     required this.onApprove,
     required this.onRevoke,
@@ -115,6 +116,7 @@ class _InvitationTile extends StatelessWidget {
 
   final OrganizationInvitation invitation;
   final bool isOwner;
+  final bool canRevoke;
   final bool busy;
   final VoidCallback onApprove;
   final VoidCallback onRevoke;
@@ -139,7 +141,7 @@ class _InvitationTile extends StatelessWidget {
         ),
       );
     }
-    if (isOwner &&
+    if (canRevoke &&
         (invitation.isPending || invitation.isAwaitingOwnerApproval)) {
       actions.add(
         TextButton(onPressed: busy ? null : onRevoke, child: const Text('撤销')),
