@@ -497,9 +497,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   bool _checkingForUpdates = false;
   int _loadSequence = 0;
   static const int _todayPreviewLimit = 3;
+  static const int _studentPendingPreviewLimit = 2;
   bool _showAllPendingVerification = false;
   bool _showAllFutureActions = false;
   bool _showAllUndatedActions = false;
+  bool _showAllStudentCases = false;
 
   @override
   void initState() {
@@ -594,6 +596,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       _selectedIndex = index;
       _selectedStudent = null;
       _selectedCase = null;
+      _showAllStudentCases = false;
     });
   }
 
@@ -601,6 +604,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     setState(() {
       _selectedStudent = student;
       _selectedCase = null;
+      _showAllStudentCases = false;
     });
   }
 
@@ -617,7 +621,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       return;
     }
     if (_selectedStudent != null) {
-      setState(() => _selectedStudent = null);
+      setState(() {
+        _selectedStudent = null;
+        _showAllStudentCases = false;
+      });
     }
   }
 
@@ -1699,7 +1706,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             const SizedBox(height: AppSpacing.lg),
             _WorkspacePageHeader(
               title: '学生',
-              subtitle: '搜索学生，先理解当前重点，再进入需要处理的 Case。',
+              subtitle: '搜索学生，先理解当前重点，再进入需要处理的问题。',
               actions: [
                 if (workspace.canManageCaseTypes &&
                     workspace.organizationId != null)
@@ -1756,12 +1763,25 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WindowSizeClass sizeClass,
   ) {
     final importantCases = _importantCasesForStudent(student);
-    final pendingCases = student.cases
-        .where(
-          (learningCase) =>
-              learningCase.status == LearningCaseStatus.pendingVerification,
-        )
+    final allCases = student.cases.toList()
+      ..sort(_compareCasesForStudentDetail);
+    final visibleCases = _showAllStudentCases ? allCases : importantCases;
+    final visibleCaseIds = visibleCases.map((item) => item.id).toSet();
+    final additionalPendingCases = _showAllStudentCases
+        ? const <WorkspaceCase>[]
+        : allCases
+              .where(
+                (learningCase) =>
+                    learningCase.status ==
+                        LearningCaseStatus.pendingVerification &&
+                    !visibleCaseIds.contains(learningCase.id),
+              )
+              .toList();
+    final pendingPreview = additionalPendingCases
+        .take(_studentPendingPreviewLimit)
         .toList();
+    final hasAdditionalCases = allCases.length > importantCases.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1782,27 +1802,67 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             ),
           ],
         ),
-        _WorkspaceStateNotice(
-          title: '学科上下文',
-          message: student.positioning == null
-              ? '当前显示 ${student.subject} 的最小学科上下文。'
-              : student.positioning!,
-          icon: Icons.menu_book_outlined,
+        if (student.positioning?.trim().isNotEmpty == true) ...[
+          Text(
+            student.positioning!,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+        _WorkspaceSection(
+          key: const Key('student-detail-focus-section'),
+          title: _showAllStudentCases ? '全部问题' : '现在最重要的事',
+          count: '${visibleCases.length} 项',
+          action: hasAdditionalCases
+              ? TextButton(
+                  key: const Key('student-detail-cases-toggle'),
+                  onPressed: () => setState(
+                    () => _showAllStudentCases = !_showAllStudentCases,
+                  ),
+                  child: Text(
+                    _showAllStudentCases ? '只看重点' : '查看全部 ${allCases.length} 个',
+                  ),
+                )
+              : null,
+          child: visibleCases.isEmpty
+              ? _WorkspaceStateNotice(
+                  title: allCases.isEmpty ? '还没有记录的问题' : '当前没有需要跟进的问题',
+                  message: allCases.isEmpty
+                      ? '发现问题时，可以先记录一句，课后再整理。'
+                      : '已有问题记录仍然保留，需要时可以查看全部。',
+                  icon: Icons.inbox_outlined,
+                )
+              : Column(
+                  children: [
+                    for (final learningCase in visibleCases)
+                      _WorkspaceCaseRow(
+                        student: student,
+                        learningCase: learningCase,
+                        onOpen: () => _openCase(student, learningCase),
+                      ),
+                  ],
+                ),
         ),
-        const SizedBox(height: AppSpacing.lg),
-        if (importantCases.isEmpty)
-          const _WorkspaceStateNotice(
-            title: '还没有 Learning Case',
-            message: '发现问题时，可以先记录一句，课后再整理。',
-            icon: Icons.inbox_outlined,
-          )
-        else
+        if (additionalPendingCases.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
           _WorkspaceSection(
-            title: '现在最重要的事',
-            count: '${importantCases.length} 项',
+            key: const Key('student-detail-pending-section'),
+            title: '另外待验证',
+            count: '${additionalPendingCases.length} 个',
+            showTopDivider: true,
+            action: additionalPendingCases.length > _studentPendingPreviewLimit
+                ? TextButton(
+                    key: const Key('student-detail-pending-toggle'),
+                    onPressed: () =>
+                        setState(() => _showAllStudentCases = true),
+                    child: const Text('查看全部'),
+                  )
+                : null,
             child: Column(
               children: [
-                for (final learningCase in importantCases)
+                for (final learningCase in pendingPreview)
                   _WorkspaceCaseRow(
                     student: student,
                     learningCase: learningCase,
@@ -1811,50 +1871,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               ],
             ),
           ),
-        const SizedBox(height: AppSpacing.lg),
-        _WorkspaceSection(
-          title: '当前 Learning Cases',
-          count: '${student.cases.length} 个',
-          showTopDivider: true,
-          child: student.cases.isEmpty
-              ? const _WorkspaceStateNotice(
-                  title: '还没有当前 Case',
-                  message: '问题出现时可以从这里开始记录。',
-                  icon: Icons.inbox_outlined,
-                )
-              : Column(
-                  children: [
-                    for (final learningCase in student.cases)
-                      _WorkspaceCaseRow(
-                        student: student,
-                        learningCase: learningCase,
-                        onOpen: () => _openCase(student, learningCase),
-                      ),
-                  ],
-                ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        _WorkspaceSection(
-          title: '待验证',
-          count: '${pendingCases.length} 个',
-          showTopDivider: true,
-          child: pendingCases.isEmpty
-              ? const _WorkspaceStateNotice(
-                  title: '目前没有待验证 Case',
-                  message: '完成一次检查后，回到这里确认是否稳定。',
-                  icon: Icons.fact_check_outlined,
-                )
-              : Column(
-                  children: [
-                    for (final learningCase in pendingCases)
-                      _WorkspaceCaseRow(
-                        student: student,
-                        learningCase: learningCase,
-                        onOpen: () => _openCase(student, learningCase),
-                      ),
-                  ],
-                ),
-        ),
+        ],
         const SizedBox(height: AppSpacing.lg),
         _WorkspaceFacts(student: student, sizeClass: sizeClass),
       ],
