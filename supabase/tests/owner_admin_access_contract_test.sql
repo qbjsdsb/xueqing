@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(14);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password,
@@ -115,6 +115,27 @@ select is(
   ),
   1,
   'an admin can read the Case created through the public learning command'
+);
+
+select lives_ok(
+  $$select public.update_organization_member_display_name(
+      '00000000-0000-0000-0000-000000000001',
+      '61000000-0000-0000-0000-000000000001',
+      '管理员维护的示例姓名'
+    )$$,
+  'an admin can maintain a member display name without changing membership lifecycle'
+);
+
+select is(
+  (
+    select app_user.display_name
+    from public.app_users as app_user
+    join public.organization_memberships as membership
+      on membership.app_user_id = app_user.id
+    where membership.id = '61000000-0000-0000-0000-000000000001'
+  ),
+  '管理员维护的示例姓名',
+  'member name maintenance persists through the public manager RPC'
 );
 
 select throws_ok(
