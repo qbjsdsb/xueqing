@@ -279,12 +279,36 @@ jobs:
         run: |
           dart pub get
           dart analyze
-          dart test
-          $updaterPath = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release/xueqing_updater.exe"
-          dart compile exe bin/xueqing_updater.dart -o $updaterPath
-          if (-not (Test-Path $updaterPath)) {
-            throw "Windows updater helper was not produced."
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater analysis failed with exit code $LASTEXITCODE."
           }
+          dart test
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater tests failed with exit code $LASTEXITCODE."
+          }
+          $updaterPath = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release/xueqing_updater.exe"
+          $bootstrapPath = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release/xueqing_updater_bootstrap.exe"
+          dart compile exe bin/xueqing_updater.dart -o $updaterPath
+          dart compile exe bin/xueqing_updater.dart -o $bootstrapPath
+          foreach ($helperPath in @($updaterPath, $bootstrapPath)) {
+            if (-not (Test-Path $helperPath)) {
+              throw "Windows updater helper was not produced: $helperPath"
+            }
+          }
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/tools/windows_installer/build_installer.ps1" `
+            -AppVersion "${{ needs.validate.outputs.version_name }}"
+
+      - name: Upload Windows installer build
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-installer-${{ github.run_id }}
+          path: build/windows/installer/xueqing-setup-${{ needs.validate.outputs.version_name }}.exe
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Upload Windows release build
         uses: actions/upload-artifact@v4
@@ -315,6 +339,12 @@ jobs:
           name: release-windows-signed-${{ github.run_id }}
           path: release-input/windows
 
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: release-windows-installer-${{ github.run_id }}
+          path: release-input/installer
+
       - name: Package assets, manifest, and checksums
         shell: bash
         run: |
@@ -322,9 +352,14 @@ jobs:
           mkdir -p release-assets
           android_asset="xueqing-${RELEASE_TAG}-android.apk"
           windows_asset="xueqing-${RELEASE_TAG}-windows.zip"
+          windows_installer_asset="xueqing-${RELEASE_TAG}-windows-setup.exe"
           cp release-input/android/app-release.apk "release-assets/$android_asset"
           test -f release-input/windows/xueqing.exe
           test -f release-input/windows/xueqing_updater.exe
+          test -f release-input/windows/xueqing_updater_bootstrap.exe
+          installer_path="release-input/installer/xueqing-setup-${RELEASE_VERSION%%+*}.exe"
+          test -f "$installer_path"
+          cp "$installer_path" "release-assets/$windows_installer_asset"
           (cd release-input/windows && zip -q -r "$GITHUB_WORKSPACE/release-assets/$windows_asset" .)
           export ANDROID_ASSET="$android_asset"
           export WINDOWS_ASSET="$windows_asset"
@@ -372,7 +407,7 @@ jobs:
               encoding="utf-8",
           )
           PY
-          (cd release-assets && sha256sum *.apk *.zip update-manifest.json | sort) > release-assets/SHA256SUMS.txt
+          (cd release-assets && sha256sum *.apk *.zip *.exe update-manifest.json | sort) > release-assets/SHA256SUMS.txt
           cat release-assets/update-manifest.json
           cat release-assets/SHA256SUMS.txt
 
@@ -394,6 +429,9 @@ jobs:
               digest = hashlib.sha256(path.read_bytes()).hexdigest()
               if digest != artifact["sha256"]:
                   raise SystemExit(f"SHA-256 mismatch: {path}")
+          installer = next(root.glob("*-windows-setup.exe"), None)
+          if installer is None or installer.stat().st_size <= 0:
+              raise SystemExit("Windows installer is missing or empty")
           PY
 
       - name: Upload immutable assets to Release
