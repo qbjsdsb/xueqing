@@ -23,17 +23,28 @@ jobs:
           ref: feature/student-teaching-pause-resume
           fetch-depth: 0
 
-      - name: Normalize reviewed security-count patch
+      - name: Normalize reviewed patch anchors
         run: |
           python3 - <<'PY'
           from pathlib import Path
           path = Path('.github/tmp/apply_student_teaching_pause_resume.py')
           text = path.read_text()
-          needle = 'replace_once(security_test, "  (select count(*) from found) = 39\\n", "  (select count(*) from found) = 43\\n")'
-          assert text.count(needle) == 2, text.count(needle)
-          replacement = '''security_text = security_test.read_text()\nassert security_text.count("  (select count(*) from found) = 39\\n") == 2\nsecurity_test.write_text(security_text.replace("  (select count(*) from found) = 39\\n", "  (select count(*) from found) = 43\\n"))'''
-          text = text.replace(needle, replacement, 1)
-          text = text.replace(needle, '# both public/private counts updated above', 1)
+
+          count_needle = 'replace_once(security_test, "  (select count(*) from found) = 39\\n", "  (select count(*) from found) = 43\\n")'
+          assert text.count(count_needle) == 2, text.count(count_needle)
+          count_replacement = '''security_text = security_test.read_text()\nassert security_text.count("  (select count(*) from found) = 39\\n") == 2\nsecurity_test.write_text(security_text.replace("  (select count(*) from found) = 39\\n", "  (select count(*) from found) = 43\\n"))'''
+          text = text.replace(count_needle, count_replacement, 1)
+          text = text.replace(count_needle, '# both public/private counts updated above', 1)
+
+          helper_anchor = "\n\n# ---------------------------------------------------------------------------\n# Database migration: student-root pause/resume"
+          assert text.count(helper_anchor) == 1
+          helper = '''\n\ndef replace_first(path: Path, old: str, new: str) -> None:\n    text = path.read_text()\n    count = text.count(old)\n    assert count >= 1, f"{path}: expected at least 1 match, found {count}"\n    path.write_text(text.replace(old, new, 1))\n'''
+          text = text.replace(helper_anchor, helper + helper_anchor, 1)
+
+          interface_anchor = "replace_once(\n    repo,\n    '''  Future<OrganizationStudentTeacherAssignmentTransferResult>\n  transferStudentTeacherAssignment({\n''',"
+          assert text.count(interface_anchor) == 1, text.count(interface_anchor)
+          text = text.replace(interface_anchor, interface_anchor.replace('replace_once(', 'replace_first(', 1), 1)
+
           path.write_text(text)
           PY
 
