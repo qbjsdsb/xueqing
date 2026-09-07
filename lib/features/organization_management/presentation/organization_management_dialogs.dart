@@ -64,7 +64,7 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('姓名用于机构内显示，邮箱用于登录。新账号会使用这里的姓名；已有账号接受邀请时会再次确认姓名。'),
+                const Text('填写姓名、登录邮箱和身份。姓名会显示在机构内，邮箱用于登录；系统会根据账号状态完成开通或邀请。'),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _displayNameController,
@@ -100,7 +100,7 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<OrganizationInvitationRole>(
                   initialValue: _selectedRole,
-                  decoration: const InputDecoration(labelText: '身份'),
+                  decoration: const InputDecoration(labelText: '身份 *'),
                   items: [
                     for (final role in widget.roles)
                       DropdownMenuItem<OrganizationInvitationRole>(
@@ -113,12 +113,14 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
                   },
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                Text(
-                  _selectedRole == OrganizationInvitationRole.owner
-                      ? '管理员提名负责人后，需要现有负责人审批。'
-                      : '身份决定管理边界；老师能看到哪些学生仍由可教学科和任课关系决定。',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                Text(switch (_selectedRole) {
+                  OrganizationInvitationRole.owner =>
+                    '负责人拥有成员账号和机构设置权限，请只授予确实需要承担机构责任的人。',
+                  OrganizationInvitationRole.admin =>
+                    '管理员可以管理机构教学与学生信息，但不能邀请、停用或恢复成员账号。',
+                  OrganizationInvitationRole.teacher =>
+                    '老师只处理教学工作；能看到哪些学生仍由可教学科和任课关系决定。',
+                }, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
@@ -129,7 +131,11 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('创建邀请')),
+        FilledButton(
+          key: const Key('invite-member-submit'),
+          onPressed: _submit,
+          child: const Text('继续'),
+        ),
       ],
     );
   }

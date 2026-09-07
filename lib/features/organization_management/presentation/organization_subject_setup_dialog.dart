@@ -83,7 +83,7 @@ class _OrganizationSubjectSetupDialogState
     if (error is AuthException && error.message.trim().isNotEmpty) {
       return '操作未完成：${error.message.trim()}';
     }
-    return '保存未完成；可以检查网络后重试。';
+    return '添加未完成；可以检查网络后重试。';
   }
 
   @override
@@ -98,7 +98,7 @@ class _OrganizationSubjectSetupDialogState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。',
+              '选择机构要使用的学科。添加后，就可以为老师配置可教学科，并为学生安排对应老师。',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -111,7 +111,7 @@ class _OrganizationSubjectSetupDialogState
                   DropdownMenuItem(
                     value: subject,
                     child: Text(
-                      '${subject.displayName} · ${subject.code}',
+                      subject.displayName,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -148,6 +148,7 @@ class _OrganizationSubjectSetupDialogState
           child: const Text('取消'),
         ),
         FilledButton(
+          key: const Key('subject-setup-submit'),
           onPressed: _busy ? null : _submit,
           child: _busy
               ? const SizedBox(
@@ -155,7 +156,7 @@ class _OrganizationSubjectSetupDialogState
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('保存学科'),
+              : const Text('添加学科'),
         ),
       ],
     );
