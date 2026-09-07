@@ -90,7 +90,7 @@ class _OrganizationSubjectSetupDialogState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return AlertDialog(
-      title: const Text('添加学科'),
+      title: const Text('添加机构学科'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: Column(
@@ -98,7 +98,7 @@ class _OrganizationSubjectSetupDialogState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。',
+              '选择本机构实际开设的学科。添加后，再到老师成员卡上设置“教学学科”，学生建档时就能选择对应学科和负责老师。',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -111,7 +111,7 @@ class _OrganizationSubjectSetupDialogState
                   DropdownMenuItem(
                     value: subject,
                     child: Text(
-                      '${subject.displayName} · ${subject.code}',
+                      subject.displayName,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -155,7 +155,7 @@ class _OrganizationSubjectSetupDialogState
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('保存学科'),
+              : const Text('添加学科'),
         ),
       ],
     );
