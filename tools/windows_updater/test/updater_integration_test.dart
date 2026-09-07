@@ -291,9 +291,7 @@ Future<ProcessResult> _runUpdater({
       '--sha256',
       sha256.convert(packageBytes).toString(),
     ],
-    environment: <String, String>{
-      _lifecycleEnvironmentKey: lifecycleFile.path,
-    },
+    environment: <String, String>{_lifecycleEnvironmentKey: lifecycleFile.path},
     includeParentEnvironment: true,
   );
 }
