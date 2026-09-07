@@ -334,8 +334,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           return _WorkspaceStatusScaffold(
             title: '教师工作台',
             child: _WorkspaceErrorBody(
-              title: '工作台初始化失败',
-              message: '请检查开发环境配置后重试。',
+              title: '工作台暂时无法打开',
+              message: '请检查网络后重试；已经保存的学情记录不会受影响。',
               onRetry: _retryInitialization,
             ),
           );
@@ -824,7 +824,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       return;
     }
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已保存为待整理 Case，并保留下一步行动。')));
+        .showSnackBar(const SnackBar(content: Text('已记录为待整理问题。')));
   }
 
   Future<void> _showCaseTypeManager() async {
@@ -2011,19 +2011,19 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         if (learningCase.status == LearningCaseStatus.pendingVerification)
           const _WorkspaceStateNotice(
             title: '本次验证通过，仍待确认是否稳定',
-            message: 'Assessment passed 不是 stable。请保留这次检查记录，再由教师确认是否稳定。',
+            message: '本次检查已经通过，还需要你确认这个问题是否已经稳定。',
             icon: Icons.fact_check_outlined,
           )
         else if (learningCase.status == LearningCaseStatus.stable)
           const _WorkspaceStateNotice(
             title: '稳定；仍需安排下一次检查',
-            message: '稳定不等于已关闭，当前仍需保留 review / verify action。',
+            message: '当前表现已经稳定，但还没有结束跟进；请保留下一次复查。',
             icon: Icons.check_circle_outline,
           )
         else if (learningCase.status == LearningCaseStatus.newCase)
           const _WorkspaceStateNotice(
-            title: '待整理 Case',
-            message: 'Quick Capture 已保存原始问题和证据；确认前请补充判断和合适的下一步。',
+            title: '待整理问题',
+            message: '这是一条课堂快速记录；确认前请补充教师判断和合适的下一步。',
             icon: Icons.edit_note_outlined,
           ),
         if (commandLabel != null) ...[
@@ -2057,7 +2057,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           const SizedBox(height: AppSpacing.md),
           _WorkspaceCaseCommandSection(
             title: '记录复发并重新打开',
-            message: '只有关闭后的新 Evidence 才能重新打开；系统会保留原来的关闭历史。',
+            message: '关闭后如果再次出现新的表现，可以记录后重新打开；原来的关闭历史会继续保留。',
             buttonLabel: '记录复发并重新打开',
             onPressed: () => _showReopenCase(student, learningCase),
           ),
@@ -2112,7 +2112,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           child: learningCase.timeline.isEmpty
               ? const _WorkspaceStateNotice(
                   title: '暂时没有更多历史',
-                  message: '新的 Evidence、教学动作和验证会按时间追加在这里。',
+                  message: '新的课堂记录、教学动作和检查结果会按时间追加在这里。',
                   icon: Icons.history_outlined,
                 )
               : Column(
@@ -3231,7 +3231,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '日期按机构时区解释；提交失败时输入会保留，重试沿用同一 operation ID。',
+                    '日期按机构时区计算；提交失败时输入会保留，直接重试即可，不会重复记录。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (_saveError != null) ...[
@@ -3710,7 +3710,7 @@ class _WorkspaceQuickCaptureFormState
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '先记录一条真实观察；保存后 Case 会保持“待整理”，不会自动跳过教师判断。',
+                    '先记下刚看到的问题和具体表现，课后再补充判断与跟进。',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -3739,15 +3739,15 @@ class _WorkspaceQuickCaptureFormState
                     maxLines: 6,
                     textInputAction: TextInputAction.newline,
                     decoration: InputDecoration(
-                      labelText: '现场表现 / Evidence *',
-                      hintText: '记下题目、行为或课堂中可观察到的表现',
+                      labelText: '具体表现 *',
+                      hintText: '写下题目、行为或课堂里实际看到的表现',
                       errorText: _evidenceError,
                       alignLabelWithHint: true,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '保存后会生成一条 finalized Evidence；错误需要用后续修正事实表达，不会静默覆盖原记录。',
+                    '这段记录会作为问题依据保留；之后可以继续补充，不会覆盖原记录。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (widget.evidenceAttachmentRepository != null) ...[
@@ -3757,8 +3757,7 @@ class _WorkspaceQuickCaptureFormState
                   const SizedBox(height: AppSpacing.md),
                   _WorkspaceContextLine(
                     label: '保存后',
-                    value:
-                        '待整理 Case · ${_selectedCaseType.label} · 下一步“补充证据并确认下一步” · 日期待安排',
+                    value: '待整理问题 · ${_selectedCaseType.label} · 之后补充判断并安排跟进',
                   ),
                   if (_saveError != null) ...[
                     const SizedBox(height: AppSpacing.md),
@@ -3776,8 +3775,9 @@ class _WorkspaceQuickCaptureFormState
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: FilledButton(
+                          key: const Key('workspace-quick-capture-save'),
                           onPressed: _saving ? null : _save,
-                          child: Text(_saving ? '保存中…' : '保存问题'),
+                          child: Text(_saving ? '保存中…' : '记录问题'),
                         ),
                       ),
                     ],
@@ -3814,7 +3814,7 @@ class _WorkspaceQuickCaptureFormState
         const SizedBox(height: AppSpacing.xs),
         if (attachment == null)
           Text(
-            '照片只作为 Evidence 的补充；请保留一句文字说明，便于搜索和复盘。',
+            '可以补一张题目、作业或课堂照片；仍建议写一句文字，之后更容易查找。',
             style: Theme.of(context).textTheme.bodySmall,
           )
         else
@@ -5529,7 +5529,7 @@ class _WorkspaceCompleteActionFormState
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '日期按机构时区解释；提交失败时原始内容会锁定，重试沿用同一 operation ID。',
+                    '日期按机构时区计算；提交失败时本次内容会保留，直接重试即可，不会重复记录。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (_saveError != null) ...[
@@ -6338,8 +6338,8 @@ class _WorkspaceManagementUnavailable extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.all(AppSpacing.lg),
         child: _WorkspaceStateNotice(
-          title: '机构管理尚未接通',
-          message: '当前账号有机构管理角色，但管理数据服务没有配置。请检查应用初始化和开发环境同步状态。',
+          title: '管理功能暂时不可用',
+          message: '当前账号具有管理权限，但管理页面暂时无法打开。请退出后重新登录；如果持续出现，请联系机构负责人。',
           icon: Icons.admin_panel_settings_outlined,
         ),
       ),
@@ -6555,7 +6555,7 @@ String _describeWorkspaceLoadError(Object? error) {
       (detail.contains('404') ||
           detail.contains('pgrst205') ||
           detail.contains('relation'))) {
-    return '开发环境服务还没有完成同步，请稍后重试。';
+    return '服务正在更新，暂时无法读取工作台。请稍后重试。';
   }
   if (detail.contains('network') ||
       detail.contains('socket') ||

@@ -102,7 +102,9 @@ unresolved Case 保留真实 status；tracking suspended；可以无 current own
 
 ## 6. Quick Capture
 
-目标仍是课堂 10–20 秒：student/subject → 一句标题 → optional detail → new Case。
+目标仍是课堂 10–20 秒：student/subject → 一句标题 → 一句具体表现 → new Case。
+
+当前 V1 用“一句具体表现”守住最小事实依据，但不要求课堂现场填写根因、判断、完整干预方案或日期。
 
 但“快”不等于绕过权限：云端 new Case 必须完整 Teaching Fact Gate。
 

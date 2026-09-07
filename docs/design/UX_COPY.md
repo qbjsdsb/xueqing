@@ -109,8 +109,8 @@ Student Detail 不再使用总是可见的 `当前 Learning Cases` 与完整 `�
 | 学科上下文 | `学科` |
 | 必填字段 | `问题标题` |
 | title placeholder | `用一句话记下刚发现的问题` |
-| optional note | `补充说明（可选）` |
-| note placeholder | `记下关键表现、题目或课堂语境` |
+| 具体表现 | `具体表现` |
+| 具体表现 placeholder | `写下题目、行为或课堂里实际看到的表现` |
 | save | `记录问题` |
 | cancel | `取消` |
 | later | `稍后整理` |
@@ -124,6 +124,8 @@ Student Detail 不再使用总是可见的 `当前 Learning Cases` 与完整 `�
 | dirty close | `还没有保存，要保留这段记录吗？` |
 | keep draft | `保留草稿` |
 | discard | `放弃记录` |
+
+当前 V1 的课堂快速记录最小输入为：`问题标题 + 一句具体表现`。具体表现用于保留可复核的教学事实，但不要求课堂现场填写根因、教师判断、完整干预方案、行动日期或长篇 Evidence。
 
 ## 4. State copy rules
 
