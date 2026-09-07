@@ -56,7 +56,7 @@ class _ManagementAreaSwitcher extends StatelessWidget {
         ButtonSegment<_ManagementArea>(
           value: _ManagementArea.settings,
           icon: Icon(Icons.tune_outlined),
-          label: Text('学科与设置', key: Key('management-area-settings')),
+          label: Text('学科设置', key: Key('management-area-settings')),
         ),
       ],
       selected: <_ManagementArea>{selectedArea},
