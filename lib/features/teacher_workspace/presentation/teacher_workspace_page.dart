@@ -3584,7 +3584,7 @@ class _WorkspaceQuickCaptureFormState
       return DropdownButtonFormField<String>(
         key: const Key('quick-capture-case-type-dropdown'),
         initialValue: _selectedCaseTypeKey,
-        decoration: const InputDecoration(labelText: '问题类型'),
+        decoration: const InputDecoration(labelText: '问题类型（可调整）'),
         items: [
           for (final type in _caseTypeOptions)
             DropdownMenuItem<String>(value: type.key, child: Text(type.label)),
@@ -3601,7 +3601,7 @@ class _WorkspaceQuickCaptureFormState
 
     return _WorkspaceChoiceField(
       fieldKey: const Key('quick-capture-case-type-dropdown'),
-      label: '问题类型',
+      label: '问题类型（可调整）',
       value: _selectedCaseType.label,
       onTap: _saving ? null : _openCaseTypePicker,
     );
@@ -3718,9 +3718,8 @@ class _WorkspaceQuickCaptureFormState
                   const SizedBox(height: AppSpacing.md),
                   _buildStudentField(context),
                   const SizedBox(height: AppSpacing.md),
-                  _buildCaseTypeField(context),
-                  const SizedBox(height: AppSpacing.md),
                   TextField(
+                    key: const Key('quick-capture-title-field'),
                     controller: _titleController,
                     autofocus: _selectedStudent != null,
                     enabled: !_saving,
@@ -3733,6 +3732,7 @@ class _WorkspaceQuickCaptureFormState
                   ),
                   const SizedBox(height: AppSpacing.md),
                   TextField(
+                    key: const Key('quick-capture-evidence-field'),
                     controller: _evidenceController,
                     enabled: !_saving,
                     minLines: 3,
@@ -3750,6 +3750,8 @@ class _WorkspaceQuickCaptureFormState
                     '这段记录会作为问题依据保留；之后可以继续补充，不会覆盖原记录。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  const SizedBox(height: AppSpacing.md),
+                  _buildCaseTypeField(context),
                   if (widget.evidenceAttachmentRepository != null) ...[
                     const SizedBox(height: AppSpacing.md),
                     _buildAttachmentField(context),

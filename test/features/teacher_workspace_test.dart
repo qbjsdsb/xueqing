@@ -1212,6 +1212,35 @@ void main() {
     },
   );
 
+  testWidgets('keeps Quick Capture facts before classification', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.text('记录问题').first);
+    await tester.pumpAndSettle();
+
+    final titleField = find.byKey(const Key('quick-capture-title-field'));
+    final evidenceField = find.byKey(const Key('quick-capture-evidence-field'));
+    final typePicker = find.byKey(
+      const Key('quick-capture-case-type-dropdown'),
+    );
+
+    expect(titleField, findsOneWidget);
+    expect(evidenceField, findsOneWidget);
+    expect(typePicker, findsOneWidget);
+    expect(
+      tester.getTopLeft(titleField).dy,
+      lessThan(tester.getTopLeft(typePicker).dy),
+    );
+    expect(
+      tester.getTopLeft(evidenceField).dy,
+      lessThan(tester.getTopLeft(typePicker).dy),
+    );
+    expect(find.text('问题类型（可调整）'), findsOneWidget);
+  });
+
   testWidgets('shows custom type settings to an organization manager', (
     tester,
   ) async {
