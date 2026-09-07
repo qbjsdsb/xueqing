@@ -496,6 +496,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   bool _isRefreshing = false;
   bool _checkingForUpdates = false;
   int _loadSequence = 0;
+  static const int _todayPreviewLimit = 3;
+  bool _showAllPendingVerification = false;
+  bool _showAllFutureActions = false;
+  bool _showAllUndatedActions = false;
 
   @override
   void initState() {
@@ -1452,8 +1456,18 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         _WorkspaceSection(
           key: const Key('workspace-pending-verification-section'),
           title: '待验证',
-          count: '${pendingVerification.length} 个 Case',
+          count: '${pendingVerification.length} 个问题',
           showTopDivider: true,
+          action: pendingVerification.length > _todayPreviewLimit
+              ? TextButton(
+                  key: const Key('workspace-pending-verification-toggle'),
+                  onPressed: () => setState(
+                    () => _showAllPendingVerification =
+                        !_showAllPendingVerification,
+                  ),
+                  child: Text(_showAllPendingVerification ? '收起' : '查看全部'),
+                )
+              : null,
           child: pendingVerification.isEmpty
               ? const _WorkspaceStateNotice(
                   title: '还没有待验证事项',
@@ -1462,7 +1476,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                 )
               : Column(
                   children: [
-                    for (final item in pendingVerification)
+                    for (final item
+                        in (_showAllPendingVerification
+                            ? pendingVerification
+                            : pendingVerification.take(_todayPreviewLimit)))
                       _WorkspaceCaseRow(
                         student: item.student,
                         learningCase: item.learningCase,
@@ -1476,10 +1493,26 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           const SizedBox(height: AppSpacing.lg),
           _WorkspaceSection(
             key: const Key('workspace-future-actions-section'),
-            title: '未来',
+            title: '之后要处理',
             count: '${future.length} 项',
             showTopDivider: true,
-            child: Column(children: _buildActionRows(future, workspace)),
+            action: future.length > _todayPreviewLimit
+                ? TextButton(
+                    key: const Key('workspace-future-actions-toggle'),
+                    onPressed: () => setState(
+                      () => _showAllFutureActions = !_showAllFutureActions,
+                    ),
+                    child: Text(_showAllFutureActions ? '收起' : '查看全部'),
+                  )
+                : null,
+            child: Column(
+              children: _buildActionRows(
+                _showAllFutureActions
+                    ? future
+                    : future.take(_todayPreviewLimit).toList(),
+                workspace,
+              ),
+            ),
           ),
         ],
         const SizedBox(height: AppSpacing.lg),
@@ -1488,13 +1521,29 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           title: '待安排',
           count: '${undated.length} 项',
           showTopDivider: true,
+          action: undated.length > _todayPreviewLimit
+              ? TextButton(
+                  key: const Key('workspace-undated-actions-toggle'),
+                  onPressed: () => setState(
+                    () => _showAllUndatedActions = !_showAllUndatedActions,
+                  ),
+                  child: Text(_showAllUndatedActions ? '收起' : '查看全部'),
+                )
+              : null,
           child: undated.isEmpty
               ? const _WorkspaceStateNotice(
                   title: '没有待安排的行动',
                   message: '需要跟进但尚未设定日期的行动会一直保留在这里。',
                   icon: Icons.event_available_outlined,
                 )
-              : Column(children: _buildActionRows(undated, workspace)),
+              : Column(
+                  children: _buildActionRows(
+                    _showAllUndatedActions
+                        ? undated
+                        : undated.take(_todayPreviewLimit).toList(),
+                    workspace,
+                  ),
+                ),
         ),
         const SizedBox(height: AppSpacing.lg),
         _WorkspaceSection(
