@@ -9,6 +9,7 @@ import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/organization_member_provisioning_repository.dart';
 import 'organization_student_edit_dialog.dart';
 import 'organization_student_setup_dialog.dart';
+import 'organization_student_subject_restore_dialog.dart';
 import 'organization_student_subject_setup_dialog.dart';
 import 'organization_student_teacher_assignment_transfer_dialog.dart';
 import 'organization_subject_setup_dialog.dart';
@@ -124,6 +125,8 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                         canEditMemberName: canEditMemberName,
                         onAddStudent: _addStudent,
                         onAddStudentSubject: _addStudentSubject,
+                        onToggleStudentSubjectService:
+                            _toggleStudentSubjectService,
                         onInviteMember: _inviteMember,
                         onApprove: _approveInvitation,
                         onRevoke: _revokeInvitation,

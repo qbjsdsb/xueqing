@@ -49,6 +49,8 @@ class _FakeOrganizationManagementRepository
   int teacherScopeUpdateCount = 0;
   int assignmentTransferCount = 0;
   int studentSubjectAddCount = 0;
+  int studentSubjectEndCount = 0;
+  int studentSubjectRestoreCount = 0;
   OrganizationStudentSetupResult? createdStudent;
   OrganizationStudentSetupResult? addedStudentSubject;
   OrganizationStudentUpdateResult? updatedStudent;
@@ -279,9 +281,181 @@ class _FakeOrganizationManagementRepository
           if (!previous.subjectNames.contains(subject.displayName))
             subject.displayName,
         ],
+        subjectServices: <OrganizationStudentSubjectService>[
+          ...previous.subjectServices,
+          OrganizationStudentSubjectService(
+            profileId: addedStudentSubject!.studentSubjectProfileId,
+            organizationSubjectId: organizationSubjectId,
+            subjectName: subject.displayName,
+            status: 'active',
+            version: 1,
+          ),
+        ],
       );
     }
     return addedStudentSubject!;
+  }
+
+  @override
+  Future<OrganizationStudentSubjectLifecycleResult> endStudentSubjectService({
+    required String operationId,
+    required String organizationId,
+    required String studentSubjectProfileId,
+    required int expectedProfileVersion,
+  }) async {
+    studentSubjectEndCount++;
+    final studentIndex = students.indexWhere(
+      (student) => student.subjectServices.any(
+        (service) => service.profileId == studentSubjectProfileId,
+      ),
+    );
+    if (studentIndex < 0) throw StateError('Subject service not found.');
+    final previous = students[studentIndex];
+    final services = <OrganizationStudentSubjectService>[
+      for (final service in previous.subjectServices)
+        if (service.profileId == studentSubjectProfileId)
+          OrganizationStudentSubjectService(
+            profileId: service.profileId,
+            organizationSubjectId: service.organizationSubjectId,
+            subjectName: service.subjectName,
+            status: 'inactive',
+            version: expectedProfileVersion + 1,
+          )
+        else
+          service,
+    ];
+    final target = services.firstWhere(
+      (service) => service.profileId == studentSubjectProfileId,
+    );
+    students[studentIndex] = OrganizationStudentRecord(
+      studentId: previous.studentId,
+      studentName: previous.studentName,
+      studentCode: previous.studentCode,
+      status: previous.status,
+      version: previous.version,
+      grade: previous.grade,
+      className: previous.className,
+      campus: previous.campus,
+      startsOn: previous.startsOn,
+      endsOn: previous.endsOn,
+      subjectNames: [
+        for (final service in services)
+          if (service.isActive) service.subjectName,
+      ],
+      subjectServices: services,
+    );
+    return OrganizationStudentSubjectLifecycleResult(
+      operationId: operationId,
+      organizationId: organizationId,
+      studentId: previous.studentId,
+      studentName: previous.studentName,
+      studentSubjectProfileId: target.profileId,
+      organizationSubjectId: target.organizationSubjectId,
+      subjectName: target.subjectName,
+      status: target.status,
+      profileVersion: target.version,
+      endedAssignmentCount: 1,
+    );
+  }
+
+  @override
+  Future<OrganizationStudentSubjectLifecycleResult>
+  restoreStudentSubjectService({
+    required String operationId,
+    required String organizationId,
+    required String studentSubjectProfileId,
+    required int expectedProfileVersion,
+    required String teacherMembershipId,
+    DateTime? startsOn,
+  }) async {
+    studentSubjectRestoreCount++;
+    final studentIndex = students.indexWhere(
+      (student) => student.subjectServices.any(
+        (service) => service.profileId == studentSubjectProfileId,
+      ),
+    );
+    if (studentIndex < 0) throw StateError('Subject service not found.');
+    final previous = students[studentIndex];
+    final services = <OrganizationStudentSubjectService>[
+      for (final service in previous.subjectServices)
+        if (service.profileId == studentSubjectProfileId)
+          OrganizationStudentSubjectService(
+            profileId: service.profileId,
+            organizationSubjectId: service.organizationSubjectId,
+            subjectName: service.subjectName,
+            status: 'active',
+            version: expectedProfileVersion + 1,
+          )
+        else
+          service,
+    ];
+    final target = services.firstWhere(
+      (service) => service.profileId == studentSubjectProfileId,
+    );
+    final eligibleTeachers = setupOptions.teachersForSubject(
+      target.organizationSubjectId,
+    );
+    if (eligibleTeachers.isEmpty) {
+      throw StateError('No eligible teacher for restored subject service.');
+    }
+    final teacher = eligibleTeachers.firstWhere(
+      (item) => item.membershipId == teacherMembershipId,
+      orElse: () => eligibleTeachers.first,
+    );
+    students[studentIndex] = OrganizationStudentRecord(
+      studentId: previous.studentId,
+      studentName: previous.studentName,
+      studentCode: previous.studentCode,
+      status: previous.status,
+      version: previous.version,
+      grade: previous.grade,
+      className: previous.className,
+      campus: previous.campus,
+      startsOn: previous.startsOn,
+      endsOn: previous.endsOn,
+      subjectNames: [
+        for (final service in services)
+          if (service.isActive) service.subjectName,
+      ],
+      subjectServices: services,
+    );
+    studentTeacherAssignments.add(
+      OrganizationStudentTeacherAssignment(
+        assignmentId: 'assignment-restored-$studentSubjectRestoreCount',
+        organizationId: organizationId,
+        studentSubjectProfileId: target.profileId,
+        studentId: previous.studentId,
+        studentName: previous.studentName,
+        organizationSubjectId: target.organizationSubjectId,
+        subjectName: target.subjectName,
+        subjectCode: target.subjectName.toLowerCase(),
+        membershipId: teacher.membershipId,
+        teacherName: teacher.displayName,
+        teacherEmail: teacher.email,
+        assignmentRole: 'lead',
+        status: 'active',
+        version: 1,
+        activeFrom: startsOn ?? DateTime(2026, 9, 8),
+        activeTo: null,
+        endedAt: null,
+      ),
+    );
+    return OrganizationStudentSubjectLifecycleResult(
+      operationId: operationId,
+      organizationId: organizationId,
+      studentId: previous.studentId,
+      studentName: previous.studentName,
+      studentSubjectProfileId: target.profileId,
+      organizationSubjectId: target.organizationSubjectId,
+      subjectName: target.subjectName,
+      status: target.status,
+      profileVersion: target.version,
+      endedAssignmentCount: 0,
+      assignmentId: 'assignment-restored-$studentSubjectRestoreCount',
+      teacherMembershipId: teacher.membershipId,
+      teacherDisplayName: teacher.displayName,
+      startsOn: startsOn ?? DateTime(2026, 9, 8),
+    );
   }
 
   @override
@@ -558,6 +732,15 @@ OrganizationStudentRecord _studentRecord({
     startsOn: DateTime(2026, 9, 1),
     endsOn: null,
     subjectNames: ['数学'],
+    subjectServices: const [
+      OrganizationStudentSubjectService(
+        profileId: 'profile-1',
+        organizationSubjectId: 'subject-1',
+        subjectName: '数学',
+        status: 'active',
+        version: 1,
+      ),
+    ],
   );
 }
 
@@ -793,6 +976,95 @@ void main() {
         repository.students.single.subjectNames,
         containsAll(['数学', '英语']),
       );
+    },
+  );
+
+  testWidgets('ends one subject service without removing the student root', (
+    tester,
+  ) async {
+    final student = _studentRecord();
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+      students: [student],
+      studentTeacherAssignments: [_studentTeacherAssignment()],
+    );
+    await _pumpManagement(tester, repository);
+    await _selectManagementArea(tester, '学生');
+
+    final endButton = find.byKey(
+      const ValueKey<String>('student-subject-end-profile-1'),
+    );
+    await tester.ensureVisible(endButton);
+    await tester.tap(endButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('结束 原学生 · 数学？'), findsOneWidget);
+    await tester.tap(find.text('确认结束'));
+    await tester.pumpAndSettle();
+
+    expect(repository.studentSubjectEndCount, 1);
+    expect(repository.students.single.studentId, student.studentId);
+    expect(
+      repository.students.single.subjectServices.single.status,
+      'inactive',
+    );
+    expect(find.text('已结束'), findsOneWidget);
+  });
+
+  testWidgets(
+    'restores an ended subject by choosing a current eligible teacher',
+    (tester) async {
+      final student = OrganizationStudentRecord(
+        studentId: 'student-1',
+        studentName: '原学生',
+        studentCode: 'S-001',
+        status: 'active',
+        version: 3,
+        grade: '初二',
+        className: '一班',
+        campus: '本部',
+        startsOn: DateTime(2026, 9, 1),
+        endsOn: null,
+        subjectNames: const [],
+        subjectServices: const [
+          OrganizationStudentSubjectService(
+            profileId: 'profile-1',
+            organizationSubjectId: 'subject-1',
+            subjectName: '数学',
+            status: 'inactive',
+            version: 2,
+          ),
+        ],
+      );
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        students: [student],
+        studentTeacherAssignments: <OrganizationStudentTeacherAssignment>[],
+      );
+      await _pumpManagement(tester, repository);
+      await _selectManagementArea(tester, '学生');
+
+      final restoreButton = find.byKey(
+        const ValueKey<String>('student-subject-restore-profile-1'),
+      );
+      await tester.ensureVisible(restoreButton);
+      await tester.tap(restoreButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('恢复 原学生 · 数学'), findsOneWidget);
+      expect(find.text('主负责老师 *'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('student-subject-restore-submit')));
+      await tester.pumpAndSettle();
+
+      expect(repository.studentSubjectRestoreCount, 1);
+      expect(
+        repository.students.single.subjectServices.single.status,
+        'active',
+      );
+      expect(repository.studentTeacherAssignments.single.isActive, isTrue);
+      expect(find.text('进行中'), findsOneWidget);
     },
   );
 
@@ -1042,7 +1314,9 @@ void main() {
 
     expect(find.text('任课老师与交接'), findsOneWidget);
     expect(find.text('交接老师'), findsNothing);
-    await tester.tap(find.text('任课老师与交接'));
+    final assignmentSection = find.text('任课老师与交接');
+    await tester.ensureVisible(assignmentSection);
+    await tester.tap(assignmentSection);
     await tester.pumpAndSettle();
 
     final transferButton = find.text('交接老师');
