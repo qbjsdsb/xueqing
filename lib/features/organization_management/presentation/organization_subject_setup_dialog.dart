@@ -98,7 +98,7 @@ class _OrganizationSubjectSetupDialogState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。',
+              '选择本机构实际教授的学科。添加后可以分配给老师，并用于学生学情档案。',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -111,7 +111,7 @@ class _OrganizationSubjectSetupDialogState
                   DropdownMenuItem(
                     value: subject,
                     child: Text(
-                      '${subject.displayName} · ${subject.code}',
+                      subject.displayName,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
