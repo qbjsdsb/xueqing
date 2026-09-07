@@ -55,7 +55,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 38
+  (select count(*) from found) = 39
   and not exists (
     select 1
     from found
@@ -119,7 +119,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 38
+  (select count(*) from found) = 39
   and not exists (
     select 1
     from found
