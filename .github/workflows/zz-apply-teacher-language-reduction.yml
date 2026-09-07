@@ -54,7 +54,7 @@ jobs:
               'M test/features/teacher_workspace_test.dart',
           }
           lines = subprocess.check_output(['git', 'status', '--porcelain'], text=True).splitlines()
-          actual = {line[:2] + ' ' + line[3:] for line in lines}
+          actual = {line.strip() for line in lines}
           if actual != expected:
               print('Expected:', *sorted(expected), sep='\n  ')
               print('Actual:', *sorted(actual), sep='\n  ')
