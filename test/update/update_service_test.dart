@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xueqing/update/update_models.dart';
@@ -7,6 +8,22 @@ import 'package:xueqing/update/update_service.dart';
 void main() {
   const hash =
       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+  Map<String, Object?> artifact({
+    String url =
+        'https://github.com/qbjsdsb/xueqing/releases/download/v0.2.0/'
+        'xueqing-windows.zip',
+    String format = 'zip',
+    String fileName = 'xueqing-windows.zip',
+  }) {
+    return <String, Object?>{
+      'url': url,
+      'sha256': hash,
+      'size_bytes': 42,
+      'format': format,
+      'file_name': fileName,
+    };
+  }
 
   Map<String, Object?> manifest({
     String version = '0.2.0+2',
@@ -21,15 +38,7 @@ void main() {
       'notes': <String>['提升稳定性', '修复更新流程'],
       'platforms':
           platforms ??
-          <String, Object?>{
-            'windows': <String, Object?>{
-              'url': 'https://github.com/qbjsdsb/xueqing/releases/download/v0.2.0/xueqing-windows.zip',
-              'sha256': hash,
-              'size_bytes': 42,
-              'format': 'zip',
-              'file_name': 'xueqing-windows.zip',
-            },
-          },
+          <String, Object?>{'windows': artifact()},
     };
   }
 
@@ -51,18 +60,104 @@ void main() {
   test('rejects malformed artifact security fields', () {
     expect(
       () => UpdateManifest.fromJson(
-        manifest()
-          ..['platforms'] = <String, Object?>{
-            'windows': <String, Object?>{
-              'url': 'http://example.com/update.zip',
-              'sha256': hash,
-              'size_bytes': 42,
-              'format': 'zip',
-            },
+        manifest(
+          platforms: <String, Object?>{
+            'windows': artifact(url: 'http://example.com/update.zip'),
           },
+        ),
       ),
       throwsA(isA<FormatException>()),
     );
+  });
+
+  test('rejects platform artifact formats before download', () {
+    expect(
+      () => UpdateManifest.fromJson(
+        manifest(
+          platforms: <String, Object?>{
+            'windows': artifact(
+              format: 'apk',
+              fileName: 'xueqing-windows.apk',
+            ),
+          },
+        ),
+      ),
+      throwsA(isA<FormatException>()),
+    );
+    expect(
+      () => UpdateManifest.fromJson(
+        manifest(
+          platforms: <String, Object?>{
+            'android': artifact(
+              url: 'https://example.com/xueqing-android.zip',
+              format: 'zip',
+              fileName: 'xueqing-android.zip',
+            ),
+          },
+        ),
+      ),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('rejects an explicit file name that disagrees with platform format', () {
+    expect(
+      () => UpdateManifest.fromJson(
+        manifest(
+          platforms: <String, Object?>{
+            'windows': artifact(fileName: 'xueqing-windows.exe'),
+          },
+        ),
+      ),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('accepts the expected Android APK contract', () {
+    final parsed = UpdateManifest.fromJson(
+      manifest(
+        platforms: <String, Object?>{
+          'android': artifact(
+            url: 'https://example.com/xueqing-android.apk',
+            format: 'apk',
+            fileName: 'xueqing-android.apk',
+          ),
+        },
+      ),
+    );
+
+    expect(parsed.artifacts[UpdatePlatform.android]?.format, 'apk');
+  });
+
+  test('prunes stale update files but keeps current target and directories', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'xueqing-update-cache-test-',
+    );
+    try {
+      final stale = File(
+        '${directory.path}${Platform.pathSeparator}xueqing-v0.1.0.apk',
+      );
+      final current = File(
+        '${directory.path}${Platform.pathSeparator}xueqing-v0.2.0.apk',
+      );
+      final nested = Directory(
+        '${directory.path}${Platform.pathSeparator}keep-directory',
+      );
+      await stale.writeAsBytes(<int>[1]);
+      await current.writeAsBytes(<int>[2]);
+      await nested.create();
+
+      await pruneStaleUpdateDownloads(
+        directory,
+        keepFileName: 'xueqing-v0.2.0.apk',
+      );
+
+      expect(await stale.exists(), isFalse);
+      expect(await current.exists(), isTrue);
+      expect(await nested.exists(), isTrue);
+    } finally {
+      await directory.delete(recursive: true);
+    }
   });
 
   test(
