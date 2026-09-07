@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing published stable Release tag, for example v0.2.0"
+        description: "Existing published Pre-release staging tag, for example v0.2.0"
         required: true
         type: string
         default: v0.2.0
@@ -23,7 +23,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: publish-signed-release-${{ inputs.release_tag }}
+  group: publish-stable-release
   cancel-in-progress: false
 
 env:
@@ -48,7 +48,7 @@ jobs:
       version_name: ${{ steps.release.outputs.version_name }}
       build_number: ${{ steps.release.outputs.build_number }}
     steps:
-      - name: Validate version and target Release
+      - name: Validate version and staged Release
         id: release
         shell: bash
         env:
@@ -85,8 +85,10 @@ jobs:
           import json
           import os
           release = json.loads(os.environ["RELEASE_JSON"])
-          if release["isDraft"] or release["isPrerelease"]:
-              raise SystemExit("The stable target Release must be published and non-prerelease.")
+          if release["isDraft"] or not release["isPrerelease"]:
+              raise SystemExit(
+                  "The stable target must start as a published Pre-release staging Release."
+              )
           PY
           release_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
           compare_status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$release_commit...main" --jq '.status')"
@@ -345,7 +347,7 @@ jobs:
           retention-days: 1
 
   package-and-publish:
-    name: Package and upload immutable Release assets
+    name: Package, verify, and promote stable Release
     needs: [validate, android-release, windows-release]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -460,17 +462,65 @@ jobs:
               raise SystemExit("Windows installer is missing or empty")
           PY
 
-      - name: Upload immutable assets to Release
+      - name: Upload immutable assets to staged Release
         shell: bash
         run: |
           set -euo pipefail
           gh release upload "$RELEASE_TAG" release-assets/* \
             --repo "$GITHUB_REPOSITORY"
 
-      - name: Verify uploaded Release assets
+      - name: Verify staged Release assets
         shell: bash
         run: |
           set -euo pipefail
-          gh release view "$RELEASE_TAG" \
+          release_json="$(gh release view "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
-            --json tagName,url,assets
+            --json isDraft,isPrerelease,assets)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json
+          import os
+
+          release = json.loads(os.environ["RELEASE_JSON"])
+          if release["isDraft"] or not release["isPrerelease"]:
+              raise SystemExit("Release left the staging Pre-release state before verification")
+          assets = {item["name"]: item for item in release["assets"]}
+          tag = os.environ["RELEASE_TAG"]
+          expected = {
+              f"xueqing-{tag}-android.apk",
+              f"xueqing-{tag}-windows.zip",
+              f"xueqing-{tag}-windows-setup.exe",
+              "update-manifest.json",
+              "SHA256SUMS.txt",
+          }
+          missing = sorted(expected - set(assets))
+          if missing:
+              raise SystemExit(f"Missing uploaded Release assets: {missing}")
+          empty = sorted(name for name in expected if int(assets[name].get("size", 0)) <= 0)
+          if empty:
+              raise SystemExit(f"Empty uploaded Release assets: {empty}")
+          PY
+
+      - name: Promote staged Release to Stable
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --prerelease=false \
+            --latest
+
+      - name: Verify final Stable Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json tagName,url,isDraft,isPrerelease,assets)"
+          printf '%s\n' "$release_json"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json
+          import os
+          release = json.loads(os.environ["RELEASE_JSON"])
+          if release["isDraft"] or release["isPrerelease"]:
+              raise SystemExit("Stable promotion did not complete")
+          PY
