@@ -168,8 +168,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                           onReissueCredential:
                               widget.onReissueMemberCredential == null
                               ? null
-                              : () =>
-                                    widget.onReissueMemberCredential!(member),
+                              : () => widget.onReissueMemberCredential!(member),
                         ),
                     ],
                   ),
@@ -250,7 +249,9 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                     _TeacherSubjectScopeTile(
                       scope: scope,
                       busy: widget.busy,
-                      showReactivate: latestEndedScopeIds.contains(scope.scopeId),
+                      showReactivate: latestEndedScopeIds.contains(
+                        scope.scopeId,
+                      ),
                       onToggle: () => widget.onToggleTeacherScope(scope),
                     ),
                 ],
@@ -268,17 +269,19 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     final normalizedQuery = _studentQuery.trim().toLowerCase();
     final filteredStudents = normalizedQuery.isEmpty
         ? widget.snapshot.students
-        : widget.snapshot.students.where((student) {
-            final searchable = <String?>[
-              student.studentName,
-              student.studentCode,
-              student.grade,
-              student.className,
-              student.campus,
-              ...student.subjectNames,
-            ].whereType<String>().join(' ').toLowerCase();
-            return searchable.contains(normalizedQuery);
-          }).toList(growable: false);
+        : widget.snapshot.students
+              .where((student) {
+                final searchable = <String?>[
+                  student.studentName,
+                  student.studentCode,
+                  student.grade,
+                  student.className,
+                  student.campus,
+                  ...student.subjectNames,
+                ].whereType<String>().join(' ').toLowerCase();
+                return searchable.contains(normalizedQuery);
+              })
+              .toList(growable: false);
     final limitStudents =
         normalizedQuery.isEmpty &&
         !_showAllStudents &&
@@ -293,14 +296,16 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
         ? activeAssignments
         : activeAssignments
               .where(
-                (assignment) => matchingStudentIds.contains(assignment.studentId),
+                (assignment) =>
+                    matchingStudentIds.contains(assignment.studentId),
               )
               .toList(growable: false);
     final visibleEndedAssignments = normalizedQuery.isEmpty
         ? endedAssignments
         : endedAssignments
               .where(
-                (assignment) => matchingStudentIds.contains(assignment.studentId),
+                (assignment) =>
+                    matchingStudentIds.contains(assignment.studentId),
               )
               .toList(growable: false);
 
@@ -363,9 +368,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                             onPressed: () =>
                                 setState(() => _showAllStudents = true),
                             icon: const Icon(Icons.expand_more, size: 18),
-                            label: Text(
-                              '查看全部 ${filteredStudents.length} 位学生',
-                            ),
+                            label: Text('查看全部 ${filteredStudents.length} 位学生'),
                           ),
                         ),
                     ],
@@ -469,7 +472,8 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                     spacing: AppSpacing.xs,
                     runSpacing: AppSpacing.xs,
                     children: [
-                      for (final subject in widget.snapshot.setupOptions.subjects)
+                      for (final subject
+                          in widget.snapshot.setupOptions.subjects)
                         Chip(label: Text(subject.displayName)),
                     ],
                   ),
