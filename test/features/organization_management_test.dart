@@ -724,7 +724,7 @@ void main() {
     await tester.tap(addSubject);
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.text('保存学科'), findsOneWidget);
+    expect(find.text('添加学科'), findsWidgets);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
 
@@ -778,8 +778,11 @@ void main() {
     await tester.tap(addSubject);
     await tester.pumpAndSettle();
 
-    expect(find.text('从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。'), findsOneWidget);
-    await tester.tap(find.text('保存学科'));
+    expect(
+      find.text('选择机构要使用的学科。添加后，就可以为老师配置可教学科，并为学生安排对应老师。'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('subject-setup-submit')));
     await tester.pumpAndSettle();
 
     expect(repository.subjectCreateCount, 1);
