@@ -81,4 +81,4 @@ jobs:
           test -z "$(git diff --name-only)"
           git push origin HEAD:feature/student-subject-lifecycle
 
-      # Run 4: preserves the public invoker boundary and uses deterministic DB fixtures.
+      # Run 5: only corrects the pgTAP plan count after all 24 assertions passed.
