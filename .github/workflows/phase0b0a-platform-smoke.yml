@@ -4,12 +4,16 @@ on:
   pull_request:
     paths:
       - ".github/workflows/phase0b0a-platform-smoke.yml"
+      - ".github/workflows/package-windows.yml"
+      - ".github/workflows/publish-release-assets.yml"
       - "android/**"
       - "lib/**"
       - "pubspec.yaml"
       - "pubspec.lock"
       - "windows/**"
       - "tools/windows_updater/**"
+      - "installer/windows/**"
+      - "tools/windows_installer/**"
   workflow_dispatch:
     inputs:
       supabase_url:
@@ -18,6 +22,10 @@ on:
         type: string
       supabase_publishable_key:
         description: "Optional publishable key for a cloud-config build"
+        required: false
+        type: string
+      app_version:
+        description: "Optional app version including build number; defaults to pubspec.yaml"
         required: false
         type: string
 
@@ -52,10 +60,32 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Resolve app version
+        shell: bash
+        env:
+          REQUESTED_APP_VERSION: ${{ github.event.inputs.app_version || '' }}
+        run: |
+          set -euo pipefail
+          app_version="$REQUESTED_APP_VERSION"
+          if [[ -z "$app_version" ]]; then
+            app_version="$(awk '/^version:[[:space:]]*/ { print $2; exit }' pubspec.yaml)"
+          fi
+          if [[ ! "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?\+[1-9][0-9]*$ ]]; then
+            echo "App version must match major.minor.patch[-prerelease]+positive_build."
+            exit 1
+          fi
+          echo "XUEQING_APP_VERSION=$app_version" >> "$GITHUB_ENV"
+          echo "Resolved Xueqing app version: $app_version"
+
       - name: Build Android debug APK
         run: |
+          version_name="${XUEQING_APP_VERSION%%+*}"
+          build_number="${XUEQING_APP_VERSION##*+}"
           flutter build apk --debug \
+            --build-name="$version_name" \
+            --build-number="$build_number" \
             --dart-define="XUEQING_ENV=${XUEQING_ENV}" \
+            --dart-define="XUEQING_APP_VERSION=${XUEQING_APP_VERSION}" \
             --dart-define="XUEQING_SUPABASE_URL=${XUEQING_SUPABASE_URL}" \
             --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=${XUEQING_SUPABASE_PUBLISHABLE_KEY}"
 
@@ -88,11 +118,33 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Resolve app version
+        shell: pwsh
+        env:
+          REQUESTED_APP_VERSION: ${{ github.event.inputs.app_version || '' }}
+        run: |
+          $appVersion = $env:REQUESTED_APP_VERSION.Trim()
+          if ([string]::IsNullOrWhiteSpace($appVersion)) {
+            $versionLine = Get-Content pubspec.yaml |
+              Where-Object { $_ -match '^version:\s*\S+\s*$' } |
+              Select-Object -First 1
+            if ($null -eq $versionLine) {
+              throw "pubspec.yaml does not contain a version field."
+            }
+            $appVersion = ($versionLine -replace '^version:\s*', '').Trim()
+          }
+          if ($appVersion -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\+[1-9]\d*$') {
+            throw "App version must match major.minor.patch[-prerelease]+positive_build."
+          }
+          "XUEQING_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Resolved Xueqing app version: $appVersion"
+
       - name: Build Windows release bundle
         shell: pwsh
         run: |
           flutter build windows --release `
             --dart-define="XUEQING_ENV=$env:XUEQING_ENV" `
+            --dart-define="XUEQING_APP_VERSION=$env:XUEQING_APP_VERSION" `
             --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
             --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `
             --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=true"
@@ -168,6 +220,9 @@ jobs:
         run: |
           dart pub get
           dart analyze
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater analysis failed with exit code $LASTEXITCODE."
+          }
           $testFixtureDir = Join-Path $env:RUNNER_TEMP "xueqing-updater-fixtures"
           New-Item -ItemType Directory -Force -Path $testFixtureDir | Out-Null
           $testHelper = Join-Path $testFixtureDir "xueqing_updater_test.exe"
@@ -187,6 +242,9 @@ jobs:
           "XUEQING_UPDATER_SHORT_FIXTURE=$shortFixture" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "XUEQING_UPDATER_LONG_FIXTURE=$longFixture" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           dart test
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater smoke tests failed with exit code $LASTEXITCODE."
+          }
           $releaseDir = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release"
           $updaterPath = Join-Path $releaseDir "xueqing_updater.exe"
           $bootstrapPath = Join-Path $releaseDir "xueqing_updater_bootstrap.exe"
@@ -195,6 +253,9 @@ jobs:
           foreach ($helperPath in @($updaterPath, $bootstrapPath)) {
             if (-not (Test-Path $helperPath)) {
               throw "Windows updater helper was not produced: $helperPath"
+            }
+            if ((Get-Item $helperPath).Length -le 0) {
+              throw "Windows updater helper is empty: $helperPath"
             }
           }
 
@@ -205,3 +266,80 @@ jobs:
           path: build/windows/x64/runner/Release
           if-no-files-found: error
           retention-days: 7
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $versionName = $env:XUEQING_APP_VERSION.Split('+')[0]
+          & "$env:GITHUB_WORKSPACE/tools/windows_installer/build_installer.ps1" `
+            -AppVersion $versionName
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: xueqing-windows-installer-${{ github.sha }}
+          path: build/windows/installer/xueqing-setup-*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Smoke install and uninstall Windows installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem `
+            -Path (Join-Path $env:GITHUB_WORKSPACE "build/windows/installer") `
+            -Filter "xueqing-setup-*.exe" `
+            -File |
+            Select-Object -First 1
+          if ($null -eq $installer) {
+            throw "Windows installer was not found for smoke installation."
+          }
+
+          $installDir = Join-Path $env:LOCALAPPDATA "Programs/Xueqing"
+          if (Test-Path $installDir) {
+            Remove-Item -Recurse -Force $installDir
+          }
+
+          $installProcess = Start-Process `
+            -FilePath $installer.FullName `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-') `
+            -Wait `
+            -PassThru
+          if ($installProcess.ExitCode -ne 0) {
+            throw "Windows installer smoke failed with exit code $($installProcess.ExitCode)."
+          }
+
+          foreach ($requiredFile in @(
+            "xueqing.exe",
+            "xueqing_updater.exe",
+            "xueqing_updater_bootstrap.exe",
+            "msvcp140.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll"
+          )) {
+            $installedPath = Join-Path $installDir $requiredFile
+            if (-not (Test-Path $installedPath)) {
+              throw "Installer did not install required file: $installedPath"
+            }
+            if ((Get-Item $installedPath).Length -le 0) {
+              throw "Installer produced an empty required file: $installedPath"
+            }
+          }
+
+          $uninstaller = Join-Path $installDir "unins000.exe"
+          if (-not (Test-Path $uninstaller)) {
+            throw "Windows uninstaller was not installed."
+          }
+          $uninstallProcess = Start-Process `
+            -FilePath $uninstaller `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') `
+            -Wait `
+            -PassThru
+          if ($uninstallProcess.ExitCode -ne 0) {
+            throw "Windows uninstaller smoke failed with exit code $($uninstallProcess.ExitCode)."
+          }
+
+          foreach ($removedFile in @("xueqing.exe", "xueqing_updater.exe", "xueqing_updater_bootstrap.exe")) {
+            if (Test-Path (Join-Path $installDir $removedFile)) {
+              throw "Windows uninstaller left application file behind: $removedFile"
+            }
+          }

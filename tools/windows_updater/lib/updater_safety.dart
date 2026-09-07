@@ -15,6 +15,7 @@ const _reservedWindowsNames = <String>{
   'COM¹',
   'COM²',
   'COM³',
+  'CON',
   'CONIN\$',
   'CONOUT\$',
   'LPT1',
@@ -33,6 +34,8 @@ const _reservedWindowsNames = <String>{
   'PRN',
 };
 
+final _invalidWindowsFileNameCharacters = RegExp(r'[<>"|?*]');
+
 String normalizeUpdaterArchivePath(String raw) {
   var path = raw.replaceAll(r'\', '/');
   if (path.endsWith('/')) {
@@ -48,7 +51,9 @@ String normalizeUpdaterArchivePath(String raw) {
   }
 
   for (final part in parts) {
-    if (part.endsWith('.') || part.endsWith(' ')) {
+    if (_invalidWindowsFileNameCharacters.hasMatch(part) ||
+        part.endsWith('.') ||
+        part.endsWith(' ')) {
       throw StateError('压缩包包含 Windows 非法文件名：$raw');
     }
     final stem = part.split('.').first.trimRight().toUpperCase();

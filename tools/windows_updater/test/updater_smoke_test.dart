@@ -33,12 +33,30 @@ void main() {
       'CON',
       'CON.txt',
       'CON .txt',
+      'folder/con.jpeg',
       'CONIN\$',
       'COM¹.txt',
       'folder/COM1.dll',
       'folder/LPT³.log',
       'folder/report.',
       'folder/report ',
+    ]) {
+      expect(
+        () => normalizeUpdaterArchivePath(path),
+        throwsA(isA<StateError>()),
+        reason: path,
+      );
+    }
+  });
+
+  test('rejects Windows-invalid filename characters', () {
+    for (final path in <String>[
+      'folder/<report>.txt',
+      'folder/report>.txt',
+      'folder/"report".txt',
+      'folder/report|draft.txt',
+      'folder/report?.txt',
+      'folder/report*.txt',
     ]) {
       expect(
         () => normalizeUpdaterArchivePath(path),

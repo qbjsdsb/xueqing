@@ -5,6 +5,12 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
+const _lifecycleEnvironmentKey = 'XUEQING_UPDATER_LONG_FIXTURE_LIFECYCLE';
+const _fixtureExitTimeout = Duration(seconds: 15);
+const _fixtureExitRetryInterval = Duration(milliseconds: 200);
+const _cleanupTimeout = Duration(seconds: 10);
+const _cleanupRetryInterval = Duration(milliseconds: 250);
+
 void main() {
   test('Windows updater rolls back an invalid launch and installs a stable replacement', () async {
     if (!Platform.isWindows) {
@@ -40,6 +46,7 @@ void main() {
       'xueqing-updater-integration-',
     );
     final installDirectory = Directory(_join(root.path, 'install'));
+    final lifecycleFile = File(_join(root.path, 'long-fixture-lifecycle.txt'));
     await installDirectory.create();
     final launchPath = _join(installDirectory.path, 'xueqing.exe');
     final oldExecutableBytes = await longFixture.readAsBytes();
@@ -63,12 +70,16 @@ void main() {
         packageFile: rollbackPackage,
         installDirectory: installDirectory,
         launchPath: launchPath,
+        lifecycleFile: lifecycleFile,
       );
+      await _waitForLongFixtureExit(lifecycleFile);
 
       expect(
         rollbackResult.exitCode,
         isNot(0),
-        reason: 'The short-lived replacement must trigger rollback.',
+        reason:
+            'The short-lived replacement must trigger rollback. '
+            'stdout: ${rollbackResult.stdout} stderr: ${rollbackResult.stderr}',
       );
       expect(
         await File(launchPath).readAsBytes(),
@@ -85,7 +96,6 @@ void main() {
         isFalse,
         reason: 'Rollback must remove files from the failed package.',
       );
-      await Future<void>.delayed(const Duration(seconds: 6));
 
       final bootstrapMarkerPath = _join(
         installDirectory.path,
@@ -105,12 +115,16 @@ void main() {
         packageFile: bootstrapPackage,
         installDirectory: installDirectory,
         launchPath: launchPath,
+        lifecycleFile: lifecycleFile,
       );
+      await _waitForLongFixtureExit(lifecycleFile);
 
       expect(
         bootstrapResult.exitCode,
         isNot(0),
-        reason: 'A failed bootstrap marker write must trigger rollback.',
+        reason:
+            'A failed bootstrap marker write must trigger rollback. '
+            'stdout: ${bootstrapResult.stdout} stderr: ${bootstrapResult.stderr}',
       );
       expect(
         await File(launchPath).readAsBytes(),
@@ -132,7 +146,6 @@ void main() {
         isTrue,
         reason: 'The marker directory must remain to force the write failure.',
       );
-      await Future<void>.delayed(const Duration(seconds: 6));
       await Directory(bootstrapMarkerPath).delete();
 
       final installPackage = await _createPackage(
@@ -147,12 +160,16 @@ void main() {
         packageFile: installPackage,
         installDirectory: installDirectory,
         launchPath: launchPath,
+        lifecycleFile: lifecycleFile,
       );
+      await _waitForLongFixtureExit(lifecycleFile);
 
       expect(
         installResult.exitCode,
         0,
-        reason: 'A stable replacement should complete successfully.',
+        reason:
+            'A stable replacement should complete successfully. '
+            'stdout: ${installResult.stdout} stderr: ${installResult.stderr}',
       );
       expect(
         await File(_join(installDirectory.path, 'new-version.txt'))
@@ -164,13 +181,58 @@ void main() {
         isFalse,
         reason: 'A successful replacement must remove old files.',
       );
-      await Future<void>.delayed(const Duration(seconds: 6));
     } finally {
-      if (await root.exists()) {
-        await root.delete(recursive: true);
-      }
+      await _deleteTestRootWhenReleased(root);
     }
-  });
+  }, timeout: const Timeout(Duration(minutes: 2)));
+}
+
+Future<void> _waitForLongFixtureExit(File lifecycleFile) async {
+  final deadline = DateTime.now().add(_fixtureExitTimeout);
+  String? lastState;
+  while (DateTime.now().isBefore(deadline)) {
+    try {
+      if (await lifecycleFile.exists()) {
+        lastState = (await lifecycleFile.readAsString()).trim();
+        if (lastState.startsWith('exited:')) {
+          return;
+        }
+      }
+    } on FileSystemException {
+      // The fixture may be replacing the marker between running/exited states.
+    }
+    await Future<void>.delayed(_fixtureExitRetryInterval);
+  }
+  throw StateError(
+    'The restored or installed long-lived fixture did not report exit within '
+    '${_fixtureExitTimeout.inSeconds} seconds. Last state: $lastState',
+  );
+}
+
+Future<void> _deleteTestRootWhenReleased(Directory root) async {
+  if (!await root.exists()) {
+    return;
+  }
+
+  final deadline = DateTime.now().add(_cleanupTimeout);
+  FileSystemException? lastAccessError;
+  while (DateTime.now().isBefore(deadline)) {
+    try {
+      await root.delete(recursive: true);
+      return;
+    } on FileSystemException catch (error) {
+      lastAccessError = error;
+      await Future<void>.delayed(_cleanupRetryInterval);
+    }
+  }
+
+  if (!await root.exists()) {
+    return;
+  }
+  throw StateError(
+    'Updater integration cleanup stayed locked for '
+    '${_cleanupTimeout.inSeconds} seconds: $lastAccessError',
+  );
 }
 
 Future<File> _createPackage({
@@ -209,20 +271,29 @@ Future<ProcessResult> _runUpdater({
   required File packageFile,
   required Directory installDirectory,
   required String launchPath,
+  required File lifecycleFile,
 }) async {
+  if (await lifecycleFile.exists()) {
+    await lifecycleFile.delete();
+  }
   final packageBytes = await packageFile.readAsBytes();
-  return Process.run(helperPath, <String>[
-    '--pid',
-    '2147483647',
-    '--package',
-    packageFile.path,
-    '--install-dir',
-    installDirectory.path,
-    '--launch',
-    launchPath,
-    '--sha256',
-    sha256.convert(packageBytes).toString(),
-  ]);
+  return Process.run(
+    helperPath,
+    <String>[
+      '--pid',
+      '2147483647',
+      '--package',
+      packageFile.path,
+      '--install-dir',
+      installDirectory.path,
+      '--launch',
+      launchPath,
+      '--sha256',
+      sha256.convert(packageBytes).toString(),
+    ],
+    environment: <String, String>{_lifecycleEnvironmentKey: lifecycleFile.path},
+    includeParentEnvironment: true,
+  );
 }
 
 String _join(String parent, String child) {
