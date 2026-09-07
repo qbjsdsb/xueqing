@@ -215,25 +215,17 @@ select set_config(
   true
 );
 
-select lives_ok(
+select throws_ok(
   $$
-    select set_config(
-      'xueqing.owner_invite',
-      public.create_organization_invitation(
-        '00000000-0000-0000-0000-000000000002',
-        'responsible@xueqing.test',
-        'org_owner'
-      )::text,
-      true
+    select public.create_organization_invitation(
+      '00000000-0000-0000-0000-000000000002',
+      'responsible@xueqing.test',
+      'org_owner'
     )
   $$,
-  'an organization admin can nominate a responsible person'
-);
-
-select is(
-  current_setting('xueqing.owner_invite')::jsonb ->> 'status',
-  'pending_owner_approval',
-  'an owner nomination waits for approval'
+  'P0001',
+  'organization_owner_required',
+  'an organization admin cannot invite a responsible person'
 );
 
 select throws_ok(
@@ -245,19 +237,8 @@ select throws_ok(
     )
   $$,
   'P0001',
-  null,
-  'an organization admin cannot directly invite another administrator'
-);
-
-select throws_ok(
-  $$
-    select public.approve_organization_invitation(
-      (current_setting('xueqing.owner_invite')::jsonb ->> 'id')::uuid
-    )
-  $$,
-  'P0001',
-  null,
-  'an organization admin cannot approve a responsible person'
+  'organization_owner_required',
+  'an organization admin cannot invite another administrator'
 );
 
 select set_config(
@@ -279,25 +260,43 @@ select set_config(
 
 select lives_ok(
   $$
-    select public.approve_organization_invitation(
-      (current_setting('xueqing.owner_invite')::jsonb ->> 'id')::uuid
+    select set_config(
+      'xueqing.owner_invite',
+      public.create_organization_invitation(
+        '00000000-0000-0000-0000-000000000002',
+        'responsible@xueqing.test',
+        'org_owner'
+      )::text,
+      true
     )
   $$,
-  'an existing responsible person can approve a nomination'
+  'an existing responsible person can invite another responsible person'
+);
+
+select is(
+  current_setting('xueqing.owner_invite')::jsonb ->> 'status',
+  'pending',
+  'an owner-created responsible-person invitation is immediately pending'
 );
 
 select is(
   (
-    select invitation ->> 'status'
+    select count(*)::int
     from public.list_organization_invitations(
       '00000000-0000-0000-0000-000000000002'
     ) as invitation
-    where invitation ->> 'id' = (
+    where invitation ->> 'id' =
       current_setting('xueqing.owner_invite')::jsonb ->> 'id'
-    )
   ),
-  'pending',
-  'approved nominations become available for acceptance'
+  1,
+  'the owner can list the invitation they created'
+);
+
+select ok(
+  char_length(
+    current_setting('xueqing.owner_invite')::jsonb ->> 'invite_code'
+  ) > 0,
+  'the owner receives a one-time invitation code'
 );
 
 select set_config(

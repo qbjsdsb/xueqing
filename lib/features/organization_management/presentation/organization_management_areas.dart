@@ -141,13 +141,13 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           _ManagementSection(
             title: '机构成员',
             count: '${widget.snapshot.members.length} 人',
-            action: FilledButton.tonalIcon(
-              onPressed: widget.busy || !widget.canInvite
-                  ? null
-                  : widget.onInviteMember,
-              icon: const Icon(Icons.group_add_outlined, size: 18),
-              label: const Text('邀请成员'),
-            ),
+            action: widget.canInvite
+                ? FilledButton.tonalIcon(
+                    onPressed: widget.busy ? null : widget.onInviteMember,
+                    icon: const Icon(Icons.group_add_outlined, size: 18),
+                    label: const Text('邀请成员'),
+                  )
+                : null,
             child: widget.snapshot.members.isEmpty
                 ? const _ManagementEmptyState(
                     title: '还没有机构成员',
@@ -160,6 +160,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                         _MemberTile(
                           member: member,
                           busy: widget.busy,
+                          lifecycleBusy: widget.busy || !widget.isOwner,
                           canEditName: widget.canEditMemberName,
                           onEditName: widget.onEditMemberName == null
                               ? null

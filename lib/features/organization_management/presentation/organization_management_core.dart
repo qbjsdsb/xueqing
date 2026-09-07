@@ -15,10 +15,7 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
         OrganizationInvitationRole.teacher,
       ];
     }
-    return const <OrganizationInvitationRole>[
-      OrganizationInvitationRole.owner,
-      OrganizationInvitationRole.teacher,
-    ];
+    return const <OrganizationInvitationRole>[];
   }
 
   @override
