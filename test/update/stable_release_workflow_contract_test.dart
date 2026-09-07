@@ -4,9 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('stable publisher stays isolated from development releases', () {
-    final workflow = File(
-      '.github/workflows/publish-release-assets.yml',
-    ).readAsStringSync();
+    final workflow = File('.github/workflows/publish-release-assets.yml')
+        .readAsStringSync();
 
     expect(workflow, contains('XUEQING_ENV: production'));
     expect(workflow, contains('XUEQING_ALLOW_DEVELOPMENT_RELEASE: "false"'));
@@ -21,9 +20,8 @@ void main() {
   });
 
   test('stable publisher verifies the permanent Android signing identity', () {
-    final workflow = File(
-      '.github/workflows/publish-release-assets.yml',
-    ).readAsStringSync();
+    final workflow = File('.github/workflows/publish-release-assets.yml')
+        .readAsStringSync();
 
     expect(workflow, contains('XUEQING_ANDROID_CERT_SHA256'));
     expect(workflow, contains('apksigner'));
@@ -38,14 +36,15 @@ void main() {
   });
 
   test('stable publisher promotes only after staged assets are verified', () {
-    final workflow = File(
-      '.github/workflows/publish-release-assets.yml',
-    ).readAsStringSync();
+    final workflow = File('.github/workflows/publish-release-assets.yml')
+        .readAsStringSync();
 
     final stageCheck = workflow.indexOf(
       'The stable target must start as a published Pre-release staging Release.',
     );
-    final upload = workflow.indexOf('Upload immutable assets to staged Release');
+    final upload = workflow.indexOf(
+      'Upload immutable assets to staged Release',
+    );
     final verify = workflow.indexOf('Verify staged Release assets');
     final promote = workflow.indexOf('Promote staged Release to Stable');
     final finalVerify = workflow.indexOf('Verify final Stable Release');
@@ -61,9 +60,8 @@ void main() {
   });
 
   test('stable publisher keeps the proven Windows runtime pipeline', () {
-    final workflow = File(
-      '.github/workflows/publish-release-assets.yml',
-    ).readAsStringSync();
+    final workflow = File('.github/workflows/publish-release-assets.yml')
+        .readAsStringSync();
 
     expect(workflow, contains('| Where-Object {'));
     expect(workflow, contains('| Select-Object -First 1'));
