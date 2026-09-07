@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-const _lifecycleEnvironmentKey =
-    'XUEQING_UPDATER_LONG_FIXTURE_LIFECYCLE';
+const _lifecycleEnvironmentKey = 'XUEQING_UPDATER_LONG_FIXTURE_LIFECYCLE';
 
 Future<void> main() async {
   final lifecyclePath = Platform.environment[_lifecycleEnvironmentKey];
