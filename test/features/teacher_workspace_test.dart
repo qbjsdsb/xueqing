@@ -434,6 +434,7 @@ WorkspaceCase _caseFixture({
   required WorkspaceActionBucket actionBucket,
   required DateTime? actionDueAt,
   String priority = 'normal',
+  List<WorkspaceTimelineEvent> timeline = const <WorkspaceTimelineEvent>[],
 }) {
   return WorkspaceCase(
     id: 'case-$id',
@@ -462,7 +463,7 @@ WorkspaceCase _caseFixture({
         businessDueDate: actionDueAt,
       ),
     ],
-    timeline: const <WorkspaceTimelineEvent>[],
+    timeline: timeline,
   );
 }
 
@@ -526,6 +527,86 @@ void main() {
     expect(find.text('待整理'), findsOneWidget);
     expect(find.text('尚未记录教学动作。'), findsOneWidget);
   });
+
+  testWidgets(
+    'Case detail keeps the next action first and bounds older history',
+    (tester) async {
+      final timeline = <WorkspaceTimelineEvent>[
+        for (var index = 1; index <= 5; index++)
+          WorkspaceTimelineEvent(
+            id: 'timeline-$index',
+            occurredAt: DateTime(2026, 9, 8 - index),
+            typeLabel: '课堂记录',
+            text: '历史记录 $index',
+          ),
+      ];
+      final learningCase = _caseFixture(
+        id: 'case-detail',
+        title: '阅读题关键问题',
+        status: LearningCaseStatus.confirmed,
+        actionBucket: WorkspaceActionBucket.today,
+        actionDueAt: DateTime(2026, 9, 5),
+        timeline: timeline,
+      );
+      final repository = _FakeLearningRepository(
+        _workspaceWithStudents([
+          _studentFixture(
+            id: 'case-detail',
+            name: 'Case 详情示例',
+            cases: [learningCase],
+          ),
+        ]),
+      );
+      await _pumpWorkspace(tester, repository);
+
+      final studentRow = find.text('Case 详情示例').first;
+      await tester.ensureVisible(studentRow);
+      await tester.tap(studentRow);
+      await tester.pumpAndSettle();
+      final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+      await tester.ensureVisible(caseButton);
+      await tester.tap(caseButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Next Action / 下一行动'), findsOneWidget);
+      expect(find.text('下一步：阅读题关键问题 的下一步'), findsNothing);
+      expect(find.textContaining('阅读题关键问题 的下一步'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Next Action / 下一行动')).dy,
+        lessThan(tester.getTopLeft(find.text('问题')).dy),
+      );
+
+      expect(find.text('5 条'), findsOneWidget);
+      expect(find.text('历史记录 1'), findsOneWidget);
+      expect(find.text('历史记录 2'), findsOneWidget);
+      expect(find.text('历史记录 3'), findsOneWidget);
+      expect(find.text('历史记录 4'), findsNothing);
+      expect(find.text('历史记录 5'), findsNothing);
+
+      final timelineToggle = find.byKey(
+        const Key('workspace-case-timeline-toggle'),
+      );
+      await tester.ensureVisible(timelineToggle);
+      await tester.tap(timelineToggle);
+      await tester.pumpAndSettle();
+      expect(find.text('历史记录 4'), findsOneWidget);
+      expect(find.text('历史记录 5'), findsOneWidget);
+      expect(find.text('收起历史'), findsOneWidget);
+
+      final backButton = find.byTooltip('返回学生详情');
+      await tester.ensureVisible(backButton);
+      await tester.tap(backButton);
+      await tester.pumpAndSettle();
+      final reopenCaseButton = find
+          .widgetWithText(OutlinedButton, '查看 Case')
+          .first;
+      await tester.ensureVisible(reopenCaseButton);
+      await tester.tap(reopenCaseButton);
+      await tester.pumpAndSettle();
+      expect(find.text('历史记录 4'), findsNothing);
+      expect(find.text('展开历史'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'bounds lower-priority Today sections until explicitly expanded',

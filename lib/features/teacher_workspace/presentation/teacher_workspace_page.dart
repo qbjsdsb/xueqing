@@ -498,10 +498,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   int _loadSequence = 0;
   static const int _todayPreviewLimit = 3;
   static const int _studentPendingPreviewLimit = 2;
+  static const int _caseTimelinePreviewLimit = 3;
   bool _showAllPendingVerification = false;
   bool _showAllFutureActions = false;
   bool _showAllUndatedActions = false;
   bool _showAllStudentCases = false;
+  bool _showAllCaseTimeline = false;
 
   @override
   void initState() {
@@ -597,6 +599,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       _selectedStudent = null;
       _selectedCase = null;
       _showAllStudentCases = false;
+      _showAllCaseTimeline = false;
     });
   }
 
@@ -605,6 +608,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       _selectedStudent = student;
       _selectedCase = null;
       _showAllStudentCases = false;
+      _showAllCaseTimeline = false;
     });
   }
 
@@ -612,18 +616,23 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     setState(() {
       _selectedStudent = student;
       _selectedCase = learningCase;
+      _showAllCaseTimeline = false;
     });
   }
 
   void _goBack() {
     if (_selectedCase != null) {
-      setState(() => _selectedCase = null);
+      setState(() {
+        _selectedCase = null;
+        _showAllCaseTimeline = false;
+      });
       return;
     }
     if (_selectedStudent != null) {
       setState(() {
         _selectedStudent = null;
         _showAllStudentCases = false;
+        _showAllCaseTimeline = false;
       });
     }
   }
@@ -1967,6 +1976,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final primaryAction = learningCase.primaryAction;
     final commandLabel = _caseCommandLabel(learningCase);
     final canStabilize = _canStabilizeCase(learningCase);
+    final visibleTimeline = _showAllCaseTimeline
+        ? learningCase.timeline
+        : learningCase.timeline.take(_caseTimelinePreviewLimit);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1986,14 +1998,16 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           children: [
             _WorkspaceMetadata(learningCase.typeLabel),
             _WorkspaceMetadata(_priorityLabel(learningCase.priority)),
-            if (primaryAction != null)
-              _WorkspaceMetadata(
-                '下一步：${primaryAction.title}',
-                icon: Icons.arrow_forward_outlined,
-              ),
           ],
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
+        _WorkspaceNarrativeSection(
+          title: 'Next Action / 下一行动',
+          content: primaryAction == null
+              ? '当前没有待完成的主要行动。'
+              : '${primaryAction.title}（${_formatActionDate(primaryAction)}）',
+          isPrimary: true,
+        ),
         if (learningCase.status == LearningCaseStatus.pendingVerification)
           const _WorkspaceStateNotice(
             title: '本次验证通过，仍待确认是否稳定',
@@ -2080,16 +2094,21 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     )
                     .join('\n\n'),
         ),
-        _WorkspaceNarrativeSection(
-          title: 'Next Action / 下一行动',
-          content: primaryAction == null
-              ? '当前没有待完成的主要行动。'
-              : '${primaryAction.title}（${_formatActionDate(primaryAction)}）',
-          isPrimary: true,
-        ),
         _WorkspaceSection(
           title: '历史 timeline',
+          count: learningCase.timeline.isEmpty
+              ? null
+              : '${learningCase.timeline.length} 条',
           showTopDivider: true,
+          action: learningCase.timeline.length > _caseTimelinePreviewLimit
+              ? TextButton(
+                  key: const Key('workspace-case-timeline-toggle'),
+                  onPressed: () => setState(
+                    () => _showAllCaseTimeline = !_showAllCaseTimeline,
+                  ),
+                  child: Text(_showAllCaseTimeline ? '收起历史' : '展开历史'),
+                )
+              : null,
           child: learningCase.timeline.isEmpty
               ? const _WorkspaceStateNotice(
                   title: '暂时没有更多历史',
@@ -2098,7 +2117,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                 )
               : Column(
                   children: [
-                    for (final event in learningCase.timeline)
+                    for (final event in visibleTimeline)
                       _WorkspaceTimelineItem(event: event),
                   ],
                 ),
