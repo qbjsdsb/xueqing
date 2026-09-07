@@ -6,6 +6,9 @@ class _MemberTile extends StatelessWidget {
     required this.busy,
     required this.canEditName,
     required this.onToggleStatus,
+    this.teachingScopes = const <OrganizationTeacherSubjectScope>[],
+    this.onAddTeachingSubject,
+    this.onRemoveTeachingSubject,
     this.onEditName,
     this.onReissueCredential,
   });
@@ -13,9 +16,14 @@ class _MemberTile extends StatelessWidget {
   final OrganizationMember member;
   final bool busy;
   final bool canEditName;
+  final List<OrganizationTeacherSubjectScope> teachingScopes;
   final VoidCallback onToggleStatus;
+  final VoidCallback? onAddTeachingSubject;
+  final ValueChanged<OrganizationTeacherSubjectScope>? onRemoveTeachingSubject;
   final VoidCallback? onEditName;
   final VoidCallback? onReissueCredential;
+
+  bool get _isTeacher => member.roles.contains('teacher');
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +66,48 @@ class _MemberTile extends StatelessWidget {
               ),
             ],
           ),
+          if (_isTeacher) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '教学学科',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                if (teachingScopes.isEmpty)
+                  Chip(
+                    label: const Text('尚未设置'),
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide.none,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                  ),
+                for (final scope in teachingScopes)
+                  Chip(
+                    label: Text(scope.subjectName),
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide.none,
+                    backgroundColor: colorScheme.secondaryContainer,
+                    onDeleted:
+                        busy || onRemoveTeachingSubject == null
+                        ? null
+                        : () => onRemoveTeachingSubject!(scope),
+                    deleteIcon: const Icon(Icons.close, size: 16),
+                    deleteButtonTooltipMessage: '移除 ${scope.subjectName}',
+                  ),
+                if (member.isActive && onAddTeachingSubject != null)
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 16),
+                    label: const Text('添加学科'),
+                    onPressed: busy ? null : onAddTeachingSubject,
+                  ),
+              ],
+            ),
+          ],
           if (member.isOnboarding && member.onboardingExpiresAt != null) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(
