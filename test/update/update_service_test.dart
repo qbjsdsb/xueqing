@@ -36,9 +36,7 @@ void main() {
       'version': version,
       'minimum_supported': minimumSupported,
       'notes': <String>['提升稳定性', '修复更新流程'],
-      'platforms':
-          platforms ??
-          <String, Object?>{'windows': artifact()},
+      'platforms': platforms ?? <String, Object?>{'windows': artifact()},
     };
   }
 
@@ -127,6 +125,32 @@ void main() {
     );
 
     expect(parsed.artifacts[UpdatePlatform.android]?.format, 'apk');
+  });
+
+  test('rejects non-canonical platform aliases in the manifest', () {
+    expect(
+      () => UpdateManifest.fromJson(
+        manifest(
+          platforms: <String, Object?>{
+            'apk': artifact(
+              url: 'https://example.com/xueqing-android.apk',
+              format: 'apk',
+              fileName: 'xueqing-android.apk',
+            ),
+          },
+        ),
+      ),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('rejects minimum_supported above the offered version', () {
+    expect(
+      () => UpdateManifest.fromJson(
+        manifest(version: '0.2.0+2', minimumSupported: '0.3.0+1'),
+      ),
+      throwsA(isA<FormatException>()),
+    );
   });
 
   test('prunes stale update files but keeps current target and directories', () async {
