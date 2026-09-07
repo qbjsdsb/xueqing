@@ -2,7 +2,7 @@
 
 状态：Phase 0A.5 implementation-ready screen baseline
 
-最后更新：2026-09-02
+最后更新：2026-09-07
 
 本文件是四个核心 screen 的可实现规格。它描述用户任务、信息优先级、状态、Windows/Android 行为和验收场景；不要求第一版生产实现全部字段齐全。字段语义以 `PRODUCT.md`、`DATA_MODEL.md` 和 `COMMANDS_AND_INVARIANTS.md` 为准。
 
@@ -148,7 +148,7 @@ Tab/Shift+Tab 依次访问可操作元素；Enter/Space 激活当前 button/row�
 
 ### 2.1 User goal
 
-第一次接手学生的教师无需翻完整历史，就能回答“现在最重要的三件事是什么、有哪些 Case 在推进、最近发生了什么”。
+第一次接手学生的教师无需翻完整历史，就能回答“现在最重要的三件事是什么、还有哪些问题需要按需查看、最近发生了什么”。
 
 ### 2.2 Entry points
 
@@ -160,12 +160,12 @@ Tab/Shift+Tab 依次访问可操作元素；Enter/Space 激活当前 button/row�
 ### 2.3 Information priority
 
 1. 姓名 + 学科/年级最小上下文 + 权限提示。
-2. `现在最重要的事`，最多三项，每项指向 Case 或 action。
-3. `当前 Learning Cases`：status、最近事实、Next Action。
-4. `待验证`：检查结果与确认动作。
+2. `现在最重要的事`，最多 3 个未关闭问题，每项指向 Case 或 action。
+3. 同一问题 section 的 `查看全部 N 个 / 只看重点` 渐进展开入口；完整清单只有按需时出现。
+4. 未进入当前重点的 `pending verification` 问题最多预览 2 项；展开全部问题后不再重复显示该区。
 5. `最近关键事实`：少量 Evidence/Lesson/Intervention。
-6. 必要学科上下文。
-7. 折叠的更早 timeline。
+6. 必要学科上下文；只有确实帮助理解当前问题时才显示为一行定位文字。
+7. 折叠的更早 timeline；关闭历史只在按需查看全部问题或历史时出现。
 
 ### 2.4 Primary action
 
@@ -173,21 +173,22 @@ Tab/Shift+Tab 依次访问可操作元素；Enter/Space 激活当前 button/row�
 
 ### 2.5 Secondary actions
 
-`查看 Case`、`完成行动`、`记录问题`、`展开最近记录`、`查看更早历史`、在有权限时 `补充学生上下文`。
+`查看 Case`、`完成行动`、`记录问题`、`查看全部问题`、`只看重点`、`展开最近记录`、`查看更早历史`、在有权限时 `补充学生上下文`。
 
 ### 2.6 推荐结构
 
 ```text
 [返回] 示例学生甲                         [记录问题]
-数学 · 八年级                  仅用于设计预览的虚构资料
+数学 · 八年级
+必要时的一行学科定位文字
 
-现在最重要的事
-  1. 分数概念 · 补充一次具体题目证据       [查看 Case]
-  2. 应用题审题 · 今天到期                 [完成]
-
-当前 Learning Cases
+现在最重要的事                     [查看全部 6 个]
   分数概念混淆                  待验证     [查看 Case]
   应用题审题跳步                intervening [查看 Case]
+  计算检查习惯                  confirmed   [查看 Case]
+
+另外待验证（若存在且未进入重点，最多预览 2 项）
+  迁移题检查                    待验证      [查看 Case]
 
 最近关键事实
   9 月 2 日 课堂观察……
@@ -196,43 +197,46 @@ Tab/Shift+Tab 依次访问可操作元素；Enter/Space 激活当前 button/row�
 更早历史（按需展开）
 ```
 
+点击 `查看全部 6 个` 后，同一 section 改为 `全部问题` 并显示当前与已关闭问题；`另外待验证` 不再重复出现，提供 `只看重点` 返回默认视图。
+
 ### 2.7 States
 
 | 状态 | 规格 |
 | --- | --- |
-| Empty | 学生存在但没有 Case：显示“还没有 Learning Case……” + `记录问题` |
+| Empty | 完全没有 Case：显示“还没有记录的问题。发现问题时，可以先记录一句，课后再整理。” + `记录问题` |
+| Only closed history | 没有未关闭 Case：显示“当前没有需要跟进的问题。已有问题记录仍然保留，需要时可以查看全部。” + `查看全部 N 个` |
 | Loading | `正在打开学生详情…`，摘要结构先占位，不展示错误空状态 |
 | Error | `学生详情暂时打不开。请重试；如果仍失败，稍后再打开。` + 重试/返回 |
 | No permission | `当前账号无权查看这名学生的学情内容。`；不展示姓名以外超出权限的细节 |
 | Saving | 完成/补充 action 后局部显示 `保存中…`，保留当前 section |
 | Save failed | 原值保留，显示失败和重试，不用乐观成功覆盖事实 |
 | Offline | 读取到的内容标识当前同步状态；Quick Capture 草稿与正式 Case 分开 |
-| Draft | “待整理问题”可显示在 draft 区，明确尚未进入正式闭环 |
-| Long content | 学科上下文、Case title、最近事实可换行；三件事用自然增高行，不固定一行 |
-| Many cases | 当前/待验证优先；其余折叠或按需展开，不能让首屏淹没在历史中 |
+| Draft | “待整理问题”可作为未关闭问题进入当前重点排序，明确尚未进入正式闭环 |
+| Long content | 学科定位、Case title、最近事实可换行；重点行自然增高，不固定一行 |
+| Many cases | 默认只显示最多 3 个当前重点 + 最多 2 个额外待验证；其余通过 `查看全部 N 个` 展开，不能让首屏淹没在历史中 |
 | No due date | action 仍显示为 `待安排` |
-| Closed Case | current list 可折叠；显示已关闭和重新打开历史，不当作 active action |
-| Reopen event | 置于当前 Cases，显示新的 Next Action 和 reopen 事件；当前 status 仍属于六段生命周期 |
+| Closed Case | 不计入学生列表的“跟进中的问题”数量；只在 `查看全部`/历史中出现，仍可进入 recurrence/reopen 流程 |
+| Reopen event | 重新打开后回到当前问题排序，显示新的 Next Action 和 reopen 事件；status 仍属于六段生命周期 |
 
 ### 2.8 Windows layout
 
-Expanded 使用主工作列 + 辅助事实列；主列先放三件事和当前 Cases，辅助列放最近关键事实/学科上下文。Medium 以单列为主；side panel 只有在最小列宽满足时出现。Tab 顺序按 header → 三件事 → Cases → 待验证 → 最近事实 → 历史。
+Expanded 使用主工作列 + 辅助事实列；主列先放当前重点和按需展开入口，辅助列放最近关键事实/必要学科上下文。Medium 以单列为主；side panel 只有在最小列宽满足时出现。Tab 顺序按 header → 当前重点 → 展开/收起 → 额外待验证 → 最近事实 → 历史。
 
 ### 2.9 Android layout
 
-单列滚动；返回回到来源；标题和 `记录问题` 之间不塞多余字段。当前三件事和 Next Action 优先出现在屏幕上方，历史通过可展开 section。长中文不被头像或标签挤压。
+单列滚动；返回回到来源；标题和 `记录问题` 之间不塞多余字段。最多 3 个当前重点和 Next Action 优先出现在屏幕上方，完整问题与历史通过可展开入口按需出现。长中文不被头像或标签挤压。
 
 ### 2.10 Responsive transition
 
-Expanded 的辅助事实列在 Medium/Compact 移到当前 Cases 之后；不删除最近关键事实。Compact 的主 action 可以成为全宽按钮，Expanded 可位于 header/侧栏。
+Expanded 的辅助事实列在 Medium/Compact 移到当前问题 section 之后；不删除最近关键事实。Compact 的主 action 可以成为全宽按钮，Expanded 可位于 header/侧栏。展开全部问题只改变内容量，不改变 Case 生命周期或排序语义。
 
 ### 2.11 Keyboard behavior
 
-`Alt/Command+Left` 仅在无文本编辑冲突时返回；Tab 只访问可操作的学生 row、Case row 按钮和 action 按钮。打开 Case 后 focus 进入 Case title 或 primary action，而不是静态装饰。
+`Alt/Command+Left` 仅在无文本编辑冲突时返回；Tab 只访问可操作的学生 row、Case row 按钮、展开/收起和 action 按钮。打开 Case 后 focus 进入 Case title 或 primary action，而不是静态装饰。
 
 ### 2.12 Touch behavior
 
-学生行、Case 行、主要 action 分开触控区域；长按不触发隐藏菜单。滚动时不误触 action，浮动/固定操作不遮住最近事实。
+学生行、Case 行、展开/收起、主要 action 分开触控区域；长按不触发隐藏菜单。滚动时不误触 action，浮动/固定操作不遮住最近事实。
 
 ### 2.13 Privacy / permission visibility
 
@@ -240,15 +244,17 @@ Expanded 的辅助事实列在 Medium/Compact 移到当前 Cases 之后；不删
 
 ### 2.14 Anti-patterns
 
-不做几十字段档案表、成绩趋势图、成长指数、风险概率、标签云、四个统计 Card 的首屏；不把最近事实写成无来源的“智能洞察”。
+不做几十字段档案表、成绩趋势图、成长指数、风险概率、标签云、四个统计 Card 的首屏；不把最近事实写成无来源的“智能洞察”；不同时铺开“当前 Learning Cases”和另一份完整“待验证”造成重复。
 
 ### 2.15 Acceptance scenarios
 
-1. 新教师打开已有多个 Case 的学生详情，能在 30 秒内找到最多三项重点和一条最近 Evidence。
-2. 学生无 Case 时，能直接进入 Quick Capture，且空状态不把“没有 Case”写成错误。
-3. Case title 很长、text scale 1.5：主操作仍可见，内容自然增高。
-4. 无编辑权限：能看到权限原因，不把页面伪装成空列表。
-5. 从 Today 进入后返回：Today 的学生簇和滚动位置保持。
+1. 新教师打开已有多个 Case 的学生详情，默认能在 30 秒内看到最多 3 个重点和一条最近 Evidence，不需要先滚过完整 Case 清单。
+2. 有更多问题时 `查看全部 N 个` 可达；展开后当前与已关闭问题都保留，关闭历史仍可进入 recurrence/reopen，`只看重点` 能恢复默认视图。
+3. 未进入重点的待验证很多时默认最多预览 2 项，不与重点重复；展开全部问题后不再出现重复的待验证区。
+4. 学生无 Case 时能直接进入 Quick Capture；只有关闭历史时不会把关闭历史算成当前跟进数量。
+5. Case title 很长、text scale 1.5：主操作和展开入口仍可见，内容自然增高。
+6. 无编辑权限：能看到权限原因，不把页面伪装成空列表。
+7. 从 Today 进入后返回：Today 的学生簇和滚动位置保持。
 
 ## 3. Learning Case 学情问题
 

@@ -601,6 +601,76 @@ void main() {
     },
   );
 
+  testWidgets(
+    'student detail keeps priorities concise and removes duplicate problem lists',
+    (tester) async {
+      final cases = <WorkspaceCase>[
+        _caseFixture(
+          id: 'urgent-1',
+          title: '今天重点一',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.overdue,
+          actionDueAt: DateTime(2026, 9, 4),
+        ),
+        _caseFixture(
+          id: 'urgent-2',
+          title: '今天重点二',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.overdue,
+          actionDueAt: DateTime(2026, 9, 4),
+        ),
+        _caseFixture(
+          id: 'urgent-3',
+          title: '今天重点三',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.today,
+          actionDueAt: DateTime(2026, 9, 5),
+        ),
+        for (var index = 1; index <= 3; index++)
+          _caseFixture(
+            id: 'pending-student-$index',
+            title: '待验证问题 $index',
+            status: LearningCaseStatus.pendingVerification,
+            actionBucket: WorkspaceActionBucket.today,
+            actionDueAt: DateTime(2026, 9, 5),
+          ),
+      ];
+      final repository = _FakeLearningRepository(
+        _workspaceWithStudents([
+          _studentFixture(id: 'student-detail', name: '学生详情示例', cases: cases),
+        ]),
+      );
+      await _pumpWorkspace(tester, repository);
+
+      final studentRow = find.text('学生详情示例').first;
+      await tester.ensureVisible(studentRow);
+      await tester.tap(studentRow);
+      await tester.pumpAndSettle();
+
+      expect(find.text('现在最重要的事'), findsOneWidget);
+      expect(find.text('当前 Learning Cases'), findsNothing);
+      expect(find.text('学科上下文'), findsNothing);
+      expect(find.text('另外待验证'), findsOneWidget);
+      expect(find.text('待验证问题 3'), findsNothing);
+      expect(
+        find.byKey(const Key('student-detail-pending-toggle')),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const Key('student-detail-pending-toggle')),
+      );
+      await tester.tap(find.byKey(const Key('student-detail-pending-toggle')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('全部问题'), findsOneWidget);
+      expect(find.text('另外待验证'), findsNothing);
+      expect(find.text('待验证问题 3'), findsOneWidget);
+      expect(find.text('今天重点一'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, '只看重点'), findsOneWidget);
+    },
+  );
+
   testWidgets('reschedules an action from Today', (tester) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace());
     await _pumpWorkspace(tester, repository);
@@ -978,9 +1048,21 @@ void main() {
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
 
-    expect(find.text('已经逾期的问题'), findsNWidgets(2));
-    expect(find.text('今天要处理的问题'), findsNWidgets(2));
-    expect(find.text('等待验证的问题'), findsNWidgets(3));
+    expect(find.text('已经逾期的问题'), findsOneWidget);
+    expect(find.text('今天要处理的问题'), findsOneWidget);
+    expect(find.text('等待验证的问题'), findsOneWidget);
+    expect(find.text('尚未安排的问题'), findsNothing);
+    expect(find.text('未来再处理的问题'), findsNothing);
+
+    final allCasesButton = find.widgetWithText(TextButton, '查看全部 5 个');
+    await tester.ensureVisible(allCasesButton);
+    await tester.tap(allCasesButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部问题'), findsOneWidget);
+    expect(find.text('已经逾期的问题'), findsOneWidget);
+    expect(find.text('今天要处理的问题'), findsOneWidget);
+    expect(find.text('等待验证的问题'), findsOneWidget);
     expect(find.text('尚未安排的问题'), findsOneWidget);
     expect(find.text('未来再处理的问题'), findsOneWidget);
   });
@@ -1543,9 +1625,14 @@ void main() {
     );
     await _pumpWorkspace(tester, repository);
 
+    expect(find.text('暂无需要跟进的问题'), findsOneWidget);
     final studentRow = find.text('示例学生甲').first;
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final allCasesButton = find.widgetWithText(TextButton, '查看全部 1 个');
+    await tester.ensureVisible(allCasesButton);
+    await tester.tap(allCasesButton);
     await tester.pumpAndSettle();
     final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
     await tester.ensureVisible(caseButton);
@@ -1605,6 +1692,10 @@ void main() {
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
+    final firstAllCasesButton = find.widgetWithText(TextButton, '查看全部 1 个');
+    await tester.ensureVisible(firstAllCasesButton);
+    await tester.tap(firstAllCasesButton);
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
     final firstReopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
@@ -1652,6 +1743,10 @@ void main() {
     await tester.ensureVisible(restoredStudentRow);
     await tester.tap(restoredStudentRow);
     await tester.pumpAndSettle();
+    final restoredAllCasesButton = find.widgetWithText(TextButton, '查看全部 1 个');
+    await tester.ensureVisible(restoredAllCasesButton);
+    await tester.tap(restoredAllCasesButton);
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
     final restoredReopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
@@ -1683,6 +1778,10 @@ void main() {
     final studentRow = find.text('示例学生甲').first;
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    final allCasesButton = find.widgetWithText(TextButton, '查看全部 1 个');
+    await tester.ensureVisible(allCasesButton);
+    await tester.tap(allCasesButton);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
     await tester.pumpAndSettle();
