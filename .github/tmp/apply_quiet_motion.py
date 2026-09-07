@@ -65,57 +65,6 @@ for state_name in (
     text = text.replace(old, new, 1)
 workspace.write_text(text)
 
-management_page = Path(
-    "lib/features/organization_management/presentation/organization_management_page.dart"
-)
-replace_once(
-    management_page,
-    "import '../../../app/theme/app_spacing.dart';\n",
-    "import '../../../app/theme/app_motion.dart';\n"
-    "import '../../../app/theme/app_spacing.dart';\n",
-)
-
-management_areas = Path(
-    "lib/features/organization_management/presentation/organization_management_areas.dart"
-)
-old_switch = """        const SizedBox(height: AppSpacing.lg),
-        switch (_selectedArea) {
-          _ManagementArea.people => _buildPeopleArea(
-            activeScopes: activeScopes,
-            endedScopes: endedScopes,
-            latestEndedScopeIds: latestEndedScopeIds,
-          ),
-          _ManagementArea.students => _buildStudentsArea(
-            activeAssignments: activeAssignments,
-            endedAssignments: endedAssignments,
-          ),
-          _ManagementArea.settings => _buildSettingsArea(),
-        },
-"""
-new_switch = """        const SizedBox(height: AppSpacing.lg),
-        AnimatedSwitcher(
-          duration: AppMotion.effectiveDuration(context),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          child: KeyedSubtree(
-            key: ValueKey<_ManagementArea>(_selectedArea),
-            child: switch (_selectedArea) {
-              _ManagementArea.people => _buildPeopleArea(
-                activeScopes: activeScopes,
-                endedScopes: endedScopes,
-                latestEndedScopeIds: latestEndedScopeIds,
-              ),
-              _ManagementArea.students => _buildStudentsArea(
-                activeAssignments: activeAssignments,
-                endedAssignments: endedAssignments,
-              ),
-              _ManagementArea.settings => _buildSettingsArea(),
-            },
-          ),
-        ),
-"""
-replace_once(management_areas, old_switch, new_switch)
-
 student_dialog = Path(
     "lib/features/organization_management/presentation/organization_student_setup_dialog.dart"
 )
@@ -174,3 +123,46 @@ new_button = """          child: AnimatedSwitcher(
 assert text.count(old_button) == 1
 text = text.replace(old_button, new_button, 1)
 student_dialog.write_text(text)
+
+workspace_test = Path("test/features/teacher_workspace_test.dart")
+old_test = """  testWidgets('shows custom type settings to an organization manager', (
+    tester,
+  ) async {
+    final customType = WorkspaceCaseType(
+      id: 'case-type-1',
+      displayName: '审题策略',
+      baseType: LearningCaseType.examStrategy,
+      status: 'active',
+      sortOrder: 0,
+      version: 1,
+    );
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        caseTypes: [...WorkspaceCaseType.builtInTypes, customType],
+        canManageCaseTypes: true,
+      ),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '问题类型'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('可用于新记录'), findsOneWidget);
+    expect(find.text('审题策略'), findsOneWidget);
+    expect(find.textContaining('系统类型始终保留。自定义类型只负责分类'), findsOneWidget);
+  });
+"""
+new_test = """  testWidgets('keeps configuration actions out of Today for managers', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(canManageCaseTypes: true),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    expect(find.text('今日'), findsWidgets);
+    expect(find.widgetWithText(FilledButton, '记录问题'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '问题类型'), findsNothing);
+  });
+"""
+replace_once(workspace_test, old_test, new_test)
