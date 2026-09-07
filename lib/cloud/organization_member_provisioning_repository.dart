@@ -62,20 +62,53 @@ class OrganizationMemberProvisioningResult {
   }
 }
 
+class OrganizationMemberDisplayNameUpdateResult {
+  const OrganizationMemberDisplayNameUpdateResult({
+    required this.organizationId,
+    required this.membershipId,
+    required this.appUserId,
+    required this.displayName,
+  });
+
+  final String organizationId;
+  final String membershipId;
+  final String appUserId;
+  final String displayName;
+
+  factory OrganizationMemberDisplayNameUpdateResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationMemberDisplayNameUpdateResult(
+      organizationId: _requiredString(json['organization_id'], 'organization_id'),
+      membershipId: _requiredString(json['membership_id'], 'membership_id'),
+      appUserId: _requiredString(json['app_user_id'], 'app_user_id'),
+      displayName: _requiredString(json['display_name'], 'display_name'),
+    );
+  }
+}
+
 abstract interface class OrganizationMemberProvisioningRepository {
   Future<OrganizationMemberProvisioningResult> provisionMember({
     required String organizationId,
     required String email,
+    required String displayName,
     required OrganizationInvitationRole role,
   });
 
   Future<OrganizationMemberProvisioningResult> provisionExistingInvitation({
     required String invitationId,
+    required String displayName,
   });
 
   Future<OrganizationMemberProvisioningResult> reissueMemberCredential({
     required String organizationId,
     required String membershipId,
+  });
+
+  Future<OrganizationMemberDisplayNameUpdateResult> updateMemberDisplayName({
+    required String organizationId,
+    required String membershipId,
+    required String displayName,
   });
 }
 
@@ -89,10 +122,13 @@ class SupabaseOrganizationMemberProvisioningRepository
   Future<OrganizationMemberProvisioningResult> provisionMember({
     required String organizationId,
     required String email,
+    required String displayName,
     required OrganizationInvitationRole role,
   }) {
+    final normalizedDisplayName = _validatedDisplayName(displayName);
     return _invoke(<String, dynamic>{
       'action': 'provision',
+      'display_name': normalizedDisplayName,
       'email': email.trim(),
       'organization_id': organizationId,
       'role': role.wireValue,
@@ -102,9 +138,12 @@ class SupabaseOrganizationMemberProvisioningRepository
   @override
   Future<OrganizationMemberProvisioningResult> provisionExistingInvitation({
     required String invitationId,
+    required String displayName,
   }) {
+    final normalizedDisplayName = _validatedDisplayName(displayName);
     return _invoke(<String, dynamic>{
       'action': 'provision_existing_invitation',
+      'display_name': normalizedDisplayName,
       'invitation_id': invitationId,
     });
   }
@@ -119,6 +158,31 @@ class SupabaseOrganizationMemberProvisioningRepository
       'membership_id': membershipId,
       'organization_id': organizationId,
     });
+  }
+
+  @override
+  Future<OrganizationMemberDisplayNameUpdateResult> updateMemberDisplayName({
+    required String organizationId,
+    required String membershipId,
+    required String displayName,
+  }) async {
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) {
+      throw const AuthException('No active session.');
+    }
+    final normalizedDisplayName = _validatedDisplayName(displayName);
+    final response = await _client.rpc(
+      'update_organization_member_display_name',
+      params: <String, dynamic>{
+        'p_organization_id': organizationId,
+        'p_membership_id': membershipId,
+        'p_display_name': normalizedDisplayName,
+      },
+    );
+    _assertSameSession(authUser.id);
+    return OrganizationMemberDisplayNameUpdateResult.fromJson(
+      _mapResponse(response),
+    );
   }
 
   Future<OrganizationMemberProvisioningResult> _invoke(
@@ -258,16 +322,19 @@ String? organizationMemberProvisioningErrorMessage(Object error) {
     'auth_user_not_found' => '账号开通未完成，请重新发放临时密码或邀请。',
     'credential_update_failed' => '临时密码更新失败，成员仍保持待接管状态，请稍后重新发放。',
     'current_membership_immutable' => '不能修改当前登录账号的成员凭据。',
+    'invalid_member_display_name' => '姓名不能为空，且不能超过 120 个字符。',
     'invitation_already_exists' => '这个邮箱已有待处理邀请，请在邀请列表中重新发放或继续开通。',
     'invitation_not_approved' => '负责人提名还没有通过审批。',
     'invitation_not_available' => '这条邀请已被使用或撤销，请刷新后重试。',
     'invitation_not_found' => '邀请已不存在，请刷新后重试。',
     'member_not_onboarding' => '该成员已经完成接管或当前不在待接管状态。',
     'member_provisioning_failed' => '账号开通未完成，成员没有获得学生业务权限，请稍后重试。',
+    'membership_not_found' => '成员信息已变化，请刷新后重试。',
     'onboarding_completion_required' => '成员仍需完成首次接管，不能由管理员直接激活。',
     'onboarding_expired' => '接管凭据已过期，请让管理员重新发放临时密码。',
     'onboarding_relogin_required' => '请先用新密码重新登录，再完成账号接管。',
     'organization_manager_required' => '当前账号没有本机构成员管理权限。',
+    'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
     'organization_owner_required' => '这项操作需要负责人确认。',
     'provision_cleanup_required' => '账号开通遇到恢复异常，请暂时不要重复创建同邮箱账号，并联系维护人员处理。',
     'provision_recovery_required' =>
@@ -275,6 +342,16 @@ String? organizationMemberProvisioningErrorMessage(Object error) {
     'user_already_member_elsewhere' => '该账号已经加入其他机构，暂不能重复开通。',
     _ => null,
   };
+}
+
+String _validatedDisplayName(String displayName) {
+  final normalized = displayName.trim();
+  if (normalized.isEmpty || normalized.length > 120) {
+    throw const OrganizationMemberProvisioningException(
+      'invalid_member_display_name',
+    );
+  }
+  return normalized;
 }
 
 Map<String, dynamic> _mapResponse(dynamic response) {
