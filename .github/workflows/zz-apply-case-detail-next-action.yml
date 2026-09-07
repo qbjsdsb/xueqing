@@ -30,7 +30,10 @@ jobs:
         run: flutter pub get
 
       - name: Apply exact patch
-        run: python3 .github/scripts/zz_apply_case_detail_next_action.py
+        run: |
+          sed -i "s/source.count(old_late_action) != 1/source.count(old_late_action) != 2/" .github/scripts/zz_apply_case_detail_next_action.py
+          sed -i "s#source = source.replace(old_late_action, '', 1)#source = source[:source.rfind(old_late_action)] + source[source.rfind(old_late_action) + len(old_late_action):]#" .github/scripts/zz_apply_case_detail_next_action.py
+          python3 .github/scripts/zz_apply_case_detail_next_action.py
 
       - name: Verify exact net diff
         run: |
