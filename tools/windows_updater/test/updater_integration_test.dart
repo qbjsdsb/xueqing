@@ -5,191 +5,186 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
-const _lifecycleEnvironmentKey =
-    'XUEQING_UPDATER_LONG_FIXTURE_LIFECYCLE';
+const _lifecycleEnvironmentKey = 'XUEQING_UPDATER_LONG_FIXTURE_LIFECYCLE';
 const _fixtureExitTimeout = Duration(seconds: 15);
 const _fixtureExitRetryInterval = Duration(milliseconds: 200);
 const _cleanupTimeout = Duration(seconds: 10);
 const _cleanupRetryInterval = Duration(milliseconds: 250);
 
 void main() {
-  test(
-    'Windows updater rolls back an invalid launch and installs a stable replacement',
-    () async {
-      if (!Platform.isWindows) {
-        return;
-      }
+  test('Windows updater rolls back an invalid launch and installs a stable replacement', () async {
+    if (!Platform.isWindows) {
+      return;
+    }
 
-      final helperPath = Platform.environment['XUEQING_UPDATER_HELPER'];
-      final shortFixturePath =
-          Platform.environment['XUEQING_UPDATER_SHORT_FIXTURE'];
-      final longFixturePath =
-          Platform.environment['XUEQING_UPDATER_LONG_FIXTURE'];
-      final bootstrapHelperPath =
-          Platform.environment['XUEQING_UPDATER_BOOTSTRAP_HELPER'];
-      if (helperPath == null ||
-          shortFixturePath == null ||
-          longFixturePath == null ||
-          bootstrapHelperPath == null) {
-        return;
-      }
+    final helperPath = Platform.environment['XUEQING_UPDATER_HELPER'];
+    final shortFixturePath =
+        Platform.environment['XUEQING_UPDATER_SHORT_FIXTURE'];
+    final longFixturePath =
+        Platform.environment['XUEQING_UPDATER_LONG_FIXTURE'];
+    final bootstrapHelperPath =
+        Platform.environment['XUEQING_UPDATER_BOOTSTRAP_HELPER'];
+    if (helperPath == null ||
+        shortFixturePath == null ||
+        longFixturePath == null ||
+        bootstrapHelperPath == null) {
+      return;
+    }
 
-      final helper = File(helperPath);
-      final shortFixture = File(shortFixturePath);
-      final longFixture = File(longFixturePath);
-      final bootstrapHelper = File(bootstrapHelperPath);
-      if (!await helper.exists() ||
-          !await shortFixture.exists() ||
-          !await longFixture.exists() ||
-          !await bootstrapHelper.exists()) {
-        return;
-      }
+    final helper = File(helperPath);
+    final shortFixture = File(shortFixturePath);
+    final longFixture = File(longFixturePath);
+    final bootstrapHelper = File(bootstrapHelperPath);
+    if (!await helper.exists() ||
+        !await shortFixture.exists() ||
+        !await longFixture.exists() ||
+        !await bootstrapHelper.exists()) {
+      return;
+    }
 
-      final root = await Directory.systemTemp.createTemp(
-        'xueqing-updater-integration-',
+    final root = await Directory.systemTemp.createTemp(
+      'xueqing-updater-integration-',
+    );
+    final installDirectory = Directory(_join(root.path, 'install'));
+    final lifecycleFile = File(_join(root.path, 'long-fixture-lifecycle.txt'));
+    await installDirectory.create();
+    final launchPath = _join(installDirectory.path, 'xueqing.exe');
+    final oldExecutableBytes = await longFixture.readAsBytes();
+    final helperBytes = await helper.readAsBytes();
+    final bootstrapHelperBytes = await bootstrapHelper.readAsBytes();
+
+    try {
+      await File(launchPath).writeAsBytes(oldExecutableBytes, flush: true);
+      await File(_join(installDirectory.path, 'old-version.txt'))
+          .writeAsString('old\n', flush: true);
+
+      final rollbackPackage = await _createPackage(
+        root: root,
+        fileName: 'rollback.zip',
+        executableBytes: await shortFixture.readAsBytes(),
+        helperBytes: helperBytes,
+        marker: 'rollback',
       );
-      final installDirectory = Directory(_join(root.path, 'install'));
-      final lifecycleFile = File(_join(root.path, 'long-fixture-lifecycle.txt'));
-      await installDirectory.create();
-      final launchPath = _join(installDirectory.path, 'xueqing.exe');
-      final oldExecutableBytes = await longFixture.readAsBytes();
-      final helperBytes = await helper.readAsBytes();
-      final bootstrapHelperBytes = await bootstrapHelper.readAsBytes();
+      final rollbackResult = await _runUpdater(
+        helperPath: helper.path,
+        packageFile: rollbackPackage,
+        installDirectory: installDirectory,
+        launchPath: launchPath,
+        lifecycleFile: lifecycleFile,
+      );
+      await _waitForLongFixtureExit(lifecycleFile);
 
-      try {
-        await File(launchPath).writeAsBytes(oldExecutableBytes, flush: true);
+      expect(
+        rollbackResult.exitCode,
+        isNot(0),
+        reason:
+            'The short-lived replacement must trigger rollback. '
+            'stdout: ${rollbackResult.stdout} stderr: ${rollbackResult.stderr}',
+      );
+      expect(
+        await File(launchPath).readAsBytes(),
+        oldExecutableBytes,
+        reason: 'Rollback must restore the previous executable.',
+      );
+      expect(
         await File(_join(installDirectory.path, 'old-version.txt'))
-            .writeAsString('old\n', flush: true);
+            .readAsString(),
+        'old\n',
+      );
+      expect(
+        await File(_join(installDirectory.path, 'new-version.txt')).exists(),
+        isFalse,
+        reason: 'Rollback must remove files from the failed package.',
+      );
 
-        final rollbackPackage = await _createPackage(
-          root: root,
-          fileName: 'rollback.zip',
-          executableBytes: await shortFixture.readAsBytes(),
-          helperBytes: helperBytes,
-          marker: 'rollback',
-        );
-        final rollbackResult = await _runUpdater(
-          helperPath: helper.path,
-          packageFile: rollbackPackage,
-          installDirectory: installDirectory,
-          launchPath: launchPath,
-          lifecycleFile: lifecycleFile,
-        );
-        await _waitForLongFixtureExit(lifecycleFile);
+      final bootstrapMarkerPath = _join(
+        installDirectory.path,
+        '.xueqing_updater_bootstrap_migrated',
+      );
+      await Directory(bootstrapMarkerPath).create();
 
-        expect(
-          rollbackResult.exitCode,
-          isNot(0),
-          reason:
-              'The short-lived replacement must trigger rollback. '
-              'stdout: ${rollbackResult.stdout} stderr: ${rollbackResult.stderr}',
-        );
-        expect(
-          await File(launchPath).readAsBytes(),
-          oldExecutableBytes,
-          reason: 'Rollback must restore the previous executable.',
-        );
-        expect(
-          await File(_join(installDirectory.path, 'old-version.txt'))
-              .readAsString(),
-          'old\n',
-        );
-        expect(
-          await File(_join(installDirectory.path, 'new-version.txt')).exists(),
-          isFalse,
-          reason: 'Rollback must remove files from the failed package.',
-        );
+      final bootstrapPackage = await _createPackage(
+        root: root,
+        fileName: 'bootstrap-migration.zip',
+        executableBytes: await longFixture.readAsBytes(),
+        helperBytes: bootstrapHelperBytes,
+        marker: 'bootstrap-migration',
+      );
+      final bootstrapResult = await _runUpdater(
+        helperPath: bootstrapHelper.path,
+        packageFile: bootstrapPackage,
+        installDirectory: installDirectory,
+        launchPath: launchPath,
+        lifecycleFile: lifecycleFile,
+      );
+      await _waitForLongFixtureExit(lifecycleFile);
 
-        final bootstrapMarkerPath = _join(
-          installDirectory.path,
-          '.xueqing_updater_bootstrap_migrated',
-        );
-        await Directory(bootstrapMarkerPath).create();
+      expect(
+        bootstrapResult.exitCode,
+        isNot(0),
+        reason:
+            'A failed bootstrap marker write must trigger rollback. '
+            'stdout: ${bootstrapResult.stdout} stderr: ${bootstrapResult.stderr}',
+      );
+      expect(
+        await File(launchPath).readAsBytes(),
+        oldExecutableBytes,
+        reason: 'Bootstrap rollback must restore the previous executable.',
+      );
+      expect(
+        await File(_join(installDirectory.path, 'old-version.txt'))
+            .readAsString(),
+        'old\n',
+      );
+      expect(
+        await File(_join(installDirectory.path, 'new-version.txt')).exists(),
+        isFalse,
+        reason: 'Bootstrap rollback must remove files from the failed package.',
+      );
+      expect(
+        await Directory(bootstrapMarkerPath).exists(),
+        isTrue,
+        reason: 'The marker directory must remain to force the write failure.',
+      );
+      await Directory(bootstrapMarkerPath).delete();
 
-        final bootstrapPackage = await _createPackage(
-          root: root,
-          fileName: 'bootstrap-migration.zip',
-          executableBytes: await longFixture.readAsBytes(),
-          helperBytes: bootstrapHelperBytes,
-          marker: 'bootstrap-migration',
-        );
-        final bootstrapResult = await _runUpdater(
-          helperPath: bootstrapHelper.path,
-          packageFile: bootstrapPackage,
-          installDirectory: installDirectory,
-          launchPath: launchPath,
-          lifecycleFile: lifecycleFile,
-        );
-        await _waitForLongFixtureExit(lifecycleFile);
+      final installPackage = await _createPackage(
+        root: root,
+        fileName: 'install.zip',
+        executableBytes: await longFixture.readAsBytes(),
+        helperBytes: helperBytes,
+        marker: 'installed',
+      );
+      final installResult = await _runUpdater(
+        helperPath: helper.path,
+        packageFile: installPackage,
+        installDirectory: installDirectory,
+        launchPath: launchPath,
+        lifecycleFile: lifecycleFile,
+      );
+      await _waitForLongFixtureExit(lifecycleFile);
 
-        expect(
-          bootstrapResult.exitCode,
-          isNot(0),
-          reason:
-              'A failed bootstrap marker write must trigger rollback. '
-              'stdout: ${bootstrapResult.stdout} stderr: ${bootstrapResult.stderr}',
-        );
-        expect(
-          await File(launchPath).readAsBytes(),
-          oldExecutableBytes,
-          reason: 'Bootstrap rollback must restore the previous executable.',
-        );
-        expect(
-          await File(_join(installDirectory.path, 'old-version.txt'))
-              .readAsString(),
-          'old\n',
-        );
-        expect(
-          await File(_join(installDirectory.path, 'new-version.txt')).exists(),
-          isFalse,
-          reason: 'Bootstrap rollback must remove files from the failed package.',
-        );
-        expect(
-          await Directory(bootstrapMarkerPath).exists(),
-          isTrue,
-          reason: 'The marker directory must remain to force the write failure.',
-        );
-        await Directory(bootstrapMarkerPath).delete();
-
-        final installPackage = await _createPackage(
-          root: root,
-          fileName: 'install.zip',
-          executableBytes: await longFixture.readAsBytes(),
-          helperBytes: helperBytes,
-          marker: 'installed',
-        );
-        final installResult = await _runUpdater(
-          helperPath: helper.path,
-          packageFile: installPackage,
-          installDirectory: installDirectory,
-          launchPath: launchPath,
-          lifecycleFile: lifecycleFile,
-        );
-        await _waitForLongFixtureExit(lifecycleFile);
-
-        expect(
-          installResult.exitCode,
-          0,
-          reason:
-              'A stable replacement should complete successfully. '
-              'stdout: ${installResult.stdout} stderr: ${installResult.stderr}',
-        );
-        expect(
-          await File(_join(installDirectory.path, 'new-version.txt'))
-              .readAsString(),
-          'installed\n',
-        );
-        expect(
-          await File(_join(installDirectory.path, 'old-version.txt')).exists(),
-          isFalse,
-          reason: 'A successful replacement must remove old files.',
-        );
-      } finally {
-        await _deleteTestRootWhenReleased(root);
-      }
-    },
-    timeout: const Timeout(Duration(minutes: 2)),
-  );
+      expect(
+        installResult.exitCode,
+        0,
+        reason:
+            'A stable replacement should complete successfully. '
+            'stdout: ${installResult.stdout} stderr: ${installResult.stderr}',
+      );
+      expect(
+        await File(_join(installDirectory.path, 'new-version.txt'))
+            .readAsString(),
+        'installed\n',
+      );
+      expect(
+        await File(_join(installDirectory.path, 'old-version.txt')).exists(),
+        isFalse,
+        reason: 'A successful replacement must remove old files.',
+      );
+    } finally {
+      await _deleteTestRootWhenReleased(root);
+    }
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }
 
 Future<void> _waitForLongFixtureExit(File lifecycleFile) async {
