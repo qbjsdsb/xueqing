@@ -11,10 +11,8 @@ enum UpdatePlatform {
   static UpdatePlatform? tryParse(String value) {
     switch (value.trim().toLowerCase()) {
       case 'windows':
-      case 'win':
         return UpdatePlatform.windows;
       case 'android':
-      case 'apk':
         return UpdatePlatform.android;
       default:
         return null;
@@ -293,6 +291,9 @@ class UpdateManifest {
         throw const FormatException('更新清单 minimum_supported 无效。');
       }
       minimumSupportedVersion = AppVersion.parse(minimumValue);
+      if (minimumSupportedVersion > version) {
+        throw const FormatException('更新清单 minimum_supported 不能高于 version。');
+      }
     }
 
     final rawNotes = json['notes'];
