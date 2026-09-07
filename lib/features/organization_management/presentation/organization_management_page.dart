@@ -95,8 +95,15 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                   if (snapshotState.hasError || !snapshotState.hasData) {
                     return _ManagementErrorState(onRetry: _retryLoad);
                   }
+                  final hasProvisioningRepository =
+                      widget.provisioningRepository != null;
                   final canManageMemberAccounts =
-                      _isOwner && widget.provisioningRepository != null;
+                      _isOwner && hasProvisioningRepository;
+                  final canEditMemberName =
+                      hasProvisioningRepository &&
+                      widget.roles.any(
+                        (role) => role == 'org_owner' || role == 'org_admin',
+                      );
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -113,7 +120,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                         isOwner: _isOwner,
                         busy: _busy,
                         canInvite: _inviteRoles.isNotEmpty,
-                        canEditMemberName: canManageMemberAccounts,
+                        canEditMemberName: canEditMemberName,
                         onAddStudent: _addStudent,
                         onInviteMember: _inviteMember,
                         onApprove: _approveInvitation,
@@ -121,7 +128,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                         onProvisionInvitation: canManageMemberAccounts
                             ? _provisionExistingInvitation
                             : null,
-                        onEditMemberName: canManageMemberAccounts
+                        onEditMemberName: canEditMemberName
                             ? _editMemberDisplayName
                             : null,
                         onEditStudent: _editStudent,
