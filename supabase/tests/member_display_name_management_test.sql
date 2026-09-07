@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(11);
 
 select is(
   to_regprocedure(
@@ -40,12 +40,6 @@ select is(
   ),
   true,
   'authenticated can call the guarded member display-name RPC'
-);
-
-select is(
-  has_table_privilege('authenticated', 'public.app_users', 'update'),
-  false,
-  'authenticated cannot update app users directly'
 );
 
 reset role;
@@ -96,6 +90,28 @@ select set_config(
 
 select lives_ok(
   $$
+    update public.app_users
+    set display_name = '绕过失败'
+    where id = '10000000-0000-0000-0000-000000000003'
+  $$,
+  'direct table update cannot bypass row-level security'
+);
+
+select is(
+  (
+    select listed.member ->> 'display_name'
+    from public.list_organization_members(
+      '00000000-0000-0000-0000-000000000001'
+    ) as listed(member)
+    where listed.member ->> 'membership_id' =
+      '7b000000-0000-0000-0000-000000000001'
+  ),
+  '无机构测试用户',
+  'direct table update leaves another member name unchanged'
+);
+
+select lives_ok(
+  $$
     select public.update_organization_member_display_name(
       '00000000-0000-0000-0000-000000000001',
       '7b000000-0000-0000-0000-000000000001',
@@ -107,12 +123,15 @@ select lives_ok(
 
 select is(
   (
-    select display_name
-    from public.app_users
-    where id = '10000000-0000-0000-0000-000000000003'
+    select listed.member ->> 'display_name'
+    from public.list_organization_members(
+      '00000000-0000-0000-0000-000000000001'
+    ) as listed(member)
+    where listed.member ->> 'membership_id' =
+      '7b000000-0000-0000-0000-000000000001'
   ),
   '赵老师',
-  'member display name is trimmed and persisted'
+  'member display name is trimmed and visible through the manager read model'
 );
 
 select throws_ok(
