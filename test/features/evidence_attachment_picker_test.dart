@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xueqing/features/teacher_workspace/presentation/'
     'evidence_attachment_picker.dart';
@@ -35,5 +37,53 @@ void main() {
       ),
       '目前只支持 JPG、PNG 或 WEBP 图片。',
     );
+  });
+
+  test('lost-data recovery primes once and returns the recovered image once', () async {
+    var calls = 0;
+    final recovered = PickedEvidenceAttachment(
+      attachmentId: '00000000-0000-4000-8000-000000000001',
+      bytes: Uint8List.fromList(<int>[1, 2, 3]),
+      fileName: '恢复图片.jpg',
+      contentType: 'image/jpeg',
+    );
+    final recovery = EvidenceAttachmentLostDataRecovery(() async {
+      calls++;
+      return recovered;
+    });
+
+    recovery.prime();
+    recovery.prime();
+
+    expect(await recovery.take(), same(recovered));
+    expect(await recovery.take(), isNull);
+    expect(calls, 1);
+  });
+
+  test('lost-data recovery can be consumed without explicit priming', () async {
+    var calls = 0;
+    final recovery = EvidenceAttachmentLostDataRecovery(() async {
+      calls++;
+      return null;
+    });
+
+    expect(await recovery.take(), isNull);
+    expect(await recovery.take(), isNull);
+    expect(calls, 1);
+  });
+
+  test('startup recovery errors are deferred until the result is consumed', () async {
+    var calls = 0;
+    final recovery = EvidenceAttachmentLostDataRecovery(() async {
+      calls++;
+      throw StateError('lost picker result is unreadable');
+    });
+
+    recovery.prime();
+    await Future<void>.delayed(Duration.zero);
+
+    await expectLater(recovery.take(), throwsA(isA<StateError>()));
+    expect(await recovery.take(), isNull);
+    expect(calls, 1);
   });
 }
