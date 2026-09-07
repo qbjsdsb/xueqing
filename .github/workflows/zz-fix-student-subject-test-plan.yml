@@ -1,0 +1,32 @@
+name: Fix student subject pgTAP plan
+
+on:
+  push:
+    branches:
+      - feature/student-multi-subject-service
+    paths:
+      - '.github/workflows/zz-fix-student-subject-test-plan.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Correct plan and keep branch clean
+        run: |
+          sed -i 's/select plan(20);/select plan(21);/' supabase/tests/student_multi_subject_service_test.sql
+          rm .github/workflows/zz-fix-student-subject-test-plan.yml
+          git diff --check
+          test "$(grep -c 'select plan(21);' supabase/tests/student_multi_subject_service_test.sql)" -eq 1
+      - name: Commit correction
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'test: correct student multi-subject pgTAP plan'
+          git push
