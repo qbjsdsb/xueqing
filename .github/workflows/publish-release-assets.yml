@@ -1,26 +1,18 @@
-name: Publish signed release assets and update manifest
+name: Publish stable signed release assets and update manifest
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing non-draft GitHub Release tag, for example v0.2.0"
+        description: "Existing published Pre-release staging tag, for example v0.2.0"
         required: true
         type: string
         default: v0.2.0
       app_version:
-        description: "Semantic app version including Android build, for example 0.2.0+2"
+        description: "Stable semantic app version including Android build, for example 0.2.0+2"
         required: true
         type: string
         default: 0.2.0+2
-      release_environment:
-        description: "Cloud environment embedded in this release"
-        required: true
-        type: choice
-        options:
-          - development
-          - production
-        default: development
       release_notes:
         description: "One update note per line; optional"
         required: false
@@ -31,23 +23,24 @@ permissions:
   contents: write
 
 concurrency:
-  group: publish-signed-release-${{ inputs.release_tag }}
+  group: publish-stable-release
   cancel-in-progress: false
 
 env:
   RELEASE_TAG: ${{ inputs.release_tag }}
   RELEASE_VERSION: ${{ inputs.app_version }}
-  XUEQING_ENV: ${{ inputs.release_environment }}
-  XUEQING_SUPABASE_URL: ${{ inputs.release_environment == 'development' && (vars.XUEQING_SUPABASE_URL || 'https://czuctoulgnfytcfonkhc.supabase.co') || vars.XUEQING_SUPABASE_URL }}
-  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ inputs.release_environment == 'development' && (vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI') || vars.XUEQING_SUPABASE_PUBLISHABLE_KEY }}
+  XUEQING_ENV: production
+  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '' }}
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '' }}
   XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '' }}
-  XUEQING_ALLOW_DEVELOPMENT_RELEASE: ${{ inputs.release_environment == 'development' && 'true' || 'false' }}
+  XUEQING_ALLOW_DEVELOPMENT_RELEASE: "false"
   XUEQING_SHOW_DEV_TOOLS: "false"
   XUEQING_REQUIRE_RELEASE_SIGNING: "true"
+  XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
 
 jobs:
   validate:
-    name: Validate release inputs
+    name: Validate stable release inputs
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -55,7 +48,7 @@ jobs:
       version_name: ${{ steps.release.outputs.version_name }}
       build_number: ${{ steps.release.outputs.build_number }}
     steps:
-      - name: Validate version and target Release
+      - name: Validate version and staged Release
         id: release
         shell: bash
         env:
@@ -66,8 +59,8 @@ jobs:
           version_name="${version_name%%+*}"
           build_number="${RELEASE_VERSION##*+}"
           if [[ "$RELEASE_VERSION" != *+* ]] || \
-             [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?\+[1-9][0-9]*$ ]]; then
-            echo "app_version must match major.minor.patch[-prerelease]+positive_build."
+             [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\+[1-9][0-9]*$ ]]; then
+            echo "Stable app_version must match major.minor.patch+positive_build; prerelease identifiers belong on the development candidate rail."
             exit 1
           fi
           if [[ "$RELEASE_TAG" != "v$version_name" ]]; then
@@ -78,8 +71,13 @@ jobs:
             echo "Android build number must not exceed 2100000000."
             exit 1
           fi
-          if [[ "$XUEQING_ENV" == "production" && ( -z "$XUEQING_SUPABASE_URL" || -z "$XUEQING_SUPABASE_PUBLISHABLE_KEY" || -z "$XUEQING_SUPABASE_ALLOWED_HOSTS" ) ]]; then
-            echo "Production releases require Supabase URL, publishable key, and allowed hosts."
+          if [[ -z "$XUEQING_SUPABASE_URL" || -z "$XUEQING_SUPABASE_PUBLISHABLE_KEY" || -z "$XUEQING_SUPABASE_ALLOWED_HOSTS" ]]; then
+            echo "Stable production releases require Supabase URL, publishable key, and allowed hosts."
+            exit 1
+          fi
+          expected_cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$expected_cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "XUEQING_ANDROID_CERT_SHA256 must be the pinned 64-hex SHA-256 fingerprint of the permanent Android release certificate."
             exit 1
           fi
           release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
@@ -87,8 +85,10 @@ jobs:
           import json
           import os
           release = json.loads(os.environ["RELEASE_JSON"])
-          if release["isDraft"] or release["isPrerelease"]:
-              raise SystemExit("The target Release must be published and non-prerelease.")
+          if release["isDraft"] or not release["isPrerelease"]:
+              raise SystemExit(
+                  "The stable target must start as a published Pre-release staging Release."
+              )
           PY
           release_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
           compare_status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$release_commit...main" --jq '.status')"
@@ -171,6 +171,34 @@ jobs:
             --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$XUEQING_ALLOW_DEVELOPMENT_RELEASE" \
             --dart-define="XUEQING_SHOW_DEV_TOOLS=$XUEQING_SHOW_DEV_TOOLS"
 
+      - name: Verify Android release signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [[ -z "$sdk_root" ]]; then
+            echo "Android SDK root is unavailable."
+            exit 1
+          fi
+          apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          if [[ -z "$apksigner" || ! -x "$apksigner" ]]; then
+            echo "apksigner was not found in Android build-tools."
+            exit 1
+          fi
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          verify_output="$("$apksigner" verify --verbose --print-certs "$apk")"
+          printf '%s\n' "$verify_output"
+          actual_cert_sha="$(printf '%s\n' "$verify_output" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          expected_cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$actual_cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Could not read the APK signing certificate SHA-256 fingerprint."
+            exit 1
+          fi
+          if [[ "$actual_cert_sha" != "$expected_cert_sha" ]]; then
+            echo "Android release certificate fingerprint does not match the pinned repository variable."
+            exit 1
+          fi
+
       - name: Upload Android release build
         uses: actions/upload-artifact@v4
         with:
@@ -241,13 +269,13 @@ jobs:
           $releaseDir = Join-Path $pwd "build/windows/x64/runner/Release"
           $redistRoot = Join-Path $vsPath "VC/Redist/MSVC"
           $runtimeDir = Get-ChildItem -Path $redistRoot -Directory -Recurse `
-            Where-Object `
-              $_.Name -eq "Microsoft.VC143.CRT" -and `
-              (Test-Path (Join-Path $_.FullName "msvcp140.dll")) -and `
-              (Test-Path (Join-Path $_.FullName "vcruntime140.dll")) -and `
-              (Test-Path (Join-Path $_.FullName "vcruntime140_1.dll")) `
-            } `
-            Select-Object -First 1
+            | Where-Object {
+                $_.Name -eq "Microsoft.VC143.CRT" -and
+                (Test-Path (Join-Path $_.FullName "msvcp140.dll")) -and
+                (Test-Path (Join-Path $_.FullName "vcruntime140.dll")) -and
+                (Test-Path (Join-Path $_.FullName "vcruntime140_1.dll"))
+              } `
+            | Select-Object -First 1
           if ($null -eq $runtimeDir) {
             throw "The Visual C++ release runtime directory was not found."
           }
@@ -319,7 +347,7 @@ jobs:
           retention-days: 1
 
   package-and-publish:
-    name: Package and upload immutable Release assets
+    name: Package, verify, and promote stable Release
     needs: [validate, android-release, windows-release]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -434,17 +462,65 @@ jobs:
               raise SystemExit("Windows installer is missing or empty")
           PY
 
-      - name: Upload immutable assets to Release
+      - name: Upload immutable assets to staged Release
         shell: bash
         run: |
           set -euo pipefail
           gh release upload "$RELEASE_TAG" release-assets/* \
             --repo "$GITHUB_REPOSITORY"
 
-      - name: Verify uploaded Release assets
+      - name: Verify staged Release assets
         shell: bash
         run: |
           set -euo pipefail
-          gh release view "$RELEASE_TAG" \
+          release_json="$(gh release view "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
-            --json tagName,url,assets
+            --json isDraft,isPrerelease,assets)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json
+          import os
+
+          release = json.loads(os.environ["RELEASE_JSON"])
+          if release["isDraft"] or not release["isPrerelease"]:
+              raise SystemExit("Release left the staging Pre-release state before verification")
+          assets = {item["name"]: item for item in release["assets"]}
+          tag = os.environ["RELEASE_TAG"]
+          expected = {
+              f"xueqing-{tag}-android.apk",
+              f"xueqing-{tag}-windows.zip",
+              f"xueqing-{tag}-windows-setup.exe",
+              "update-manifest.json",
+              "SHA256SUMS.txt",
+          }
+          missing = sorted(expected - set(assets))
+          if missing:
+              raise SystemExit(f"Missing uploaded Release assets: {missing}")
+          empty = sorted(name for name in expected if int(assets[name].get("size", 0)) <= 0)
+          if empty:
+              raise SystemExit(f"Empty uploaded Release assets: {empty}")
+          PY
+
+      - name: Promote staged Release to Stable
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --prerelease=false \
+            --latest
+
+      - name: Verify final Stable Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json tagName,url,isDraft,isPrerelease,assets)"
+          printf '%s\n' "$release_json"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json
+          import os
+          release = json.loads(os.environ["RELEASE_JSON"])
+          if release["isDraft"] or release["isPrerelease"]:
+              raise SystemExit("Stable promotion did not complete")
+          PY
