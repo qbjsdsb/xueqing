@@ -114,29 +114,33 @@ select set_config(
 );
 
 select is(
-  (select private.current_teaching_membership_for_profile_v2(
-    '67000000-0000-0000-0000-000000000001'
-  )),
-  '61000000-0000-0000-0000-000000000101'::uuid,
-  'an admin gets organization-wide learning entitlement without a teacher assignment'
-);
-
-select is(
-  (select private.can_read_profile_v2(
-    '67000000-0000-0000-0000-000000000001'
-  )),
-  true,
-  'an admin can read organization learning profiles'
-);
-
-select is(
   (
     select count(*)::int
     from public.student_subject_profiles
     where id = '67000000-0000-0000-0000-000000000001'
   ),
   1,
-  'RLS exposes the organization profile to an admin'
+  'RLS exposes an organization profile to an admin without a teacher assignment'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.students
+    where id = '30000000-0000-0000-0000-000000000001'
+  ),
+  1,
+  'RLS exposes an organization student to an admin'
+);
+
+select ok(
+  (
+    select count(*)
+    from public.learning_cases
+    where student_subject_profile_id =
+      '67000000-0000-0000-0000-000000000001'
+  ) > 0,
+  'an admin can read organization Learning Cases'
 );
 
 select throws_ok(
@@ -202,14 +206,6 @@ select set_config(
   true
 );
 
-select is(
-  (select private.can_manage_member_accounts_v2(
-    '00000000-0000-0000-0000-000000000001'
-  )),
-  true,
-  'an owner can manage member accounts'
-);
-
 select lives_ok(
   $$
     select public.create_organization_invitation(
@@ -222,18 +218,32 @@ select lives_ok(
 );
 
 select is(
-  (select private.can_read_profile_v2(
-    '67000000-0000-0000-0000-000000000001'
-  )),
-  true,
-  'an owner keeps full learning access'
+  (
+    select count(*)::int
+    from public.student_subject_profiles
+    where id = '67000000-0000-0000-0000-000000000001'
+  ),
+  1,
+  'an owner keeps full organization learning access'
+);
+
+select ok(
+  (
+    select count(*)
+    from public.learning_cases
+    where student_subject_profile_id =
+      '67000000-0000-0000-0000-000000000001'
+  ) > 0,
+  'an owner can read organization Learning Cases'
 );
 
 select is(
-  (select private.can_read_profile_v2(
-    '67000000-0000-0000-0000-000000000002'
-  )),
-  false,
+  (
+    select count(*)::int
+    from public.student_subject_profiles
+    where id = '67000000-0000-0000-0000-000000000002'
+  ),
+  0,
   'organization boundaries still prevent an owner from reading another organization'
 );
 
