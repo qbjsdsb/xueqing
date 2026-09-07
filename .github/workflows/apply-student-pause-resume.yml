@@ -1,0 +1,90 @@
+name: Apply student pause resume
+
+on:
+  push:
+    branches:
+      - feature/student-teaching-pause-resume
+    paths:
+      - ".github/tmp/apply_student_teaching_pause_resume.py"
+      - ".github/workflows/apply-student-pause-resume.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    name: Apply patch and run full gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/student-teaching-pause-resume
+          fetch-depth: 0
+
+      - name: Apply reviewed patch
+        run: python3 .github/tmp/apply_student_teaching_pause_resume.py
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Verify lockfile is current
+        run: git diff --exit-code -- pubspec.lock
+
+      - name: Format Dart sources
+        run: dart format lib test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run Flutter tests
+        run: flutter test
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+
+      - name: Check shell test syntax
+        run: bash -n supabase/tests/old_token_security.sh supabase/tests/remote_security_spike.sh
+
+      - name: Start local Supabase development stack
+        run: supabase start
+
+      - name: Rebuild database from migrations and seed
+        run: supabase db reset
+
+      - name: Run automated database tests
+        run: supabase test db
+
+      - name: Run old-token security test
+        run: bash supabase/tests/old_token_security.sh
+
+      - name: Stop local Supabase development stack
+        if: always()
+        run: supabase stop
+
+      - name: Remove temporary patch machinery
+        if: success()
+        run: |
+          rm -f .github/tmp/apply_student_teaching_pause_resume.py
+          rm -f .github/workflows/apply-student-pause-resume.yml
+
+      - name: Commit verified implementation
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git status --short
+          git commit -m "feat: add student teaching pause resume lifecycle"
+          git push origin HEAD:feature/student-teaching-pause-resume
