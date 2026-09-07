@@ -1,0 +1,221 @@
+name: Temporary management UX polish
+
+on:
+  push:
+    branches:
+      - ux/simplify-management-and-member-names
+
+permissions:
+  contents: write
+
+jobs:
+  polish-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/simplify-management-and-member-names
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply teacher-facing UX polish
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, found {count}: {old[:100]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Keep only the two genuinely global actions in the page header.
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_layout.dart',
+              '''    required this.busy,\n    required this.canInvite,\n    required this.canManageCaseTypes,\n    required this.onAddStudent,\n    required this.onInviteMember,\n    required this.onAddSubject,\n    required this.onAddTeacherScope,\n    this.onOpenCaseTypes,\n''',
+              '''    required this.busy,\n    required this.canInvite,\n    required this.onAddStudent,\n    required this.onInviteMember,\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_layout.dart',
+              '''  final bool busy;\n  final bool canInvite;\n  final bool canManageCaseTypes;\n  final VoidCallback onAddStudent;\n  final VoidCallback onInviteMember;\n  final VoidCallback onAddSubject;\n  final VoidCallback onAddTeacherScope;\n  final VoidCallback? onOpenCaseTypes;\n''',
+              '''  final bool busy;\n  final bool canInvite;\n  final VoidCallback onAddStudent;\n  final VoidCallback onInviteMember;\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_layout.dart',
+              '''        OutlinedButton.icon(\n          onPressed: busy ? null : onAddSubject,\n          icon: const Icon(Icons.menu_book_outlined),\n          label: const Text('添加学科'),\n        ),\n        OutlinedButton.icon(\n          onPressed: busy ? null : onAddTeacherScope,\n          icon: const Icon(Icons.rule_outlined),\n          label: const Text('配置老师可教学科'),\n        ),\n        if (canManageCaseTypes && onOpenCaseTypes != null)\n          OutlinedButton.icon(\n            onPressed: busy ? null : onOpenCaseTypes,\n            icon: const Icon(Icons.category_outlined),\n            label: const Text('问题类型'),\n          ),\n''',
+              '',
+          )
+
+          # Section-level actions keep configuration beside the object it changes.
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_layout.dart',
+              '''  const _ManagementSection({\n    required this.title,\n    required this.count,\n    required this.child,\n  });\n\n  final String title;\n  final String count;\n  final Widget child;\n''',
+              '''  const _ManagementSection({\n    required this.title,\n    required this.count,\n    required this.child,\n    this.action,\n  });\n\n  final String title;\n  final String count;\n  final Widget child;\n  final Widget? action;\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_layout.dart',
+              '''        Row(\n          children: [\n            Text(title, style: Theme.of(context).textTheme.titleMedium),\n            const SizedBox(width: AppSpacing.sm),\n            Text(\n              count,\n              style: Theme.of(context).textTheme.bodySmall?.copyWith(\n                color: Theme.of(context).colorScheme.onSurfaceVariant,\n              ),\n            ),\n          ],\n        ),\n''',
+              '''        Row(\n          crossAxisAlignment: CrossAxisAlignment.center,\n          children: [\n            Expanded(\n              child: Wrap(\n                spacing: AppSpacing.sm,\n                runSpacing: AppSpacing.xxs,\n                crossAxisAlignment: WrapCrossAlignment.center,\n                children: [\n                  Text(title, style: Theme.of(context).textTheme.titleMedium),\n                  Text(\n                    count,\n                    style: Theme.of(context).textTheme.bodySmall?.copyWith(\n                      color: Theme.of(context).colorScheme.onSurfaceVariant,\n                    ),\n                  ),\n                ],\n              ),\n            ),\n            if (action != null) ...[\n              const SizedBox(width: AppSpacing.sm),\n              action!,\n            ],\n          ],\n        ),\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_layout.dart',
+              '''        : options.subjects.isEmpty && subjectCatalog.isNotEmpty\n        ? '还缺机构学科。点击页面顶部“添加学科”即可选择。'\n''',
+              '''        : options.subjects.isEmpty && subjectCatalog.isNotEmpty\n        ? '还缺机构学科。点击“添加学科”即可选择。'\n''',
+          )
+
+          # Move configuration actions into their business areas.
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_areas.dart',
+              '''    required this.onToggleMemberStatus,\n    required this.onAddTeacherScope,\n    required this.onToggleTeacherScope,\n    required this.onTransferStudentTeacherAssignment,\n    this.onProvisionInvitation,\n    this.onEditMemberName,\n    this.onReissueMemberCredential,\n''',
+              '''    required this.onToggleMemberStatus,\n    required this.onAddSubject,\n    required this.onAddTeacherScope,\n    required this.onToggleTeacherScope,\n    required this.onTransferStudentTeacherAssignment,\n    required this.canManageCaseTypes,\n    this.onProvisionInvitation,\n    this.onEditMemberName,\n    this.onReissueMemberCredential,\n    this.onOpenCaseTypes,\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_areas.dart',
+              '''  final Future<void> Function(OrganizationMember member)?\n  onReissueMemberCredential;\n  final VoidCallback onAddTeacherScope;\n  final Future<void> Function(OrganizationTeacherSubjectScope scope)\n  onToggleTeacherScope;\n  final Future<void> Function(OrganizationStudentTeacherAssignment assignment)\n  onTransferStudentTeacherAssignment;\n''',
+              '''  final Future<void> Function(OrganizationMember member)?\n  onReissueMemberCredential;\n  final VoidCallback onAddSubject;\n  final VoidCallback onAddTeacherScope;\n  final Future<void> Function(OrganizationTeacherSubjectScope scope)\n  onToggleTeacherScope;\n  final Future<void> Function(OrganizationStudentTeacherAssignment assignment)\n  onTransferStudentTeacherAssignment;\n  final bool canManageCaseTypes;\n  final VoidCallback? onOpenCaseTypes;\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_areas.dart',
+              '''              _ManagementSection(\n                title: '老师可教学科',\n                count: '$activeScopes 条有效',\n                child: snapshot.teacherSubjectScopes.isEmpty\n''',
+              '''              _ManagementSection(\n                title: '老师可教学科',\n                count: '$activeScopes 条有效',\n                action: TextButton.icon(\n                  onPressed: busy ? null : onAddTeacherScope,\n                  icon: const Icon(Icons.add, size: 18),\n                  label: const Text('配置老师可教学科'),\n                ),\n                child: snapshot.teacherSubjectScopes.isEmpty\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_areas.dart',
+              '''                    ? _ManagementEmptyState(\n                        title: '还没有配置老师可教学科',\n                        message: '老师加入机构后，再指定其可以负责哪些学科。',\n                        icon: Icons.menu_book_outlined,\n                        action: TextButton.icon(\n                          onPressed: busy ? null : onAddTeacherScope,\n                          icon: const Icon(Icons.add),\n                          label: const Text('配置第一条'),\n                        ),\n                      )\n''',
+              '''                    ? const _ManagementEmptyState(\n                        title: '还没有配置老师可教学科',\n                        message: '老师加入机构后，再指定其可以负责哪些学科。',\n                        icon: Icons.menu_book_outlined,\n                      )\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_areas.dart',
+              '''              _ManagementSection(\n                title: '机构学科',\n                count: '${snapshot.setupOptions.subjects.length} 门',\n                child: snapshot.setupOptions.subjects.isEmpty\n''',
+              '''              _ManagementSection(\n                title: '机构学科',\n                count: '${snapshot.setupOptions.subjects.length} 门',\n                action: TextButton.icon(\n                  onPressed: busy ? null : onAddSubject,\n                  icon: const Icon(Icons.add, size: 18),\n                  label: const Text('添加学科'),\n                ),\n                child: snapshot.setupOptions.subjects.isEmpty\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_areas.dart',
+              '''                        title: '还没有机构学科',\n                        message: '使用页面顶部“添加学科”选择本机构实际教授的学科。',\n''',
+              '''                        title: '还没有机构学科',\n                        message: '只添加本机构实际教授的学科，后续再分配给对应老师。',\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_areas.dart',
+              '''              ),\n            ],\n          ),\n        ),\n      ],\n    );\n  }\n}\n''',
+              '''              ),\n              if (canManageCaseTypes && onOpenCaseTypes != null) ...[\n                const SizedBox(height: AppSpacing.lg),\n                _ManagementSection(\n                  title: '问题类型',\n                  count: '学习问题分类',\n                  action: TextButton.icon(\n                    onPressed: busy ? null : onOpenCaseTypes,\n                    icon: const Icon(Icons.category_outlined, size: 18),\n                    label: const Text('管理问题类型'),\n                  ),\n                  child: Text(\n                    '统一常用的问题分类，帮助老师记录和回看学生长期变化；不用于给学生贴标签。',\n                    style: Theme.of(context).textTheme.bodyMedium,\n                  ),\n                ),\n              ],\n            ],\n          ),\n        ),\n      ],\n    );\n  }\n}\n''',
+          )
+
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_page.dart',
+              '''                busy: _busy,\n                canInvite: _inviteRoles.isNotEmpty,\n                canManageCaseTypes:\n                    widget.canManageCaseTypes && widget.onOpenCaseTypes != null,\n                onAddStudent: _addStudent,\n                onInviteMember: _inviteMember,\n                onAddSubject: _addSubject,\n                onAddTeacherScope: _addTeacherScope,\n                onOpenCaseTypes: widget.onOpenCaseTypes,\n''',
+              '''                busy: _busy,\n                canInvite: _inviteRoles.isNotEmpty,\n                onAddStudent: _addStudent,\n                onInviteMember: _inviteMember,\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_page.dart',
+              '''                    onToggleMemberStatus: _toggleMemberStatus,\n                    onReissueMemberCredential:\n                        widget.provisioningRepository == null\n                        ? null\n                        : _reissueMemberCredential,\n                    onAddTeacherScope: _addTeacherScope,\n                    onToggleTeacherScope: _toggleTeacherScope,\n                    onTransferStudentTeacherAssignment:\n                        _transferStudentTeacherAssignment,\n''',
+              '''                    onToggleMemberStatus: _toggleMemberStatus,\n                    onReissueMemberCredential:\n                        widget.provisioningRepository == null\n                        ? null\n                        : _reissueMemberCredential,\n                    onAddSubject: _addSubject,\n                    onAddTeacherScope: _addTeacherScope,\n                    onToggleTeacherScope: _toggleTeacherScope,\n                    onTransferStudentTeacherAssignment:\n                        _transferStudentTeacherAssignment,\n                    canManageCaseTypes:\n                        widget.canManageCaseTypes && widget.onOpenCaseTypes != null,\n                    onOpenCaseTypes: widget.onOpenCaseTypes,\n''',
+          )
+
+          # Missing legacy names should be obvious, not rendered as duplicate email text.
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_rows.dart',
+              '''    final colorScheme = Theme.of(context).colorScheme;\n    final displayName = member.displayName ?? member.email;\n    final initials = displayName.trim().isEmpty\n        ? '·'\n        : String.fromCharCode(displayName.trim().runes.first).toUpperCase();\n''',
+              '''    final colorScheme = Theme.of(context).colorScheme;\n    final rawName = member.displayName?.trim() ?? '';\n    final hasDisplayName =\n        rawName.isNotEmpty &&\n        rawName.toLowerCase() != member.email.trim().toLowerCase();\n    final displayName = hasDisplayName ? rawName : '未填写姓名';\n    final initials = hasDisplayName\n        ? String.fromCharCode(rawName.runes.first).toUpperCase()\n        : '?';\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_rows.dart',
+              '''                  label: const Text('修改姓名'),\n''',
+              '''                  label: Text(hasDisplayName ? '修改姓名' : '补充姓名'),\n''',
+          )
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_rows.dart',
+              '''            label: const Text('停用教学范围'),\n''',
+              '''            label: const Text('停用该学科'),\n''',
+          )
+
+          replace_once(
+              'lib/features/organization_management/presentation/organization_management_member_actions.dart',
+              '''    final displayName = await showDialog<String>(\n      context: context,\n      builder: (context) => _MemberNameDialog(\n        title: '修改成员姓名',\n        description: '姓名用于成员列表、任课关系和教师协作显示；邮箱仍作为登录账号保留。',\n        initialValue: member.displayName == member.email\n            ? ''\n            : member.displayName ?? '',\n        confirmLabel: '保存姓名',\n      ),\n    );\n''',
+              '''    final currentName = member.displayName?.trim() ?? '';\n    final initialName =\n        currentName.isEmpty ||\n            currentName.toLowerCase() == member.email.trim().toLowerCase()\n        ? ''\n        : currentName;\n    final displayName = await showDialog<String>(\n      context: context,\n      builder: (context) => _MemberNameDialog(\n        title: initialName.isEmpty ? '补充成员姓名' : '修改成员姓名',\n        description: '姓名用于成员列表、任课关系和教师协作显示；邮箱仍作为登录账号保留。',\n        initialValue: initialName,\n        confirmLabel: '保存姓名',\n      ),\n    );\n''',
+          )
+
+          # Use one teacher-facing vocabulary across dialogs.
+          dialog = 'lib/features/organization_management/presentation/organization_teacher_subject_scope_dialog.dart'
+          for old, new in [
+              ("title: const Text('配置教师教学范围'),", "title: const Text('配置老师可教学科'),"),
+              ('选择一位在岗老师和一个活跃学科。启用后只影响新的教学授权，不会自动改变历史记录。',
+               '选择一位在岗老师和一门机构学科。保存后，这位老师可以承担该学科的新任课；历史任课记录不会被改写。'),
+              ("validator: (value) => value == null ? '当前老师没有可配置的学科。' : null,",
+               "validator: (value) => value == null ? '这位老师暂无可配置学科。' : null,"),
+              ('这位老师的所有活跃学科都已配置教学范围。', '这位老师已经配置了所有机构学科。'),
+              ("child: const Text('保存教学范围'),", "child: const Text('保存配置'),"),
+          ]:
+              replace_once(dialog, old, new)
+
+          replace_once(
+              'lib/features/organization_management/presentation/organization_student_setup_dialog.dart',
+              '保存后会一次性创建学生档案、学科画像和主负责关系。请先为老师配置对应学科的有效教学范围。',
+              '保存后会一次性创建学生档案、学科画像和主负责关系。请先确认负责老师已把该学科配置为可教学科。',
+          )
+          transfer = 'lib/features/organization_management/presentation/organization_student_teacher_assignment_transfer_dialog.dart'
+          replace_once(
+              transfer,
+              '交接会在同一个事务中结束当前关系并建立新的历史关系，保留版本和操作记录。开放案件与待办行动的负责人不会自动改变；如需停用原老师的教学范围，还要单独完成那些事项的交接。',
+              '交接会在同一个事务中结束当前任课并建立新的任课记录，历史不会丢失。学生已有的开放问题和待办不会自动换负责人；如需停用原老师的可教学科，请先把这些事项交接清楚。',
+          )
+          replace_once(
+              transfer,
+              '当前没有同时满足“在岗、老师角色、该学科教学范围有效”的接收老师。',
+              '当前没有在岗且已配置该学科为可教学科的接收老师。',
+          )
+
+          # Remove backend vocabulary from the teacher-facing empty permission state.
+          replace_once(
+              'lib/features/teacher_workspace/presentation/teacher_workspace_page.dart',
+              "title: '当前账号没有可用的教师教学范围',\n                message: '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',",
+              "title: '当前账号还没有可用的教学权限',\n                message: '请联系机构管理员确认你的成员状态、老师身份、可教学科和任课学生。为保护学生隐私，这里不会显示未授权学生或学习问题。',",
+          )
+
+          # Keep widget tests aligned with teacher-facing vocabulary.
+          test = 'test/features/organization_management_test.dart'
+          for old, new in [
+              ("expect(find.text('配置教师教学范围'), findsOneWidget);", "expect(find.text('配置老师可教学科'), findsOneWidget);"),
+              ("expect(find.text('保存教学范围'), findsOneWidget);", "expect(find.text('保存配置'), findsOneWidget);"),
+              ("await tester.tap(find.text('保存教学范围'));", "await tester.tap(find.text('保存配置'));"),
+              ("final stop = find.text('停用教学范围');", "final stop = find.text('停用该学科');"),
+          ]:
+              text = Path(test).read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'{test}: missing expected test text: {old}')
+              Path(test).write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_once(
+              'test/features/teacher_workspace_test.dart',
+              "expect(find.text('当前账号没有可用的教师教学范围'), findsOneWidget);",
+              "expect(find.text('当前账号还没有可用的教学权限'), findsOneWidget);",
+          )
+
+      - run: flutter pub get
+
+      - name: Format
+        run: dart format lib/features/organization_management/presentation lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/organization_management_test.dart test/features/teacher_workspace_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Commit verified polish and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/tmp-management-ux-polish.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: simplify teacher-facing management actions"
+          git push origin HEAD:ux/simplify-management-and-member-names
