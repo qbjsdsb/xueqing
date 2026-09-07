@@ -1,0 +1,67 @@
+name: Apply student setup progressive disclosure
+
+on:
+  push:
+    branches:
+      - ux/student-setup-progressive-disclosure
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/student-setup-progressive-disclosure
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply exact student setup patch
+        run: python3 .github/scripts/zz_apply_student_setup_disclosure.py
+
+      - name: Format and verify exact net diff
+        run: |
+          dart format lib/features/organization_management/presentation/organization_student_setup_dialog.dart test/features/organization_management_test.dart
+          rm .github/workflows/zz-apply-student-setup-disclosure.yml
+          rm .github/scripts/zz_apply_student_setup_disclosure.py
+          git diff --check
+          python3 <<'PY'
+          import subprocess
+          expected = {
+              'M lib/features/organization_management/presentation/organization_student_setup_dialog.dart',
+              'M test/features/organization_management_test.dart',
+              'D .github/scripts/zz_apply_student_setup_disclosure.py',
+              'D .github/workflows/zz-apply-student-setup-disclosure.yml',
+          }
+          actual = {line.strip() for line in subprocess.check_output(['git', 'status', '--porcelain'], text=True).splitlines()}
+          if actual != expected:
+              print('Expected:', *sorted(expected), sep='\n  ')
+              print('Actual:', *sorted(actual), sep='\n  ')
+              raise SystemExit('student setup net diff drifted')
+          PY
+
+      - name: Analyze and run management regression suite
+        run: |
+          flutter analyze
+          flutter test test/features/organization_management_test.dart
+
+      - name: Commit verified student setup reduction
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'ux: keep student setup focused on essentials'
+          git push origin HEAD:ux/student-setup-progressive-disclosure
