@@ -212,6 +212,15 @@ class UpdateArtifact {
     if (format.isEmpty) {
       throw FormatException('${platform.manifestKey} 更新包 format 不能为空。');
     }
+    final expectedFormat = switch (platform) {
+      UpdatePlatform.windows => 'zip',
+      UpdatePlatform.android => 'apk',
+    };
+    if (format != expectedFormat) {
+      throw FormatException(
+        '${platform.manifestKey} 更新包必须使用 $expectedFormat 格式。',
+      );
+    }
 
     final fileNameValue = json['file_name'];
     final fileName = fileNameValue is String ? fileNameValue.trim() : null;
@@ -222,6 +231,12 @@ class UpdateArtifact {
             fileName == '.' ||
             fileName == '..')) {
       throw const FormatException('更新包 file_name 无效。');
+    }
+    if (fileName != null &&
+        !fileName.toLowerCase().endsWith('.$expectedFormat')) {
+      throw FormatException(
+        '${platform.manifestKey} 更新包 file_name 必须以 .$expectedFormat 结尾。',
+      );
     }
 
     return UpdateArtifact(
