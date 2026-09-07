@@ -30,23 +30,23 @@ jobs:
 
           path = Path('lib/features/organization_management/presentation/organization_management_areas.dart')
           text = path.read_text()
-          old = """            action: FilledButton.tonalIcon(
-              onPressed: widget.busy || !widget.canInvite
-                  ? null
-                  : widget.onInviteMember,
-              icon: const Icon(Icons.group_add_outlined, size: 18),
-              label: const Text('邀请成员'),
-            ),"""
-          new = """            action: widget.canInvite
+          semantic_marker = "action: FilledButton.tonalIcon("
+          child_marker = "child: widget.snapshot.members.isEmpty"
+          if text.count(semantic_marker) != 1:
+              raise SystemExit('expected exactly one invite action semantic marker')
+          marker_at = text.index(semantic_marker)
+          start = text.rfind('\n', 0, marker_at) + 1
+          child_at = text.index(child_marker, marker_at)
+          end = text.rfind('\n', 0, child_at) + 1
+          replacement = """            action: widget.canInvite
                 ? FilledButton.tonalIcon(
                     onPressed: widget.busy ? null : widget.onInviteMember,
                     icon: const Icon(Icons.group_add_outlined, size: 18),
                     label: const Text('邀请成员'),
                   )
-                : null,"""
-          if text.count(old) != 1:
-              raise SystemExit('expected exactly one invite action block')
-          path.write_text(text.replace(old, new))
+                : null,
+"""
+          path.write_text(text[:start] + replacement + text[end:])
           PY
 
           dart format lib/features/organization_management/presentation/organization_management_areas.dart
