@@ -1,0 +1,43 @@
+name: Temporary attachment Supabase diagnostics
+
+on:
+  push:
+    branches:
+      - phase0b1/evidence-attachments-clean
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+      - name: Start Supabase
+        run: supabase start
+      - name: Rebuild database
+        run: supabase db reset
+      - name: Capture full pgTAP output
+        shell: bash
+        run: |
+          set +e
+          supabase test db > attachment-pgtap.txt 2>&1
+          echo $? > attachment-pgtap-status.txt
+          cat attachment-pgtap.txt
+          exit 0
+      - name: Upload diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: attachment-supabase-diagnostics
+          path: |
+            attachment-pgtap.txt
+            attachment-pgtap-status.txt
+          if-no-files-found: error
+          retention-days: 1
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
