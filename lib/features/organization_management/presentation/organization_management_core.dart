@@ -118,7 +118,29 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
     return result ?? false;
   }
 
+  String? _memberFlowError(Object error) {
+    final detail = switch (error) {
+      OrganizationMemberProvisioningException(:final code) => code,
+      AuthException(:final message) => message,
+      PostgrestException(:final message) => message,
+      _ => null,
+    };
+    if (detail == null) return null;
+    final normalized = detail.trim().toLowerCase();
+    if (normalized.contains('user_already_member_elsewhere')) {
+      return '这个登录账号已经加入其他机构；当前版本一个账号只能属于一个机构，请换用尚未加入其他机构的邮箱。';
+    }
+    if (normalized.contains('organization_owner_required')) {
+      return _isOwner
+          ? '当前负责人权限状态可能刚刚发生变化，请先刷新；如果仍失败，请退出后重新登录再试。'
+          : '这项成员账号操作需要负责人处理。';
+    }
+    return null;
+  }
+
   String _describeError(Object error) {
+    final memberFlowError = _memberFlowError(error);
+    if (memberFlowError != null) return memberFlowError;
     final assignmentError = organizationStudentTeacherAssignmentErrorMessage(
       error,
     );
