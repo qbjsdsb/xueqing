@@ -101,7 +101,8 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                       SizedBox(
                         height: 2,
                         child:
-                            snapshotState.connectionState != ConnectionState.done
+                            snapshotState.connectionState !=
+                                ConnectionState.done
                             ? const LinearProgressIndicator(minHeight: 2)
                             : null,
                       ),
