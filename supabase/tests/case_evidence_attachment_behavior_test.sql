@@ -54,13 +54,13 @@ insert into attachment_behavior_test_state (
 select
   learning_case.id,
   evidence.id,
-  '91000000-0000-0000-0000-000000000002'::uuid,
+  '91000000-0000-4000-8000-000000000002'::uuid,
   format(
     'org/%s/cases/%s/evidence/%s/%s.jpg',
     learning_case.organization_id,
     learning_case.id,
     evidence.id,
-    '91000000-0000-0000-0000-000000000002'
+    '91000000-0000-4000-8000-000000000002'
   )
 from public.learning_cases as learning_case
 join public.case_evidence as evidence
@@ -174,7 +174,7 @@ select throws_ok(
         '00000000-0000-0000-0000-000000000001',
         learning_case_id,
         case_evidence_id,
-        '91000000-0000-0000-0000-000000000003'
+        '91000000-0000-4000-8000-000000000003'
       ),
       jsonb_build_object('mimetype', 'image/jpeg', 'size', 4)
     from attachment_behavior_test_state$$,
@@ -188,13 +188,13 @@ select throws_ok(
       '00000000-0000-0000-0000-000000000001',
       learning_case_id,
       case_evidence_id,
-      '91000000-0000-0000-0000-000000000003',
+      '91000000-0000-4000-8000-000000000003',
       format(
         'org/%s/cases/%s/evidence/%s/%s.jpg',
         '00000000-0000-0000-0000-000000000001',
         learning_case_id,
         case_evidence_id,
-        '91000000-0000-0000-0000-000000000003'
+        '91000000-0000-4000-8000-000000000003'
       ),
       '跨机构写入.jpg',
       'image/jpeg',
@@ -265,7 +265,7 @@ select throws_ok(
         '00000000-0000-0000-0000-000000000001',
         learning_case_id,
         case_evidence_id,
-        '91000000-0000-0000-0000-000000000004'
+        '91000000-0000-4000-8000-000000000004'
       ),
       jsonb_build_object('mimetype', 'image/jpeg', 'size', 4)
     from attachment_behavior_test_state$$,
@@ -338,7 +338,7 @@ select throws_ok(
         '00000000-0000-0000-0000-000000000001',
         learning_case_id,
         case_evidence_id,
-        '91000000-0000-0000-0000-000000000005'
+        '91000000-0000-4000-8000-000000000005'
       ),
       jsonb_build_object('mimetype', 'image/jpeg', 'size', 4)
     from attachment_behavior_test_state$$,
