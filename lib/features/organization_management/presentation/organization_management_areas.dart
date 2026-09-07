@@ -10,6 +10,7 @@ class _ManagementOverview extends StatefulWidget {
     required this.canInvite,
     required this.canEditMemberName,
     required this.onAddStudent,
+    required this.onAddStudentSubject,
     required this.onInviteMember,
     required this.onApprove,
     required this.onRevoke,
@@ -32,6 +33,8 @@ class _ManagementOverview extends StatefulWidget {
   final bool canInvite;
   final bool canEditMemberName;
   final VoidCallback onAddStudent;
+  final Future<void> Function(OrganizationStudentRecord student)
+  onAddStudentSubject;
   final VoidCallback onInviteMember;
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
@@ -359,6 +362,9 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                         _OrganizationStudentTile(
                           student: student,
                           busy: widget.busy,
+                          onAddSubject: student.isActive && !student.isMerged
+                              ? () => widget.onAddStudentSubject(student)
+                              : null,
                           onEdit: student.isMerged
                               ? null
                               : () => widget.onEditStudent(student),

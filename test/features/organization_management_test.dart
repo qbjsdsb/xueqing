@@ -48,7 +48,9 @@ class _FakeOrganizationManagementRepository
   int studentUpdateCount = 0;
   int teacherScopeUpdateCount = 0;
   int assignmentTransferCount = 0;
+  int studentSubjectAddCount = 0;
   OrganizationStudentSetupResult? createdStudent;
+  OrganizationStudentSetupResult? addedStudentSubject;
   OrganizationStudentUpdateResult? updatedStudent;
   OrganizationMemberStatusUpdateResult? updatedMember;
   OrganizationTeacherSubjectScopeUpdateResult? updatedTeacherScope;
@@ -204,6 +206,82 @@ class _FakeOrganizationManagementRepository
   Future<List<OrganizationStudentTeacherAssignment>>
   listStudentTeacherAssignments({required String organizationId}) async {
     return studentTeacherAssignments;
+  }
+
+  @override
+  Future<OrganizationStudentSetupResult> addStudentSubject({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required String organizationSubjectId,
+    required String teacherMembershipId,
+    DateTime? startsOn,
+  }) async {
+    studentSubjectAddCount++;
+    final subject = setupOptions.subjects.firstWhere(
+      (item) => item.id == organizationSubjectId,
+    );
+    final teacher = setupOptions.teachers.firstWhere(
+      (item) => item.membershipId == teacherMembershipId,
+    );
+    addedStudentSubject = OrganizationStudentSetupResult(
+      operationId: operationId,
+      studentId: studentId,
+      studentName: students
+          .firstWhere((item) => item.studentId == studentId)
+          .studentName,
+      studentSubjectProfileId: 'profile-added-$studentSubjectAddCount',
+      organizationSubjectId: organizationSubjectId,
+      subjectName: subject.displayName,
+      teacherMembershipId: teacherMembershipId,
+      teacherDisplayName: teacher.displayName,
+      startsOn: startsOn ?? DateTime(2026, 9, 4),
+    );
+    studentTeacherAssignments.add(
+      OrganizationStudentTeacherAssignment(
+        assignmentId: 'assignment-added-$studentSubjectAddCount',
+        organizationId: organizationId,
+        studentSubjectProfileId: addedStudentSubject!.studentSubjectProfileId,
+        studentId: studentId,
+        studentName: addedStudentSubject!.studentName,
+        organizationSubjectId: organizationSubjectId,
+        subjectName: subject.displayName,
+        subjectCode: subject.displayName.toLowerCase(),
+        membershipId: teacherMembershipId,
+        teacherName: teacher.displayName,
+        teacherEmail: teacher.email,
+        assignmentRole: 'lead',
+        status: 'active',
+        version: 1,
+        activeFrom: addedStudentSubject!.startsOn,
+        activeTo: null,
+        endedAt: null,
+      ),
+    );
+    final studentIndex = students.indexWhere(
+      (item) => item.studentId == studentId,
+    );
+    if (studentIndex >= 0) {
+      final previous = students[studentIndex];
+      students[studentIndex] = OrganizationStudentRecord(
+        studentId: previous.studentId,
+        studentName: previous.studentName,
+        studentCode: previous.studentCode,
+        status: previous.status,
+        version: previous.version,
+        grade: previous.grade,
+        className: previous.className,
+        campus: previous.campus,
+        startsOn: previous.startsOn,
+        endsOn: previous.endsOn,
+        subjectNames: <String>[
+          ...previous.subjectNames,
+          if (!previous.subjectNames.contains(subject.displayName))
+            subject.displayName,
+        ],
+      );
+    }
+    return addedStudentSubject!;
   }
 
   @override
@@ -659,6 +737,64 @@ void main() {
     expect(repository.createdStudent?.studentName, '新学生');
     expect(find.text('学生姓名 *'), findsNothing);
   });
+
+  testWidgets(
+    'adds a second subject without replacing the existing teacher relation',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        students: [_studentRecord()],
+        studentTeacherAssignments: [_studentTeacherAssignment()],
+        setupOptions: const OrganizationSetupOptions(
+          subjects: [
+            OrganizationSetupSubject(id: 'subject-1', displayName: '数学'),
+            OrganizationSetupSubject(id: 'subject-2', displayName: '英语'),
+          ],
+          teachers: [
+            OrganizationSetupTeacher(
+              membershipId: 'membership-1',
+              displayName: '原老师',
+              email: 'old-teacher@example.com',
+              organizationSubjectIds: ['subject-1', 'subject-2'],
+            ),
+          ],
+        ),
+      );
+      await _pumpManagement(tester, repository);
+      await _selectManagementArea(tester, '学生');
+
+      final addSubject = find.widgetWithText(TextButton, '添加学科');
+      await tester.ensureVisible(addSubject);
+      await tester.tap(addSubject);
+      await tester.pumpAndSettle();
+
+      expect(find.text('为 原学生 添加学科'), findsOneWidget);
+      expect(find.text('同一位老师可以负责同一学生的多门学科，只要该老师已配置相应可教学科。'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('student-subject-setup-submit')));
+      await tester.pumpAndSettle();
+
+      expect(repository.studentSubjectAddCount, 1);
+      expect(
+        repository.addedStudentSubject?.organizationSubjectId,
+        'subject-2',
+      );
+      expect(
+        repository.addedStudentSubject?.teacherMembershipId,
+        'membership-1',
+      );
+      expect(
+        repository.studentTeacherAssignments
+            .where((item) => item.isActive)
+            .length,
+        2,
+      );
+      expect(
+        repository.students.single.subjectNames,
+        containsAll(['数学', '英语']),
+      );
+    },
+  );
 
   testWidgets('keeps optional student details behind one disclosure', (
     tester,

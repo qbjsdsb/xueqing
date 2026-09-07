@@ -271,11 +271,13 @@ class _OrganizationStudentTile extends StatelessWidget {
   const _OrganizationStudentTile({
     required this.student,
     required this.busy,
+    required this.onAddSubject,
     required this.onEdit,
   });
 
   final OrganizationStudentRecord student;
   final bool busy;
+  final VoidCallback? onAddSubject;
   final VoidCallback? onEdit;
 
   @override
@@ -294,22 +296,11 @@ class _OrganizationStudentTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  student.studentName,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              if (onEdit != null)
-                TextButton.icon(
-                  onPressed: busy ? null : onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('编辑'),
-                ),
-            ],
+          Text(
+            student.studentName,
+            style: Theme.of(context).textTheme.titleSmall,
           ),
+          const SizedBox(height: AppSpacing.xs),
           Wrap(
             spacing: AppSpacing.xs,
             runSpacing: AppSpacing.xxs,
@@ -326,6 +317,27 @@ class _OrganizationStudentTile extends StatelessWidget {
             Text(
               '学科：${student.subjectNames.join('、')}',
               style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+          if (onAddSubject != null || onEdit != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                if (onAddSubject != null)
+                  TextButton.icon(
+                    onPressed: busy ? null : onAddSubject,
+                    icon: const Icon(Icons.add_circle_outline, size: 18),
+                    label: const Text('添加学科'),
+                  ),
+                if (onEdit != null)
+                  TextButton.icon(
+                    onPressed: busy ? null : onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('编辑'),
+                  ),
+              ],
             ),
           ],
         ],
