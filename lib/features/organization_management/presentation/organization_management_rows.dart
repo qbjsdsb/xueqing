@@ -200,7 +200,7 @@ class _TeacherSubjectScopeTile extends StatelessWidget {
         ? TextButton.icon(
             onPressed: busy ? null : onToggle,
             icon: const Icon(Icons.pause_circle_outline, size: 18),
-            label: const Text('停用'),
+            label: const Text('停用教学范围'),
           )
         : showReactivate && scope.membershipStatus == 'active'
         ? TextButton.icon(
