@@ -1476,9 +1476,10 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                 )
               : Column(
                   children: [
-                    for (final item in (_showAllPendingVerification
-                        ? pendingVerification
-                        : pendingVerification.take(_todayPreviewLimit)))
+                    for (final item
+                        in (_showAllPendingVerification
+                            ? pendingVerification
+                            : pendingVerification.take(_todayPreviewLimit)))
                       _WorkspaceCaseRow(
                         student: item.student,
                         learningCase: item.learningCase,
