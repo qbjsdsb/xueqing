@@ -129,21 +129,35 @@ select lives_ok(
 );
 
 select is(
-  jsonb_array_length(current_setting('xueqing.subject_catalog')::jsonb),
-  1,
-  'the catalog contains one subject not yet enabled for Organization A'
+  jsonb_array_length(current_setting('xueqing.subject_catalog')::jsonb) > 1,
+  true,
+  'the catalog can contain multiple subjects not yet enabled for Organization A'
 );
 
 select is(
-  current_setting('xueqing.subject_catalog')::jsonb -> 0 ->> 'code',
-  'english',
-  'the available catalog item has the expected code'
+  exists (
+    select 1
+    from jsonb_array_elements(
+      current_setting('xueqing.subject_catalog')::jsonb
+    ) as item
+    where item ->> 'code' = 'english'
+      and item ->> 'display_name' = '英语'
+  ),
+  true,
+  'English remains available in the expanded subject catalog'
 );
 
 select is(
-  current_setting('xueqing.subject_catalog')::jsonb -> 0 ->> 'display_name',
-  '英语',
-  'the available catalog item has the expected display name'
+  exists (
+    select 1
+    from jsonb_array_elements(
+      current_setting('xueqing.subject_catalog')::jsonb
+    ) as item
+    where item ->> 'code' = 'chinese'
+      and item ->> 'display_name' = '语文'
+  ),
+  true,
+  'Chinese is available in the expanded subject catalog'
 );
 
 select lives_ok(
