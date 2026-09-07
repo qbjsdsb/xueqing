@@ -3,6 +3,19 @@ begin;
 select plan(8);
 
 reset role;
+
+-- This test verifies read isolation for an already archived historical fact.
+-- It deliberately constructs that fact directly instead of exercising the
+-- lifecycle transition; archive transition rules are covered separately.
+update public.students
+set status = 'inactive',
+    archived_at = null
+where id = '30000000-0000-0000-0000-000000000001';
+
+update public.student_subject_profiles
+set status = 'inactive'
+where student_id = '30000000-0000-0000-0000-000000000001';
+
 update public.students
 set status = 'archived',
     archived_at = timezone('utc', now())
