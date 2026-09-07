@@ -14,7 +14,7 @@ void main() {
     expect(workflow, contains('group: publish-stable-release'));
     expect(
       workflow,
-      contains('^\[0-9\]+\\.\[0-9\]+\\.\[0-9\]+\\+\[1-9\]\[0-9\]\*\$'),
+      contains(r'^[0-9]+\.[0-9]+\.[0-9]+\+[1-9][0-9]*$'),
       reason: 'Stable versions must not accept prerelease identifiers.',
     );
   });
