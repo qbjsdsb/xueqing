@@ -83,3 +83,22 @@ replace_once(
     "    await tester.tap(assignmentSection);\n"
     "    await tester.pumpAndSettle();\n",
 )
+
+# This test exercises a successful restore, so its fake assignment collection
+# must be growable just like the database table it stands in for.
+replace_once(
+    test,
+    "      invitations: const [],\n"
+    "      students: [student],\n"
+    "    );\n"
+    "    await _pumpManagement(tester, repository);\n"
+    "    await _selectManagementArea(tester, '学生');\n\n"
+    "    final restoreButton = find.byKey(\n",
+    "      invitations: const [],\n"
+    "      students: [student],\n"
+    "      studentTeacherAssignments: <OrganizationStudentTeacherAssignment>[],\n"
+    "    );\n"
+    "    await _pumpManagement(tester, repository);\n"
+    "    await _selectManagementArea(tester, '学生');\n\n"
+    "    final restoreButton = find.byKey(\n",
+)
