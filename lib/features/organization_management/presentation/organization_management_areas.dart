@@ -71,10 +71,11 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
   }
 
   _ManagementArea _initialArea(_OrganizationManagementSnapshot snapshot) {
-    if (!snapshot.setupOptions.canCreateStudent) {
+    if (snapshot.setupOptions.subjects.isEmpty) {
       return _ManagementArea.settings;
     }
-    if (snapshot.invitations.isNotEmpty) {
+    if (snapshot.invitations.isNotEmpty ||
+        !snapshot.setupOptions.canCreateStudent) {
       return _ManagementArea.people;
     }
     return _ManagementArea.students;
