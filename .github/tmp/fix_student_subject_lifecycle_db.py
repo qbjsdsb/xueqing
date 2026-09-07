@@ -13,7 +13,7 @@ migration.write_text(text)
 test = Path('supabase/tests/student_subject_lifecycle_test.sql')
 test.write_text(r'''begin;
 
-select plan(21);
+select plan(24);
 
 select is(
   to_regprocedure(
