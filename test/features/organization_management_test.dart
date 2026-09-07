@@ -531,8 +531,14 @@ Future<void> _pumpManagement(
 }
 
 Future<void> _selectManagementArea(WidgetTester tester, String label) async {
-  final switcher = find.byType(SegmentedButton);
-  final target = find.descendant(of: switcher, matching: find.text(label));
+  final key = switch (label) {
+    '成员' => const Key('management-area-people'),
+    '学生' => const Key('management-area-students'),
+    '设置' => const Key('management-area-settings'),
+    _ => throw ArgumentError.value(label, 'label', 'Unknown management area'),
+  };
+  final target = find.byKey(key);
+  expect(target, findsOneWidget);
   await tester.ensureVisible(target);
   await tester.tap(target);
   await tester.pumpAndSettle();
@@ -605,7 +611,7 @@ void main() {
         roles: const ['org_admin'],
       );
       await _selectManagementArea(tester, '成员');
-      await tester.tap(find.text('邀请成员'));
+      await tester.tap(find.widgetWithText(FilledButton, '邀请成员'));
       await tester.pumpAndSettle();
 
       expect(find.text('负责人'), findsAtLeastNWidgets(1));
@@ -663,7 +669,7 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    await tester.tap(find.text('添加学生'));
+    await tester.tap(find.widgetWithText(FilledButton, '添加学生'));
     await tester.pumpAndSettle();
 
     expect(find.text('学生姓名 *'), findsOneWidget);
@@ -683,7 +689,7 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    final addStudent = find.text('添加学生');
+    final addStudent = find.widgetWithText(FilledButton, '添加学生');
     await tester.ensureVisible(addStudent);
     await tester.tap(addStudent);
     await tester.tap(addStudent);
@@ -694,7 +700,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await _selectManagementArea(tester, '设置');
-    final addSubject = find.text('添加学科');
+    final addSubject = find.widgetWithText(TextButton, '添加学科');
     await tester.ensureVisible(addSubject);
     await tester.tap(addSubject);
     await tester.tap(addSubject);
@@ -749,7 +755,7 @@ void main() {
     await _pumpManagement(tester, repository);
     await _selectManagementArea(tester, '设置');
 
-    final addSubject = find.text('添加学科');
+    final addSubject = find.widgetWithText(TextButton, '添加学科');
     await tester.ensureVisible(addSubject);
     await tester.tap(addSubject);
     await tester.pumpAndSettle();
@@ -971,7 +977,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('学生25'), findsOneWidget);
+    expect(find.text('学生25'), findsNWidgets(2));
     expect(find.text('学生01'), findsNothing);
     expect(find.text('1 个结果'), findsOneWidget);
   });
