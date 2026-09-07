@@ -125,7 +125,26 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
     return result ?? false;
   }
 
+  String? _memberAccountBoundaryMessage(Object error) {
+    final detail = switch (error) {
+      OrganizationMemberProvisioningException(:final code) => code,
+      PostgrestException(:final message) => message.trim(),
+      AuthException(:final message) => message.trim(),
+      _ => null,
+    };
+    if (detail == null) return null;
+    return switch (detail.toLowerCase()) {
+      'organization_owner_required' =>
+        '这项成员账号操作需要负责人处理；管理员可以处理老师账号，但不能直接管理负责人或管理员账号。',
+      'user_already_member_elsewhere' =>
+        '这个登录账号已经加入其他机构。当前版本一个账号只能属于一个机构，请换一个邮箱邀请。',
+      _ => null,
+    };
+  }
+
   String _describeError(Object error) {
+    final memberBoundaryError = _memberAccountBoundaryMessage(error);
+    if (memberBoundaryError != null) return memberBoundaryError;
     final assignmentError = organizationStudentTeacherAssignmentErrorMessage(
       error,
     );
