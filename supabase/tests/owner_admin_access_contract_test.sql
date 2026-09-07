@@ -128,14 +128,15 @@ select lives_ok(
 
 select is(
   (
-    select app_user.display_name
-    from public.app_users as app_user
-    join public.organization_memberships as membership
-      on membership.app_user_id = app_user.id
-    where membership.id = '61000000-0000-0000-0000-000000000001'
+    select listed.member ->> 'display_name'
+    from public.list_organization_members(
+      '00000000-0000-0000-0000-000000000001'
+    ) as listed(member)
+    where listed.member ->> 'membership_id' =
+      '61000000-0000-0000-0000-000000000001'
   ),
   '管理员维护的示例姓名',
-  'member name maintenance persists through the public manager RPC'
+  'member name maintenance persists through the public manager read model'
 );
 
 select throws_ok(
