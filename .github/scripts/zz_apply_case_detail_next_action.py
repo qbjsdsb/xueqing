@@ -1,0 +1,357 @@
+from pathlib import Path
+
+source_path = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
+source = source_path.read_text()
+
+old_fields = """  static const int _todayPreviewLimit = 3;
+  static const int _studentPendingPreviewLimit = 2;
+  bool _showAllPendingVerification = false;
+  bool _showAllFutureActions = false;
+  bool _showAllUndatedActions = false;
+  bool _showAllStudentCases = false;
+"""
+new_fields = """  static const int _todayPreviewLimit = 3;
+  static const int _studentPendingPreviewLimit = 2;
+  static const int _caseTimelinePreviewLimit = 3;
+  bool _showAllPendingVerification = false;
+  bool _showAllFutureActions = false;
+  bool _showAllUndatedActions = false;
+  bool _showAllStudentCases = false;
+  bool _showAllCaseTimeline = false;
+"""
+if source.count(old_fields) != 1:
+    raise SystemExit('Case detail field anchor drifted')
+source = source.replace(old_fields, new_fields, 1)
+
+old_navigation = """  void _selectDestination(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _selectedStudent = null;
+      _selectedCase = null;
+      _showAllStudentCases = false;
+    });
+  }
+
+  void _openStudent(WorkspaceStudent student) {
+    setState(() {
+      _selectedStudent = student;
+      _selectedCase = null;
+      _showAllStudentCases = false;
+    });
+  }
+
+  void _openCase(WorkspaceStudent student, WorkspaceCase learningCase) {
+    setState(() {
+      _selectedStudent = student;
+      _selectedCase = learningCase;
+    });
+  }
+
+  void _goBack() {
+    if (_selectedCase != null) {
+      setState(() => _selectedCase = null);
+      return;
+    }
+    if (_selectedStudent != null) {
+      setState(() {
+        _selectedStudent = null;
+        _showAllStudentCases = false;
+      });
+    }
+  }
+"""
+new_navigation = """  void _selectDestination(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _selectedStudent = null;
+      _selectedCase = null;
+      _showAllStudentCases = false;
+      _showAllCaseTimeline = false;
+    });
+  }
+
+  void _openStudent(WorkspaceStudent student) {
+    setState(() {
+      _selectedStudent = student;
+      _selectedCase = null;
+      _showAllStudentCases = false;
+      _showAllCaseTimeline = false;
+    });
+  }
+
+  void _openCase(WorkspaceStudent student, WorkspaceCase learningCase) {
+    setState(() {
+      _selectedStudent = student;
+      _selectedCase = learningCase;
+      _showAllCaseTimeline = false;
+    });
+  }
+
+  void _goBack() {
+    if (_selectedCase != null) {
+      setState(() {
+        _selectedCase = null;
+        _showAllCaseTimeline = false;
+      });
+      return;
+    }
+    if (_selectedStudent != null) {
+      setState(() {
+        _selectedStudent = null;
+        _showAllStudentCases = false;
+        _showAllCaseTimeline = false;
+      });
+    }
+  }
+"""
+if source.count(old_navigation) != 1:
+    raise SystemExit('Case detail navigation anchor drifted')
+source = source.replace(old_navigation, new_navigation, 1)
+
+old_locals = """    final primaryAction = learningCase.primaryAction;
+    final commandLabel = _caseCommandLabel(learningCase);
+    final canStabilize = _canStabilizeCase(learningCase);
+    return Column(
+"""
+new_locals = """    final primaryAction = learningCase.primaryAction;
+    final commandLabel = _caseCommandLabel(learningCase);
+    final canStabilize = _canStabilizeCase(learningCase);
+    final visibleTimeline = _showAllCaseTimeline
+        ? learningCase.timeline
+        : learningCase.timeline.take(_caseTimelinePreviewLimit);
+    return Column(
+"""
+if source.count(old_locals) != 1:
+    raise SystemExit('Case detail local anchor drifted')
+source = source.replace(old_locals, new_locals, 1)
+
+old_header = """        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.xs,
+          children: [
+            _WorkspaceMetadata(learningCase.typeLabel),
+            _WorkspaceMetadata(_priorityLabel(learningCase.priority)),
+            if (primaryAction != null)
+              _WorkspaceMetadata(
+                '下一步：${primaryAction.title}',
+                icon: Icons.arrow_forward_outlined,
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        if (learningCase.status == LearningCaseStatus.pendingVerification)
+"""
+new_header = """        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.xs,
+          children: [
+            _WorkspaceMetadata(learningCase.typeLabel),
+            _WorkspaceMetadata(_priorityLabel(learningCase.priority)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _WorkspaceNarrativeSection(
+          title: 'Next Action / 下一行动',
+          content: primaryAction == null
+              ? '当前没有待完成的主要行动。'
+              : '${primaryAction.title}（${_formatActionDate(primaryAction)}）',
+          isPrimary: true,
+        ),
+        if (learningCase.status == LearningCaseStatus.pendingVerification)
+"""
+if source.count(old_header) != 1:
+    raise SystemExit('Case detail header anchor drifted')
+source = source.replace(old_header, new_header, 1)
+
+old_late_action = """        _WorkspaceNarrativeSection(
+          title: 'Next Action / 下一行动',
+          content: primaryAction == null
+              ? '当前没有待完成的主要行动。'
+              : '${primaryAction.title}（${_formatActionDate(primaryAction)}）',
+          isPrimary: true,
+        ),
+"""
+if source.count(old_late_action) != 1:
+    raise SystemExit('Late Next Action anchor drifted')
+source = source.replace(old_late_action, '', 1)
+
+old_timeline = """        _WorkspaceSection(
+          title: '历史 timeline',
+          showTopDivider: true,
+          child: learningCase.timeline.isEmpty
+              ? const _WorkspaceStateNotice(
+                  title: '暂时没有更多历史',
+                  message: '新的 Evidence、教学动作和验证会按时间追加在这里。',
+                  icon: Icons.history_outlined,
+                )
+              : Column(
+                  children: [
+                    for (final event in learningCase.timeline)
+                      _WorkspaceTimelineItem(event: event),
+                  ],
+                ),
+        ),
+"""
+new_timeline = """        _WorkspaceSection(
+          title: '历史 timeline',
+          count: learningCase.timeline.isEmpty
+              ? null
+              : '${learningCase.timeline.length} 条',
+          showTopDivider: true,
+          action: learningCase.timeline.length > _caseTimelinePreviewLimit
+              ? TextButton(
+                  key: const Key('workspace-case-timeline-toggle'),
+                  onPressed: () => setState(
+                    () => _showAllCaseTimeline = !_showAllCaseTimeline,
+                  ),
+                  child: Text(_showAllCaseTimeline ? '收起历史' : '展开历史'),
+                )
+              : null,
+          child: learningCase.timeline.isEmpty
+              ? const _WorkspaceStateNotice(
+                  title: '暂时没有更多历史',
+                  message: '新的 Evidence、教学动作和验证会按时间追加在这里。',
+                  icon: Icons.history_outlined,
+                )
+              : Column(
+                  children: [
+                    for (final event in visibleTimeline)
+                      _WorkspaceTimelineItem(event: event),
+                  ],
+                ),
+        ),
+"""
+if source.count(old_timeline) != 1:
+    raise SystemExit('Case timeline anchor drifted')
+source = source.replace(old_timeline, new_timeline, 1)
+source_path.write_text(source)
+
+test_path = Path('test/features/teacher_workspace_test.dart')
+tests = test_path.read_text()
+
+old_case_fixture = """WorkspaceCase _caseFixture({
+  required String id,
+  required String title,
+  required LearningCaseStatus status,
+  required WorkspaceActionBucket actionBucket,
+  required DateTime? actionDueAt,
+  String priority = 'normal',
+}) {
+"""
+new_case_fixture = """WorkspaceCase _caseFixture({
+  required String id,
+  required String title,
+  required LearningCaseStatus status,
+  required WorkspaceActionBucket actionBucket,
+  required DateTime? actionDueAt,
+  String priority = 'normal',
+  List<WorkspaceTimelineEvent> timeline = const <WorkspaceTimelineEvent>[],
+}) {
+"""
+if tests.count(old_case_fixture) != 1:
+    raise SystemExit('Case fixture signature anchor drifted')
+tests = tests.replace(old_case_fixture, new_case_fixture, 1)
+
+old_fixture_timeline = """    timeline: const <WorkspaceTimelineEvent>[],
+  );
+}
+
+TeacherWorkspace _workspaceWithStudents"""
+new_fixture_timeline = """    timeline: timeline,
+  );
+}
+
+TeacherWorkspace _workspaceWithStudents"""
+if tests.count(old_fixture_timeline) != 1:
+    raise SystemExit('Case fixture timeline anchor drifted')
+tests = tests.replace(old_fixture_timeline, new_fixture_timeline, 1)
+
+test_anchor = """  testWidgets(
+    'bounds lower-priority Today sections until explicitly expanded',
+"""
+if tests.count(test_anchor) != 1:
+    raise SystemExit('Case detail test insertion anchor drifted')
+new_test = r"""  testWidgets(
+    'Case detail keeps the next action first and bounds older history',
+    (tester) async {
+      final timeline = <WorkspaceTimelineEvent>[
+        for (var index = 1; index <= 5; index++)
+          WorkspaceTimelineEvent(
+            id: 'timeline-$index',
+            occurredAt: DateTime(2026, 9, 8 - index),
+            typeLabel: '课堂记录',
+            text: '历史记录 $index',
+          ),
+      ];
+      final learningCase = _caseFixture(
+        id: 'case-detail',
+        title: '阅读题关键问题',
+        status: LearningCaseStatus.confirmed,
+        actionBucket: WorkspaceActionBucket.today,
+        actionDueAt: DateTime(2026, 9, 5),
+        timeline: timeline,
+      );
+      final repository = _FakeLearningRepository(
+        _workspaceWithStudents([
+          _studentFixture(
+            id: 'case-detail',
+            name: 'Case 详情示例',
+            cases: [learningCase],
+          ),
+        ]),
+      );
+      await _pumpWorkspace(tester, repository);
+
+      final studentRow = find.text('Case 详情示例').first;
+      await tester.ensureVisible(studentRow);
+      await tester.tap(studentRow);
+      await tester.pumpAndSettle();
+      final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+      await tester.ensureVisible(caseButton);
+      await tester.tap(caseButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Next Action / 下一行动'), findsOneWidget);
+      expect(find.text('下一步：阅读题关键问题 的下一步'), findsNothing);
+      expect(find.textContaining('阅读题关键问题 的下一步'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Next Action / 下一行动')).dy,
+        lessThan(tester.getTopLeft(find.text('问题')).dy),
+      );
+
+      expect(find.text('5 条'), findsOneWidget);
+      expect(find.text('历史记录 1'), findsOneWidget);
+      expect(find.text('历史记录 2'), findsOneWidget);
+      expect(find.text('历史记录 3'), findsOneWidget);
+      expect(find.text('历史记录 4'), findsNothing);
+      expect(find.text('历史记录 5'), findsNothing);
+
+      final timelineToggle = find.byKey(
+        const Key('workspace-case-timeline-toggle'),
+      );
+      await tester.ensureVisible(timelineToggle);
+      await tester.tap(timelineToggle);
+      await tester.pumpAndSettle();
+      expect(find.text('历史记录 4'), findsOneWidget);
+      expect(find.text('历史记录 5'), findsOneWidget);
+      expect(find.text('收起历史'), findsOneWidget);
+
+      final backButton = find.byTooltip('返回学生详情');
+      await tester.ensureVisible(backButton);
+      await tester.tap(backButton);
+      await tester.pumpAndSettle();
+      final reopenCaseButton = find.widgetWithText(
+        OutlinedButton,
+        '查看 Case',
+      ).first;
+      await tester.ensureVisible(reopenCaseButton);
+      await tester.tap(reopenCaseButton);
+      await tester.pumpAndSettle();
+      expect(find.text('历史记录 4'), findsNothing);
+      expect(find.text('展开历史'), findsOneWidget);
+    },
+  );
+
+"""
+tests = tests.replace(test_anchor, new_test + test_anchor, 1)
+test_path.write_text(tests)
