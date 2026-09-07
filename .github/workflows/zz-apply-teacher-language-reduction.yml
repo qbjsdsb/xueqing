@@ -1,0 +1,75 @@
+name: Apply teacher-language reduction
+
+on:
+  push:
+    branches:
+      - ux/teacher-language-reduction
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/teacher-language-reduction
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply exact teacher-language patch
+        run: python3 .github/scripts/zz_apply_teacher_language_reduction.py
+
+      - name: Format and verify exact net diff
+        run: |
+          dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart
+          rm .github/workflows/zz-apply-teacher-language-reduction.yml
+          rm .github/scripts/zz_apply_teacher_language_reduction.py
+          git diff --check
+          python3 <<'PY'
+          import subprocess
+          expected = {
+              'D .github/scripts/zz_apply_teacher_language_reduction.py',
+              'D .github/workflows/zz-apply-teacher-language-reduction.yml',
+              'M docs/PRODUCT.md',
+              'M docs/USER_FLOWS.md',
+              'M docs/design/COMPONENTS.md',
+              'M docs/design/SCREEN_SPECS.md',
+              'M docs/design/UX_COPY.md',
+              'M docs/product/CASE_WORKFLOW_TEMPLATES.md',
+              'M docs/product/INITIAL_DIAGNOSIS_WORKFLOW.md',
+              'M lib/features/teacher_workspace/presentation/teacher_workspace_page.dart',
+              'M test/features/teacher_workspace_test.dart',
+          }
+          lines = subprocess.check_output(['git', 'status', '--porcelain'], text=True).splitlines()
+          actual = {line[:2] + ' ' + line[3:] for line in lines}
+          if actual != expected:
+              print('Expected:', *sorted(expected), sep='\n  ')
+              print('Actual:', *sorted(actual), sep='\n  ')
+              raise SystemExit('teacher-language net diff drifted')
+          PY
+
+      - name: Analyze and run teacher workspace regression suite
+        run: |
+          flutter analyze
+          flutter test test/features/teacher_workspace_test.dart
+
+      - name: Commit verified teacher-language reduction
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'ux: speak teacher language in daily workflows'
+          git push origin HEAD:ux/teacher-language-reduction
