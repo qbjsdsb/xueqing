@@ -25,14 +25,15 @@ jobs:
           flutter-version: 3.47.1
           cache: true
 
-      - name: Apply proposed polish and analyzer cleanup
+      - name: Apply proposed polish and verified test adjustments
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          # Reuse the already-reviewed proposal verbatim so the second pass only
-          # changes the one analyzer-confirmed dead interface plus copy cleanup.
+          # Reuse the already-reviewed product proposal verbatim. The final pass
+          # only removes an analyzer-confirmed dead interface and updates tests
+          # to interact with the new section-local actions as a user would.
           lines = Path('.github/workflows/tmp-management-ux-polish.yml').read_text(encoding='utf-8').splitlines()
           marker = '      - name: Apply teacher-facing UX polish'
           start = lines.index(marker)
@@ -78,6 +79,33 @@ jobs:
               "'invalid_teacher_subject_scope_input' => '教学范围信息不完整，请刷新后重试。',",
               "'invalid_teacher_subject_scope_input' => '可教学科配置不完整，请刷新后重试。',",
           )
+
+          test = 'test/features/organization_management_test.dart'
+          replace_once(
+              test,
+              '''    await tester.tap(find.text('添加学生'));\n    await tester.tap(find.text('添加学生'));\n''',
+              '''    final addStudent = find.text('添加学生');\n    await tester.ensureVisible(addStudent);\n    await tester.tap(addStudent);\n    await tester.tap(addStudent);\n''',
+          )
+          replace_once(
+              test,
+              '''    await tester.tap(find.text('添加学科'));\n    await tester.tap(find.text('添加学科'));\n''',
+              '''    final addSubject = find.text('添加学科');\n    await tester.ensureVisible(addSubject);\n    await tester.tap(addSubject);\n    await tester.tap(addSubject);\n''',
+          )
+          replace_once(
+              test,
+              '''    await tester.tap(find.text('配置老师可教学科'));\n    await tester.tap(find.text('配置老师可教学科'));\n''',
+              '''    final configureTeacherSubjects = find.text('配置老师可教学科');\n    await tester.ensureVisible(configureTeacherSubjects);\n    await tester.tap(configureTeacherSubjects);\n    await tester.tap(configureTeacherSubjects);\n''',
+          )
+          replace_once(
+              test,
+              '''    await tester.tap(find.text('添加学科'));\n    await tester.pumpAndSettle();\n\n    expect(find.text('从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。'), findsOneWidget);\n''',
+              '''    final addSubject = find.text('添加学科');\n    await tester.ensureVisible(addSubject);\n    await tester.tap(addSubject);\n    await tester.pumpAndSettle();\n\n    expect(find.text('从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。'), findsOneWidget);\n''',
+          )
+          replace_once(
+              test,
+              '''      await tester.tap(find.text('配置老师可教学科'));\n      await tester.pumpAndSettle();\n      expect(find.text('配置老师可教学科'), findsOneWidget);\n''',
+              '''      final configureTeacherSubjects = find.text('配置老师可教学科');\n      await tester.ensureVisible(configureTeacherSubjects);\n      await tester.tap(configureTeacherSubjects);\n      await tester.pumpAndSettle();\n      expect(\n        find.descendant(\n          of: find.byType(AlertDialog),\n          matching: find.text('配置老师可教学科'),\n        ),\n        findsOneWidget,\n      );\n''',
+          )
           PY
 
       - run: flutter pub get
@@ -97,6 +125,8 @@ jobs:
           rm -f .github/workflows/tmp-management-ux-polish.yml
           rm -f .github/workflows/tmp-management-finalize.yml
           rm -f tmp-management-analyze.txt
+          rm -f tmp-management-test.txt
+          rm -f tmp-management-test-status.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
