@@ -1,0 +1,68 @@
+name: Apply Quick Capture fact-first order
+
+on:
+  push:
+    branches:
+      - ux/quick-capture-fact-first
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/quick-capture-fact-first
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply exact fact-first patch
+        run: python3 .github/scripts/zz_apply_quick_capture_fact_first.py
+
+      - name: Format and verify exact net diff
+        run: |
+          dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart
+          rm .github/workflows/zz-apply-quick-capture-fact-first.yml
+          rm .github/scripts/zz_apply_quick_capture_fact_first.py
+          git diff --check
+          python3 <<'PY'
+          import subprocess
+          expected = {
+              'M docs/design/SCREEN_SPECS.md',
+              'M lib/features/teacher_workspace/presentation/teacher_workspace_page.dart',
+              'M test/features/teacher_workspace_test.dart',
+              'D .github/scripts/zz_apply_quick_capture_fact_first.py',
+              'D .github/workflows/zz-apply-quick-capture-fact-first.yml',
+          }
+          actual = {line.strip() for line in subprocess.check_output(['git', 'status', '--porcelain'], text=True).splitlines()}
+          if actual != expected:
+              print('Expected:', *sorted(expected), sep='\n  ')
+              print('Actual:', *sorted(actual), sep='\n  ')
+              raise SystemExit('Quick Capture fact-first net diff drifted')
+          PY
+
+      - name: Analyze and run teacher workspace regression suite
+        run: |
+          flutter analyze
+          flutter test test/features/teacher_workspace_test.dart
+
+      - name: Commit verified fact-first order
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'ux: capture facts before classification'
+          git push origin HEAD:ux/quick-capture-fact-first
