@@ -1,0 +1,4 @@
+release_tag=v0.2.0-pilot.2
+source_run=34157381329
+source_commit=ab02af57ea7e4af031e5cc9ce6499e48e93d3e42
+reason=verify_apk_against_configured_permanent_keystore_and_reuse_green_windows_artifacts
