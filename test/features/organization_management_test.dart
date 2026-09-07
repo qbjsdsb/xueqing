@@ -530,10 +530,7 @@ Future<void> _pumpManagement(
   await tester.pumpAndSettle();
 }
 
-Future<void> _selectManagementArea(
-  WidgetTester tester,
-  String label,
-) async {
+Future<void> _selectManagementArea(WidgetTester tester, String label) async {
   final switcher = find.byType(SegmentedButton);
   final target = find.descendant(of: switcher, matching: find.text(label));
   await tester.ensureVisible(target);
