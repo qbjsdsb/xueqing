@@ -6,6 +6,7 @@ on:
       - feature/student-teaching-pause-resume
     paths:
       - ".github/tmp/apply_student_archive_lifecycle.py"
+      - ".github/tmp/update_student_archive_contract_tests.py"
       - ".github/workflows/apply-student-archive-lifecycle.yml"
 
 permissions:
@@ -25,6 +26,9 @@ jobs:
 
       - name: Apply reviewed archive patch
         run: python3 .github/tmp/apply_student_archive_lifecycle.py
+
+      - name: Align legacy tests with explicit lifecycle
+        run: python3 .github/tmp/update_student_archive_contract_tests.py
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -79,6 +83,7 @@ jobs:
         if: success()
         run: |
           rm -f .github/tmp/apply_student_archive_lifecycle.py
+          rm -f .github/tmp/update_student_archive_contract_tests.py
           rm -f .github/workflows/apply-student-archive-lifecycle.yml
           rm -f supabase/.branches/_current_branch
 
