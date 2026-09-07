@@ -680,8 +680,8 @@ void main() {
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('配置教学范围'));
-    await tester.tap(find.text('配置教学范围'));
+    await tester.tap(find.text('配置老师可教学科'));
+    await tester.tap(find.text('配置老师可教学科'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('保存教学范围'), findsOneWidget);
@@ -743,7 +743,7 @@ void main() {
       );
       await _pumpManagement(tester, repository);
 
-      await tester.tap(find.text('配置教学范围'));
+      await tester.tap(find.text('配置老师可教学科'));
       await tester.pumpAndSettle();
       expect(find.text('配置教师教学范围'), findsOneWidget);
       await tester.tap(find.text('保存教学范围'));
@@ -755,8 +755,8 @@ void main() {
       await tester.ensureVisible(stop);
       await tester.tap(stop);
       await tester.pumpAndSettle();
-      expect(find.text('停用教学范围？'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, '停用教学范围'));
+      expect(find.text('停用这门可教学科？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '确认停用'));
       await tester.pumpAndSettle();
 
       expect(repository.teacherScopeUpdateCount, 2);
@@ -765,7 +765,7 @@ void main() {
       await tester.ensureVisible(restart);
       await tester.tap(restart);
       await tester.pumpAndSettle();
-      expect(find.text('重新启用教学范围？'), findsOneWidget);
+      expect(find.text('重新启用这门可教学科？'), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, '重新启用'));
       await tester.pumpAndSettle();
 
@@ -836,7 +836,7 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    expect(find.text('学生任课关系'), findsOneWidget);
+    expect(find.text('任课老师'), findsOneWidget);
     final transferButton = find.text('交接老师');
     await tester.ensureVisible(transferButton);
     await tester.tap(transferButton);
@@ -856,6 +856,6 @@ void main() {
     expect(repository.assignmentTransferCount, 1);
     expect(repository.updatedTeacherAssignment?.status, 'transferred');
     expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');
-    expect(find.text('主责：新老师 · new-teacher@example.com'), findsOneWidget);
+    expect(find.text('主责老师：新老师 · new-teacher@example.com'), findsOneWidget);
   });
 }

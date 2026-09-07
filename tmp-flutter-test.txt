@@ -1,0 +1,262 @@
+Resolving dependencies...
+Downloading packages...
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+Got dependencies!
+4 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+
+::group::✅ Passing tests
+✅ /home/runner/work/xueqing/xueqing/test/update/update_service_test.dart: compares Flutter versions including prerelease and build number
+✅ /home/runner/work/xueqing/xueqing/test/update/update_service_test.dart: rejects malformed artifact security fields
+✅ /home/runner/work/xueqing/xueqing/test/update/update_service_test.dart: rejects an artifact larger than the configured download limit
+✅ /home/runner/work/xueqing/xueqing/test/update/update_service_test.dart: reports an available mandatory Windows update
+✅ /home/runner/work/xueqing/xueqing/test/update/update_service_test.dart: reports up to date without downloading an older manifest
+✅ /home/runner/work/xueqing/xueqing/test/update/update_service_test.dart: reports unsupported platforms explicitly
+✅ /home/runner/work/xueqing/xueqing/test/update/update_service_test.dart: rejects a mismatched update channel
+✅ /home/runner/work/xueqing/xueqing/test/features/organization_invitation_acceptance_card_test.dart: validates and submits a complete invitation code
+✅ /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: prototype Case status keeps the Foundation lifecycle
+✅ /home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart: shows organization members and pending owner approval
+✅ /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: Today keeps pending verification and date buckets exclusive
+✅ /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: navigates Student to Case and back with separate Case controls
+✅ /home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart: owner can approve a nomination and admin gets constrained roles
+✅ /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: uses compact navigation and expanded navigation rail
+✅ /home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart: admin can disable and restore a member safely
+✅ /home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart: admin can add a student with atomic setup fields
+::endgroup::
+::group::✅ /home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart: rapid taps open only one add flow at a time
+
+Warning: A call to tap() with finder "Found 1 widget with text "添加学生": [
+  Text("添加学生", dependencies: [DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
+]" derived an Offset (Offset(482.2, 40.0)) that would not hit test on the specified widget.
+Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
+The finder corresponds to this RenderBox: RenderParagraph#adc87 relayoutBoundary=up30
+The hit test result at that offset is: HitTestResult(RenderPointerListener#e24ff@Offset(482.2, 40.0), RenderSemanticsAnnotations#9182b@Offset(482.2, 40.0), RenderCustomPaint#94645@Offset(482.2, 40.0), RenderSemanticsAnnotations#2f215@Offset(482.2, 40.0), RenderSemanticsAnnotations#e2236@Offset(482.2, 40.0), RenderSemanticsAnnotations#8695e@Offset(482.2, 40.0), RenderTapRegionSurface#7ca02@Offset(482.2, 40.0), RenderSemanticsAnnotations#e906a@Offset(482.2, 40.0), RenderSemanticsAnnotations#b89a2@Offset(482.2, 40.0), HitTestEntry<HitTestTarget>#2b09f(_ReusableRenderView#dbf53), HitTestEntry<HitTestTarget>#4ec2d(<AutomatedTestWidgetsFlutterBinding>))
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart:668:18)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
+<asynchronous suspension>
+To silence this warning, pass "warnIfMissed: false" to "tap()".
+To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
+
+Warning: A call to tap() with finder "Found 1 widget with text "添加学科": [
+  Text("添加学科", dependencies: [DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
+]" derived an Offset (Offset(727.0, 40.0)) that would not hit test on the specified widget.
+Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
+The finder corresponds to this RenderBox: RenderParagraph#c9727 relayoutBoundary=up30
+The hit test result at that offset is: HitTestResult(RenderPointerListener#e24ff@Offset(727.0, 40.0), RenderSemanticsAnnotations#9182b@Offset(727.0, 40.0), RenderCustomPaint#94645@Offset(727.0, 40.0), RenderSemanticsAnnotations#2f215@Offset(727.0, 40.0), RenderSemanticsAnnotations#e2236@Offset(727.0, 40.0), RenderSemanticsAnnotations#8695e@Offset(727.0, 40.0), RenderTapRegionSurface#7ca02@Offset(727.0, 40.0), RenderSemanticsAnnotations#e906a@Offset(727.0, 40.0), RenderSemanticsAnnotations#b89a2@Offset(727.0, 40.0), HitTestEntry<HitTestTarget>#86c41(_ReusableRenderView#dbf53), HitTestEntry<HitTestTarget>#34aa3(<AutomatedTestWidgetsFlutterBinding>))
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart:676:18)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
+<asynchronous suspension>
+To silence this warning, pass "warnIfMissed: false" to "tap()".
+To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
+
+Warning: A call to tap() with finder "Found 1 widget with text "配置老师可教学科": [
+  Text("配置老师可教学科", dependencies: [DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
+]" derived an Offset (Offset(510.4, 96.0)) that would not hit test on the specified widget.
+Maybe the widget is actually off-screen, or another widget is obscuring it, or the widget cannot receive pointer events.
+The finder corresponds to this RenderBox: RenderParagraph#8ea95 relayoutBoundary=up30
+The hit test result at that offset is: HitTestResult(RenderPointerListener#e24ff@Offset(510.4, 96.0), RenderSemanticsAnnotations#9182b@Offset(510.4, 96.0), RenderCustomPaint#94645@Offset(510.4, 96.0), RenderSemanticsAnnotations#2f215@Offset(510.4, 96.0), RenderSemanticsAnnotations#e2236@Offset(510.4, 96.0), RenderSemanticsAnnotations#8695e@Offset(510.4, 96.0), RenderTapRegionSurface#7ca02@Offset(510.4, 96.0), RenderSemanticsAnnotations#e906a@Offset(510.4, 96.0), RenderSemanticsAnnotations#b89a2@Offset(510.4, 96.0), HitTestEntry<HitTestTarget>#bc096(_ReusableRenderView#dbf53), HitTestEntry<HitTestTarget>#58d8c(<AutomatedTestWidgetsFlutterBinding>))
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2165:25)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart:684:18)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
+<asynchronous suspension>
+To silence this warning, pass "warnIfMissed: false" to "tap()".
+To make this warning fatal, set WidgetController.hitTestWarningShouldBeFatal to true.
+
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: shows Today work queue and opens quick capture
+✅ /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: keeps a draft visible for the current preview session
+::endgroup::
+::group::❌ /home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart: admin can edit a student lifecycle record (failed)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "已更新 更新学生 · 正常教学。": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart:713:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart line 713
+The test description was:
+  admin can edit a student lifecycle record
+════════════════════════════════════════════════════════════════════════════════════════════════════
+Test failed. See exception logs above.
+The test description was: admin can edit a student lifecycle record
+
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: keeps the fictional-data boundary explicit
+✅ /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: focuses student search with the Windows keyboard shortcut
+::endgroup::
+::group::❌ /home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart: admin can add an organization subject from the catalog (failed)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "已添加学科：英语。": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart:733:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart line 733
+The test description was:
+  admin can add an organization subject from the catalog
+════════════════════════════════════════════════════════════════════════════════════════════════════
+Test failed. See exception logs above.
+The test description was: admin can add an organization subject from the catalog
+
+::endgroup::
+::group::❌ /home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart: admin can configure, end, and re-enable a teacher subject scope (failed)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following StateError was thrown running a test:
+Bad state: No element
+
+When the exception was thrown, this was the stack:
+#0      Iterable.single (dart:core/iterable.dart:694:25)
+#1      WidgetController.element (package:flutter_test/src/controller.dart:888:30)
+#2      WidgetController.ensureVisible (package:flutter_test/src/controller.dart:2389:32)
+#3      main.<anonymous closure> (file:///home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart:755:20)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  admin can configure, end, and re-enable a teacher subject scope
+════════════════════════════════════════════════════════════════════════════════════════════════════
+Test failed. See exception logs above.
+The test description was: admin can configure, end, and re-enable a teacher subject scope
+
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/xueqing/xueqing/test/features/organization_management_test.dart: admin can hand off a student teacher assignment
+✅ /home/runner/work/xueqing/xueqing/test/config/app_config_test.dart: AppEnvironment parses development and production values
+✅ /home/runner/work/xueqing/xueqing/test/config/app_config_test.dart: AppEnvironment rejects unknown values
+✅ /home/runner/work/xueqing/xueqing/test/config/app_config_test.dart: AppConfig uses the typed values supplied by the build
+✅ /home/runner/work/xueqing/xueqing/test/config/app_config_test.dart: AppConfig can explicitly hide developer tools in a development build
+✅ /home/runner/work/xueqing/xueqing/test/config/app_config_test.dart: AppConfig rejects a production config without a cloud endpoint
+✅ /home/runner/work/xueqing/xueqing/test/config/app_config_test.dart: AppConfig rejects an HTTP production endpoint
+✅ /home/runner/work/xueqing/xueqing/test/config/app_config_test.dart: AppConfig rejects a production endpoint without a host allowlist
+✅ /home/runner/work/xueqing/xueqing/test/config/app_config_test.dart: AppConfig rejects an empty app version
+✅ /home/runner/work/xueqing/xueqing/test/app/theme_test.dart: builds coherent light and dark Material 3 themes
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: loads the real workspace shape and keeps Case status separate
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: reschedules an action from Today
+✅ /home/runner/work/xueqing/xueqing/test/app/theme_test.dart: follows the system theme at the app root
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: completes an action and asks for the next action
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: updates autogenerated next action title after repeated type changes
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: keeps an ambiguous completion open until it is reconciled
+✅ /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: shows a loading state before configuration is ready
+✅ /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: renders the bootstrap page after configuration loads
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: reuses operation id after a completion response is lost
+✅ /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: hides development-only controls and routes in production
+✅ /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: normal builds skip the developer bootstrap
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: keeps the current workspace visible while refreshing
+✅ /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: shows a safe fallback when bootstrap fails
+✅ /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: can navigate through the router smoke path
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: reuses operation id after a reschedule response is lost
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: uses the organization business date for Case due dates
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: uses the organization business date for action display
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: orders overdue student groups by their earliest action
+✅ /home/runner/work/xueqing/xueqing/test/app/responsive_test.dart: classifies the three supported window sizes
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: shows students with newer activity first in Recent Students
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: keeps the three most actionable Cases in the student summary
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: explains schema drift and lets the user retry
+✅ /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard accepts the latest request for the same user
+✅ /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard rejects a result when the active user id changes
+✅ /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard rejects an earlier request after an account switch
+✅ /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard rejects stale work when the same user id returns after a switch
+✅ /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard rejects in-flight work after sign-out invalidates the session
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: keeps Quick Capture input and reuses operation id after failure
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: shows custom type settings to an organization manager
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: sends a selected custom type with its base classification
+✅ /home/runner/work/xueqing/xueqing/test/cloud/paged_rows_test.dart: collects every row beyond a one-thousand-row API limit
+✅ /home/runner/work/xueqing/xueqing/test/cloud/paged_rows_test.dart: checks the active session after every page
+✅ /home/runner/work/xueqing/xueqing/test/cloud/paged_rows_test.dart: rejects malformed pages without returning partial data
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: uses bottom sheets for compact Quick Capture selectors
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: uses the three-role invitation contract
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: parses member roles and invitation metadata
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: rejects an unknown invitation role instead of silently changing it
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps invitation authorization errors to actionable copy
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: explains provisioning recovery without asking the operator to duplicate an invite
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: parses and filters effective teacher subject setup options
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps blocked teacher handoff to actionable guidance
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps missing scope for student setup
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps duplicate student identity errors to actionable guidance
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: parses teacher subject scope history and command results
+✅ /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps teacher scope handoff and concurrency errors
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: records an intervention from a confirmed Case
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: records verification from an intervening Case
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig allows an empty development configuration
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig requires a configured endpoint when requested
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig requires URL and publishable key together
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig accepts an HTTP development endpoint by default
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects HTTP when HTTPS is required
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig accepts HTTPS when required
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig accepts an HTTPS endpoint in its explicit host allowlist
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects a production endpoint without an explicit host allowlist
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects a host outside the explicit allowlist
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects wildcard or URL-shaped allowlist entries
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects endpoint credentials, paths, queries, and fragments
+✅ /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects a non-absolute endpoint
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: records a verification result without auto-closing the Case
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: validates Case commands and parses command receipts
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: validates Evidence and reopen command payloads
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: stabilizes a Case after a passed verification
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: closes a stable Case after confirmation
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: reuses operation id after closing response is lost
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: records recurrence Evidence before reopening a closed Case
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: restores an unfinished reopen after the page is recreated
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: unlocks a reopen form after a deterministic Evidence failure
+✅ /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: does not expose student data without teaching access
+::endgroup::
+
+::error::101 tests passed, 3 failed.

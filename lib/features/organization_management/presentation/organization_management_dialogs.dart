@@ -64,7 +64,7 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('姓名用于机构内显示；邮箱用于登录。新账号会生成一次性临时密码。'),
+                const Text('姓名用于机构内显示，邮箱用于登录。新账号会使用这里的姓名；已有账号接受邀请时会再次确认姓名。'),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _displayNameController,
