@@ -161,6 +161,27 @@ void main() {
     );
   });
 
+  test('maps archive boundary errors to explicit lifecycle guidance', () {
+    expect(
+      organizationStudentLifecycleErrorMessage(
+        const AuthException('student_archive_requires_paused'),
+      ),
+      '归档前请先暂停教学；临时停课不需要归档。',
+    );
+    expect(
+      organizationStudentLifecycleErrorMessage(
+        const AuthException('student_archive_active_subjects'),
+      ),
+      '这位学生仍有进行中的学科服务，请先逐科完成结束后再归档。',
+    );
+    expect(
+      organizationStudentLifecycleErrorMessage(
+        const AuthException('student_unarchive_requires_inactive'),
+      ),
+      '取消归档后必须先回到暂不教学状态，再决定是否恢复教学。',
+    );
+  });
+
   test('maps duplicate student identity errors to actionable guidance', () {
     expect(
       organizationStudentSetupErrorMessage(
@@ -179,6 +200,32 @@ void main() {
         const AuthException('student_code_already_exists'),
       ),
       '这个学生编号已被本机构其他学生使用，请核对后修改。',
+    );
+  });
+
+  test('parses and explains student teaching lifecycle results', () {
+    final result = OrganizationStudentTeachingLifecycleResult.fromJson({
+      'operation_id': 'operation-pause',
+      'organization_id': 'org-1',
+      'student_id': 'student-1',
+      'student_name': '示例学生',
+      'student_code': 'S-001',
+      'status': 'inactive',
+      'version': 4,
+    });
+    expect(result.status, 'inactive');
+    expect(result.version, 4);
+    expect(
+      organizationStudentTeachingLifecycleErrorMessage(
+        const AuthException('student_archived_immutable'),
+      ),
+      '已归档学生不能通过暂停/恢复改变状态。',
+    );
+    expect(
+      organizationStudentTeachingLifecycleErrorMessage(
+        const AuthException('version_conflict'),
+      ),
+      '这位学生刚刚被别人修改，请刷新后重试。',
     );
   });
 

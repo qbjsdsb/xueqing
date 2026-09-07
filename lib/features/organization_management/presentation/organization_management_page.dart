@@ -127,6 +127,8 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                         onAddStudentSubject: _addStudentSubject,
                         onToggleStudentSubjectService:
                             _toggleStudentSubjectService,
+                        onToggleStudentTeaching: _toggleStudentTeaching,
+                        onToggleStudentArchive: _toggleStudentArchive,
                         onInviteMember: _inviteMember,
                         onApprove: _approveInvitation,
                         onRevoke: _revokeInvitation,

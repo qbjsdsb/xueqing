@@ -51,9 +51,12 @@ class _FakeOrganizationManagementRepository
   int studentSubjectAddCount = 0;
   int studentSubjectEndCount = 0;
   int studentSubjectRestoreCount = 0;
+  int studentTeachingPauseCount = 0;
+  int studentTeachingResumeCount = 0;
   OrganizationStudentSetupResult? createdStudent;
   OrganizationStudentSetupResult? addedStudentSubject;
   OrganizationStudentUpdateResult? updatedStudent;
+  OrganizationStudentTeachingLifecycleResult? updatedStudentTeaching;
   OrganizationMemberStatusUpdateResult? updatedMember;
   OrganizationTeacherSubjectScopeUpdateResult? updatedTeacherScope;
   OrganizationStudentTeacherAssignmentTransferResult? updatedTeacherAssignment;
@@ -459,6 +462,79 @@ class _FakeOrganizationManagementRepository
   }
 
   @override
+  Future<OrganizationStudentTeachingLifecycleResult> pauseStudentTeaching({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+  }) async {
+    studentTeachingPauseCount++;
+    return _setStudentTeachingStatus(
+      operationId: operationId,
+      organizationId: organizationId,
+      studentId: studentId,
+      expectedStudentVersion: expectedStudentVersion,
+      status: 'inactive',
+    );
+  }
+
+  @override
+  Future<OrganizationStudentTeachingLifecycleResult> resumeStudentTeaching({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+  }) async {
+    studentTeachingResumeCount++;
+    return _setStudentTeachingStatus(
+      operationId: operationId,
+      organizationId: organizationId,
+      studentId: studentId,
+      expectedStudentVersion: expectedStudentVersion,
+      status: 'active',
+    );
+  }
+
+  OrganizationStudentTeachingLifecycleResult _setStudentTeachingStatus({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+    required String status,
+  }) {
+    final index = students.indexWhere(
+      (student) => student.studentId == studentId,
+    );
+    if (index < 0) throw StateError('Student not found.');
+    final previous = students[index];
+    final next = OrganizationStudentRecord(
+      studentId: previous.studentId,
+      studentName: previous.studentName,
+      studentCode: previous.studentCode,
+      status: status,
+      version: expectedStudentVersion + 1,
+      grade: previous.grade,
+      className: previous.className,
+      campus: previous.campus,
+      startsOn: previous.startsOn,
+      endsOn: previous.endsOn,
+      subjectNames: previous.subjectNames,
+      subjectServices: previous.subjectServices,
+    );
+    students[index] = next;
+    updatedStudentTeaching = OrganizationStudentTeachingLifecycleResult(
+      operationId: operationId,
+      organizationId: organizationId,
+      studentId: studentId,
+      studentName: next.studentName,
+      studentCode: next.studentCode,
+      status: status,
+      version: next.version,
+    );
+    return updatedStudentTeaching!;
+  }
+
+  @override
   Future<OrganizationStudentTeacherAssignmentTransferResult>
   transferStudentTeacherAssignment({
     required String operationId,
@@ -625,13 +701,33 @@ class _FakeOrganizationManagementRepository
     required String status,
   }) async {
     studentUpdateCount++;
-    updatedStudent = OrganizationStudentUpdateResult(
-      operationId: operationId,
-      studentId: studentId,
+    final index = students.indexWhere(
+      (student) => student.studentId == studentId,
+    );
+    if (index < 0) throw StateError('Student not found.');
+    final previous = students[index];
+    final next = OrganizationStudentRecord(
+      studentId: previous.studentId,
       studentName: name,
       studentCode: studentCode,
       status: status,
       version: expectedStudentVersion + 1,
+      grade: previous.grade,
+      className: previous.className,
+      campus: previous.campus,
+      startsOn: previous.startsOn,
+      endsOn: previous.endsOn,
+      subjectNames: previous.subjectNames,
+      subjectServices: previous.subjectServices,
+    );
+    students[index] = next;
+    updatedStudent = OrganizationStudentUpdateResult(
+      operationId: operationId,
+      studentId: studentId,
+      studentName: next.studentName,
+      studentCode: next.studentCode,
+      status: next.status,
+      version: next.version,
     );
     return updatedStudent!;
   }
@@ -719,25 +815,28 @@ OrganizationStudentRecord _studentRecord({
   String id = 'student-1',
   String name = '原学生',
   String code = 'S-001',
+  String status = 'active',
+  int version = 3,
+  String subjectStatus = 'active',
 }) {
   return OrganizationStudentRecord(
     studentId: id,
     studentName: name,
     studentCode: code,
-    status: 'active',
-    version: 3,
+    status: status,
+    version: version,
     grade: '初二',
     className: '一班',
     campus: '本部',
     startsOn: DateTime(2026, 9, 1),
     endsOn: null,
-    subjectNames: ['数学'],
-    subjectServices: const [
+    subjectNames: subjectStatus == 'active' ? const ['数学'] : const [],
+    subjectServices: [
       OrganizationStudentSubjectService(
         profileId: 'profile-1',
         organizationSubjectId: 'subject-1',
         subjectName: '数学',
-        status: 'active',
+        status: subjectStatus,
         version: 1,
       ),
     ],
@@ -1146,7 +1245,155 @@ void main() {
     expect(find.text('保存配置'), findsOneWidget);
   });
 
-  testWidgets('admin can edit a student lifecycle record', (tester) async {
+  testWidgets(
+    'manager pauses and resumes teaching without rewriting subject context',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        students: [_studentRecord()],
+        studentTeacherAssignments: [_studentTeacherAssignment()],
+      );
+      await _pumpManagement(tester, repository);
+      await _selectManagementArea(tester, '学生');
+
+      final pause = find.byKey(
+        const ValueKey<String>('student-teaching-toggle-student-1'),
+      );
+      await tester.ensureVisible(pause);
+      expect(find.text('暂停教学'), findsOneWidget);
+      await tester.tap(pause);
+      await tester.pumpAndSettle();
+      expect(find.text('暂停 原学生 的教学？'), findsOneWidget);
+      expect(
+        find.text(
+          '暂停后，这位学生会暂时从老师工作台和今日事项中隐藏；学科档案、当前任课、Case、证据和待办都会原样保留，恢复后继续原来的教学上下文。',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '确认暂停'));
+      await tester.pumpAndSettle();
+
+      expect(repository.studentTeachingPauseCount, 1);
+      expect(repository.students.single.status, 'inactive');
+      expect(repository.students.single.version, 4);
+      expect(
+        repository.students.single.subjectServices.single.status,
+        'active',
+      );
+      expect(repository.studentTeacherAssignments.single.status, 'active');
+      expect(find.text('暂不教学'), findsOneWidget);
+
+      final resume = find.byKey(
+        const ValueKey<String>('student-teaching-toggle-student-1'),
+      );
+      await tester.ensureVisible(resume);
+      expect(find.text('恢复教学'), findsOneWidget);
+      await tester.tap(resume);
+      await tester.pumpAndSettle();
+      expect(find.text('恢复 原学生 的教学？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '确认恢复'));
+      await tester.pumpAndSettle();
+
+      expect(repository.studentTeachingResumeCount, 1);
+      expect(repository.students.single.status, 'active');
+      expect(repository.students.single.version, 5);
+      expect(
+        repository.students.single.subjectServices.single.status,
+        'active',
+      );
+      expect(repository.studentTeacherAssignments.single.status, 'active');
+      expect(find.text('正常教学'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'temporary pause with active subject does not expose archive action',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        students: [_studentRecord(status: 'inactive')],
+      );
+      await _pumpManagement(tester, repository);
+      await _selectManagementArea(tester, '学生');
+
+      expect(find.text('暂不教学'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('student-archive-toggle-student-1')),
+        findsNothing,
+      );
+      expect(find.text('恢复教学'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'manager archives only ended student service and unarchives to paused state',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        students: [
+          _studentRecord(status: 'inactive', subjectStatus: 'inactive'),
+        ],
+      );
+      await _pumpManagement(tester, repository);
+      await _selectManagementArea(tester, '学生');
+
+      final archive = find.byKey(
+        const ValueKey<String>('student-archive-toggle-student-1'),
+      );
+      await tester.ensureVisible(archive);
+      expect(find.text('归档学生'), findsOneWidget);
+      await tester.tap(archive);
+      await tester.pumpAndSettle();
+      expect(find.text('归档 原学生？'), findsOneWidget);
+      expect(
+        find.text(
+          '归档用于学生长期结束服务或离开机构后的历史保留。已有学科、Case、证据和历史记录不会删除；若只是暂时停课，请不要归档。',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, '确认归档'));
+      await tester.pumpAndSettle();
+
+      expect(repository.studentUpdateCount, 1);
+      expect(repository.students.single.status, 'archived');
+      expect(repository.students.single.version, 4);
+      expect(
+        repository.students.single.subjectServices.single.status,
+        'inactive',
+      );
+      expect(find.text('已归档'), findsOneWidget);
+      expect(find.text('恢复教学'), findsNothing);
+      expect(find.text('取消归档'), findsOneWidget);
+
+      final unarchive = find.byKey(
+        const ValueKey<String>('student-archive-toggle-student-1'),
+      );
+      await tester.ensureVisible(unarchive);
+      await tester.tap(unarchive);
+      await tester.pumpAndSettle();
+      expect(find.text('取消归档 原学生？'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '确认取消归档'));
+      await tester.pumpAndSettle();
+
+      expect(repository.studentUpdateCount, 2);
+      expect(repository.students.single.status, 'inactive');
+      expect(repository.students.single.version, 5);
+      expect(
+        repository.students.single.subjectServices.single.status,
+        'inactive',
+      );
+      expect(find.text('暂不教学'), findsOneWidget);
+      expect(find.text('恢复教学'), findsOneWidget);
+      expect(find.text('归档学生'), findsOneWidget);
+    },
+  );
+
+  testWidgets('admin edits student identity without changing lifecycle', (
+    tester,
+  ) async {
     final repository = _FakeOrganizationManagementRepository(
       members: const [],
       invitations: const [],
@@ -1161,12 +1408,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('编辑学生'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('教学可见状态 *'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.text('这里只修改姓名和编号。暂停教学、恢复教学与归档属于独立操作，不会在普通编辑中顺带改变。'),
+      findsOneWidget,
+    );
     await tester.enterText(find.byType(TextFormField).first, '更新学生');
     await tester.tap(find.text('保存学生'));
     await tester.pumpAndSettle();
 
     expect(repository.studentUpdateCount, 1);
     expect(repository.updatedStudent?.studentName, '更新学生');
+    expect(repository.updatedStudent?.status, 'active');
     expect(repository.updatedStudent?.version, 4);
     expect(find.text('编辑学生'), findsNothing);
   });

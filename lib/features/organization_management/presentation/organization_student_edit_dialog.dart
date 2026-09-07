@@ -12,7 +12,6 @@ class OrganizationStudentEditDraft {
     required this.expectedStudentVersion,
     required this.name,
     required this.studentCode,
-    required this.status,
   });
 
   final String operationId;
@@ -20,7 +19,6 @@ class OrganizationStudentEditDraft {
   final int expectedStudentVersion;
   final String name;
   final String? studentCode;
-  final String status;
 }
 
 class OrganizationStudentEditDialog extends StatefulWidget {
@@ -43,12 +41,9 @@ class OrganizationStudentEditDialog extends StatefulWidget {
 
 class _OrganizationStudentEditDialogState
     extends State<OrganizationStudentEditDialog> {
-  static const _statuses = <String>['active', 'inactive', 'archived'];
-
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _studentCodeController;
-  late String _selectedStatus;
   final String _operationId = createOperationId();
   bool _busy = false;
   String? _errorMessage;
@@ -60,9 +55,6 @@ class _OrganizationStudentEditDialogState
     _studentCodeController = TextEditingController(
       text: widget.student.studentCode ?? '',
     );
-    _selectedStatus = _statuses.contains(widget.student.status)
-        ? widget.student.status
-        : 'active';
   }
 
   @override
@@ -73,10 +65,7 @@ class _OrganizationStudentEditDialogState
   }
 
   Future<void> _submit() async {
-    if (_busy || !_formKey.currentState!.validate()) {
-      return;
-    }
-
+    if (_busy || !_formKey.currentState!.validate()) return;
     setState(() {
       _busy = true;
       _errorMessage = null;
@@ -89,12 +78,9 @@ class _OrganizationStudentEditDialogState
           expectedStudentVersion: widget.student.version,
           name: _nameController.text.trim(),
           studentCode: _nullableText(_studentCodeController.text),
-          status: _selectedStatus,
         ),
       );
-      if (mounted) {
-        Navigator.of(context).pop(result);
-      }
+      if (mounted) Navigator.of(context).pop(result);
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -107,9 +93,7 @@ class _OrganizationStudentEditDialogState
 
   String _describeError(Object error) {
     final message = organizationStudentLifecycleErrorMessage(error);
-    if (message != null) {
-      return message;
-    }
+    if (message != null) return message;
     if (error is AuthException && error.message.trim().isNotEmpty) {
       return '操作未完成：${error.message.trim()}';
     }
@@ -134,7 +118,7 @@ class _OrganizationStudentEditDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '修改姓名或编号会保留全部历史 Case；停用/归档只会退出教师工作台，不会删除历史记录。',
+                  '这里只修改姓名和编号。暂停教学、恢复教学与归档属于独立操作，不会在普通编辑中顺带改变。',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -149,12 +133,8 @@ class _OrganizationStudentEditDialogState
                   ),
                   validator: (value) {
                     final text = value?.trim() ?? '';
-                    if (text.isEmpty) {
-                      return '请输入学生姓名。';
-                    }
-                    if (text.length > 120) {
-                      return '学生姓名不能超过 120 个字符。';
-                    }
+                    if (text.isEmpty) return '请输入学生姓名。';
+                    if (text.length > 120) return '学生姓名不能超过 120 个字符。';
                     return null;
                   },
                 ),
@@ -167,32 +147,6 @@ class _OrganizationStudentEditDialogState
                     labelText: '学生编号',
                     hintText: '可选',
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedStatus,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: '教学可见状态 *'),
-                  items: [
-                    for (final status in _statuses)
-                      DropdownMenuItem<String>(
-                        value: status,
-                        child: Text(_studentStatusLabel(status)),
-                      ),
-                  ],
-                  onChanged: _busy
-                      ? null
-                      : (status) {
-                          if (status != null) {
-                            setState(() => _selectedStatus = status);
-                          }
-                        },
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '正常教学会出现在老师的学生和今日工作台；暂不教学与已归档学生仍保留在机构管理中。',
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: AppSpacing.sm),
@@ -232,15 +186,6 @@ class _OrganizationStudentEditDialogState
       ],
     );
   }
-}
-
-String _studentStatusLabel(String status) {
-  return switch (status) {
-    'active' => '正常教学',
-    'inactive' => '暂不教学',
-    'archived' => '已归档',
-    _ => '状态未知',
-  };
 }
 
 String? _nullableText(String value) {

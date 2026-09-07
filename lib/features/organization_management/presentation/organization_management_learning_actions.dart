@@ -362,6 +362,87 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     }
   }
 
+  Future<void> _toggleStudentTeaching(OrganizationStudentRecord student) async {
+    if (_busy || student.isMerged) return;
+    final pausing = student.isActive;
+    if (!pausing && student.status != 'inactive') return;
+
+    final confirmed = await _confirm(
+      title: pausing
+          ? '暂停 ${student.studentName} 的教学？'
+          : '恢复 ${student.studentName} 的教学？',
+      message: pausing
+          ? '暂停后，这位学生会暂时从老师工作台和今日事项中隐藏；学科档案、当前任课、Case、证据和待办都会原样保留，恢复后继续原来的教学上下文。'
+          : '恢复后，这位学生会重新出现在有当前任课关系的老师工作台中；原学科、Case、证据和待办继续有效，不会重新建档。',
+      confirmLabel: pausing ? '确认暂停' : '确认恢复',
+    );
+    if (!mounted || !confirmed) return;
+
+    await _runMutation(
+      () => pausing
+          ? widget.repository.pauseStudentTeaching(
+              operationId: createOperationId(),
+              organizationId: widget.organizationId,
+              studentId: student.studentId,
+              expectedStudentVersion: student.version,
+            )
+          : widget.repository.resumeStudentTeaching(
+              operationId: createOperationId(),
+              organizationId: widget.organizationId,
+              studentId: student.studentId,
+              expectedStudentVersion: student.version,
+            ),
+      pausing
+          ? '已暂停 ${student.studentName} 的教学；历史和待跟进内容均已保留。'
+          : '已恢复 ${student.studentName} 的教学。',
+    );
+  }
+
+  Future<void> _toggleStudentArchive(OrganizationStudentRecord student) async {
+    if (_busy || student.isMerged) return;
+    final archiving = student.status == 'inactive';
+    final unarchiving = student.status == 'archived';
+    if (!archiving && !unarchiving) return;
+
+    if (archiving &&
+        student.subjectServices.any((service) => service.isActive)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '这位学生仍有进行中的学科服务；如果只是暂时停课，请保持“暂不教学”。长期离开机构时，请先逐科完成结束再归档。',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await _confirm(
+      title: archiving
+          ? '归档 ${student.studentName}？'
+          : '取消归档 ${student.studentName}？',
+      message: archiving
+          ? '归档用于学生长期结束服务或离开机构后的历史保留。已有学科、Case、证据和历史记录不会删除；若只是暂时停课，请不要归档。'
+          : '取消归档只把学生恢复为“暂不教学”，不会自动恢复老师工作台，也不会自动恢复已经结束的学科。需要继续教学时，再明确执行恢复教学和相应学科恢复。',
+      confirmLabel: archiving ? '确认归档' : '确认取消归档',
+    );
+    if (!mounted || !confirmed) return;
+
+    await _runMutation(
+      () => widget.repository.updateStudent(
+        operationId: createOperationId(),
+        organizationId: widget.organizationId,
+        studentId: student.studentId,
+        expectedStudentVersion: student.version,
+        name: student.studentName,
+        studentCode: student.studentCode,
+        status: archiving ? 'archived' : 'inactive',
+      ),
+      archiving
+          ? '已归档 ${student.studentName}；历史记录已保留。'
+          : '已取消归档 ${student.studentName}；当前为暂不教学。',
+    );
+  }
+
   Future<void> _editStudent(OrganizationStudentRecord student) async {
     if (_busy) return;
     setState(() {
@@ -380,7 +461,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
             expectedStudentVersion: draft.expectedStudentVersion,
             name: draft.name,
             studentCode: draft.studentCode,
-            status: draft.status,
+            status: student.status,
           ),
         ),
       );
@@ -389,11 +470,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       if (!mounted) return;
       widget.onChanged?.call();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '已更新 ${result.studentName} · ${_studentStatusLabel(result.status)}。',
-          ),
-        ),
+        SnackBar(content: Text('已更新 ${result.studentName} 的基本信息。')),
       );
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));

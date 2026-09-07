@@ -246,12 +246,12 @@ select lives_ok(
         1,
         '林雨桐（档案更新）',
         'S-UPDATED',
-        'archived'
+        'inactive'
       )::text,
       true
     )
   $$,
-  'a manager can archive and correct a student atomically'
+  'legacy student update can preserve identity correction while pausing visibility'
 );
 
 select is(
@@ -262,8 +262,8 @@ select is(
 
 select is(
   current_setting('xueqing.student_update')::jsonb ->> 'status',
-  'archived',
-  'student update returns the archived status'
+  'inactive',
+  'student update returns the paused status'
 );
 
 select is(
@@ -282,18 +282,18 @@ select is(
     where student.id =
       '30000000-0000-0000-0000-000000000001'
   ),
-  '林雨桐（档案更新）|S-UPDATED|archived|2',
-  'student root stores lifecycle changes and version'
+  '林雨桐（档案更新）|S-UPDATED|inactive|2',
+  'student root stores identity changes and paused visibility state'
 );
 
-select isnt(
+select is(
   (
     select archived_at
     from public.students
     where id = '30000000-0000-0000-0000-000000000001'
   ),
   null,
-  'archiving records an archive timestamp'
+  'temporary pause does not create an archive timestamp'
 );
 
 set local role authenticated;
@@ -305,7 +305,7 @@ select is(
     where id = '30000000-0000-0000-0000-000000000001'
   ),
   0,
-  'archived students remain hidden from teaching student reads'
+  'paused students remain hidden from teaching student reads'
 );
 
 select is(
@@ -315,7 +315,7 @@ select is(
     where student_id = '30000000-0000-0000-0000-000000000001'
   ),
   0,
-  'archived student profiles remain hidden while history is retained'
+  'paused student profiles remain hidden while history is retained'
 );
 
 select is(
@@ -325,7 +325,7 @@ select is(
     where student_id = '30000000-0000-0000-0000-000000000001'
   ),
   0,
-  'archived enrollments remain hidden from teaching reads'
+  'paused enrollments remain hidden from teaching reads'
 );
 
 select is(
@@ -335,8 +335,8 @@ select is(
       '00000000-0000-0000-0000-000000000001'
     ) as item
   ),
-  'archived',
-  'manager roster keeps archived students for lifecycle administration'
+  'inactive',
+  'manager roster keeps paused students for lifecycle administration'
 );
 
 select lives_ok(
@@ -348,7 +348,7 @@ select lives_ok(
       1,
       'different retry name',
       'DIFFERENT',
-      'inactive'
+      'active'
     )
   $$,
   'repeating the lifecycle operation returns its committed result'
@@ -389,7 +389,7 @@ select lives_ok(
       true
     )
   $$,
-  'a manager can restore an archived student with the next version'
+  'legacy student update can restore a paused student for backward compatibility'
 );
 
 select is(
@@ -419,7 +419,7 @@ select is(
       '30000000-0000-0000-0000-000000000001'
   ),
   'active|3|clear',
-  'restoring clears archive timestamp and increments version'
+  'restoring keeps archive timestamp clear and increments version'
 );
 
 select is(
