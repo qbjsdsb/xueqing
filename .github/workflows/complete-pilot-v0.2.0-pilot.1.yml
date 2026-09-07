@@ -1,0 +1,303 @@
+name: Complete signed Xueqing v0.2.0 Pilot 1
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/release-requests/v0.2.0-pilot.1-complete"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: complete-pilot-v0.2.0-pilot.1
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: v0.2.0-pilot.1
+  RELEASE_VERSION: 0.2.0-pilot.1+2
+  RELEASE_VERSION_NAME: 0.2.0-pilot.1
+  RELEASE_BUILD_NUMBER: "2"
+  RELEASE_COMMIT: 0051afa56f1229f5cac83221648ef2546cf277ac
+  WINDOWS_SOURCE_RUN: "34121265878"
+  XUEQING_ENV: development
+  XUEQING_SUPABASE_URL: https://czuctoulgnfytcfonkhc.supabase.co
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI
+  XUEQING_ALLOW_DEVELOPMENT_RELEASE: "true"
+  XUEQING_SHOW_DEV_TOOLS: "false"
+  XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+
+jobs:
+  android-release:
+    name: Rebuild and verify signed Android pilot APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      cert_sha: ${{ steps.signer.outputs.cert_sha }}
+      pinned_matches: ${{ steps.signer.outputs.pinned_matches }}
+    steps:
+      - name: Checkout frozen candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_COMMIT }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Configure permanent Android release signing
+        shell: bash
+        env:
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in XUEQING_ANDROID_KEYSTORE_BASE64 XUEQING_ANDROID_KEYSTORE_PASSWORD XUEQING_ANDROID_KEY_ALIAS XUEQING_ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing permanent Android release secret: $name"
+              exit 1
+            fi
+          done
+          printf '%s' "$XUEQING_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
+          {
+            printf 'storeFile=release-keystore.jks\n'
+            printf 'storePassword=%s\n' "$XUEQING_ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$XUEQING_ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$XUEQING_ANDROID_KEY_PASSWORD"
+          } > android/key.properties
+          chmod 600 android/release-keystore.jks android/key.properties
+
+      - name: Build signed Android pilot APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release \
+            --build-name="$RELEASE_VERSION_NAME" \
+            --build-number="$RELEASE_BUILD_NUMBER" \
+            --dart-define="XUEQING_ENV=$XUEQING_ENV" \
+            --dart-define="XUEQING_APP_VERSION=$RELEASE_VERSION" \
+            --dart-define="XUEQING_SUPABASE_URL=$XUEQING_SUPABASE_URL" \
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$XUEQING_ALLOW_DEVELOPMENT_RELEASE" \
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$XUEQING_SHOW_DEV_TOOLS"
+
+      - name: Verify APK uses the certificate in the configured permanent keystore
+        id: signer
+        shell: bash
+        env:
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [[ -z "$sdk_root" ]]; then
+            echo "Android SDK root is unavailable."
+            exit 1
+          fi
+          apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          if [[ -z "$apksigner" || ! -x "$apksigner" ]]; then
+            echo "apksigner was not found."
+            exit 1
+          fi
+
+          keytool_output="$(keytool -J-Duser.language=en -list -v \
+            -keystore android/release-keystore.jks \
+            -alias "$XUEQING_ANDROID_KEY_ALIAS" \
+            -storepass "$XUEQING_ANDROID_KEYSTORE_PASSWORD")"
+          keystore_cert_sha="$(printf '%s\n' "$keytool_output" \
+            | sed -nE 's/^[[:space:]]*SHA256:[[:space:]]*//p' \
+            | head -n 1 \
+            | sed 's/[:[:space:]]//g' \
+            | tr '[:upper:]' '[:lower:]')"
+
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          verify_output="$("$apksigner" verify --verbose --print-certs "$apk")"
+          printf '%s\n' "$verify_output"
+          apk_cert_sha="$(printf '%s\n' "$verify_output" \
+            | sed -nE 's/.*certificate SHA-256 digest:[[:space:]]*//p' \
+            | head -n 1 \
+            | sed 's/[:[:space:]]//g' \
+            | tr '[:upper:]' '[:lower:]')"
+
+          for pair in "keystore:$keystore_cert_sha" "apk:$apk_cert_sha"; do
+            name="${pair%%:*}"
+            value="${pair#*:}"
+            if [[ ! "$value" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "Could not parse a valid SHA-256 certificate fingerprint for $name."
+              exit 1
+            fi
+          done
+          if [[ "$keystore_cert_sha" != "$apk_cert_sha" ]]; then
+            echo "APK signer does not match the certificate stored in the configured release keystore."
+            exit 1
+          fi
+
+          pinned_cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" \
+            | sed 's/[:[:space:]]//g' \
+            | tr '[:upper:]' '[:lower:]')"
+          pinned_matches=false
+          if [[ "$pinned_cert_sha" =~ ^[0-9a-f]{64}$ ]] && [[ "$pinned_cert_sha" == "$apk_cert_sha" ]]; then
+            pinned_matches=true
+          else
+            echo "::warning::The repository XUEQING_ANDROID_CERT_SHA256 value does not match the permanent keystore currently stored in GitHub Secrets. Pilot publication can continue because APK-to-keystore identity is proven, but Stable publication must remain blocked until the public pin is corrected."
+          fi
+
+          echo "Permanent keystore SHA-256: $keystore_cert_sha"
+          echo "Built APK signer SHA-256: $apk_cert_sha"
+          echo "Repository pin matches: $pinned_matches"
+          echo "cert_sha=$apk_cert_sha" >> "$GITHUB_OUTPUT"
+          echo "pinned_matches=$pinned_matches" >> "$GITHUB_OUTPUT"
+
+      - name: Upload verified Android pilot build
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilot-android-complete-${{ github.run_id }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Remove Android signing material
+        if: always()
+        shell: bash
+        run: rm -f android/key.properties android/release-keystore.jks
+
+  package-and-publish:
+    name: Reuse green Windows artifacts and publish Pilot Pre-release
+    needs: android-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ANDROID_CERT_SHA: ${{ needs.android-release.outputs.cert_sha }}
+      PINNED_CERT_MATCHES: ${{ needs.android-release.outputs.pinned_matches }}
+    steps:
+      - name: Download verified Android pilot
+        uses: actions/download-artifact@v4
+        with:
+          name: pilot-android-complete-${{ github.run_id }}
+          path: release-input/android
+
+      - name: Download previously verified Windows pilot artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-input/windows release-input/installer
+          gh run download "$WINDOWS_SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "pilot-windows-bundle-$WINDOWS_SOURCE_RUN" \
+            --dir release-input/windows
+          gh run download "$WINDOWS_SOURCE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "pilot-windows-installer-$WINDOWS_SOURCE_RUN" \
+            --dir release-input/installer
+          test -s release-input/windows/xueqing.exe
+          test -s release-input/windows/xueqing_updater.exe
+          test -s release-input/windows/xueqing_updater_bootstrap.exe
+          test -s "release-input/installer/xueqing-setup-${RELEASE_VERSION_NAME}.exe"
+
+      - name: Package candidate assets and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          android_asset="xueqing-${RELEASE_TAG}-android.apk"
+          windows_asset="xueqing-${RELEASE_TAG}-windows.zip"
+          setup_asset="xueqing-${RELEASE_TAG}-windows-setup.exe"
+          cp release-input/android/app-release.apk "release-assets/$android_asset"
+          (cd release-input/windows && zip -q -r "$GITHUB_WORKSPACE/release-assets/$windows_asset" .)
+          cp "release-input/installer/xueqing-setup-${RELEASE_VERSION_NAME}.exe" "release-assets/$setup_asset"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          info = {
+              "channel": "development-candidate",
+              "version": os.environ["RELEASE_VERSION"],
+              "tag": os.environ["RELEASE_TAG"],
+              "source_commit": os.environ["RELEASE_COMMIT"],
+              "supabase_environment": "development",
+              "android_signing": "apk-certificate-matches-configured-github-keystore",
+              "android_certificate_sha256": os.environ["ANDROID_CERT_SHA"],
+              "repository_pin_matches": os.environ["PINNED_CERT_MATCHES"] == "true",
+              "windows_source_run": os.environ["WINDOWS_SOURCE_RUN"],
+              "stable_latest": False,
+          }
+          Path("release-assets/candidate-info.json").write_text(
+              json.dumps(info, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          (cd release-assets && sha256sum *.apk *.zip *.exe candidate-info.json | sort) > release-assets/SHA256SUMS.txt
+          cat release-assets/candidate-info.json
+          cat release-assets/SHA256SUMS.txt
+
+      - name: Create or verify Pilot Pre-release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
+            RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ["RELEASE_JSON"])
+          if release["isDraft"] or not release["isPrerelease"]:
+              raise SystemExit("Existing pilot tag is not a published Pre-release.")
+          PY
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_COMMIT" \
+              --prerelease \
+              --title "Xueqing v0.2.0 Pilot 1" \
+              --notes $'首个长期保留的实机 Pilot 候选版。\n\n- Android 使用 GitHub Secrets 中的永久 release keystore 签名，并已验证 APK 证书与该 keystore 完全一致。\n- Windows 提供直接安装的 Setup EXE；ZIP 仅供更新链机器使用。\n- 本版本连接虚构开发环境，仅用于内部试点与真实设备验收，不是 Production Stable。\n- Stable 通道与 releases/latest 保持隔离。'
+          fi
+          actual_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          if [[ "$actual_commit" != "$RELEASE_COMMIT" ]]; then
+            echo "Pilot tag does not point to the frozen candidate commit."
+            exit 1
+          fi
+
+      - name: Upload candidate assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Verify final Pilot Pre-release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets,url)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ["RELEASE_JSON"])
+          if release["isDraft"] or not release["isPrerelease"]:
+              raise SystemExit("Pilot Release must remain a published Pre-release.")
+          assets = {item["name"]: item for item in release["assets"]}
+          tag = os.environ["RELEASE_TAG"]
+          expected = {
+              f"xueqing-{tag}-android.apk",
+              f"xueqing-{tag}-windows.zip",
+              f"xueqing-{tag}-windows-setup.exe",
+              "candidate-info.json",
+              "SHA256SUMS.txt",
+          }
+          missing = sorted(expected - set(assets))
+          if missing:
+              raise SystemExit(f"Missing Pilot Release assets: {missing}")
+          empty = sorted(name for name in expected if int(assets[name].get("size", 0)) <= 0)
+          if empty:
+              raise SystemExit(f"Empty Pilot Release assets: {empty}")
+          print(release["url"])
+          PY
