@@ -4,6 +4,7 @@ class _MemberTile extends StatelessWidget {
   const _MemberTile({
     required this.member,
     required this.busy,
+    required this.lifecycleBusy,
     required this.canEditName,
     required this.onToggleStatus,
     this.onEditName,
@@ -12,6 +13,7 @@ class _MemberTile extends StatelessWidget {
 
   final OrganizationMember member;
   final bool busy;
+  final bool lifecycleBusy;
   final bool canEditName;
   final VoidCallback onToggleStatus;
   final VoidCallback? onEditName;
@@ -84,7 +86,7 @@ class _MemberTile extends StatelessWidget {
                 )
               else if (!member.isOnboarding)
                 TextButton.icon(
-                  onPressed: busy ? null : onToggleStatus,
+                  onPressed: lifecycleBusy ? null : onToggleStatus,
                   icon: Icon(
                     member.status == 'disabled'
                         ? Icons.restore_outlined
@@ -137,7 +139,8 @@ class _InvitationTile extends StatelessWidget {
         ),
       );
     }
-    if (invitation.isPending || invitation.isAwaitingOwnerApproval) {
+    if (isOwner &&
+        (invitation.isPending || invitation.isAwaitingOwnerApproval)) {
       actions.add(
         TextButton(onPressed: busy ? null : onRevoke, child: const Text('撤销')),
       );
