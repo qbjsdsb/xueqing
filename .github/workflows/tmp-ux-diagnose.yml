@@ -1,4 +1,4 @@
-name: Temporary UX diagnostics
+name: Temporary UX final verification
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  verify:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -23,52 +23,52 @@ jobs:
           channel: stable
           flutter-version: 3.47.1
           cache: true
-      - name: Apply verified targeted fixes
+      - name: Tighten UI labels and durable widget assertions
         shell: python
         run: |
           from pathlib import Path
-          replacements = {
-            'lib/features/organization_management/presentation/organization_management_layout.dart': [
-              ('AppRadii.large', 'AppRadii.medium'),
-            ],
-            'lib/features/organization_management/presentation/organization_management_dialogs.dart': [
-              ('姓名用于机构内显示；邮箱用于登录。新账号会生成一次性临时密码。',
-               '姓名用于机构内显示，邮箱用于登录。新账号会使用这里的姓名；已有账号接受邀请时会再次确认姓名。'),
-            ],
-            'test/features/organization_management_test.dart': [
-              ("expect(find.text('学生任课关系'), findsOneWidget);", "expect(find.text('任课老师'), findsOneWidget);"),
-              ("expect(find.text('主责：新老师 · new-teacher@example.com'), findsOneWidget);", "expect(find.text('主责老师：新老师 · new-teacher@example.com'), findsOneWidget);"),
-              ("await tester.tap(find.text('配置教学范围'));", "await tester.tap(find.text('配置老师可教学科'));"),
-              ("expect(find.text('停用教学范围？'), findsOneWidget);", "expect(find.text('停用这门可教学科？'), findsOneWidget);"),
-              ("await tester.tap(find.widgetWithText(FilledButton, '停用教学范围'));", "await tester.tap(find.widgetWithText(FilledButton, '确认停用'));"),
-              ("expect(find.text('重新启用教学范围？'), findsOneWidget);", "expect(find.text('重新启用这门可教学科？'), findsOneWidget);"),
-            ],
-          }
-          for file_name, pairs in replacements.items():
-            path = Path(file_name)
-            text = path.read_text(encoding='utf-8')
-            for old, new in pairs:
-              if old not in text:
-                raise SystemExit(f'Missing expected text in {file_name}: {old}')
-              text = text.replace(old, new)
-            path.write_text(text, encoding='utf-8')
+
+          rows = Path('lib/features/organization_management/presentation/organization_management_rows.dart')
+          text = rows.read_text(encoding='utf-8')
+          old = "label: const Text('停用'),"
+          if old not in text:
+            raise SystemExit('Expected teacher-scope stop label not found')
+          rows.write_text(text.replace(old, "label: const Text('停用教学范围'),", 1), encoding='utf-8')
+
+          test = Path('test/features/organization_management_test.dart')
+          text = test.read_text(encoding='utf-8')
+          replacements = [
+            ("    expect(find.text('已更新 更新学生 · 正常教学。'), findsOneWidget);\n", ''),
+            ("    expect(find.text('已添加学科：英语。'), findsOneWidget);\n", ''),
+            ("    await tester.tap(find.text('添加学生'));\n    await tester.tap(find.text('添加学生'));",
+             "    await tester.ensureVisible(find.text('添加学生'));\n    await tester.tap(find.text('添加学生'));\n    await tester.tap(find.text('添加学生'));"),
+            ("    await tester.tap(find.text('添加学科'));\n    await tester.tap(find.text('添加学科'));",
+             "    await tester.ensureVisible(find.text('添加学科'));\n    await tester.tap(find.text('添加学科'));\n    await tester.tap(find.text('添加学科'));"),
+            ("    await tester.tap(find.text('配置老师可教学科'));\n    await tester.tap(find.text('配置老师可教学科'));",
+             "    await tester.ensureVisible(find.text('配置老师可教学科'));\n    await tester.tap(find.text('配置老师可教学科'));\n    await tester.tap(find.text('配置老师可教学科'));"),
+          ]
+          for old, new in replacements:
+            if old not in text:
+              raise SystemExit(f'Expected widget-test text not found: {old}')
+            text = text.replace(old, new, 1)
+          test.write_text(text, encoding='utf-8')
+
+          for temporary in [
+            Path('tmp-flutter-test.txt'),
+            Path('tmp-flutter-test-status.txt'),
+          ]:
+            if temporary.exists():
+              temporary.unlink()
       - run: flutter pub get
       - run: dart format lib/cloud/organization_member_provisioning_repository.dart lib/features/organization_management/presentation test/features/organization_management_test.dart
       - run: flutter analyze
-      - name: Capture Flutter tests
+      - run: flutter test
+      - name: Commit verified Flutter fixes and remove temporary workflow
         shell: bash
         run: |
-          set +e
-          flutter test > tmp-flutter-test.txt 2>&1
-          status=$?
-          echo "$status" > tmp-flutter-test-status.txt
-          cat tmp-flutter-test.txt
-          exit 0
-      - name: Commit patched files and diagnostics
-        shell: bash
-        run: |
+          rm -f .github/workflows/tmp-ux-diagnose.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "ci: capture simplified UX test diagnostics"
+          git commit -m "fix: verify simplified organization management UX"
           git push origin HEAD:ux/simplify-management-and-member-names
