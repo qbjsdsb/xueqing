@@ -6,9 +6,8 @@ void main() {
   late String source;
 
   setUpAll(() {
-    source = File(
-      'supabase/functions/organization-member-credentials/index.ts',
-    ).readAsStringSync();
+    source = File('supabase/functions/organization-member-credentials/index.ts')
+        .readAsStringSync();
   });
 
   test('keeps hosted runtime failures public and actionable', () {
