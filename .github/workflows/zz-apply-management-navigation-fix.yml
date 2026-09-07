@@ -1,6 +1,9 @@
 name: Apply isolated management navigation fix
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - fix/management-only-navigation
@@ -10,7 +13,9 @@ permissions:
 
 jobs:
   apply-fix:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      (github.event_name == 'push' || github.head_ref == 'fix/management-only-navigation')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
