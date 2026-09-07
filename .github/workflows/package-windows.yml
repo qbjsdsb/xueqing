@@ -11,6 +11,10 @@ on:
         description: "Optional Supabase publishable key"
         required: false
         type: string
+      app_version:
+        description: "Optional app version including build number; defaults to pubspec.yaml"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -42,11 +46,33 @@ jobs:
       - name: Get packages
         run: flutter pub get
 
+      - name: Resolve app version
+        shell: pwsh
+        run: |
+          $appVersion = "${{ github.event.inputs.app_version }}".Trim()
+          if ([string]::IsNullOrWhiteSpace($appVersion)) {
+            $versionLine = Get-Content pubspec.yaml |
+              Where-Object { $_ -match '^version:\s*\S+\s*$' } |
+              Select-Object -First 1
+            if ($null -eq $versionLine) {
+              throw "pubspec.yaml does not contain a version field."
+            }
+            $appVersion = ($versionLine -replace '^version:\s*', '').Trim()
+          }
+          if ($appVersion -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\+[1-9]\d*$') {
+            throw "App version must match major.minor.patch[-prerelease]+positive_build."
+          }
+          $versionName = $appVersion.Split('+')[0]
+          "XUEQING_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "XUEQING_VERSION_NAME=$versionName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Packaging Xueqing $appVersion"
+
       - name: Build Windows release bundle
         shell: pwsh
         run: |
           flutter build windows --release `
             --dart-define="XUEQING_ENV=$env:XUEQING_ENV" `
+            --dart-define="XUEQING_APP_VERSION=$env:XUEQING_APP_VERSION" `
             --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
             --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `
             --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=true"
@@ -119,16 +145,45 @@ jobs:
             }
           }
 
+      - name: Build Windows updater helpers
+        shell: pwsh
+        working-directory: tools/windows_updater
+        run: |
+          dart pub get
+          dart analyze
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater analysis failed with exit code $LASTEXITCODE."
+          }
+          dart test
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater tests failed with exit code $LASTEXITCODE."
+          }
+          $releaseDir = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release"
+          $updaterPath = Join-Path $releaseDir "xueqing_updater.exe"
+          $bootstrapPath = Join-Path $releaseDir "xueqing_updater_bootstrap.exe"
+          dart compile exe bin/xueqing_updater.dart -o $updaterPath
+          dart compile exe bin/xueqing_updater.dart -o $bootstrapPath
+          foreach ($helperPath in @($updaterPath, $bootstrapPath)) {
+            if (-not (Test-Path $helperPath)) {
+              throw "Windows updater helper was not produced: $helperPath"
+            }
+            if ((Get-Item $helperPath).Length -le 0) {
+              throw "Windows updater helper is empty: $helperPath"
+            }
+          }
+
       - name: Verify Windows bundle
         shell: pwsh
         run: |
           $releaseDir = Join-Path $pwd "build/windows/x64/runner/Release"
-          $exePath = Join-Path $releaseDir "xueqing.exe"
-          if (-not (Test-Path $exePath)) {
-            throw "The Windows executable was not found."
-          }
-          if ((Get-Item $exePath).Length -le 0) {
-            throw "The Windows executable is empty."
+          foreach ($requiredFile in @("xueqing.exe", "xueqing_updater.exe", "xueqing_updater_bootstrap.exe")) {
+            $requiredPath = Join-Path $releaseDir $requiredFile
+            if (-not (Test-Path $requiredPath)) {
+              throw "Required Windows release file was not found: $requiredPath"
+            }
+            if ((Get-Item $requiredPath).Length -le 0) {
+              throw "Required Windows release file is empty: $requiredPath"
+            }
           }
 
       - name: Upload Windows bundle
@@ -143,12 +198,12 @@ jobs:
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE/tools/windows_installer/build_installer.ps1" `
-            -AppVersion "0.1.0"
+            -AppVersion "$env:XUEQING_VERSION_NAME"
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: xueqing-windows-installer-${{ github.sha }}
-          path: build/windows/installer/xueqing-setup-0.1.0.exe
+          path: build/windows/installer/xueqing-setup-*.exe
           if-no-files-found: error
           retention-days: 7
