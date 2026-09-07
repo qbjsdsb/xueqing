@@ -527,6 +527,75 @@ void main() {
     expect(find.text('尚未记录教学动作。'), findsOneWidget);
   });
 
+  testWidgets('bounds lower-priority Today sections until explicitly expanded', (
+    tester,
+  ) async {
+    final cases = <WorkspaceCase>[
+      for (var index = 1; index <= 4; index++)
+        _caseFixture(
+          id: 'pending-$index',
+          title: '待验证问题 $index',
+          status: LearningCaseStatus.pendingVerification,
+          actionBucket: WorkspaceActionBucket.today,
+          actionDueAt: DateTime(2026, 9, 5),
+        ),
+      for (var index = 1; index <= 4; index++)
+        _caseFixture(
+          id: 'future-$index',
+          title: '未来问题 $index',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.future,
+          actionDueAt: DateTime(2026, 9, 5 + index),
+        ),
+      for (var index = 1; index <= 4; index++)
+        _caseFixture(
+          id: 'undated-$index',
+          title: '待安排问题 $index',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.undated,
+          actionDueAt: null,
+        ),
+    ];
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents([
+        _studentFixture(id: 'preview', name: '预览学生', cases: cases),
+      ]),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    expect(find.text('4 个问题'), findsOneWidget);
+    expect(find.text('之后要处理'), findsOneWidget);
+    expect(find.text('待验证问题 4'), findsNothing);
+    expect(find.text('未来问题 4 的下一步'), findsNothing);
+    expect(find.text('待安排问题 4 的下一步'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('workspace-pending-verification-toggle')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('待验证问题 4'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('workspace-future-actions-toggle')),
+    );
+    await tester.tap(find.byKey(const Key('workspace-future-actions-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.text('未来问题 4 的下一步'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('workspace-undated-actions-toggle')),
+    );
+    await tester.tap(find.byKey(const Key('workspace-undated-actions-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.text('待安排问题 4 的下一步'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('workspace-undated-actions-toggle')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('待安排问题 4 的下一步'), findsNothing);
+  });
+
   testWidgets('reschedules an action from Today', (tester) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace());
     await _pumpWorkspace(tester, repository);
