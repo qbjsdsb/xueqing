@@ -142,10 +142,7 @@ class UpdateService {
     await updatesDirectory.create(recursive: true);
 
     final fileName = _safeFileName(artifact);
-    await pruneStaleUpdateDownloads(
-      updatesDirectory,
-      keepFileName: fileName,
-    );
+    await pruneStaleUpdateDownloads(updatesDirectory, keepFileName: fileName);
     final destination = File(
       '${updatesDirectory.path}${Platform.pathSeparator}$fileName',
     );
