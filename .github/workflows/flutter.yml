@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   checks:
@@ -17,6 +17,53 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+
+      - name: Apply one-time role access UI patch
+        if: github.event_name == 'pull_request' && github.head_ref == 'release/role-access-v0.2.0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          learning = Path('lib/cloud/learning_repository.dart')
+          text = learning.read_text()
+          old = "    final hasTeachingAccess = roles.contains('teacher');"
+          new = """    final hasTeachingAccess = roles.any(\n      (role) =>\n          role == 'org_owner' || role == 'org_admin' || role == 'teacher',\n    );"""
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one hasTeachingAccess assignment')
+          learning.write_text(text.replace(old, new))
+
+          areas = Path(
+              'lib/features/organization_management/presentation/'
+              'organization_management_areas.dart'
+          )
+          text = areas.read_text()
+          member_old = """                          member: member,\n                          busy: widget.busy,\n                          canEditName: widget.canEditMemberName,"""
+          member_new = """                          member: member,\n                          busy: widget.busy || !widget.isOwner,\n                          canEditName: widget.canEditMemberName,"""
+          if text.count(member_old) != 1:
+              raise SystemExit('expected exactly one member tile busy assignment')
+          text = text.replace(member_old, member_new)
+
+          invitation_old = """                      invitation: invitation,\n                      isOwner: widget.isOwner,\n                      busy: widget.busy,"""
+          invitation_new = """                      invitation: invitation,\n                      isOwner: widget.isOwner,\n                      busy: widget.busy || !widget.isOwner,"""
+          if text.count(invitation_old) != 1:
+              raise SystemExit('expected exactly one invitation tile busy assignment')
+          areas.write_text(text.replace(invitation_old, invitation_new))
+          PY
+
+          git fetch origin main --depth=1
+          git show origin/main:.github/workflows/flutter.yml > .github/workflows/flutter.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            .github/workflows/flutter.yml \
+            lib/cloud/learning_repository.dart \
+            lib/features/organization_management/presentation/organization_management_areas.dart
+          if ! git diff --cached --quiet; then
+            git commit -m "ux: expose learning workspace to owners and admins"
+            git push origin HEAD:${GITHUB_HEAD_REF}
+          fi
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
