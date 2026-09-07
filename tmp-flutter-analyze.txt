@@ -11,4 +11,4 @@ Analyzing xueqing...
 
   error • The getter 'large' isn't defined for the type 'AppRadii'. Try importing the library that defines 'large', correcting the name to the name of an existing getter, or defining a getter or field named 'large' • lib/features/organization_management/presentation/organization_management_layout.dart:159:54 • undefined_getter
 
-1 issue found. (ran in 6.6s)
+1 issue found. (ran in 8.8s)
