@@ -75,34 +75,39 @@ replace_in_section(
     closed_open,
     closed_open_with_history,
 )
-replace_in_section(
-    'restores an unfinished reopen after the page is recreated',
-    closed_open,
-    closed_open_with_history,
-)
 
-restored_open = '''    await tester.pumpAndSettle();
+direct_open = '''    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
 '''
-restored_open_with_history = '''    await tester.pumpAndSettle();
-    final restoredAllCasesButton = find.widgetWithText(
-      TextButton,
-      '查看全部 1 个',
-    );
-    await tester.ensureVisible(restoredAllCasesButton);
-    await tester.tap(restoredAllCasesButton);
+first_restore_open_with_history = '''    await tester.pumpAndSettle();
+    final firstAllCasesButton = find.widgetWithText(TextButton, '查看全部 1 个');
+    await tester.ensureVisible(firstAllCasesButton);
+    await tester.tap(firstAllCasesButton);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
 '''
 replace_in_section(
     'restores an unfinished reopen after the page is recreated',
-    restored_open,
-    restored_open_with_history,
+    direct_open,
+    first_restore_open_with_history,
+    count=2,
 )
 
-unlock_open = '''    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
-'''
+# The replacement above intentionally updates both page instances with the same
+# safe path. Rename the second local variable so the Dart test keeps one scope.
+start, end, restore_section = section_for(
+    'restores an unfinished reopen after the page is recreated'
+)
+needle = "    final firstAllCasesButton = find.widgetWithText(TextButton, '查看全部 1 个');\n"
+if restore_section.count(needle) != 2:
+    raise SystemExit('restore Student history toggle count drifted')
+first_index = restore_section.find(needle)
+second_index = restore_section.find(needle, first_index + len(needle))
+second_tail = restore_section[second_index:]
+second_tail = second_tail.replace('firstAllCasesButton', 'restoredAllCasesButton', 3)
+restore_section = restore_section[:second_index] + second_tail
+tests = tests[:start] + restore_section + tests[end:]
+
 unlock_open_with_history = '''    await tester.pumpAndSettle();
     final allCasesButton = find.widgetWithText(TextButton, '查看全部 1 个');
     await tester.ensureVisible(allCasesButton);
@@ -112,7 +117,7 @@ unlock_open_with_history = '''    await tester.pumpAndSettle();
 '''
 replace_in_section(
     'unlocks a reopen form after a deterministic Evidence failure',
-    unlock_open,
+    direct_open,
     unlock_open_with_history,
 )
 
