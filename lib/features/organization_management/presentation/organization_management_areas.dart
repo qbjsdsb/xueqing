@@ -159,7 +159,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                       for (final member in widget.snapshot.members)
                         _MemberTile(
                           member: member,
-                          busy: widget.busy,
+                          busy: widget.busy || !widget.isOwner,
                           canEditName: widget.canEditMemberName,
                           onEditName: widget.onEditMemberName == null
                               ? null
@@ -185,7 +185,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                     _InvitationTile(
                       invitation: invitation,
                       isOwner: widget.isOwner,
-                      busy: widget.busy,
+                      busy: widget.busy || !widget.isOwner,
                       onApprove: () => widget.onApprove(invitation),
                       onRevoke: () => widget.onRevoke(invitation),
                       onProvision:
