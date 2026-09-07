@@ -290,6 +290,11 @@ where id = (
   from attachment_behavior_test_state
 );
 
+-- This section specifically verifies the pure-teacher boundary.
+delete from public.membership_roles
+where membership_id = '61000000-0000-0000-0000-000000000001'
+  and role in ('org_owner', 'org_admin');
+
 update public.student_teacher_assignments
 set status = 'ended',
     active_to = date '2026-09-07',

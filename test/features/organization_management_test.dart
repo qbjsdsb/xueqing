@@ -587,7 +587,7 @@ void main() {
   });
 
   testWidgets(
-    'owner can approve a nomination and admin gets constrained roles',
+    'owner can approve a nomination and admin cannot invite members',
     (tester) async {
       final repository = _FakeOrganizationManagementRepository(
         members: const [],
@@ -611,23 +611,12 @@ void main() {
         roles: const ['org_admin'],
       );
       await _selectManagementArea(tester, '成员');
-      await tester.tap(find.widgetWithText(FilledButton, '邀请成员'));
-      await tester.pumpAndSettle();
 
-      expect(find.text('负责人'), findsAtLeastNWidgets(1));
-      await tester.tap(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is DropdownButtonFormField<OrganizationInvitationRole>,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('老师'), findsOneWidget);
-      expect(find.text('管理员'), findsNothing);
+      expect(find.widgetWithText(FilledButton, '邀请成员'), findsNothing);
     },
   );
 
-  testWidgets('admin can disable and restore a member safely', (tester) async {
+  testWidgets('admin can view members but cannot disable them', (tester) async {
     final repository = _FakeOrganizationManagementRepository(
       members: [
         _member(name: '示例老师', email: 'teacher@example.com', roles: ['teacher']),
@@ -637,27 +626,11 @@ void main() {
     await _pumpManagement(tester, repository, roles: const ['org_admin']);
     await _selectManagementArea(tester, '成员');
 
-    final disableButton = find.text('停用成员');
-    await tester.ensureVisible(disableButton);
-    await tester.tap(disableButton);
-    await tester.pumpAndSettle();
-    expect(find.text('停用成员？'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '停用成员'));
-    await tester.pumpAndSettle();
-
-    expect(repository.memberStatusUpdateCount, 1);
-    expect(repository.updatedMember?.status, 'disabled');
-    expect(find.text('恢复成员'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('恢复成员'));
-    await tester.tap(find.text('恢复成员'));
-    await tester.pumpAndSettle();
-    expect(find.text('恢复成员？'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '恢复成员'));
-    await tester.pumpAndSettle();
-
-    expect(repository.memberStatusUpdateCount, 2);
-    expect(repository.updatedMember?.status, 'active');
+    expect(find.text('示例老师'), findsOneWidget);
+    final disableFinder = find.widgetWithText(TextButton, '停用成员');
+    expect(disableFinder, findsOneWidget);
+    expect(tester.widget<TextButton>(disableFinder).onPressed, isNull);
+    expect(repository.memberStatusUpdateCount, 0);
   });
 
   testWidgets('admin can add a student with atomic setup fields', (
