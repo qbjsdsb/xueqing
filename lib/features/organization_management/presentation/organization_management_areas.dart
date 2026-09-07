@@ -6,6 +6,7 @@ class _ManagementOverview extends StatefulWidget {
   const _ManagementOverview({
     required this.snapshot,
     required this.isOwner,
+    required this.canManageTeacherAccounts,
     required this.busy,
     required this.canInvite,
     required this.canEditMemberName,
@@ -28,6 +29,7 @@ class _ManagementOverview extends StatefulWidget {
 
   final _OrganizationManagementSnapshot snapshot;
   final bool isOwner;
+  final bool canManageTeacherAccounts;
   final bool busy;
   final bool canInvite;
   final bool canEditMemberName;
@@ -79,6 +81,36 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
       return _ManagementArea.people;
     }
     return _ManagementArea.students;
+  }
+
+  bool _isProtectedManager(OrganizationMember member) {
+    return member.roles.any(
+      (role) => role == 'org_owner' || role == 'org_admin',
+    );
+  }
+
+  bool _canManageMemberLifecycle(OrganizationMember member) {
+    if (widget.isOwner) return true;
+    return widget.canManageTeacherAccounts &&
+        member.roles.contains('teacher') &&
+        !_isProtectedManager(member);
+  }
+
+  bool _canProvisionInvitation(OrganizationInvitation invitation) {
+    if (!invitation.isPending || widget.onProvisionInvitation == null) {
+      return false;
+    }
+    return widget.isOwner ||
+        (widget.canManageTeacherAccounts &&
+            invitation.role == OrganizationInvitationRole.teacher);
+  }
+
+  bool _canRevokeInvitation(OrganizationInvitation invitation) {
+    if (widget.isOwner) return true;
+    if (!widget.canManageTeacherAccounts) return false;
+    return invitation.role == OrganizationInvitationRole.teacher ||
+        (invitation.role == OrganizationInvitationRole.owner &&
+            invitation.isAwaitingOwnerApproval);
   }
 
   @override
@@ -160,7 +192,8 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                         _MemberTile(
                           member: member,
                           busy: widget.busy,
-                          lifecycleBusy: widget.busy || !widget.isOwner,
+                          lifecycleBusy:
+                              widget.busy || !_canManageMemberLifecycle(member),
                           canEditName: widget.canEditMemberName,
                           onEditName: widget.onEditMemberName == null
                               ? null
@@ -168,9 +201,10 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                           onToggleStatus: () =>
                               widget.onToggleMemberStatus(member),
                           onReissueCredential:
-                              widget.onReissueMemberCredential == null
-                              ? null
-                              : () => widget.onReissueMemberCredential!(member),
+                              widget.onReissueMemberCredential != null &&
+                                  _canManageMemberLifecycle(member)
+                              ? () => widget.onReissueMemberCredential!(member)
+                              : null,
                         ),
                     ],
                   ),
@@ -186,12 +220,11 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                     _InvitationTile(
                       invitation: invitation,
                       isOwner: widget.isOwner,
+                      canRevoke: _canRevokeInvitation(invitation),
                       busy: widget.busy,
                       onApprove: () => widget.onApprove(invitation),
                       onRevoke: () => widget.onRevoke(invitation),
-                      onProvision:
-                          invitation.isPending &&
-                              widget.onProvisionInvitation != null
+                      onProvision: _canProvisionInvitation(invitation)
                           ? () => widget.onProvisionInvitation!(invitation)
                           : null,
                     ),
