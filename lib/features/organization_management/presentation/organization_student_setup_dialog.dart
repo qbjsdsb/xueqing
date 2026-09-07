@@ -66,6 +66,7 @@ class _OrganizationStudentSetupDialogState
   late OrganizationSetupTeacher _selectedTeacher;
   final String _operationId = createOperationId();
   bool _busy = false;
+  bool _showOptionalDetails = false;
   String? _errorMessage;
 
   @override
@@ -162,7 +163,7 @@ class _OrganizationStudentSetupDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '保存后会一次性创建学生档案、学科画像和主负责关系。请先确认负责老师已把该学科配置为可教学科。',
+                  '先填写学生姓名、服务学科和负责老师；保存后会一次完成建档和首个负责关系。其他资料需要时再展开填写。',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -186,64 +187,7 @@ class _OrganizationStudentSetupDialogState
                     return null;
                   },
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _studentCodeController,
-                        maxLength: 80,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: '学生编号',
-                          hintText: '可选',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _gradeController,
-                        maxLength: 120,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: '年级',
-                          hintText: '可选',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _classNameController,
-                        maxLength: 120,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: '班级',
-                          hintText: '可选',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _campusController,
-                        maxLength: 120,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: '校区',
-                          hintText: '可选',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: AppSpacing.sm),
                 DropdownButtonFormField<OrganizationSetupSubject>(
                   initialValue: _selectedSubject,
                   isExpanded: true,
@@ -297,40 +241,112 @@ class _OrganizationStudentSetupDialogState
                           }
                         },
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Text('学情定位（可选）', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: AppSpacing.xs),
-                TextFormField(
-                  controller: _positioningController,
-                  maxLength: 2000,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    hintText: '例如：函数基础需要持续巩固',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
                 const SizedBox(height: AppSpacing.sm),
-                TextFormField(
-                  controller: _strengthsController,
-                  maxLength: 2000,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: '已有优势',
-                    hintText: '例如：愿意复盘错题',
-                    border: OutlineInputBorder(),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    key: const Key('student-setup-optional-toggle'),
+                    onPressed: _busy
+                        ? null
+                        : () => setState(
+                            () => _showOptionalDetails = !_showOptionalDetails,
+                          ),
+                    icon: Icon(
+                      _showOptionalDetails
+                          ? Icons.expand_less
+                          : Icons.add_circle_outline,
+                      size: 18,
+                    ),
+                    label: Text(_showOptionalDetails ? '收起补充信息' : '补充信息（可选）'),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                TextFormField(
-                  controller: _cadenceNoteController,
-                  maxLength: 160,
-                  maxLines: 1,
-                  decoration: const InputDecoration(
-                    labelText: '跟进节奏',
-                    hintText: '例如：每周一次',
-                    border: OutlineInputBorder(),
+                if (_showOptionalDetails) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '这些信息不是建档必填项；如果现在已知，可以一起保存。',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
-                ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextFormField(
+                    key: const Key('student-setup-code-field'),
+                    controller: _studentCodeController,
+                    maxLength: 80,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: '学生编号',
+                      hintText: '可选',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  TextFormField(
+                    controller: _gradeController,
+                    maxLength: 120,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: '年级',
+                      hintText: '可选',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  TextFormField(
+                    controller: _classNameController,
+                    maxLength: 120,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: '班级',
+                      hintText: '可选',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  TextFormField(
+                    controller: _campusController,
+                    maxLength: 120,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: '校区',
+                      hintText: '可选',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    '学情背景（可选）',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  TextFormField(
+                    controller: _positioningController,
+                    maxLength: 2000,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: '当前定位',
+                      hintText: '例如：函数基础需要持续巩固',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextFormField(
+                    controller: _strengthsController,
+                    maxLength: 2000,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: '已有优势',
+                      hintText: '例如：愿意复盘错题',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextFormField(
+                    controller: _cadenceNoteController,
+                    maxLength: 160,
+                    maxLines: 1,
+                    decoration: const InputDecoration(
+                      labelText: '跟进节奏',
+                      hintText: '例如：每周一次',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
                 if (_errorMessage != null) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Container(
@@ -357,6 +373,7 @@ class _OrganizationStudentSetupDialogState
           child: const Text('取消'),
         ),
         FilledButton(
+          key: const Key('student-setup-submit'),
           onPressed: _busy ? null : _submit,
           child: _busy
               ? const SizedBox(
@@ -364,7 +381,7 @@ class _OrganizationStudentSetupDialogState
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('保存并配置'),
+              : const Text('添加学生'),
         ),
       ],
     );

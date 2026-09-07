@@ -646,13 +646,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('学生姓名 *'), findsOneWidget);
+    expect(find.text('服务学科 *'), findsOneWidget);
+    expect(find.text('负责老师 *'), findsOneWidget);
+    expect(find.text('学生编号'), findsNothing);
+    expect(find.text('年级'), findsNothing);
+    expect(find.text('学情背景（可选）'), findsNothing);
     await tester.enterText(find.byType(TextFormField).first, '新学生');
-    await tester.tap(find.text('保存并配置'));
+    await tester.tap(find.byKey(const Key('student-setup-submit')));
     await tester.pumpAndSettle();
 
     expect(repository.studentCreateCount, 1);
     expect(repository.createdStudent?.studentName, '新学生');
     expect(find.text('学生姓名 *'), findsNothing);
+  });
+
+  testWidgets('keeps optional student details behind one disclosure', (
+    tester,
+  ) async {
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+    );
+    await _pumpManagement(tester, repository);
+
+    await tester.tap(find.widgetWithText(FilledButton, '添加学生'));
+    await tester.pumpAndSettle();
+
+    final toggle = find.byKey(const Key('student-setup-optional-toggle'));
+    expect(toggle, findsOneWidget);
+    expect(find.text('学生编号'), findsNothing);
+    expect(find.text('年级'), findsNothing);
+    expect(find.text('班级'), findsNothing);
+    expect(find.text('校区'), findsNothing);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+
+    expect(find.text('学生编号'), findsOneWidget);
+    expect(find.text('年级'), findsOneWidget);
+    expect(find.text('班级'), findsOneWidget);
+    expect(find.text('校区'), findsOneWidget);
+    expect(find.text('学情背景（可选）'), findsOneWidget);
+    final codeField = find.byKey(const Key('student-setup-code-field'));
+    await tester.enterText(codeField, 'S-001');
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(codeField, findsNothing);
+    expect(find.text('补充信息（可选）'), findsOneWidget);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextFormField>(codeField).controller?.text, 'S-001');
   });
 
   testWidgets('rapid taps open only one add flow at a time', (tester) async {
