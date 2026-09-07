@@ -27,11 +27,13 @@ Xueqing 把“开发候选”和“稳定更新”视为两条不同轨道，禁
 ### Production / Stable
 
 - Actions → **Publish stable signed release assets and update manifest** 只允许 Production。
-- 目标 GitHub Release 必须已经发布、非 Draft、非 Pre-release。
+- Stable 发布采用“两阶段提升”：目标版本先以**已发布 Pre-release** 暂存；全部构建、签名、上传和资产复核成功后，工作流最后才将它提升为 Stable。
+- 暂存阶段不会进入 GitHub `releases/latest`，所以构建失败或上传中断时，已安装客户端继续看到上一版 Stable，不会撞上缺少 manifest 的半成品 Release。
 - `app_version` 必须是正式 `major.minor.patch+build`，不接受 `-rc`、`-beta` 等预发布标识。
 - 必须配置 Production Supabase URL、publishable key 和精确 allowed hosts。
 - 必须使用永久 Android release keystore，并固定其证书 SHA-256 指纹。
 - Stable publisher 不提供 development 开关，也不会使用虚构开发 endpoint 的默认值。
+- Stable publisher 使用全局串行锁，同一时间只允许一个稳定版本进入发布流程，避免两个版本同时竞争 `latest`。
 
 ## 一次性配置 Android 签名
 
@@ -84,16 +86,18 @@ Windows PowerShell 可这样生成单行内容：
 ## Production Stable 一次发布流程
 
 1. 确认要发布的提交已经在 `main` 历史中，并完成对应 CI、真机与 Go / No-Go 验收。
-2. 在仓库创建一个已发布、非 Draft、非 Pre-release 的 GitHub Release。标签必须与版本一致，例如版本 `0.2.0+2` 使用标签 `v0.2.0`。
+2. 在仓库为正式标签创建一个**已发布、非 Draft、Pre-release** 的暂存 Release。标签必须与正式版本一致，例如版本 `0.2.0+2` 使用标签 `v0.2.0`。这一步只是暂存，不会进入 `releases/latest`。
 3. 打开 Actions → **Publish stable signed release assets and update manifest**。
 4. 输入：
-   - `release_tag`：已有 Stable Release 标签；
+   - `release_tag`：已有暂存 Pre-release 标签；
    - `app_version`：三段正式版本号加正整数 build，例如 `0.2.0+2`；
    - `release_notes`：每行一条更新说明。
-5. validate job 会先检查：正式版本格式、标签关系、Production Supabase 三项配置、固定 Android 证书指纹、目标 Release 非 Draft / 非 Pre-release、tag commit 可从 `main` 到达。任一不满足立即失败，不启动后续昂贵构建。
-6. Android job 使用永久 release keystore 构建 APK，并用 `apksigner` 验证 APK 签名和证书 SHA-256 指纹；Windows job构建完整 ZIP、updater、VC++ runtime 与 Setup EXE。
-7. 最后重新计算资产大小和 SHA-256，生成 `channel: stable` 的 `update-manifest.json` 与 `SHA256SUMS.txt`；资产重名、签名不符、哈希不符或文件缺失都会停止，不覆盖旧资产。
-8. 成功后：新设备首次安装 Windows 使用 `*-windows-setup.exe`；已安装版本从应用内更新入口下载 ZIP 并由 updater 替换；Android 下载并校验 APK 后交给系统安装器。
+5. validate job 会先检查：正式版本格式、标签关系、Production Supabase 三项配置、固定 Android 证书指纹、目标 Release 仍处于“已发布 Pre-release 暂存”状态、tag commit 可从 `main` 到达。任一不满足立即失败，不启动后续昂贵构建。
+6. Android job 使用永久 release keystore 构建 APK，并用 `apksigner` 验证 APK 签名和证书 SHA-256 指纹；Windows job 构建完整 ZIP、updater、VC++ runtime 与 Setup EXE。
+7. 工作流重新计算资产大小和 SHA-256，生成 `channel: stable` 的 `update-manifest.json` 与 `SHA256SUMS.txt`，上传到仍是 Pre-release 的暂存 Release。
+8. 上传后再次从 GitHub Release API 检查五个必要资产均存在且非空：Android APK、Windows ZIP、Windows Setup EXE、`update-manifest.json`、`SHA256SUMS.txt`。资产重名、签名不符、哈希不符、文件缺失或上传中断都会停止；Release 继续保持 Pre-release，旧 Stable 不受影响。
+9. **只有全部复核成功后**，工作流才把该暂存 Release 从 Pre-release 提升为 Stable，并标记为 latest；随后再次确认最终状态不是 Draft / Pre-release。
+10. 成功后：新设备首次安装 Windows 使用 `*-windows-setup.exe`；已安装版本从应用内更新入口下载 ZIP 并由 updater 替换；Android 下载并校验 APK 后交给系统安装器。
 
 ## 候选包与真机验收
 
@@ -102,6 +106,7 @@ Windows PowerShell 可这样生成单行内容：
 - 未显式指定候选版本时，Windows 打包与平台 smoke 从 `pubspec.yaml` 读取版本，避免安装器文件名、运行时版本和应用版本漂移。
 - Android 功能候选可以使用 debug APK；但 debug APK **只用于功能验收**，不能证明正式覆盖升级链路。
 - 需要长期保留的候选 Release 应标记 Pre-release；不要为了测试更新把 development 构建发布成 Stable latest。
+- 正式 Stable 的“暂存 Pre-release”与 Development Candidate 虽然都使用 GitHub Pre-release 标志，但前者必须使用正式 `X.Y.Z+build`、Production 配置、永久签名和 stable publisher；两者不能交叉复用。
 
 ## 首次安装与验证建议
 
