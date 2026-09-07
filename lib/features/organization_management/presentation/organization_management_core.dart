@@ -6,12 +6,19 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
   String? _errorMessage;
 
   bool get _isOwner => widget.roles.contains('org_owner');
+  bool get _isAdmin => widget.roles.contains('org_admin');
 
   List<OrganizationInvitationRole> get _inviteRoles {
     if (_isOwner) {
       return const <OrganizationInvitationRole>[
         OrganizationInvitationRole.owner,
         OrganizationInvitationRole.admin,
+        OrganizationInvitationRole.teacher,
+      ];
+    }
+    if (_isAdmin) {
+      return const <OrganizationInvitationRole>[
+        OrganizationInvitationRole.owner,
         OrganizationInvitationRole.teacher,
       ];
     }
