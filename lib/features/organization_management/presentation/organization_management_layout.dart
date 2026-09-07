@@ -4,108 +4,66 @@ class _ManagementHeader extends StatelessWidget {
   const _ManagementHeader({
     required this.organizationName,
     required this.roleLabel,
-    required this.busy,
-    required this.canInvite,
-    required this.onAddStudent,
-    required this.onInviteMember,
   });
 
   final String organizationName;
   final String roleLabel;
-  final bool busy;
-  final bool canInvite;
-  final VoidCallback onAddStudent;
-  final VoidCallback onInviteMember;
 
   @override
   Widget build(BuildContext context) {
-    final title = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('机构管理', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          '$organizationName · $roleLabel',
-          style: Theme.of(context).textTheme.bodyMedium
-              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-      ],
-    );
-    final actions = Wrap(
-      spacing: AppSpacing.xs,
-      runSpacing: AppSpacing.xs,
-      children: [
-        FilledButton.icon(
-          onPressed: busy ? null : onAddStudent,
-          icon: const Icon(Icons.person_add_alt_1_outlined),
-          label: const Text('添加学生'),
-        ),
-        FilledButton.tonalIcon(
-          onPressed: busy || !canInvite ? null : onInviteMember,
-          icon: const Icon(Icons.group_add_outlined),
-          label: const Text('邀请成员'),
-        ),
-      ],
-    );
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 720) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: AppSpacing.md),
-                actions,
-              ],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: title),
-              const SizedBox(width: AppSpacing.lg),
-              Flexible(child: actions),
-            ],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('机构管理', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '$organizationName · $roleLabel',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ManagementBoundaryBanner extends StatelessWidget {
-  const _ManagementBoundaryBanner();
+class _ManagementAreaSwitcher extends StatelessWidget {
+  const _ManagementAreaSwitcher({
+    required this.selectedArea,
+    required this.onChanged,
+  });
+
+  final _ManagementArea selectedArea;
+  final ValueChanged<_ManagementArea> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadii.small),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.admin_panel_settings_outlined,
-            size: 18,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              '管理身份只负责机构配置；老师实际能看到哪些学生，仍由可教学科和任课关系决定。',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
-      ),
+    return SegmentedButton<_ManagementArea>(
+      segments: const <ButtonSegment<_ManagementArea>>[
+        ButtonSegment<_ManagementArea>(
+          value: _ManagementArea.people,
+          icon: Icon(Icons.people_outline),
+          label: Text('成员', key: Key('management-area-people')),
+        ),
+        ButtonSegment<_ManagementArea>(
+          value: _ManagementArea.students,
+          icon: Icon(Icons.school_outlined),
+          label: Text('学生', key: Key('management-area-students')),
+        ),
+        ButtonSegment<_ManagementArea>(
+          value: _ManagementArea.settings,
+          icon: Icon(Icons.tune_outlined),
+          label: Text('设置', key: Key('management-area-settings')),
+        ),
+      ],
+      selected: <_ManagementArea>{selectedArea},
+      showSelectedIcon: false,
+      onSelectionChanged: (selection) {
+        if (selection.isNotEmpty) onChanged(selection.first);
+      },
     );
   }
 }
@@ -126,41 +84,43 @@ class _ManagementAreaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(AppRadii.medium),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: colorScheme.primary),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      description,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: colorScheme.onSurfaceVariant),
-                    ),
-                  ],
+    return Material(
+      color: colorScheme.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(AppRadii.medium),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: colorScheme.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        description,
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          child,
-        ],
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -229,10 +189,10 @@ class _ManagementSetupHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final ready = options.canCreateStudent;
     final message = ready
-        ? '学生建档条件已就绪：机构已有可用学科，并且至少一位老师具备对应可教学科。'
+        ? '建档条件已就绪：已有机构学科，也有老师具备对应可教学科。'
         : options.subjects.isEmpty && subjectCatalog.isNotEmpty
-        ? '还缺机构学科。点击“添加学科”即可选择。'
-        : '还缺可用老师教学配置。先确认老师已加入，再配置其可教学科。';
+        ? '先添加本机构实际教授的学科，再配置老师可教学科。'
+        : '还缺老师的可教学科配置。先确认老师已加入，再配置其负责学科。';
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
