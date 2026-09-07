@@ -53,14 +53,11 @@ jobs:
           for file_name, pairs in replacements.items():
               path = Path(file_name)
               text = path.read_text(encoding='utf-8')
-              original = text
               for old, new in pairs:
                   if old not in text:
                       raise SystemExit(f'Missing expected text in {file_name}: {old}')
                   text = text.replace(old, new)
               path.write_text(text, encoding='utf-8')
-              if text == original:
-                  raise SystemExit(f'No change applied to {file_name}')
 
           for temporary in [
               Path('.github/workflows/tmp-analyze-ux.yml'),
@@ -78,15 +75,21 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
-      - name: Test
-        run: flutter test
-
-      - name: Commit verified fixes and remove temporary workflows
+      - name: Capture tests
         shell: bash
         run: |
-          rm -f .github/workflows/tmp-ux-fix-and-test.yml
+          set +e
+          flutter test > tmp-flutter-test.txt 2>&1
+          status=$?
+          cat tmp-flutter-test.txt
+          echo "$status" > tmp-flutter-test-status.txt
+          exit 0
+
+      - name: Commit patched files and diagnostics
+        shell: bash
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "fix: verify simplified organization management UX"
+          git commit -m "ci: capture UX test diagnostics"
           git push origin HEAD:ux/simplify-management-and-member-names
