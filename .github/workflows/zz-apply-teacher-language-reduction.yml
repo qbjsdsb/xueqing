@@ -30,18 +30,22 @@ jobs:
         run: flutter pub get
 
       - name: Apply exact teacher-language patch
-        run: python3 .github/scripts/zz_apply_teacher_language_reduction.py
+        run: |
+          python3 .github/scripts/zz_apply_teacher_language_reduction.py
+          python3 .github/scripts/zz_fix_quick_capture_save_identity.py
 
       - name: Format and verify exact net diff
         run: |
           dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart
           rm .github/workflows/zz-apply-teacher-language-reduction.yml
           rm .github/scripts/zz_apply_teacher_language_reduction.py
+          rm .github/scripts/zz_fix_quick_capture_save_identity.py
           git diff --check
           python3 <<'PY'
           import subprocess
           expected = {
               'D .github/scripts/zz_apply_teacher_language_reduction.py',
+              'D .github/scripts/zz_fix_quick_capture_save_identity.py',
               'D .github/workflows/zz-apply-teacher-language-reduction.yml',
               'M docs/PRODUCT.md',
               'M docs/USER_FLOWS.md',
