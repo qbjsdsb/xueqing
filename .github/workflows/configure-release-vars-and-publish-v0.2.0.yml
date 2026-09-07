@@ -1,0 +1,165 @@
+name: Configure release vars and publish Xueqing v0.2.0
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/release-requests/v0.2.0-configure-vars"
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: configure-release-vars-and-publish-v0.2.0
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: v0.2.0
+  RELEASE_VERSION: 0.2.0+2
+  RELEASE_COMMIT: 0051afa56f1229f5cac83221648ef2546cf277ac
+  PUBLIC_SUPABASE_URL: https://czuctoulgnfytcfonkhc.supabase.co
+  PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI
+  PUBLIC_SUPABASE_ALLOWED_HOSTS: czuctoulgnfytcfonkhc.supabase.co
+
+jobs:
+  configure-and-dispatch:
+    name: Configure public variables and dispatch signed Stable build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify permanent signing material is configured
+        shell: bash
+        env:
+          XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          required_names=(
+            XUEQING_ANDROID_CERT_SHA256
+            XUEQING_ANDROID_KEYSTORE_BASE64
+            XUEQING_ANDROID_KEYSTORE_PASSWORD
+            XUEQING_ANDROID_KEY_ALIAS
+            XUEQING_ANDROID_KEY_PASSWORD
+          )
+          missing=()
+          for name in "${required_names[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing permanent Android release configuration: %s\n' "${missing[*]}"
+            exit 1
+          fi
+          cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Pinned Android certificate fingerprint is malformed."
+            exit 1
+          fi
+          echo "Permanent Android signing material is configured; secret values were not printed."
+
+      - name: Configure non-secret repository variables
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          upsert_variable() {
+            local name="$1"
+            local value="$2"
+            if gh api "repos/$GITHUB_REPOSITORY/actions/variables/$name" >/dev/null 2>&1; then
+              gh api --silent --method PATCH \
+                "repos/$GITHUB_REPOSITORY/actions/variables/$name" \
+                -f name="$name" \
+                -f value="$value"
+            else
+              gh api --silent --method POST \
+                "repos/$GITHUB_REPOSITORY/actions/variables" \
+                -f name="$name" \
+                -f value="$value"
+            fi
+          }
+
+          upsert_variable XUEQING_SUPABASE_URL "$PUBLIC_SUPABASE_URL"
+          upsert_variable XUEQING_SUPABASE_PUBLISHABLE_KEY "$PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          upsert_variable XUEQING_SUPABASE_ALLOWED_HOSTS "$PUBLIC_SUPABASE_ALLOWED_HOSTS"
+
+          verify_variable() {
+            local name="$1"
+            local expected="$2"
+            local actual
+            actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/variables/$name" --jq '.value')"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "Repository variable verification failed for $name."
+              exit 1
+            fi
+            echo "$name configured and verified."
+          }
+
+          verify_variable XUEQING_SUPABASE_URL "$PUBLIC_SUPABASE_URL"
+          verify_variable XUEQING_SUPABASE_PUBLISHABLE_KEY "$PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          verify_variable XUEQING_SUPABASE_ALLOWED_HOSTS "$PUBLIC_SUPABASE_ALLOWED_HOSTS"
+
+      - name: Verify frozen release commit is reachable from main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_COMMIT" >/dev/null
+          compare_status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" --jq '.status')"
+          behind_by="$(gh api "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" --jq '.behind_by')"
+          if [[ "$behind_by" != "0" ]] || [[ "$compare_status" != "ahead" && "$compare_status" != "identical" ]]; then
+            echo "Frozen release commit is no longer reachable from main."
+            exit 1
+          fi
+
+      - name: Create or verify v0.2.0 staging Pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
+            RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json
+          import os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('Existing v0.2.0 Release is not a published Pre-release staging Release.')
+          PY
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_COMMIT" \
+              --prerelease \
+              --title "Xueqing v0.2.0" \
+              --notes "首个 Stable 候选：权限边界、成员姓名、Evidence 图片附件、Windows 安装与应用内更新链已完成自动化 Gate。"
+          fi
+
+          actual_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          if [[ "$actual_commit" != "$RELEASE_COMMIT" ]]; then
+            echo "v0.2.0 does not point to the frozen candidate commit."
+            exit 1
+          fi
+
+      - name: Dispatch existing signed production release workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish-release-assets.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_tag="$RELEASE_TAG" \
+            -f app_version="$RELEASE_VERSION" \
+            -f release_notes=$'首个 Stable 试点版本\n负责人/管理员权限边界收口\n成员姓名维护与组织管理体验修复\nEvidence 图片附件与 Windows 安装/应用内更新链完善'
+          echo "Stable release workflow dispatched for $RELEASE_TAG ($RELEASE_VERSION)."
