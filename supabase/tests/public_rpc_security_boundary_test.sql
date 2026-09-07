@@ -38,6 +38,7 @@ with expected(signature, authenticated_allowed) as (
     ('public.revoke_organization_invitation(uuid)'::regprocedure, true),
     ('public.stabilize_case(uuid, uuid, integer, timestamp with time zone, text, timestamp with time zone)'::regprocedure, true),
     ('public.transfer_organization_student_teacher_assignment(uuid, uuid, uuid, integer, uuid)'::regprocedure, true),
+    ('public.update_organization_member_display_name(uuid, uuid, text)'::regprocedure, true),
     ('public.update_organization_membership_status(uuid, uuid, uuid, integer, text)'::regprocedure, true),
     ('public.update_organization_student(uuid, uuid, uuid, integer, text, text, text)'::regprocedure, true),
     ('public.update_organization_teacher_subject_scope(uuid, uuid, uuid, uuid, uuid, integer, text)'::regprocedure, true)
@@ -53,7 +54,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 37
+  (select count(*) from found) = 38
   and not exists (
     select 1
     from found
@@ -100,6 +101,7 @@ with expected(signature, authenticated_allowed) as (
     ('private.revoke_organization_invitation(uuid)'::regprocedure, true),
     ('private.stabilize_case(uuid, uuid, integer, timestamp with time zone, text, timestamp with time zone)'::regprocedure, true),
     ('private.transfer_organization_student_teacher_assignment(uuid, uuid, uuid, integer, uuid)'::regprocedure, true),
+    ('private.update_organization_member_display_name(uuid, uuid, text)'::regprocedure, true),
     ('private.update_organization_membership_status(uuid, uuid, uuid, integer, text)'::regprocedure, true),
     ('private.update_organization_student(uuid, uuid, uuid, integer, text, text, text)'::regprocedure, true),
     ('private.update_organization_teacher_subject_scope(uuid, uuid, uuid, uuid, uuid, integer, text)'::regprocedure, true)
@@ -115,7 +117,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 37
+  (select count(*) from found) = 38
   and not exists (
     select 1
     from found
