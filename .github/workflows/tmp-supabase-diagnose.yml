@@ -1,0 +1,47 @@
+name: Temporary Supabase diagnostics
+
+on:
+  push:
+    branches:
+      - ux/simplify-management-and-member-names
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/simplify-management-and-member-names
+          fetch-depth: 0
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+      - name: Start local Supabase
+        run: supabase start
+      - name: Rebuild database
+        run: supabase db reset
+      - name: Capture pgTAP output
+        shell: bash
+        run: |
+          set +e
+          supabase test db > tmp-supabase-test.txt 2>&1
+          status=$?
+          echo "$status" > tmp-supabase-test-status.txt
+          cat tmp-supabase-test.txt
+          exit 0
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop
+      - name: Commit diagnostics
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tmp-supabase-test.txt tmp-supabase-test-status.txt
+          git commit -m "ci: capture member-name pgTAP diagnostics"
+          git push origin HEAD:ux/simplify-management-and-member-names
