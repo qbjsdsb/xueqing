@@ -27,6 +27,33 @@ class UpdateDownloadedArtifact {
   final File file;
 }
 
+Future<void> pruneStaleUpdateDownloads(
+  Directory directory, {
+  required String keepFileName,
+}) async {
+  try {
+    if (!await directory.exists()) {
+      return;
+    }
+    final keepPath = File(
+      '${directory.path}${Platform.pathSeparator}$keepFileName',
+    ).absolute.path;
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity is! File || entity.absolute.path == keepPath) {
+        continue;
+      }
+      try {
+        await entity.delete();
+      } catch (_) {
+        // Cache cleanup is best effort and must never block an update.
+      }
+    }
+  } catch (_) {
+    // A broken or temporarily unavailable cache directory must not turn a
+    // valid update into a failure. The verified destination is still safe.
+  }
+}
+
 class UpdateService {
   static const defaultMaxDownloadBytes = 1024 * 1024 * 1024;
 
@@ -115,6 +142,7 @@ class UpdateService {
     await updatesDirectory.create(recursive: true);
 
     final fileName = _safeFileName(artifact);
+    await pruneStaleUpdateDownloads(updatesDirectory, keepFileName: fileName);
     final destination = File(
       '${updatesDirectory.path}${Platform.pathSeparator}$fileName',
     );
