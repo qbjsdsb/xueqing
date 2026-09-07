@@ -73,10 +73,7 @@ void main() {
       () => UpdateManifest.fromJson(
         manifest(
           platforms: <String, Object?>{
-            'windows': artifact(
-              format: 'apk',
-              fileName: 'xueqing-windows.apk',
-            ),
+            'windows': artifact(format: 'apk', fileName: 'xueqing-windows.apk'),
           },
         ),
       ),
@@ -153,36 +150,39 @@ void main() {
     );
   });
 
-  test('prunes stale update files but keeps current target and directories', () async {
-    final directory = await Directory.systemTemp.createTemp(
-      'xueqing-update-cache-test-',
-    );
-    try {
-      final stale = File(
-        '${directory.path}${Platform.pathSeparator}xueqing-v0.1.0.apk',
+  test(
+    'prunes stale update files but keeps current target and directories',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'xueqing-update-cache-test-',
       );
-      final current = File(
-        '${directory.path}${Platform.pathSeparator}xueqing-v0.2.0.apk',
-      );
-      final nested = Directory(
-        '${directory.path}${Platform.pathSeparator}keep-directory',
-      );
-      await stale.writeAsBytes(<int>[1]);
-      await current.writeAsBytes(<int>[2]);
-      await nested.create();
+      try {
+        final stale = File(
+          '${directory.path}${Platform.pathSeparator}xueqing-v0.1.0.apk',
+        );
+        final current = File(
+          '${directory.path}${Platform.pathSeparator}xueqing-v0.2.0.apk',
+        );
+        final nested = Directory(
+          '${directory.path}${Platform.pathSeparator}keep-directory',
+        );
+        await stale.writeAsBytes(<int>[1]);
+        await current.writeAsBytes(<int>[2]);
+        await nested.create();
 
-      await pruneStaleUpdateDownloads(
-        directory,
-        keepFileName: 'xueqing-v0.2.0.apk',
-      );
+        await pruneStaleUpdateDownloads(
+          directory,
+          keepFileName: 'xueqing-v0.2.0.apk',
+        );
 
-      expect(await stale.exists(), isFalse);
-      expect(await current.exists(), isTrue);
-      expect(await nested.exists(), isTrue);
-    } finally {
-      await directory.delete(recursive: true);
-    }
-  });
+        expect(await stale.exists(), isFalse);
+        expect(await current.exists(), isTrue);
+        expect(await nested.exists(), isTrue);
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    },
+  );
 
   test(
     'rejects an artifact larger than the configured download limit',
