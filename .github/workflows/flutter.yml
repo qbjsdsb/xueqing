@@ -33,7 +33,7 @@ jobs:
 
       - name: Check Dart formatting
         run: |
-          dart format --output=none .
+          dart format .
           git diff --exit-code -- .
 
       - name: Analyze
