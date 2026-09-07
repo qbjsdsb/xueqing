@@ -1625,6 +1625,7 @@ void main() {
     );
     await _pumpWorkspace(tester, repository);
 
+    expect(find.text('暂无需要跟进的问题'), findsOneWidget);
     final studentRow = find.text('示例学生甲').first;
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);

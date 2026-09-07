@@ -4963,6 +4963,11 @@ class _WorkspaceStudentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeCaseCount = student.cases
+        .where(
+          (learningCase) => learningCase.status != LearningCaseStatus.closed,
+        )
+        .length;
     return Semantics(
       button: true,
       label: '打开 ${student.name} 的学生详情',
@@ -4999,9 +5004,9 @@ class _WorkspaceStudentRow extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      student.cases.isEmpty
-                          ? '还没有 Learning Case'
-                          : '${student.cases.length} 个当前 Learning Case',
+                      activeCaseCount == 0
+                          ? '暂无需要跟进的问题'
+                          : '$activeCaseCount 个跟进中的问题',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
