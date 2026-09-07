@@ -23,6 +23,20 @@ jobs:
           ref: feature/student-teaching-pause-resume
           fetch-depth: 0
 
+      - name: Normalize reviewed security-count patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/tmp/apply_student_teaching_pause_resume.py')
+          text = path.read_text()
+          needle = 'replace_once(security_test, "  (select count(*) from found) = 39\\n", "  (select count(*) from found) = 43\\n")'
+          assert text.count(needle) == 2, text.count(needle)
+          replacement = '''security_text = security_test.read_text()\nassert security_text.count("  (select count(*) from found) = 39\\n") == 2\nsecurity_test.write_text(security_text.replace("  (select count(*) from found) = 39\\n", "  (select count(*) from found) = 43\\n"))'''
+          text = text.replace(needle, replacement, 1)
+          text = text.replace(needle, '# both public/private counts updated above', 1)
+          path.write_text(text)
+          PY
+
       - name: Apply reviewed patch
         run: python3 .github/tmp/apply_student_teaching_pause_resume.py
 
@@ -70,7 +84,10 @@ jobs:
 
       - name: Stop local Supabase development stack
         if: always()
-        run: supabase stop
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop || true
+          fi
 
       - name: Remove temporary patch machinery
         if: success()
