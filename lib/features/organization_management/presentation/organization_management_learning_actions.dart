@@ -32,7 +32,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       widget.onChanged?.call();
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('已添加学科：${result.subjectName}。')));
+      ).showSnackBar(SnackBar(content: Text('已添加机构学科：${result.subjectName}。')));
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     } finally {
@@ -40,7 +40,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     }
   }
 
-  Future<void> _addTeacherScope() async {
+  Future<void> _addTeacherScope([String? initialMembershipId]) async {
     if (_busy) return;
     setState(() {
       _busy = true;
@@ -62,7 +62,21 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
           if (scope.isActive)
             _teacherScopeKey(scope.membershipId, scope.organizationSubjectId),
       };
-      final hasAvailablePair = teachers.any(
+      final requestedTeacher = initialMembershipId == null
+          ? null
+          : teachers.where(
+              (teacher) => teacher.membershipId == initialMembershipId,
+            );
+      if (initialMembershipId != null &&
+          (requestedTeacher == null || requestedTeacher.isEmpty)) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('这位成员当前不是可配置的在岗老师。')));
+        return;
+      }
+      final candidateTeachers = initialMembershipId == null
+          ? teachers
+          : requestedTeacher!.toList(growable: false);
+      final hasAvailablePair = candidateTeachers.any(
         (teacher) => subjects.any(
           (subject) => !activeScopeKeys.contains(
             _teacherScopeKey(teacher.membershipId, subject.id),
@@ -71,7 +85,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       );
       if (!hasAvailablePair) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('目前所有老师与学科组合都已配置。')));
+            .showSnackBar(const SnackBar(content: Text('这位老师已经拥有全部机构教学学科。')));
         return;
       }
       final draft = await showDialog<OrganizationTeacherSubjectScopeDraft>(
@@ -80,6 +94,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
           teachers: teachers,
           subjects: subjects,
           activeScopeKeys: activeScopeKeys,
+          initialMembershipId: initialMembershipId,
         ),
       );
       if (!mounted || draft == null) return;
@@ -91,7 +106,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
           organizationSubjectId: draft.organizationSubjectId,
           status: 'active',
         ),
-        '已为 ${draft.teacherName} 配置 ${draft.subjectName}。',
+        '已为 ${draft.teacherName} 添加 ${draft.subjectName} 教学学科。',
         busyAlreadySet: true,
       );
     } catch (error) {
@@ -108,15 +123,15 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     final ending = scope.isActive;
     if (!ending && scope.membershipStatus != 'active') {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('成员恢复后才能重新启用可教学科。')));
+          .showSnackBar(const SnackBar(content: Text('成员恢复后才能重新启用教学学科。')));
       return;
     }
     final confirmed = await _confirm(
-      title: ending ? '停用这门可教学科？' : '重新启用这门可教学科？',
+      title: ending ? '移除 ${scope.subjectName} 教学学科？' : '重新启用 ${scope.subjectName}？',
       message: ending
-          ? '停用前需要确保相关学生、开放问题和待办已经完成必要交接；系统不会自动改写历史记录。'
+          ? '如果 ${scope.teacherName} 仍有该学科的当前任课、未关闭问题或待办，系统会拒绝移除。请先完成必要交接，历史记录不会被改写。'
           : '重新启用只恢复新的教学授权，不会自动恢复历史学生任课关系。',
-      confirmLabel: ending ? '确认停用' : '重新启用',
+      confirmLabel: ending ? '确认移除' : '重新启用',
     );
     if (!mounted || !confirmed) return;
     await _runMutation(
@@ -130,7 +145,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
         status: ending ? 'ended' : 'active',
       ),
       ending
-          ? '已停用 ${scope.teacherName} 的 ${scope.subjectName}。'
+          ? '已移除 ${scope.teacherName} 的 ${scope.subjectName} 教学学科。'
           : '已重新启用 ${scope.teacherName} 的 ${scope.subjectName}。',
     );
   }
@@ -202,7 +217,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       if (!mounted) return;
       if (!snapshot.setupOptions.canCreateStudent) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('添加学生前，请先配置学科和负责老师的可教学科。')),
+          const SnackBar(content: Text('添加学生前，请先配置机构学科和负责老师的教学学科。')),
         );
         return;
       }
