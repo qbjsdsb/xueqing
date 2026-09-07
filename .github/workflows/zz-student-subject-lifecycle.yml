@@ -1,0 +1,76 @@
+name: Apply student subject lifecycle
+
+on:
+  push:
+    branches:
+      - feature/student-subject-lifecycle
+    paths:
+      - ".github/workflows/zz-student-subject-lifecycle.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/student-subject-lifecycle
+          fetch-depth: 0
+
+      - name: Verify expected base
+        run: test "$(git merge-base HEAD origin/main)" = "3844c901b6d414d690c7182bd83b609502a5e19a"
+
+      - name: Apply focused lifecycle patch
+        run: python3 .github/tmp/apply_student_subject_lifecycle.py
+
+      - name: Remove temporary implementation files
+        run: rm .github/workflows/zz-student-subject-lifecycle.yml .github/tmp/apply_student_subject_lifecycle.py
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Format and verify Flutter
+        run: |
+          dart format lib test
+          git diff --check
+          flutter analyze
+          flutter test
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Rebuild and test database
+        run: |
+          supabase db reset
+          supabase test db
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop
+
+      - name: Commit verified lifecycle implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          test -n "$(git diff --cached --name-only)"
+          git commit -m "feat: complete student subject lifecycle"
+          test -z "$(git diff --name-only)"
+          git push origin HEAD:feature/student-subject-lifecycle
