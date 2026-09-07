@@ -20,7 +20,14 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
 
-      - name: Align legacy role contract tests
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Align final role contract tests
         if: github.event_name == 'pull_request' && github.head_ref == 'release/role-access-v0.2.0'
         shell: bash
         run: |
@@ -28,13 +35,14 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
+          # 1) Preserve the attachment regression as a pure-teacher test. The seed actor
+          # also carries management roles for other tests, so remove those roles only
+          # inside this transaction before ending the teaching assignment.
           attachment = Path('supabase/tests/case_evidence_attachment_behavior_test.sql')
           text = attachment.read_text()
           marker = """update public.student_teacher_assignments
           set status = 'ended',"""
-          replacement = """-- Teacher A is seeded with owner/admin roles for management tests. Remove those
-          -- roles here so this section continues to prove that a pure teacher loses
-          -- attachment authority immediately when the legal assignment ends.
+          replacement = """-- This section specifically verifies the pure-teacher boundary.
           delete from public.membership_roles
           where membership_id = '61000000-0000-0000-0000-000000000001'
             and role in ('org_owner', 'org_admin');
@@ -45,17 +53,17 @@ jobs:
               raise SystemExit('attachment assignment marker was not unique')
           attachment.write_text(text.replace(marker, replacement))
 
+          # 2) Old invitation tests allowed admins to nominate owners. The new production
+          # contract makes every member-account mutation owner-only.
           invitation = Path('supabase/tests/organization_invitation_access_test.sql')
           text = invitation.read_text()
-          start_marker = """select lives_ok(
-            $$
-              select set_config(
-                'xueqing.owner_invite',"""
+          phrase = "'an organization admin can nominate a responsible person'"
+          phrase_at = text.index(phrase)
+          start = text.rfind('select lives_ok(', 0, phrase_at)
           end_marker = """select set_config(
             'request.jwt.claim.sub',
             '20000000-0000-0000-0000-000000000004',"""
-          start = text.index(start_marker)
-          end = text.index(end_marker, start)
+          end = text.index(end_marker, phrase_at)
           replacement = """select throws_ok(
             $$
               select public.create_organization_invitation(
@@ -143,13 +151,16 @@ jobs:
           """
           invitation.write_text(text[:start] + replacement + text[end:])
 
+          # 3) UI tests now verify member visibility without member mutation controls.
           flutter_test = Path('test/features/organization_management_test.dart')
           text = flutter_test.read_text()
-          start_marker = """  testWidgets(
-            'owner can approve a nomination and admin gets constrained roles',"""
-          end_marker = """  testWidgets('admin can add a student with atomic setup fields', ("""
-          start = text.index(start_marker)
-          end = text.index(end_marker, start)
+          start_phrase = "'owner can approve a nomination and admin gets constrained roles'"
+          start_at = text.index(start_phrase)
+          start = text.rfind('  testWidgets(', 0, start_at)
+          end = text.index(
+              "  testWidgets('admin can add a student with atomic setup fields'",
+              start_at,
+          )
           replacement = """  testWidgets(
             'owner can approve a nomination and admin cannot invite members',
             (tester) async {
@@ -203,6 +214,259 @@ jobs:
 
           """
           flutter_test.write_text(text[:start] + replacement + text[end:])
+
+          # 4) Verify the new contract through public RLS/RPC surfaces. Private helpers
+          # remain private and are not called from an authenticated client identity.
+          owner_admin = Path('supabase/tests/owner_admin_access_contract_test.sql')
+          owner_admin.write_text(r"""begin;
+
+          select plan(12);
+
+          insert into auth.users (
+            id, instance_id, aud, role, email, encrypted_password,
+            email_confirmed_at, created_at, updated_at, raw_app_meta_data,
+            raw_user_meta_data, confirmation_token, email_change,
+            email_change_token_new, recovery_token
+          )
+          values (
+            '21000000-0000-0000-0000-000000000001',
+            '00000000-0000-0000-0000-000000000000',
+            'authenticated', 'authenticated', 'admin-only@xueqing.test',
+            crypt('XueqingDev-Only-Admin-123!', gen_salt('bf')),
+            now(), now(), now(),
+            '{"provider":"email","providers":["email"]}'::jsonb,
+            '{}'::jsonb, '', '', '', ''
+          );
+
+          insert into public.app_users (
+            id, auth_provider, auth_subject_id, display_name, status
+          )
+          values (
+            '12000000-0000-0000-0000-000000000001',
+            'supabase',
+            '21000000-0000-0000-0000-000000000001',
+            '仅管理员测试账号',
+            'active'
+          );
+
+          insert into public.identity_links (
+            id, app_user_id, provider_key, issuer, external_subject, status
+          )
+          values (
+            '61000000-0000-0000-0000-000000000101',
+            '12000000-0000-0000-0000-000000000001',
+            'supabase',
+            'http://127.0.0.1:54321/auth/v1',
+            '21000000-0000-0000-0000-000000000001',
+            'active'
+          );
+
+          insert into public.organization_memberships (
+            id, organization_id, app_user_id, status, onboarding_required, version
+          )
+          values (
+            '61000000-0000-0000-0000-000000000101',
+            '00000000-0000-0000-0000-000000000001',
+            '12000000-0000-0000-0000-000000000001',
+            'active', false, 1
+          );
+
+          insert into public.membership_roles (
+            id, organization_id, membership_id, role
+          )
+          values (
+            '62000000-0000-0000-0000-000000000101',
+            '00000000-0000-0000-0000-000000000001',
+            '61000000-0000-0000-0000-000000000101',
+            'org_admin'
+          );
+
+          insert into auth.sessions (id, user_id, created_at, updated_at)
+          values (
+            '51000000-0000-0000-0000-000000000101',
+            '21000000-0000-0000-0000-000000000001',
+            now(), now()
+          );
+
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub', '21000000-0000-0000-0000-000000000001', true);
+          select set_config(
+            'request.jwt.claims',
+            json_build_object(
+              'role', 'authenticated',
+              'sub', '21000000-0000-0000-0000-000000000001',
+              'iss', 'http://127.0.0.1:54321/auth/v1',
+              'session_id', '51000000-0000-0000-0000-000000000101'
+            )::text,
+            true
+          );
+
+          select is(
+            (
+              select count(*)::int
+              from public.student_subject_profiles
+              where id = '67000000-0000-0000-0000-000000000001'
+            ),
+            1,
+            'an admin can read organization learning profiles without a teacher assignment'
+          );
+
+          select lives_ok(
+            $$select public.quick_capture_case(
+                '93000000-0000-0000-0000-000000000001',
+                '67000000-0000-0000-0000-000000000001',
+                1,
+                'knowledge',
+                '管理员机构级学情测试',
+                '仅用于虚构权限回归。',
+                timestamptz '2026-09-07 18:00:00+08',
+                '管理员可记录机构学情',
+                '继续跟进',
+                timestamptz '2026-09-08 18:00:00+08'
+              )$$,
+            'an admin can write organization learning data without a teacher assignment'
+          );
+
+          select is(
+            (
+              select count(*)::int
+              from public.learning_cases
+              where title = '管理员机构级学情测试'
+            ),
+            1,
+            'an admin can read the Case created through the public learning command'
+          );
+
+          select throws_ok(
+            $$select public.create_organization_invitation(
+                '00000000-0000-0000-0000-000000000001',
+                'admin-must-not-invite@xueqing.test',
+                'teacher'
+              )$$,
+            'P0001',
+            'organization_owner_required',
+            'an admin cannot invite a member'
+          );
+
+          select throws_ok(
+            $$select public.update_organization_membership_status(
+                '92000000-0000-0000-0000-000000000101',
+                '00000000-0000-0000-0000-000000000001',
+                '61000000-0000-0000-0000-000000000001',
+                1,
+                'disabled'
+              )$$,
+            'P0001',
+            'organization_owner_required',
+            'an admin cannot disable or restore another member'
+          );
+
+          reset role;
+          set local role service_role;
+
+          select throws_ok(
+            $$select private.prepare_member_credential_reissue(
+                '21000000-0000-0000-0000-000000000001',
+                '51000000-0000-0000-0000-000000000101',
+                '00000000-0000-0000-0000-000000000001',
+                '61000000-0000-0000-0000-000000000001'
+              )$$,
+            'P0001',
+            'organization_owner_required',
+            'an admin cannot reissue another member credential through the trusted service path'
+          );
+
+          reset role;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
+          select set_config(
+            'request.jwt.claims',
+            json_build_object(
+              'role', 'authenticated',
+              'sub', '20000000-0000-0000-0000-000000000001',
+              'iss', 'http://127.0.0.1:54321/auth/v1',
+              'session_id', '50000000-0000-0000-0000-000000000001'
+            )::text,
+            true
+          );
+
+          select is(
+            (
+              select count(*)::int
+              from public.student_subject_profiles
+              where id = '67000000-0000-0000-0000-000000000001'
+            ),
+            1,
+            'an owner keeps organization-wide learning read access'
+          );
+
+          select lives_ok(
+            $$select set_config(
+                'xueqing.owner_test_invite',
+                public.create_organization_invitation(
+                  '00000000-0000-0000-0000-000000000001',
+                  'owner-can-invite@xueqing.test',
+                  'teacher'
+                )::text,
+                true
+              )$$,
+            'an owner can invite a member'
+          );
+
+          select is(
+            (
+              select count(*)::int
+              from public.learning_cases
+              where title = '管理员机构级学情测试'
+            ),
+            1,
+            'an owner can read organization learning data created by an admin'
+          );
+
+          select is(
+            (
+              select count(*)::int
+              from public.student_subject_profiles
+              where id = '67000000-0000-0000-0000-000000000002'
+            ),
+            0,
+            'organization boundaries still block an owner from another organization'
+          );
+
+          select set_config('request.jwt.claim.sub', '21000000-0000-0000-0000-000000000001', true);
+          select set_config(
+            'request.jwt.claims',
+            json_build_object(
+              'role', 'authenticated',
+              'sub', '21000000-0000-0000-0000-000000000001',
+              'iss', 'http://127.0.0.1:54321/auth/v1',
+              'session_id', '51000000-0000-0000-0000-000000000101'
+            )::text,
+            true
+          );
+
+          select throws_ok(
+            $$select public.revoke_organization_invitation(
+                (current_setting('xueqing.owner_test_invite')::jsonb ->> 'id')::uuid
+              )$$,
+            'P0001',
+            'organization_owner_required',
+            'an admin cannot revoke an owner-created invitation'
+          );
+
+          select is(
+            (
+              select count(*)::int
+              from public.learning_cases
+              where title = '管理员机构级学情测试'
+            ),
+            1,
+            'member-account restrictions do not remove admin learning access'
+          );
+
+          select * from finish();
+          rollback;
+          """)
           PY
 
           dart format test/features/organization_management_test.dart
@@ -214,18 +478,12 @@ jobs:
             .github/workflows/flutter.yml \
             supabase/tests/case_evidence_attachment_behavior_test.sql \
             supabase/tests/organization_invitation_access_test.sql \
+            supabase/tests/owner_admin_access_contract_test.sql \
             test/features/organization_management_test.dart
           if ! git diff --cached --quiet; then
-            git commit -m "test: align legacy owner admin expectations"
+            git commit -m "test: align owner admin access contract"
             git push origin HEAD:${GITHUB_HEAD_REF}
           fi
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: 3.47.1
-          cache: true
 
       - name: Get packages
         run: flutter pub get
