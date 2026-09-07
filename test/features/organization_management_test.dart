@@ -665,8 +665,10 @@ void main() {
     await _pumpManagement(tester, repository);
 
     await tester.ensureVisible(find.text('添加学生'));
-    await tester.tap(find.text('添加学生'));
-    await tester.tap(find.text('添加学生'));
+    final addStudent = find.text('添加学生');
+    await tester.ensureVisible(addStudent);
+    await tester.tap(addStudent);
+    await tester.tap(addStudent);
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('学生姓名 *'), findsOneWidget);
@@ -674,8 +676,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('添加学科'));
-    await tester.tap(find.text('添加学科'));
-    await tester.tap(find.text('添加学科'));
+    final addSubject = find.text('添加学科');
+    await tester.ensureVisible(addSubject);
+    await tester.tap(addSubject);
+    await tester.tap(addSubject);
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('保存学科'), findsOneWidget);
@@ -683,11 +687,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('配置老师可教学科'));
-    await tester.tap(find.text('配置老师可教学科'));
-    await tester.tap(find.text('配置老师可教学科'));
+    final configureTeacherSubjects = find.text('配置老师可教学科');
+    await tester.ensureVisible(configureTeacherSubjects);
+    await tester.tap(configureTeacherSubjects);
+    await tester.tap(configureTeacherSubjects);
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.text('保存教学范围'), findsOneWidget);
+    expect(find.text('保存配置'), findsOneWidget);
   });
 
   testWidgets('admin can edit a student lifecycle record', (tester) async {
@@ -723,7 +729,9 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    await tester.tap(find.text('添加学科'));
+    final addSubject = find.text('添加学科');
+    await tester.ensureVisible(addSubject);
+    await tester.tap(addSubject);
     await tester.pumpAndSettle();
 
     expect(find.text('从全局活跃学科目录中选择一个加入本机构。全局目录不会被修改。'), findsOneWidget);
@@ -744,15 +752,23 @@ void main() {
       );
       await _pumpManagement(tester, repository);
 
-      await tester.tap(find.text('配置老师可教学科'));
+      final configureTeacherSubjects = find.text('配置老师可教学科');
+      await tester.ensureVisible(configureTeacherSubjects);
+      await tester.tap(configureTeacherSubjects);
       await tester.pumpAndSettle();
-      expect(find.text('配置教师教学范围'), findsOneWidget);
-      await tester.tap(find.text('保存教学范围'));
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('配置老师可教学科'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('保存配置'));
       await tester.pumpAndSettle();
 
       expect(repository.teacherScopeUpdateCount, 1);
       expect(find.text('示例老师 · 数学'), findsOneWidget);
-      final stop = find.text('停用教学范围');
+      final stop = find.text('停用该学科');
       await tester.ensureVisible(stop);
       await tester.tap(stop);
       await tester.pumpAndSettle();

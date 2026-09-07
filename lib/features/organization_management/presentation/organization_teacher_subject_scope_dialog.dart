@@ -98,7 +98,7 @@ class _OrganizationTeacherSubjectScopeDialogState
   Widget build(BuildContext context) {
     final availableSubjects = _availableSubjects;
     return AlertDialog(
-      title: const Text('配置教师教学范围'),
+      title: const Text('配置老师可教学科'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: Form(
@@ -109,7 +109,7 @@ class _OrganizationTeacherSubjectScopeDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '选择一位在岗老师和一个活跃学科。启用后只影响新的教学授权，不会自动改变历史记录。',
+                  '选择一位在岗老师和一门机构学科。保存后，这位老师可以承担该学科的新任课；历史任课记录不会被改写。',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -148,7 +148,7 @@ class _OrganizationTeacherSubjectScopeDialogState
                         ),
                       ),
                   ],
-                  validator: (value) => value == null ? '当前老师没有可配置的学科。' : null,
+                  validator: (value) => value == null ? '这位老师暂无可配置学科。' : null,
                   onChanged: (subjectId) {
                     setState(() => _selectedSubjectId = subjectId);
                   },
@@ -156,7 +156,7 @@ class _OrganizationTeacherSubjectScopeDialogState
                 if (availableSubjects.isEmpty) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    '这位老师的所有活跃学科都已配置教学范围。',
+                    '这位老师已经配置了所有机构学科。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -172,7 +172,7 @@ class _OrganizationTeacherSubjectScopeDialogState
         ),
         FilledButton(
           onPressed: availableSubjects.isEmpty ? null : _submit,
-          child: const Text('保存教学范围'),
+          child: const Text('保存配置'),
         ),
       ],
     );

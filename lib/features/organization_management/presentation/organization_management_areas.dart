@@ -10,12 +10,15 @@ class _ManagementOverview extends StatelessWidget {
     required this.onRevoke,
     required this.onEditStudent,
     required this.onToggleMemberStatus,
+    required this.onAddSubject,
     required this.onAddTeacherScope,
     required this.onToggleTeacherScope,
     required this.onTransferStudentTeacherAssignment,
+    required this.canManageCaseTypes,
     this.onProvisionInvitation,
     this.onEditMemberName,
     this.onReissueMemberCredential,
+    this.onOpenCaseTypes,
   });
 
   final _OrganizationManagementSnapshot snapshot;
@@ -31,11 +34,14 @@ class _ManagementOverview extends StatelessWidget {
   final Future<void> Function(OrganizationMember member) onToggleMemberStatus;
   final Future<void> Function(OrganizationMember member)?
   onReissueMemberCredential;
+  final VoidCallback onAddSubject;
   final VoidCallback onAddTeacherScope;
   final Future<void> Function(OrganizationTeacherSubjectScope scope)
   onToggleTeacherScope;
   final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
   onTransferStudentTeacherAssignment;
+  final bool canManageCaseTypes;
+  final VoidCallback? onOpenCaseTypes;
 
   @override
   Widget build(BuildContext context) {
@@ -120,16 +126,16 @@ class _ManagementOverview extends StatelessWidget {
               _ManagementSection(
                 title: '老师可教学科',
                 count: '$activeScopes 条有效',
+                action: TextButton.icon(
+                  onPressed: busy ? null : onAddTeacherScope,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('配置老师可教学科'),
+                ),
                 child: snapshot.teacherSubjectScopes.isEmpty
-                    ? _ManagementEmptyState(
+                    ? const _ManagementEmptyState(
                         title: '还没有配置老师可教学科',
                         message: '老师加入机构后，再指定其可以负责哪些学科。',
                         icon: Icons.menu_book_outlined,
-                        action: TextButton.icon(
-                          onPressed: busy ? null : onAddTeacherScope,
-                          icon: const Icon(Icons.add),
-                          label: const Text('配置第一条'),
-                        ),
                       )
                     : Column(
                         children: [
@@ -223,10 +229,15 @@ class _ManagementOverview extends StatelessWidget {
               _ManagementSection(
                 title: '机构学科',
                 count: '${snapshot.setupOptions.subjects.length} 门',
+                action: TextButton.icon(
+                  onPressed: busy ? null : onAddSubject,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('添加学科'),
+                ),
                 child: snapshot.setupOptions.subjects.isEmpty
                     ? const _ManagementEmptyState(
                         title: '还没有机构学科',
-                        message: '使用页面顶部“添加学科”选择本机构实际教授的学科。',
+                        message: '只添加本机构实际教授的学科，后续再分配给对应老师。',
                         icon: Icons.menu_book_outlined,
                       )
                     : Wrap(
@@ -238,6 +249,22 @@ class _ManagementOverview extends StatelessWidget {
                         ],
                       ),
               ),
+              if (canManageCaseTypes && onOpenCaseTypes != null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                _ManagementSection(
+                  title: '问题类型',
+                  count: '学习问题分类',
+                  action: TextButton.icon(
+                    onPressed: busy ? null : onOpenCaseTypes,
+                    icon: const Icon(Icons.category_outlined, size: 18),
+                    label: const Text('管理问题类型'),
+                  ),
+                  child: Text(
+                    '统一常用的问题分类，帮助老师记录和回看学生长期变化；不用于给学生贴标签。',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

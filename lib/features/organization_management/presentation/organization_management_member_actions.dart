@@ -91,14 +91,18 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
   Future<void> _editMemberDisplayName(OrganizationMember member) async {
     final provisioningRepository = widget.provisioningRepository;
     if (_busy || provisioningRepository == null) return;
+    final currentName = member.displayName?.trim() ?? '';
+    final initialName =
+        currentName.isEmpty ||
+            currentName.toLowerCase() == member.email.trim().toLowerCase()
+        ? ''
+        : currentName;
     final displayName = await showDialog<String>(
       context: context,
       builder: (context) => _MemberNameDialog(
-        title: '修改成员姓名',
+        title: initialName.isEmpty ? '补充成员姓名' : '修改成员姓名',
         description: '姓名用于成员列表、任课关系和教师协作显示；邮箱仍作为登录账号保留。',
-        initialValue: member.displayName == member.email
-            ? ''
-            : member.displayName ?? '',
+        initialValue: initialName,
         confirmLabel: '保存姓名',
       ),
     );

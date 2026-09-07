@@ -78,13 +78,8 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                 roleLabel: _roleSummary(widget.roles),
                 busy: _busy,
                 canInvite: _inviteRoles.isNotEmpty,
-                canManageCaseTypes:
-                    widget.canManageCaseTypes && widget.onOpenCaseTypes != null,
                 onAddStudent: _addStudent,
                 onInviteMember: _inviteMember,
-                onAddSubject: _addSubject,
-                onAddTeacherScope: _addTeacherScope,
-                onOpenCaseTypes: widget.onOpenCaseTypes,
               ),
               const _ManagementBoundaryBanner(),
               if (_errorMessage != null) ...[
@@ -123,10 +118,15 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                         widget.provisioningRepository == null
                         ? null
                         : _reissueMemberCredential,
+                    onAddSubject: _addSubject,
                     onAddTeacherScope: _addTeacherScope,
                     onToggleTeacherScope: _toggleTeacherScope,
                     onTransferStudentTeacherAssignment:
                         _transferStudentTeacherAssignment,
+                    canManageCaseTypes:
+                        widget.canManageCaseTypes &&
+                        widget.onOpenCaseTypes != null,
+                    onOpenCaseTypes: widget.onOpenCaseTypes,
                   );
                 },
               ),

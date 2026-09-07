@@ -20,10 +20,14 @@ class _MemberTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayName = member.displayName ?? member.email;
-    final initials = displayName.trim().isEmpty
-        ? '·'
-        : String.fromCharCode(displayName.trim().runes.first).toUpperCase();
+    final rawName = member.displayName?.trim() ?? '';
+    final hasDisplayName =
+        rawName.isNotEmpty &&
+        rawName.toLowerCase() != member.email.trim().toLowerCase();
+    final displayName = hasDisplayName ? rawName : '未填写姓名';
+    final initials = hasDisplayName
+        ? String.fromCharCode(rawName.runes.first).toUpperCase()
+        : '?';
     return _ManagementRowShell(
       leading: CircleAvatar(
         radius: 20,
@@ -70,7 +74,7 @@ class _MemberTile extends StatelessWidget {
                 TextButton.icon(
                   onPressed: busy ? null : onEditName,
                   icon: const Icon(Icons.badge_outlined, size: 18),
-                  label: const Text('修改姓名'),
+                  label: Text(hasDisplayName ? '修改姓名' : '补充姓名'),
                 ),
               if (member.isOnboarding && onReissueCredential != null)
                 TextButton.icon(
@@ -200,7 +204,7 @@ class _TeacherSubjectScopeTile extends StatelessWidget {
         ? TextButton.icon(
             onPressed: busy ? null : onToggle,
             icon: const Icon(Icons.pause_circle_outline, size: 18),
-            label: const Text('停用教学范围'),
+            label: const Text('停用该学科'),
           )
         : showReactivate && scope.membershipStatus == 'active'
         ? TextButton.icon(

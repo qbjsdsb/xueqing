@@ -1663,7 +1663,7 @@ void main() {
     );
     await _pumpWorkspace(tester, repository);
 
-    expect(find.text('当前账号没有可用的教师教学范围'), findsOneWidget);
+    expect(find.text('当前账号还没有可用的教学权限'), findsOneWidget);
     expect(find.text('示例学生甲'), findsNothing);
   });
 }
