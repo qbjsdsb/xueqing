@@ -463,11 +463,15 @@ OrganizationInvitation _ownerNomination() {
   );
 }
 
-OrganizationStudentRecord _studentRecord() {
+OrganizationStudentRecord _studentRecord({
+  String id = 'student-1',
+  String name = '原学生',
+  String code = 'S-001',
+}) {
   return OrganizationStudentRecord(
-    studentId: 'student-1',
-    studentName: '原学生',
-    studentCode: 'S-001',
+    studentId: id,
+    studentName: name,
+    studentCode: code,
     status: 'active',
     version: 3,
     grade: '初二',
@@ -526,6 +530,17 @@ Future<void> _pumpManagement(
   await tester.pumpAndSettle();
 }
 
+Future<void> _selectManagementArea(
+  WidgetTester tester,
+  String label,
+) async {
+  final switcher = find.byType(SegmentedButton);
+  final target = find.descendant(of: switcher, matching: find.text(label));
+  await tester.ensureVisible(target);
+  await tester.tap(target);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('shows organization members and pending owner approval', (
     tester,
@@ -561,7 +576,11 @@ void main() {
     expect(find.text('示例老师'), findsOneWidget);
     expect(find.text('待负责人审批'), findsAtLeastNWidgets(1));
     expect(find.text('通过负责人提名'), findsOneWidget);
+    expect(find.text('问题类型'), findsNothing);
+
+    await _selectManagementArea(tester, '设置');
     expect(find.text('问题类型'), findsOneWidget);
+    expect(find.text('示例负责人'), findsNothing);
   });
 
   testWidgets(
@@ -588,6 +607,7 @@ void main() {
         adminRepository,
         roles: const ['org_admin'],
       );
+      await _selectManagementArea(tester, '成员');
       await tester.tap(find.text('邀请成员'));
       await tester.pumpAndSettle();
 
@@ -612,6 +632,7 @@ void main() {
       invitations: const [],
     );
     await _pumpManagement(tester, repository, roles: const ['org_admin']);
+    await _selectManagementArea(tester, '成员');
 
     final disableButton = find.text('停用成员');
     await tester.ensureVisible(disableButton);
@@ -635,6 +656,7 @@ void main() {
     expect(repository.memberStatusUpdateCount, 2);
     expect(repository.updatedMember?.status, 'active');
   });
+
   testWidgets('admin can add a student with atomic setup fields', (
     tester,
   ) async {
@@ -664,7 +686,6 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    await tester.ensureVisible(find.text('添加学生'));
     final addStudent = find.text('添加学生');
     await tester.ensureVisible(addStudent);
     await tester.tap(addStudent);
@@ -675,7 +696,7 @@ void main() {
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('添加学科'));
+    await _selectManagementArea(tester, '设置');
     final addSubject = find.text('添加学科');
     await tester.ensureVisible(addSubject);
     await tester.tap(addSubject);
@@ -686,8 +707,8 @@ void main() {
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('配置老师可教学科'));
-    final configureTeacherSubjects = find.text('配置老师可教学科');
+    await _selectManagementArea(tester, '成员');
+    final configureTeacherSubjects = find.widgetWithText(TextButton, '配置');
     await tester.ensureVisible(configureTeacherSubjects);
     await tester.tap(configureTeacherSubjects);
     await tester.tap(configureTeacherSubjects);
@@ -720,6 +741,7 @@ void main() {
     expect(repository.updatedStudent?.version, 4);
     expect(find.text('编辑学生'), findsNothing);
   });
+
   testWidgets('admin can add an organization subject from the catalog', (
     tester,
   ) async {
@@ -728,6 +750,7 @@ void main() {
       invitations: const [],
     );
     await _pumpManagement(tester, repository);
+    await _selectManagementArea(tester, '设置');
 
     final addSubject = find.text('添加学科');
     await tester.ensureVisible(addSubject);
@@ -751,8 +774,9 @@ void main() {
         teacherSubjectScopes: <OrganizationTeacherSubjectScope>[],
       );
       await _pumpManagement(tester, repository);
+      await _selectManagementArea(tester, '成员');
 
-      final configureTeacherSubjects = find.text('配置老师可教学科');
+      final configureTeacherSubjects = find.widgetWithText(TextButton, '配置');
       await tester.ensureVisible(configureTeacherSubjects);
       await tester.tap(configureTeacherSubjects);
       await tester.pumpAndSettle();
@@ -778,6 +802,9 @@ void main() {
 
       expect(repository.teacherScopeUpdateCount, 2);
       expect(repository.updatedTeacherScope?.status, 'ended');
+      expect(find.text('重新启用'), findsNothing);
+      await tester.tap(find.text('查看历史教学范围（1）'));
+      await tester.pumpAndSettle();
       final restart = find.text('重新启用');
       await tester.ensureVisible(restart);
       await tester.tap(restart);
@@ -853,7 +880,11 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    expect(find.text('任课老师'), findsOneWidget);
+    expect(find.text('任课老师与交接'), findsOneWidget);
+    expect(find.text('交接老师'), findsNothing);
+    await tester.tap(find.text('任课老师与交接'));
+    await tester.pumpAndSettle();
+
     final transferButton = find.text('交接老师');
     await tester.ensureVisible(transferButton);
     await tester.tap(transferButton);
@@ -874,5 +905,77 @@ void main() {
     expect(repository.updatedTeacherAssignment?.status, 'transferred');
     expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');
     expect(find.text('主责老师：新老师 · new-teacher@example.com'), findsOneWidget);
+  });
+
+  testWidgets('missing subjects opens settings first', (tester) async {
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+      setupOptions: const OrganizationSetupOptions(subjects: [], teachers: []),
+    );
+    await _pumpManagement(tester, repository);
+
+    expect(find.text('基础设置'), findsOneWidget);
+    expect(find.text('添加学科'), findsOneWidget);
+    expect(find.text('机构成员'), findsNothing);
+  });
+
+  testWidgets('missing teacher scope opens members first', (tester) async {
+    final repository = _FakeOrganizationManagementRepository(
+      members: [
+        _member(name: '示例老师', email: 'teacher@example.com', roles: ['teacher']),
+      ],
+      invitations: const [],
+      setupOptions: const OrganizationSetupOptions(
+        subjects: [
+          OrganizationSetupSubject(id: 'subject-1', displayName: '数学'),
+        ],
+        teachers: [
+          OrganizationSetupTeacher(
+            membershipId: 'membership-1',
+            displayName: '示例老师',
+            email: 'teacher@example.com',
+            organizationSubjectIds: [],
+          ),
+        ],
+      ),
+    );
+    await _pumpManagement(tester, repository);
+
+    expect(find.text('机构成员'), findsOneWidget);
+    expect(find.text('老师可教学科'), findsOneWidget);
+    expect(find.text('基础设置'), findsNothing);
+  });
+
+  testWidgets('student list is bounded and searchable', (tester) async {
+    final students = List<OrganizationStudentRecord>.generate(
+      25,
+      (index) => _studentRecord(
+        id: 'student-${index + 1}',
+        name: '学生${(index + 1).toString().padLeft(2, '0')}',
+        code: 'S-${(index + 1).toString().padLeft(3, '0')}',
+      ),
+    );
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+      students: students,
+    );
+    await _pumpManagement(tester, repository);
+
+    expect(find.byKey(const Key('management-student-search')), findsOneWidget);
+    expect(find.text('学生20'), findsOneWidget);
+    expect(find.text('学生21'), findsNothing);
+    expect(find.text('查看全部 25 位学生'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('management-student-search')),
+      '学生25',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('学生25'), findsOneWidget);
+    expect(find.text('学生01'), findsNothing);
+    expect(find.text('1 个结果'), findsOneWidget);
   });
 }
