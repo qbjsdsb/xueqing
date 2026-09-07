@@ -13,6 +13,7 @@ class _ManagementOverview extends StatefulWidget {
     required this.onAddStudentSubject,
     required this.onToggleStudentSubjectService,
     required this.onToggleStudentTeaching,
+    required this.onToggleStudentArchive,
     required this.onInviteMember,
     required this.onApprove,
     required this.onRevoke,
@@ -44,6 +45,8 @@ class _ManagementOverview extends StatefulWidget {
   onToggleStudentSubjectService;
   final Future<void> Function(OrganizationStudentRecord student)
   onToggleStudentTeaching;
+  final Future<void> Function(OrganizationStudentRecord student)
+  onToggleStudentArchive;
   final VoidCallback onInviteMember;
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
@@ -390,6 +393,15 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                                       student.status != 'inactive'
                               ? null
                               : () => widget.onToggleStudentTeaching(student),
+                          onToggleArchive: student.isMerged
+                              ? null
+                              : student.status == 'archived' ||
+                                    student.status == 'inactive' &&
+                                        !student.subjectServices.any(
+                                          (service) => service.isActive,
+                                        )
+                              ? () => widget.onToggleStudentArchive(student)
+                              : null,
                           onEdit: student.isMerged
                               ? null
                               : () => widget.onEditStudent(student),

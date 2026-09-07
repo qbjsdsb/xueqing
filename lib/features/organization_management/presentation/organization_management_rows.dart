@@ -274,6 +274,7 @@ class _OrganizationStudentTile extends StatelessWidget {
     required this.onAddSubject,
     required this.onToggleSubjectService,
     required this.onToggleTeaching,
+    required this.onToggleArchive,
     required this.onEdit,
   });
 
@@ -283,6 +284,7 @@ class _OrganizationStudentTile extends StatelessWidget {
   final Future<void> Function(OrganizationStudentSubjectService service)?
   onToggleSubjectService;
   final VoidCallback? onToggleTeaching;
+  final VoidCallback? onToggleArchive;
   final VoidCallback? onEdit;
 
   @override
@@ -343,6 +345,7 @@ class _OrganizationStudentTile extends StatelessWidget {
           ],
           if (onAddSubject != null ||
               onToggleTeaching != null ||
+              onToggleArchive != null ||
               onEdit != null) ...[
             const SizedBox(height: AppSpacing.xs),
             Wrap(
@@ -368,6 +371,20 @@ class _OrganizationStudentTile extends StatelessWidget {
                       size: 18,
                     ),
                     label: Text(student.isActive ? '暂停教学' : '恢复教学'),
+                  ),
+                if (onToggleArchive != null)
+                  TextButton.icon(
+                    key: ValueKey<String>(
+                      'student-archive-toggle-${student.studentId}',
+                    ),
+                    onPressed: busy ? null : onToggleArchive,
+                    icon: Icon(
+                      student.status == 'archived'
+                          ? Icons.unarchive_outlined
+                          : Icons.archive_outlined,
+                      size: 18,
+                    ),
+                    label: Text(student.status == 'archived' ? '取消归档' : '归档学生'),
                   ),
                 if (onEdit != null)
                   TextButton.icon(

@@ -398,6 +398,51 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     );
   }
 
+  Future<void> _toggleStudentArchive(OrganizationStudentRecord student) async {
+    if (_busy || student.isMerged) return;
+    final archiving = student.status == 'inactive';
+    final unarchiving = student.status == 'archived';
+    if (!archiving && !unarchiving) return;
+
+    if (archiving &&
+        student.subjectServices.any((service) => service.isActive)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '这位学生仍有进行中的学科服务；如果只是暂时停课，请保持“暂不教学”。长期离开机构时，请先逐科完成结束再归档。',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await _confirm(
+      title: archiving
+          ? '归档 ${student.studentName}？'
+          : '取消归档 ${student.studentName}？',
+      message: archiving
+          ? '归档用于学生长期结束服务或离开机构后的历史保留。已有学科、Case、证据和历史记录不会删除；若只是暂时停课，请不要归档。'
+          : '取消归档只把学生恢复为“暂不教学”，不会自动恢复老师工作台，也不会自动恢复已经结束的学科。需要继续教学时，再明确执行恢复教学和相应学科恢复。',
+      confirmLabel: archiving ? '确认归档' : '确认取消归档',
+    );
+    if (!mounted || !confirmed) return;
+
+    await _runMutation(
+      () => widget.repository.updateStudent(
+        operationId: createOperationId(),
+        organizationId: widget.organizationId,
+        studentId: student.studentId,
+        expectedStudentVersion: student.version,
+        name: student.studentName,
+        studentCode: student.studentCode,
+        status: archiving ? 'archived' : 'inactive',
+      ),
+      archiving
+          ? '已归档 ${student.studentName}；历史记录已保留。'
+          : '已取消归档 ${student.studentName}；当前为暂不教学。',
+    );
+  }
+
   Future<void> _editStudent(OrganizationStudentRecord student) async {
     if (_busy) return;
     setState(() {

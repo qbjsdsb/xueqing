@@ -390,3 +390,59 @@ revoke all on function public.resume_organization_student_teaching(
 grant execute on function public.resume_organization_student_teaching(
   uuid, uuid, uuid, integer
 ) to service_role, authenticated;
+
+
+-- Keep long-term archive distinct from temporary teaching pause, including for
+-- older clients that still call update_organization_student directly.
+create or replace function private.guard_student_archive_transition_v2()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if new.status = old.status then
+    return new;
+  end if;
+
+  if new.status = 'archived' then
+    if old.status <> 'inactive' then
+      raise exception using
+        errcode = 'P0001',
+        message = 'student_archive_requires_paused';
+    end if;
+
+    if exists (
+      select 1
+      from public.student_subject_profiles as profile
+      where profile.organization_id = old.organization_id
+        and profile.student_id = old.id
+        and profile.status = 'active'
+    ) then
+      raise exception using
+        errcode = 'P0001',
+        message = 'student_archive_active_subjects';
+    end if;
+  end if;
+
+  if old.status = 'archived'
+    and new.status not in ('archived', 'inactive') then
+    raise exception using
+      errcode = 'P0001',
+      message = 'student_unarchive_requires_inactive';
+  end if;
+
+  return new;
+end
+$function$;
+
+revoke all on function private.guard_student_archive_transition_v2()
+  from public, anon, authenticated, service_role;
+
+drop trigger if exists guard_student_archive_transition_v2
+  on public.students;
+create trigger guard_student_archive_transition_v2
+before update of status
+on public.students
+for each row
+execute function private.guard_student_archive_transition_v2();

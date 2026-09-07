@@ -1,6 +1,6 @@
 begin;
 
-select plan(47);
+select plan(56);
 
 -- TEST 01
 select is(
@@ -122,6 +122,44 @@ insert into public.case_actions (
   'pending',
   1
 );
+
+insert into public.students (
+  id, organization_id, name, status, version
+) values
+  (
+    '30000000-0000-0000-0000-000000000096',
+    '00000000-0000-0000-0000-000000000001',
+    '可归档测试学生',
+    'inactive',
+    1
+  ),
+  (
+    '30000000-0000-0000-0000-000000000095',
+    '00000000-0000-0000-0000-000000000001',
+    '仍有活跃学科测试学生',
+    'inactive',
+    1
+  );
+
+insert into public.student_subject_profiles (
+  id, organization_id, student_id, organization_subject_id, status, version
+) values
+  (
+    '67000000-0000-0000-0000-000000000096',
+    '00000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000096',
+    '64000000-0000-0000-0000-000000000001',
+    'inactive',
+    1
+  ),
+  (
+    '67000000-0000-0000-0000-000000000095',
+    '00000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000095',
+    '64000000-0000-0000-0000-000000000001',
+    'active',
+    1
+  );
 
 insert into public.students (
   id, organization_id, name, status, version, archived_at
@@ -378,6 +416,87 @@ select is((select count(*)::int from public.student_teacher_assignments where st
 select is((select count(*)::int from public.learning_cases where student_subject_profile_id = '67000000-0000-0000-0000-000000000098'), 1, 'pause and resume never duplicate Cases');
 -- TEST 47
 select is((select count(*)::int from public.case_actions where learning_case_id = '72000000-0000-0000-0000-000000000098'), 1, 'pause and resume never duplicate Actions');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+-- TEST 48
+select throws_ok(
+  $$select public.update_organization_student('76000000-0000-0000-0000-000000000209','00000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000098',3,'暂停恢复测试学生','PAUSE-098','archived')$$,
+  'P0001', 'student_archive_requires_paused', 'active student cannot skip temporary pause and jump directly to archive'
+);
+-- TEST 49
+select throws_ok(
+  $$select public.update_organization_student('76000000-0000-0000-0000-000000000210','00000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000095',1,'仍有活跃学科测试学生',null,'archived')$$,
+  'P0001', 'student_archive_active_subjects', 'paused student with an active subject cannot be misclassified as archived'
+);
+-- TEST 50
+select is(
+  public.update_organization_student(
+    '76000000-0000-0000-0000-000000000211',
+    '00000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000096',
+    1,
+    '可归档测试学生',
+    null,
+    'archived'
+  ) ->> 'status',
+  'archived',
+  'paused student whose subject services have ended can be archived'
+);
+
+reset role;
+-- TEST 51
+select is((select status from public.students where id = '30000000-0000-0000-0000-000000000096'), 'archived', 'archive persists root archive state');
+-- TEST 52
+select is((select archived_at is not null from public.students where id = '30000000-0000-0000-0000-000000000096'), true, 'archive records archive timestamp');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+-- TEST 53
+select throws_ok(
+  $$select public.update_organization_student('76000000-0000-0000-0000-000000000212','00000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000096',2,'可归档测试学生',null,'active')$$,
+  'P0001', 'student_unarchive_requires_inactive', 'archived student cannot jump directly back into teaching'
+);
+-- TEST 54
+select is(
+  public.update_organization_student(
+    '76000000-0000-0000-0000-000000000213',
+    '00000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000096',
+    2,
+    '可归档测试学生',
+    null,
+    'inactive'
+  ) ->> 'status',
+  'inactive',
+  'explicit unarchive returns student to paused state'
+);
+
+reset role;
+-- TEST 55
+select is((select version from public.students where id = '30000000-0000-0000-0000-000000000096'), 3, 'archive and unarchive each increment root version once');
+-- TEST 56
+select is((select archived_at is null from public.students where id = '30000000-0000-0000-0000-000000000096'), true, 'unarchive clears archive timestamp without restoring teaching');
 
 select * from finish();
 rollback;
