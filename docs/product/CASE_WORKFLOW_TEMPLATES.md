@@ -83,7 +83,7 @@ V1 不按 source_type 设 recurrence 白名单；任何合法 Evidence source ty
 ```text
 student/subject context
 → 一句标题
-→ optional detail
+→ 一句具体表现
 → new Case
 ```
 

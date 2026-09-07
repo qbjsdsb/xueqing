@@ -132,7 +132,7 @@
 
 ### Quick Capture
 
-最小结构：已知 Student/Subject 上下文 → 问题标题 → 可选补充 → `记录问题`。重复提示放在标题下方作为非阻塞 helper；保存后反馈为“已记录为待整理问题”，不强迫立即填写完整 taxonomy。
+最小结构：已知 Student/Subject 上下文 → 问题标题 → 一句具体表现 → `记录问题`。具体表现只要求可观察事实；重复提示保持非阻塞，保存后反馈为“已记录为待整理问题”，不强迫立即填写 taxonomy、根因、完整方案或日期。
 
 ## 8. Component state contract
 

@@ -523,7 +523,7 @@ void main() {
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
     expect(find.text('分数步骤需要继续观察'), findsOneWidget);
-    expect(find.text('待整理 Case'), findsOneWidget);
+    expect(find.text('待整理问题'), findsOneWidget);
     expect(find.text('待整理'), findsOneWidget);
     expect(find.text('尚未记录教学动作。'), findsOneWidget);
   });
@@ -1156,7 +1156,7 @@ void main() {
     await _pumpWorkspace(tester, repository);
 
     expect(find.text('暂时无法加载工作台'), findsOneWidget);
-    expect(find.text('开发环境服务还没有完成同步，请稍后重试。'), findsOneWidget);
+    expect(find.text('服务正在更新，暂时无法读取工作台。请稍后重试。'), findsOneWidget);
 
     repository.loadError = null;
     await tester.tap(find.text('重试'));
@@ -1175,7 +1175,7 @@ void main() {
 
       await tester.tap(find.text('记录问题').first);
       await tester.pumpAndSettle();
-      expect(find.text('现场表现 / Evidence *'), findsOneWidget);
+      expect(find.text('具体表现 *'), findsOneWidget);
 
       final studentPicker = find.byType(
         DropdownButtonFormField<WorkspaceStudent>,
@@ -1189,7 +1189,7 @@ void main() {
       final textFields = find.byType(TextField);
       await tester.enterText(textFields.at(0), '新的课堂问题');
       await tester.enterText(textFields.at(1), '课堂练习中连续两次跳过通分。');
-      final saveButton = find.widgetWithText(FilledButton, '保存问题');
+      final saveButton = find.byKey(const Key('workspace-quick-capture-save'));
       await tester.ensureVisible(saveButton);
       await tester.tap(saveButton);
       await tester.pumpAndSettle();
@@ -1202,7 +1202,7 @@ void main() {
       await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('已保存为待整理 Case，并保留下一步行动。'), findsOneWidget);
+      expect(find.text('已记录为待整理问题。'), findsOneWidget);
       expect(repository.saveCount, 2);
       expect(
         repository.commands[0].operationId,
@@ -1279,7 +1279,7 @@ void main() {
     final textFields = find.byType(TextField);
     await tester.enterText(textFields.at(0), '新题审题策略不稳定');
     await tester.enterText(textFields.at(1), '面对综合题时没有先识别已知条件。');
-    final saveButton = find.widgetWithText(FilledButton, '保存问题');
+    final saveButton = find.byKey(const Key('workspace-quick-capture-save'));
     await tester.ensureVisible(saveButton);
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
@@ -1941,7 +1941,7 @@ void main() {
 
       await _pumpWorkspace(tester, repository);
 
-      expect(find.text('机构管理尚未接通'), findsOneWidget);
+      expect(find.text('管理功能暂时不可用'), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
       expect(find.byType(NavigationRail), findsNothing);
     },

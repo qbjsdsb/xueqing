@@ -34,7 +34,7 @@ Student → active Subject Profile → 合法 teacher assignment → 定位/优�
 lesson/student page
 → student + subject context
 → 一句标题
-→ optional detail
+→ 一句具体表现
 → new Case
 ```
 

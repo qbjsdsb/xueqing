@@ -80,7 +80,7 @@ Strengths 可选，只记录有证据、对教学有帮助的优势，不造“�
 ```text
 student + subject context
 → 一句标题
-→ optional detail/evidence
+→ 一句具体表现
 → new Case
 ```
 
