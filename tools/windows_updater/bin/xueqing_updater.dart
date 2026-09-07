@@ -9,7 +9,15 @@ const _canonicalHelperFileName = 'xueqing_updater.exe';
 const _bootstrapHelperFileName = 'xueqing_updater_bootstrap.exe';
 const _bootstrapMigrationMarkerName = '.xueqing_updater_bootstrap_migrated';
 const _waitTimeout = Duration(seconds: 90);
-const _launchGracePeriod = Duration(seconds: 2);
+// Flutter Windows cold starts can take several seconds while the process
+// initializes plugins and the embedded engine. Separate the startup wait from
+// the shorter stability check so a healthy test process need not run for the
+// entire startup window.
+const _launchStartupTimeout = Duration(seconds: 10);
+const _launchStabilityPeriod = Duration(seconds: 2);
+final _lastProcessProbeOutputs = <int, String>{};
+const _deleteRetryDelay = Duration(milliseconds: 250);
+const _deleteRetryCount = 20;
 
 Future<void> main(List<String> args) async {
   _UpdaterOptions? options;
@@ -154,20 +162,28 @@ Future<int> _launchInstalledExecutable(
     mode: ProcessStartMode.detached,
   );
   try {
-    final deadline = DateTime.now().add(_launchGracePeriod);
-    var observedRunning = false;
-    while (DateTime.now().isBefore(deadline)) {
+    final startupDeadline = DateTime.now().add(_launchStartupTimeout);
+    while (DateTime.now().isBefore(startupDeadline)) {
       if (await _isProcessRunning(process.pid)) {
-        observedRunning = true;
-      } else if (observedRunning) {
-        throw StateError('更新后的程序启动后立即退出（pid ${process.pid}）。');
+        final stabilityDeadline = DateTime.now().add(_launchStabilityPeriod);
+        while (DateTime.now().isBefore(stabilityDeadline)) {
+          if (!await _isProcessRunning(process.pid)) {
+            throw StateError('更新后的程序启动后立即退出（pid ${process.pid}）。');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+        }
+        if (!await _isProcessRunning(process.pid)) {
+          throw StateError('更新后的程序未能保持运行（pid ${process.pid}）。');
+        }
+        return process.pid;
       }
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
-    if (!observedRunning || !await _isProcessRunning(process.pid)) {
-      throw StateError('更新后的程序未能在宽限期内保持运行（pid ${process.pid}）。');
-    }
-    return process.pid;
+    final probeOutput = _lastProcessProbeOutputs[process.pid];
+    throw StateError(
+      '更新后的程序未能在 ${_launchStartupTimeout.inSeconds} 秒内启动（pid ${process.pid}）。'
+      ' 最近一次进程检查：${probeOutput ?? '无输出'}',
+    );
   } catch (error) {
     Object? terminationError;
     try {
@@ -271,7 +287,8 @@ Future<bool> _isProcessRunning(int processId) async {
     throw StateError('无法查询 Windows 进程状态：${result.stderr}');
   }
   final output = result.stdout.toString();
-  return RegExp(r'(^|\s)$processId(\s|$)').hasMatch(output);
+  _lastProcessProbeOutputs[processId] = output.trim();
+  return RegExp(r'(^|\s)' + processId.toString() + r'(\s|$)').hasMatch(output);
 }
 
 Future<void> _verifySha256(File file, String expected) async {
@@ -351,7 +368,7 @@ Future<void> _clearInstallDirectory(
     if (_shouldSkip(_baseName(entity.path), skipFileNames)) {
       continue;
     }
-    await entity.delete(recursive: true);
+    await _deleteEntityWithRetries(entity);
   }
 }
 
@@ -363,10 +380,10 @@ Future<void> _copyTree(
   await destination.create(recursive: true);
   await for (final entity in source.list(followLinks: false)) {
     final name = _baseName(entity.path);
+    if (_shouldSkip(name, skipFileNames)) {
+      continue;
+    }
     if (entity is File) {
-      if (_shouldSkip(name, skipFileNames)) {
-        continue;
-      }
       final target = File(_join(destination.path, name));
       await target.parent.create(recursive: true);
       await entity.copy(target.path);
@@ -387,24 +404,56 @@ Future<void> _restoreFromBackup(
   Directory backupDirectory, {
   required Set<String> skipFileNames,
 }) async {
+  Object? firstError;
   await for (final entity in installDirectory.list(followLinks: false)) {
     final name = _baseName(entity.path);
     if (_shouldSkip(name, skipFileNames)) {
       continue;
     }
-    await entity.delete(recursive: true);
+    try {
+      await _deleteEntityWithRetries(entity);
+    } on Object catch (error) {
+      firstError ??= error;
+    }
   }
-  await _copyTree(
-    backupDirectory,
-    installDirectory,
-    skipFileNames: skipFileNames,
-  );
+  try {
+    await _copyTree(
+      backupDirectory,
+      installDirectory,
+      skipFileNames: skipFileNames,
+    );
+  } on Object catch (error) {
+    firstError ??= error;
+  }
+  if (firstError != null) {
+    Error.throwWithStackTrace(firstError!, StackTrace.current);
+  }
 }
 
 Future<void> _deleteDirectory(Directory directory) async {
   if (await directory.exists()) {
     await directory.delete(recursive: true);
   }
+}
+
+Future<void> _deleteEntityWithRetries(FileSystemEntity entity) async {
+  Object? lastError;
+  for (var attempt = 0; attempt < _deleteRetryCount; attempt++) {
+    try {
+      if (!await entity.exists()) {
+        return;
+      }
+      await entity.delete(recursive: true);
+      return;
+    } on FileSystemException catch (error) {
+      lastError = error;
+      await Future<void>.delayed(_deleteRetryDelay);
+    }
+  }
+  Error.throwWithStackTrace(
+    lastError ?? StateError('Windows 文件在重试后仍无法删除：${entity.path}'),
+    StackTrace.current,
+  );
 }
 
 String _join(String parent, String child) {
