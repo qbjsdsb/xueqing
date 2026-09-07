@@ -205,7 +205,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
             action: TextButton.icon(
               onPressed: widget.busy ? null : widget.onAddTeacherScope,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('分配学科'),
+              label: const Text('配置'),
             ),
             child: activeScopes.isEmpty
                 ? const _ManagementEmptyState(
@@ -439,7 +439,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     final noSubjects = widget.snapshot.setupOptions.subjects.isEmpty;
     return _ManagementAreaCard(
       icon: Icons.tune_outlined,
-      title: '学科与设置',
+      title: '基础设置',
       description: '新增机构学科、维护问题类型和其他必要配置都在这里处理。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
