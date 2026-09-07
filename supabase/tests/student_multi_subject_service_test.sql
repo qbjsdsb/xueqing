@@ -1,6 +1,6 @@
 begin;
 
-select plan(20);
+select plan(21);
 
 select is(
   to_regprocedure(
