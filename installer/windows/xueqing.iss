@@ -6,6 +6,9 @@
 #ifndef AppVersion
 #define AppVersion "0.1.0"
 #endif
+#ifndef BinaryVersion
+#define BinaryVersion "0.1.0"
+#endif
 
 #ifndef OutputDir
 #define OutputDir "..\..\build\windows\installer"
@@ -42,7 +45,9 @@ RestartApplications=no
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} Windows installer
 VersionInfoProductName={#AppName}
-VersionInfoProductVersion={#AppVersion}
+VersionInfoVersion={#BinaryVersion}
+VersionInfoProductVersion={#BinaryVersion}
+VersionInfoProductTextVersion={#AppVersion}
 VersionInfoCopyright=Copyright (C) 2026 Xueqing project
 
 [Files]
