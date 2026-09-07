@@ -1,6 +1,6 @@
 begin;
 
-select plan(20);
+select plan(24);
 
 create temp table attachment_behavior_test_state (
   learning_case_id uuid primary key,
@@ -207,6 +207,88 @@ select throws_ok(
 );
 
 reset role;
+
+update public.learning_cases
+set status = 'closed',
+    stable_at = coalesce(stable_at, timezone('utc', now())),
+    closed_at = timezone('utc', now()),
+    updated_at = timezone('utc', now())
+where id = (
+  select learning_case_id
+  from attachment_behavior_test_state
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '20000000-0000-0000-0000-000000000001',
+  true
+);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+
+select is(
+  (select count(*)::int from public.case_evidence_attachments),
+  1,
+  'closing a Case preserves historical attachment metadata visibility'
+);
+
+select is(
+  (
+    select count(*)::int
+    from storage.objects
+    where bucket_id = 'case-evidence-private'
+  ),
+  1,
+  'closing a Case preserves historical private object visibility'
+);
+
+select is(
+  (
+    select private.can_write_case_evidence_attachment_v2(case_evidence_id)
+    from attachment_behavior_test_state
+  ),
+  false,
+  'closing a Case removes attachment write authority'
+);
+
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name, metadata)
+    select
+      'case-evidence-private',
+      format(
+        'org/%s/cases/%s/evidence/%s/%s.jpg',
+        '00000000-0000-0000-0000-000000000001',
+        learning_case_id,
+        case_evidence_id,
+        '91000000-0000-4000-8000-000000000006'
+      ),
+      jsonb_build_object('mimetype', 'image/jpeg', 'size', 4)
+    from attachment_behavior_test_state$$,
+  '42501',
+  null,
+  'closed Case cannot upload a new private Evidence object'
+);
+
+reset role;
+
+update public.learning_cases
+set status = 'new',
+    stable_at = null,
+    closed_at = null,
+    updated_at = timezone('utc', now())
+where id = (
+  select learning_case_id
+  from attachment_behavior_test_state
+);
 
 update public.student_teacher_assignments
 set status = 'ended',
