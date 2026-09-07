@@ -23,10 +23,9 @@ on:
         required: false
         type: string
       app_version:
-        description: "Optional app version, including Android build number"
+        description: "Optional app version including build number; defaults to pubspec.yaml"
         required: false
         type: string
-        default: 0.1.0+3
 
 permissions:
   contents: read
@@ -37,7 +36,6 @@ concurrency:
 
 env:
   XUEQING_ENV: development
-  XUEQING_APP_VERSION: ${{ github.event.inputs.app_version || '0.1.0+3' }}
   XUEQING_SUPABASE_URL: ${{ github.event.inputs.supabase_url || 'https://czuctoulgnfytcfonkhc.supabase.co' }}
   XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}
 
@@ -59,6 +57,23 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Resolve app version
+        shell: bash
+        env:
+          REQUESTED_APP_VERSION: ${{ github.event.inputs.app_version || '' }}
+        run: |
+          set -euo pipefail
+          app_version="$REQUESTED_APP_VERSION"
+          if [[ -z "$app_version" ]]; then
+            app_version="$(awk '/^version:[[:space:]]*/ { print $2; exit }' pubspec.yaml)"
+          fi
+          if [[ ! "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?\+[1-9][0-9]*$ ]]; then
+            echo "App version must match major.minor.patch[-prerelease]+positive_build."
+            exit 1
+          fi
+          echo "XUEQING_APP_VERSION=$app_version" >> "$GITHUB_ENV"
+          echo "Resolved Xueqing app version: $app_version"
 
       - name: Build Android debug APK
         run: |
@@ -100,6 +115,27 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Resolve app version
+        shell: pwsh
+        env:
+          REQUESTED_APP_VERSION: ${{ github.event.inputs.app_version || '' }}
+        run: |
+          $appVersion = $env:REQUESTED_APP_VERSION.Trim()
+          if ([string]::IsNullOrWhiteSpace($appVersion)) {
+            $versionLine = Get-Content pubspec.yaml |
+              Where-Object { $_ -match '^version:\s*\S+\s*$' } |
+              Select-Object -First 1
+            if ($null -eq $versionLine) {
+              throw "pubspec.yaml does not contain a version field."
+            }
+            $appVersion = ($versionLine -replace '^version:\s*', '').Trim()
+          }
+          if ($appVersion -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\+[1-9]\d*$') {
+            throw "App version must match major.minor.patch[-prerelease]+positive_build."
+          }
+          "XUEQING_APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Resolved Xueqing app version: $appVersion"
 
       - name: Build Windows release bundle
         shell: pwsh
@@ -182,6 +218,9 @@ jobs:
         run: |
           dart pub get
           dart analyze
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows updater analysis failed with exit code $LASTEXITCODE."
+          }
           $testFixtureDir = Join-Path $env:RUNNER_TEMP "xueqing-updater-fixtures"
           New-Item -ItemType Directory -Force -Path $testFixtureDir | Out-Null
           $testHelper = Join-Path $testFixtureDir "xueqing_updater_test.exe"
@@ -212,6 +251,9 @@ jobs:
           foreach ($helperPath in @($updaterPath, $bootstrapPath)) {
             if (-not (Test-Path $helperPath)) {
               throw "Windows updater helper was not produced: $helperPath"
+            }
+            if ((Get-Item $helperPath).Length -le 0) {
+              throw "Windows updater helper is empty: $helperPath"
             }
           }
 
