@@ -77,13 +77,23 @@ jobs:
           import os
           from pathlib import Path
 
+          expr_open = '$' + '{{'
+          expr_close = '}}'
+
+          def old_line(name):
+              return f"  {name}: {expr_open} vars.{name} || '' {expr_close}"
+
+          def new_line(name, value):
+              return f"  {name}: {expr_open} vars.{name} || '{value}' {expr_close}"
+
+          values = {
+              'XUEQING_SUPABASE_URL': os.environ['PUBLIC_SUPABASE_URL'],
+              'XUEQING_SUPABASE_PUBLISHABLE_KEY': os.environ['PUBLIC_SUPABASE_PUBLISHABLE_KEY'],
+              'XUEQING_SUPABASE_ALLOWED_HOSTS': os.environ['PUBLIC_SUPABASE_ALLOWED_HOSTS'],
+          }
           replacements = {
-              "  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '' }}":
-                  "  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '" + os.environ["PUBLIC_SUPABASE_URL"] + "' }}",
-              "  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '' }}":
-                  "  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '" + os.environ["PUBLIC_SUPABASE_PUBLISHABLE_KEY"] + "' }}",
-              "  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '' }}":
-                  "  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '" + os.environ["PUBLIC_SUPABASE_ALLOWED_HOSTS"] + "' }}",
+              old_line(name): new_line(name, value)
+              for name, value in values.items()
           }
 
           paths = [
