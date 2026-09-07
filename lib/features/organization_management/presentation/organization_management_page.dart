@@ -97,8 +97,8 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                   }
                   final hasProvisioningRepository =
                       widget.provisioningRepository != null;
-                  final canManageMemberAccounts =
-                      _isOwner && hasProvisioningRepository;
+                  final canManageTeacherAccounts =
+                      hasProvisioningRepository && (_isOwner || _isAdmin);
                   final canEditMemberName =
                       hasProvisioningRepository &&
                       widget.roles.any(
@@ -118,6 +118,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                       _ManagementOverview(
                         snapshot: snapshotState.data!,
                         isOwner: _isOwner,
+                        canManageTeacherAccounts: canManageTeacherAccounts,
                         busy: _busy,
                         canInvite: _inviteRoles.isNotEmpty,
                         canEditMemberName: canEditMemberName,
@@ -125,7 +126,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                         onInviteMember: _inviteMember,
                         onApprove: _approveInvitation,
                         onRevoke: _revokeInvitation,
-                        onProvisionInvitation: canManageMemberAccounts
+                        onProvisionInvitation: canManageTeacherAccounts
                             ? _provisionExistingInvitation
                             : null,
                         onEditMemberName: canEditMemberName
@@ -133,7 +134,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                             : null,
                         onEditStudent: _editStudent,
                         onToggleMemberStatus: _toggleMemberStatus,
-                        onReissueMemberCredential: canManageMemberAccounts
+                        onReissueMemberCredential: canManageTeacherAccounts
                             ? _reissueMemberCredential
                             : null,
                         onAddSubject: _addSubject,
