@@ -26,6 +26,9 @@ select throws_ok(
   'an owner is told before provisioning when an email already belongs to another organization'
 );
 
+reset role;
+set local role service_role;
+
 select is(
   (
     select count(*)::integer
@@ -36,6 +39,20 @@ select is(
   ),
   0,
   'the impossible cross-organization invitation is not left pending'
+);
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
 );
 
 select lives_ok(
