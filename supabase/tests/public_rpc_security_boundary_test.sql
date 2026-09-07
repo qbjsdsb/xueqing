@@ -13,6 +13,7 @@ with expected(signature, authenticated_allowed) as (
     ('public.reopen_case(uuid, uuid, integer, uuid[], jsonb, text, text, date)'::regprocedure, true),
     ('public.complete_member_onboarding()'::regprocedure, true),
     ('public.confirm_case(uuid, uuid, integer, text, timestamp with time zone)'::regprocedure, true),
+    ('public.create_case_evidence_attachment(uuid, uuid, uuid, uuid, text, text, text, bigint)'::regprocedure, true),
     ('public.create_organization_case_type(uuid, text, text)'::regprocedure, true),
     ('public.create_organization_invitation(uuid, text, text)'::regprocedure, true),
     ('public.create_organization_student(uuid, uuid, text, text, text, text, text, uuid, uuid, date, text, text, text)'::regprocedure, true),
@@ -54,7 +55,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 38
+  (select count(*) from found) = 39
   and not exists (
     select 1
     from found
@@ -76,6 +77,7 @@ with expected(signature, authenticated_allowed) as (
     ('private.reopen_case_v2(uuid, uuid, integer, uuid[], jsonb, text, text, date)'::regprocedure, true),
     ('private.complete_member_onboarding()'::regprocedure, true),
     ('private.confirm_case(uuid, uuid, integer, text, timestamp with time zone)'::regprocedure, true),
+    ('private.create_case_evidence_attachment(uuid, uuid, uuid, uuid, text, text, text, bigint)'::regprocedure, true),
     ('private.create_organization_case_type(uuid, text, text)'::regprocedure, true),
     ('private.create_organization_invitation(uuid, text, text)'::regprocedure, true),
     ('private.create_organization_student(uuid, uuid, text, text, text, text, text, uuid, uuid, date, text, text, text)'::regprocedure, true),
@@ -117,7 +119,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 38
+  (select count(*) from found) = 39
   and not exists (
     select 1
     from found

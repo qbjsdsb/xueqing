@@ -29,7 +29,7 @@ enabled = false
 enabled = false
 
 [storage]
-enabled = false
+enabled = true
 
 [local_smtp]
 enabled = false
