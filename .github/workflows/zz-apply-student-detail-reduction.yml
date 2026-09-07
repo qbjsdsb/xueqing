@@ -26,15 +26,18 @@ jobs:
       - name: Apply exact patch and targeted regression
         run: |
           python3 .github/scripts/zz_apply_student_detail_reduction.py
+          python3 .github/scripts/zz_adjust_student_detail_regressions.py
           dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart
           flutter test test/features/teacher_workspace_test.dart
       - name: Verify scope and commit
         run: |
           rm .github/workflows/zz-apply-student-detail-reduction.yml
           rm .github/scripts/zz_apply_student_detail_reduction.py
+          rm .github/scripts/zz_adjust_student_detail_regressions.py
           git diff --check
           actual="$(git diff --name-only | sort)"
           expected="$(printf '%s\n' \
+            '.github/scripts/zz_adjust_student_detail_regressions.py' \
             '.github/scripts/zz_apply_student_detail_reduction.py' \
             '.github/workflows/zz-apply-student-detail-reduction.yml' \
             'lib/features/teacher_workspace/presentation/teacher_workspace_page.dart' \
