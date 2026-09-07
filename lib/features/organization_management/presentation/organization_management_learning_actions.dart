@@ -135,6 +135,54 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     );
   }
 
+  Future<void> _addStudentSubject(OrganizationStudentRecord student) async {
+    if (_busy || !student.isActive) return;
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) return;
+
+      final existingSubjectIds = <String>{
+        for (final assignment in snapshot.studentTeacherAssignments)
+          if (assignment.studentId == student.studentId)
+            assignment.organizationSubjectId,
+      };
+      final availableSubjects = <OrganizationSetupSubject>[
+        for (final subject
+            in snapshot.setupOptions.subjectsWithAvailableTeachers)
+          if (!existingSubjectIds.contains(subject.id)) subject,
+      ];
+      if (availableSubjects.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('这个学生暂时没有可新增的学科；已有或历史学科不会重复建档。')),
+        );
+        return;
+      }
+
+      final draft = await showDialog<OrganizationStudentSubjectSetupDraft>(
+        context: context,
+        builder: (context) => OrganizationStudentSubjectSetupDialog(
+          student: student,
+          subjects: availableSubjects,
+          teachers: snapshot.setupOptions.teachers,
+        ),
+      );
+      if (!mounted || draft == null) return;
+
+      await _runMutation(
+        () => widget.repository.addStudentSubject(
+          operationId: draft.operationId,
+          organizationId: widget.organizationId,
+          studentId: draft.studentId,
+          organizationSubjectId: draft.organizationSubjectId,
+          teacherMembershipId: draft.teacherMembershipId,
+        ),
+        '已为 ${student.studentName} 增加 ${draft.subjectName} · ${draft.teacherName} 负责。',
+      );
+    } catch (error) {
+      if (mounted) setState(() => _errorMessage = _describeError(error));
+    }
+  }
+
   Future<void> _transferStudentTeacherAssignment(
     OrganizationStudentTeacherAssignment assignment,
   ) async {

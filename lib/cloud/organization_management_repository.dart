@@ -753,6 +753,15 @@ abstract interface class OrganizationManagementRepository {
   Future<List<OrganizationStudentTeacherAssignment>>
   listStudentTeacherAssignments({required String organizationId});
 
+  Future<OrganizationStudentSetupResult> addStudentSubject({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required String organizationSubjectId,
+    required String teacherMembershipId,
+    DateTime? startsOn,
+  });
+
   Future<OrganizationStudentTeacherAssignmentTransferResult>
   transferStudentTeacherAssignment({
     required String operationId,
@@ -1001,6 +1010,9 @@ String? organizationStudentSetupErrorMessage(Object error) {
   }
   return switch (detail.toLowerCase()) {
     'invalid_student_setup_input' => '学生信息不完整或过长，请检查后重试。',
+    'invalid_student_subject_setup_input' => '学生、学科或负责老师信息不完整，请刷新后重试。',
+    'student_subject_profile_already_exists' =>
+      '这个学生已经有这门学科的档案；如需恢复历史学科，请不要重复新增。',
     'student_code_already_exists' => '这个学生编号已被本机构其他学生使用，请核对后修改。',
     'possible_duplicate_student' => '已存在姓名、年级、班级和校区相同的学生；请先核对，确为不同学生时填写不同学生编号。',
     'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
@@ -1193,6 +1205,36 @@ class SupabaseOrganizationManagementRepository
       <String, dynamic>{'p_organization_id': organizationId},
     );
     return _mapList(response, OrganizationStudentTeacherAssignment.fromJson);
+  }
+
+  @override
+  Future<OrganizationStudentSetupResult> addStudentSubject({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required String organizationSubjectId,
+    required String teacherMembershipId,
+    DateTime? startsOn,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        organizationId.trim().isEmpty ||
+        studentId.trim().isEmpty ||
+        organizationSubjectId.trim().isEmpty ||
+        teacherMembershipId.trim().isEmpty) {
+      throw ArgumentError('Student subject setup identity is invalid.');
+    }
+    final response = await _call(
+      'add_organization_student_subject_service',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_id': studentId,
+        'p_organization_subject_id': organizationSubjectId,
+        'p_teacher_membership_id': teacherMembershipId,
+        'p_starts_on': _dateOnlyValue(startsOn),
+      },
+    );
+    return OrganizationStudentSetupResult.fromJson(_mapResponse(response));
   }
 
   @override
