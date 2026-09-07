@@ -25,10 +25,12 @@ jobs:
         run: test "$(git merge-base HEAD origin/main)" = "3844c901b6d414d690c7182bd83b609502a5e19a"
 
       - name: Apply focused lifecycle patch
-        run: python3 .github/tmp/apply_student_subject_lifecycle.py
+        run: |
+          python3 .github/tmp/apply_student_subject_lifecycle.py
+          python3 .github/tmp/fix_student_subject_lifecycle.py
 
       - name: Remove temporary implementation files
-        run: rm .github/workflows/zz-student-subject-lifecycle.yml .github/tmp/apply_student_subject_lifecycle.py
+        run: rm .github/workflows/zz-student-subject-lifecycle.yml .github/tmp/apply_student_subject_lifecycle.py .github/tmp/fix_student_subject_lifecycle.py
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -62,7 +64,10 @@ jobs:
 
       - name: Stop local Supabase
         if: always()
-        run: supabase stop
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop
+          fi
 
       - name: Commit verified lifecycle implementation
         run: |
