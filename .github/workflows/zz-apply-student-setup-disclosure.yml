@@ -30,13 +30,16 @@ jobs:
         run: flutter pub get
 
       - name: Apply exact student setup patch
-        run: python3 .github/scripts/zz_apply_student_setup_disclosure.py
+        run: |
+          python3 .github/scripts/zz_apply_student_setup_disclosure.py
+          python3 .github/scripts/zz_fix_student_setup_submit_identity.py
 
       - name: Format and verify exact net diff
         run: |
           dart format lib/features/organization_management/presentation/organization_student_setup_dialog.dart test/features/organization_management_test.dart
           rm .github/workflows/zz-apply-student-setup-disclosure.yml
           rm .github/scripts/zz_apply_student_setup_disclosure.py
+          rm .github/scripts/zz_fix_student_setup_submit_identity.py
           git diff --check
           python3 <<'PY'
           import subprocess
@@ -44,6 +47,7 @@ jobs:
               'M lib/features/organization_management/presentation/organization_student_setup_dialog.dart',
               'M test/features/organization_management_test.dart',
               'D .github/scripts/zz_apply_student_setup_disclosure.py',
+              'D .github/scripts/zz_fix_student_setup_submit_identity.py',
               'D .github/workflows/zz-apply-student-setup-disclosure.yml',
           }
           actual = {line.strip() for line in subprocess.check_output(['git', 'status', '--porcelain'], text=True).splitlines()}
