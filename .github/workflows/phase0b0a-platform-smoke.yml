@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - ".github/workflows/phase0b0a-platform-smoke.yml"
+      - ".github/workflows/package-windows.yml"
+      - ".github/workflows/publish-release-assets.yml"
       - "android/**"
       - "lib/**"
       - "pubspec.yaml"
@@ -279,3 +281,65 @@ jobs:
           path: build/windows/installer/xueqing-setup-*.exe
           if-no-files-found: error
           retention-days: 7
+
+      - name: Smoke install and uninstall Windows installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem `
+            -Path (Join-Path $env:GITHUB_WORKSPACE "build/windows/installer") `
+            -Filter "xueqing-setup-*.exe" `
+            -File |
+            Select-Object -First 1
+          if ($null -eq $installer) {
+            throw "Windows installer was not found for smoke installation."
+          }
+
+          $installDir = Join-Path $env:LOCALAPPDATA "Programs/Xueqing"
+          if (Test-Path $installDir) {
+            Remove-Item -Recurse -Force $installDir
+          }
+
+          $installProcess = Start-Process `
+            -FilePath $installer.FullName `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-') `
+            -Wait `
+            -PassThru
+          if ($installProcess.ExitCode -ne 0) {
+            throw "Windows installer smoke failed with exit code $($installProcess.ExitCode)."
+          }
+
+          foreach ($requiredFile in @(
+            "xueqing.exe",
+            "xueqing_updater.exe",
+            "xueqing_updater_bootstrap.exe",
+            "msvcp140.dll",
+            "vcruntime140.dll",
+            "vcruntime140_1.dll"
+          )) {
+            $installedPath = Join-Path $installDir $requiredFile
+            if (-not (Test-Path $installedPath)) {
+              throw "Installer did not install required file: $installedPath"
+            }
+            if ((Get-Item $installedPath).Length -le 0) {
+              throw "Installer produced an empty required file: $installedPath"
+            }
+          }
+
+          $uninstaller = Join-Path $installDir "unins000.exe"
+          if (-not (Test-Path $uninstaller)) {
+            throw "Windows uninstaller was not installed."
+          }
+          $uninstallProcess = Start-Process `
+            -FilePath $uninstaller `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') `
+            -Wait `
+            -PassThru
+          if ($uninstallProcess.ExitCode -ne 0) {
+            throw "Windows uninstaller smoke failed with exit code $($uninstallProcess.ExitCode)."
+          }
+
+          foreach ($removedFile in @("xueqing.exe", "xueqing_updater.exe", "xueqing_updater_bootstrap.exe")) {
+            if (Test-Path (Join-Path $installDir $removedFile)) {
+              throw "Windows uninstaller left application file behind: $removedFile"
+            }
+          }
