@@ -1,0 +1,69 @@
+name: Apply management language clarity
+
+on:
+  push:
+    branches:
+      - ux/management-language-clarity
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/management-language-clarity
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply exact management-language patch
+        run: python3 .github/scripts/zz_apply_management_language_clarity.py
+
+      - name: Format and verify exact net diff
+        run: |
+          dart format lib/features/organization_management/presentation/organization_subject_setup_dialog.dart lib/features/organization_management/presentation/organization_management_dialogs.dart test/features/organization_management_test.dart
+          rm .github/workflows/zz-apply-management-language-clarity.yml
+          rm .github/scripts/zz_apply_management_language_clarity.py
+          git diff --check
+          python3 <<'PY'
+          import subprocess
+          expected = {
+              'D .github/scripts/zz_apply_management_language_clarity.py',
+              'D .github/workflows/zz-apply-management-language-clarity.yml',
+              'M lib/features/organization_management/presentation/organization_management_dialogs.dart',
+              'M lib/features/organization_management/presentation/organization_subject_setup_dialog.dart',
+              'M test/features/organization_management_test.dart',
+          }
+          lines = subprocess.check_output(['git', 'status', '--porcelain'], text=True).splitlines()
+          actual = {line.strip() for line in lines}
+          if actual != expected:
+              print('Expected:', *sorted(expected), sep='\n  ')
+              print('Actual:', *sorted(actual), sep='\n  ')
+              raise SystemExit('management-language net diff drifted')
+          PY
+
+      - name: Analyze and run management regression suite
+        run: |
+          flutter analyze
+          flutter test test/features/organization_management_test.dart
+
+      - name: Commit verified management-language slice
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'ux: make management actions speak plainly'
+          git push origin HEAD:ux/management-language-clarity
