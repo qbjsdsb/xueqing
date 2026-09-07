@@ -156,6 +156,9 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
     if (subjectLifecycleError != null) return subjectLifecycleError;
     final setupError = organizationStudentSetupErrorMessage(error);
     if (setupError != null) return setupError;
+    final teachingLifecycleError =
+        organizationStudentTeachingLifecycleErrorMessage(error);
+    if (teachingLifecycleError != null) return teachingLifecycleError;
     final lifecycleError = organizationStudentLifecycleErrorMessage(error);
     if (lifecycleError != null) return lifecycleError;
     final memberLifecycleError = organizationMemberLifecycleErrorMessage(error);

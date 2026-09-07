@@ -273,6 +273,7 @@ class _OrganizationStudentTile extends StatelessWidget {
     required this.busy,
     required this.onAddSubject,
     required this.onToggleSubjectService,
+    required this.onToggleTeaching,
     required this.onEdit,
   });
 
@@ -281,6 +282,7 @@ class _OrganizationStudentTile extends StatelessWidget {
   final VoidCallback? onAddSubject;
   final Future<void> Function(OrganizationStudentSubjectService service)?
   onToggleSubjectService;
+  final VoidCallback? onToggleTeaching;
   final VoidCallback? onEdit;
 
   @override
@@ -339,7 +341,9 @@ class _OrganizationStudentTile extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
-          if (onAddSubject != null || onEdit != null) ...[
+          if (onAddSubject != null ||
+              onToggleTeaching != null ||
+              onEdit != null) ...[
             const SizedBox(height: AppSpacing.xs),
             Wrap(
               spacing: AppSpacing.xs,
@@ -350,6 +354,20 @@ class _OrganizationStudentTile extends StatelessWidget {
                     onPressed: busy ? null : onAddSubject,
                     icon: const Icon(Icons.add_circle_outline, size: 18),
                     label: const Text('添加学科'),
+                  ),
+                if (onToggleTeaching != null)
+                  TextButton.icon(
+                    key: ValueKey<String>(
+                      'student-teaching-toggle-${student.studentId}',
+                    ),
+                    onPressed: busy ? null : onToggleTeaching,
+                    icon: Icon(
+                      student.isActive
+                          ? Icons.pause_circle_outline
+                          : Icons.play_circle_outline,
+                      size: 18,
+                    ),
+                    label: Text(student.isActive ? '暂停教学' : '恢复教学'),
                   ),
                 if (onEdit != null)
                   TextButton.icon(

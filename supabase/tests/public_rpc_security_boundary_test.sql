@@ -18,6 +18,7 @@ with expected(signature, authenticated_allowed) as (
     ('public.create_organization_invitation(uuid, text, text)'::regprocedure, true),
     ('public.create_organization_student(uuid, uuid, text, text, text, text, text, uuid, uuid, date, text, text, text)'::regprocedure, true),
     ('public.create_organization_subject(uuid, uuid, uuid)'::regprocedure, true),
+    ('public.end_organization_student_subject_service(uuid, uuid, uuid, integer)'::regprocedure, true),
     ('public.get_my_membership_state()'::regprocedure, true),
     ('public.list_organization_invitations(uuid)'::regprocedure, true),
     ('public.list_organization_members(uuid)'::regprocedure, true),
@@ -26,6 +27,7 @@ with expected(signature, authenticated_allowed) as (
     ('public.list_organization_students(uuid)'::regprocedure, true),
     ('public.list_organization_subject_catalog(uuid)'::regprocedure, true),
     ('public.list_organization_teacher_subject_scopes(uuid)'::regprocedure, true),
+    ('public.pause_organization_student_teaching(uuid, uuid, uuid, integer)'::regprocedure, true),
     ('public.prepare_member_credential_reissue(uuid, uuid, uuid, uuid)'::regprocedure, false),
     ('public.provision_organization_member_from_auth(uuid, uuid, text, uuid, uuid, text)'::regprocedure, false),
     ('public.quick_capture_case(uuid, uuid, integer, text, text, text, timestamp with time zone, text, text, timestamp with time zone)'::regprocedure, true),
@@ -35,6 +37,8 @@ with expected(signature, authenticated_allowed) as (
     ('public.reissue_organization_invitation(uuid)'::regprocedure, true),
     ('public.rename_organization_case_type(uuid, text, integer)'::regprocedure, true),
     ('public.reschedule_case_action(uuid, uuid, uuid, integer, integer, date)'::regprocedure, true),
+    ('public.restore_organization_student_subject_service(uuid, uuid, uuid, integer, uuid, date)'::regprocedure, true),
+    ('public.resume_organization_student_teaching(uuid, uuid, uuid, integer)'::regprocedure, true),
     ('public.revoke_member_auth_sessions(uuid)'::regprocedure, false),
     ('public.revoke_organization_invitation(uuid)'::regprocedure, true),
     ('public.stabilize_case(uuid, uuid, integer, timestamp with time zone, text, timestamp with time zone)'::regprocedure, true),
@@ -55,7 +59,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 39
+  (select count(*) from found) = 43
   and not exists (
     select 1
     from found
@@ -82,6 +86,7 @@ with expected(signature, authenticated_allowed) as (
     ('private.create_organization_invitation(uuid, text, text)'::regprocedure, true),
     ('private.create_organization_student(uuid, uuid, text, text, text, text, text, uuid, uuid, date, text, text, text)'::regprocedure, true),
     ('private.create_organization_subject(uuid, uuid, uuid)'::regprocedure, true),
+    ('private.end_organization_student_subject_service(uuid, uuid, uuid, integer)'::regprocedure, true),
     ('private.get_my_membership_state()'::regprocedure, true),
     ('private.list_organization_invitations(uuid)'::regprocedure, true),
     ('private.list_organization_members(uuid)'::regprocedure, true),
@@ -90,6 +95,7 @@ with expected(signature, authenticated_allowed) as (
     ('private.list_organization_students(uuid)'::regprocedure, true),
     ('private.list_organization_subject_catalog(uuid)'::regprocedure, true),
     ('private.list_organization_teacher_subject_scopes(uuid)'::regprocedure, true),
+    ('private.pause_organization_student_teaching(uuid, uuid, uuid, integer)'::regprocedure, true),
     ('private.prepare_member_credential_reissue(uuid, uuid, uuid, uuid)'::regprocedure, false),
     ('private.provision_organization_member_from_auth(uuid, uuid, text, uuid, uuid, text)'::regprocedure, false),
     ('private.quick_capture_case(uuid, uuid, integer, text, text, text, timestamp with time zone, text, text, timestamp with time zone)'::regprocedure, true),
@@ -99,6 +105,8 @@ with expected(signature, authenticated_allowed) as (
     ('private.reissue_organization_invitation(uuid)'::regprocedure, true),
     ('private.rename_organization_case_type(uuid, text, integer)'::regprocedure, true),
     ('private.reschedule_case_action(uuid, uuid, uuid, integer, integer, date)'::regprocedure, true),
+    ('private.restore_organization_student_subject_service(uuid, uuid, uuid, integer, uuid, date)'::regprocedure, true),
+    ('private.resume_organization_student_teaching(uuid, uuid, uuid, integer)'::regprocedure, true),
     ('private.revoke_member_auth_sessions(uuid)'::regprocedure, false),
     ('private.revoke_organization_invitation(uuid)'::regprocedure, true),
     ('private.stabilize_case(uuid, uuid, integer, timestamp with time zone, text, timestamp with time zone)'::regprocedure, true),
@@ -119,7 +127,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 39
+  (select count(*) from found) = 43
   and not exists (
     select 1
     from found

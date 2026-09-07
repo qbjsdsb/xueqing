@@ -717,6 +717,43 @@ class OrganizationStudentSubjectLifecycleResult {
   }
 }
 
+class OrganizationStudentTeachingLifecycleResult {
+  const OrganizationStudentTeachingLifecycleResult({
+    required this.operationId,
+    required this.organizationId,
+    required this.studentId,
+    required this.studentName,
+    required this.studentCode,
+    required this.status,
+    required this.version,
+  });
+
+  final String operationId;
+  final String organizationId;
+  final String studentId;
+  final String studentName;
+  final String? studentCode;
+  final String status;
+  final int version;
+
+  factory OrganizationStudentTeachingLifecycleResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationStudentTeachingLifecycleResult(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      organizationId: _requiredString(
+        json['organization_id'],
+        'organization_id',
+      ),
+      studentId: _requiredString(json['student_id'], 'student_id'),
+      studentName: _stringValue(json['student_name']) ?? '未命名学生',
+      studentCode: _stringValue(json['student_code']),
+      status: _stringValue(json['status']) ?? 'unknown',
+      version: _intValue(json['version']) ?? 1,
+    );
+  }
+}
+
 class OrganizationStudentUpdateResult {
   const OrganizationStudentUpdateResult({
     required this.operationId,
@@ -892,6 +929,20 @@ abstract interface class OrganizationManagementRepository {
     required int expectedProfileVersion,
     required String teacherMembershipId,
     DateTime? startsOn,
+  });
+
+  Future<OrganizationStudentTeachingLifecycleResult> pauseStudentTeaching({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+  });
+
+  Future<OrganizationStudentTeachingLifecycleResult> resumeStudentTeaching({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
   });
 
   Future<OrganizationStudentTeacherAssignmentTransferResult>
@@ -1193,6 +1244,30 @@ String? organizationStudentSetupErrorMessage(Object error) {
   };
 }
 
+String? organizationStudentTeachingLifecycleErrorMessage(Object error) {
+  final detail = switch (error) {
+    AuthException(:final message) => message.trim(),
+    PostgrestException(:final message) => message.trim(),
+    _ => null,
+  };
+  if (detail == null) return null;
+  return switch (detail.toLowerCase()) {
+    'invalid_student_teaching_lifecycle_input' => '学生教学状态信息不完整，请刷新后重试。',
+    'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
+    'student_not_found' => '学生档案已变化，请刷新后重试。',
+    'student_merged_immutable' => '已合并学生不能再修改教学状态。',
+    'student_archived_immutable' => '已归档学生不能通过暂停/恢复改变状态。',
+    'student_teaching_not_active' => '学生当前已经不是正常教学状态，请刷新后重试。',
+    'student_teaching_not_paused' => '学生当前不处于暂停教学状态，请刷新后重试。',
+    'version_conflict' => '这位学生刚刚被别人修改，请刷新后重试。',
+    'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
+    'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
+    'invalid_live_session' => '登录状态已失效，请重新登录。',
+    'organization_manager_required' => '当前账号没有本机构管理权限。',
+    _ => null,
+  };
+}
+
 String? organizationStudentLifecycleErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),
@@ -1458,6 +1533,60 @@ class SupabaseOrganizationManagementRepository
       },
     );
     return OrganizationStudentSubjectLifecycleResult.fromJson(
+      _mapResponse(response),
+    );
+  }
+
+  @override
+  Future<OrganizationStudentTeachingLifecycleResult> pauseStudentTeaching({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        organizationId.trim().isEmpty ||
+        studentId.trim().isEmpty ||
+        expectedStudentVersion <= 0) {
+      throw ArgumentError('Student teaching lifecycle identity is invalid.');
+    }
+    final response = await _call(
+      'pause_organization_student_teaching',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_id': studentId,
+        'p_expected_student_version': expectedStudentVersion,
+      },
+    );
+    return OrganizationStudentTeachingLifecycleResult.fromJson(
+      _mapResponse(response),
+    );
+  }
+
+  @override
+  Future<OrganizationStudentTeachingLifecycleResult> resumeStudentTeaching({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        organizationId.trim().isEmpty ||
+        studentId.trim().isEmpty ||
+        expectedStudentVersion <= 0) {
+      throw ArgumentError('Student teaching lifecycle identity is invalid.');
+    }
+    final response = await _call(
+      'resume_organization_student_teaching',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_id': studentId,
+        'p_expected_student_version': expectedStudentVersion,
+      },
+    );
+    return OrganizationStudentTeachingLifecycleResult.fromJson(
       _mapResponse(response),
     );
   }

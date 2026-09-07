@@ -362,6 +362,42 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     }
   }
 
+  Future<void> _toggleStudentTeaching(OrganizationStudentRecord student) async {
+    if (_busy || student.isMerged) return;
+    final pausing = student.isActive;
+    if (!pausing && student.status != 'inactive') return;
+
+    final confirmed = await _confirm(
+      title: pausing
+          ? '暂停 ${student.studentName} 的教学？'
+          : '恢复 ${student.studentName} 的教学？',
+      message: pausing
+          ? '暂停后，这位学生会暂时从老师工作台和今日事项中隐藏；学科档案、当前任课、Case、证据和待办都会原样保留，恢复后继续原来的教学上下文。'
+          : '恢复后，这位学生会重新出现在有当前任课关系的老师工作台中；原学科、Case、证据和待办继续有效，不会重新建档。',
+      confirmLabel: pausing ? '确认暂停' : '确认恢复',
+    );
+    if (!mounted || !confirmed) return;
+
+    await _runMutation(
+      () => pausing
+          ? widget.repository.pauseStudentTeaching(
+              operationId: createOperationId(),
+              organizationId: widget.organizationId,
+              studentId: student.studentId,
+              expectedStudentVersion: student.version,
+            )
+          : widget.repository.resumeStudentTeaching(
+              operationId: createOperationId(),
+              organizationId: widget.organizationId,
+              studentId: student.studentId,
+              expectedStudentVersion: student.version,
+            ),
+      pausing
+          ? '已暂停 ${student.studentName} 的教学；历史和待跟进内容均已保留。'
+          : '已恢复 ${student.studentName} 的教学。',
+    );
+  }
+
   Future<void> _editStudent(OrganizationStudentRecord student) async {
     if (_busy) return;
     setState(() {
@@ -380,7 +416,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
             expectedStudentVersion: draft.expectedStudentVersion,
             name: draft.name,
             studentCode: draft.studentCode,
-            status: draft.status,
+            status: student.status,
           ),
         ),
       );
@@ -389,11 +425,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       if (!mounted) return;
       widget.onChanged?.call();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '已更新 ${result.studentName} · ${_studentStatusLabel(result.status)}。',
-          ),
-        ),
+        SnackBar(content: Text('已更新 ${result.studentName} 的基本信息。')),
       );
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));

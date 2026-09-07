@@ -182,6 +182,32 @@ void main() {
     );
   });
 
+  test('parses and explains student teaching lifecycle results', () {
+    final result = OrganizationStudentTeachingLifecycleResult.fromJson({
+      'operation_id': 'operation-pause',
+      'organization_id': 'org-1',
+      'student_id': 'student-1',
+      'student_name': '示例学生',
+      'student_code': 'S-001',
+      'status': 'inactive',
+      'version': 4,
+    });
+    expect(result.status, 'inactive');
+    expect(result.version, 4);
+    expect(
+      organizationStudentTeachingLifecycleErrorMessage(
+        const AuthException('student_archived_immutable'),
+      ),
+      '已归档学生不能通过暂停/恢复改变状态。',
+    );
+    expect(
+      organizationStudentTeachingLifecycleErrorMessage(
+        const AuthException('version_conflict'),
+      ),
+      '这位学生刚刚被别人修改，请刷新后重试。',
+    );
+  });
+
   test('parses teacher subject scope history and command results', () {
     final scope = OrganizationTeacherSubjectScope.fromJson({
       'scope_id': 'scope-1',
