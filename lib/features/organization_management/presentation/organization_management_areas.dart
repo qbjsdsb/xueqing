@@ -440,7 +440,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     return _ManagementAreaCard(
       icon: Icons.tune_outlined,
       title: '基础设置',
-      description: '这里只保留真正影响教学闭环的基础配置。',
+      description: '新增机构学科、维护问题类型和其他必要配置都在这里处理。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
