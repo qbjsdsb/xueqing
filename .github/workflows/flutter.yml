@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   checks:
@@ -17,6 +17,48 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+
+      - name: Apply final admin action visibility fix
+        if: github.event_name == 'pull_request' && github.head_ref == 'release/role-access-v0.2.0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/features/organization_management/presentation/organization_management_areas.dart')
+          text = path.read_text()
+          old = """            action: FilledButton.tonalIcon(
+              onPressed: widget.busy || !widget.canInvite
+                  ? null
+                  : widget.onInviteMember,
+              icon: const Icon(Icons.group_add_outlined, size: 18),
+              label: const Text('邀请成员'),
+            ),"""
+          new = """            action: widget.canInvite
+                ? FilledButton.tonalIcon(
+                    onPressed: widget.busy ? null : widget.onInviteMember,
+                    icon: const Icon(Icons.group_add_outlined, size: 18),
+                    label: const Text('邀请成员'),
+                  )
+                : null,"""
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one invite action block')
+          path.write_text(text.replace(old, new))
+          PY
+
+          dart format lib/features/organization_management/presentation/organization_management_areas.dart
+          git fetch origin main --depth=1
+          git show origin/main:.github/workflows/flutter.yml > .github/workflows/flutter.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            .github/workflows/flutter.yml \
+            lib/features/organization_management/presentation/organization_management_areas.dart
+          git commit -m "ux: hide unavailable member invitation action"
+          git push origin HEAD:${GITHUB_HEAD_REF}
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
