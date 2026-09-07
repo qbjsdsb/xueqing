@@ -95,6 +95,8 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                   if (snapshotState.hasError || !snapshotState.hasData) {
                     return _ManagementErrorState(onRetry: _retryLoad);
                   }
+                  final canManageMemberAccounts =
+                      _isOwner && widget.provisioningRepository != null;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -111,25 +113,22 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                         isOwner: _isOwner,
                         busy: _busy,
                         canInvite: _inviteRoles.isNotEmpty,
-                        canEditMemberName:
-                            widget.provisioningRepository != null,
+                        canEditMemberName: canManageMemberAccounts,
                         onAddStudent: _addStudent,
                         onInviteMember: _inviteMember,
                         onApprove: _approveInvitation,
                         onRevoke: _revokeInvitation,
-                        onProvisionInvitation:
-                            widget.provisioningRepository == null
-                            ? null
-                            : _provisionExistingInvitation,
-                        onEditMemberName: widget.provisioningRepository == null
-                            ? null
-                            : _editMemberDisplayName,
+                        onProvisionInvitation: canManageMemberAccounts
+                            ? _provisionExistingInvitation
+                            : null,
+                        onEditMemberName: canManageMemberAccounts
+                            ? _editMemberDisplayName
+                            : null,
                         onEditStudent: _editStudent,
                         onToggleMemberStatus: _toggleMemberStatus,
-                        onReissueMemberCredential:
-                            widget.provisioningRepository == null
-                            ? null
-                            : _reissueMemberCredential,
+                        onReissueMemberCredential: canManageMemberAccounts
+                            ? _reissueMemberCredential
+                            : null,
                         onAddSubject: _addSubject,
                         onAddTeacherScope: _addTeacherScope,
                         onToggleTeacherScope: _toggleTeacherScope,
