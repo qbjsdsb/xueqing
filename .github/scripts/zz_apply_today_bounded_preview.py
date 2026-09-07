@@ -1,0 +1,243 @@
+from pathlib import Path
+
+source_path = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
+source = source_path.read_text()
+
+old_fields = '''  bool _checkingForUpdates = false;
+  int _loadSequence = 0;
+'''
+new_fields = '''  bool _checkingForUpdates = false;
+  int _loadSequence = 0;
+  static const int _todayPreviewLimit = 3;
+  bool _showAllPendingVerification = false;
+  bool _showAllFutureActions = false;
+  bool _showAllUndatedActions = false;
+'''
+if source.count(old_fields) != 1:
+    raise SystemExit('Today preview field anchor drifted')
+source = source.replace(old_fields, new_fields, 1)
+
+old_sections = '''        const SizedBox(height: AppSpacing.lg),
+        _WorkspaceSection(
+          key: const Key('workspace-pending-verification-section'),
+          title: '待验证',
+          count: '${pendingVerification.length} 个 Case',
+          showTopDivider: true,
+          child: pendingVerification.isEmpty
+              ? const _WorkspaceStateNotice(
+                  title: '还没有待验证事项',
+                  message: '完成一次检查后，在这里确认是否稳定。',
+                  icon: Icons.fact_check_outlined,
+                )
+              : Column(
+                  children: [
+                    for (final item in pendingVerification)
+                      _WorkspaceCaseRow(
+                        student: item.student,
+                        learningCase: item.learningCase,
+                        onOpen: () =>
+                            _openCase(item.student, item.learningCase),
+                      ),
+                  ],
+                ),
+        ),
+        if (future.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          _WorkspaceSection(
+            key: const Key('workspace-future-actions-section'),
+            title: '未来',
+            count: '${future.length} 项',
+            showTopDivider: true,
+            child: Column(children: _buildActionRows(future, workspace)),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.lg),
+        _WorkspaceSection(
+          key: const Key('workspace-undated-actions-section'),
+          title: '待安排',
+          count: '${undated.length} 项',
+          showTopDivider: true,
+          child: undated.isEmpty
+              ? const _WorkspaceStateNotice(
+                  title: '没有待安排的行动',
+                  message: '需要跟进但尚未设定日期的行动会一直保留在这里。',
+                  icon: Icons.event_available_outlined,
+                )
+              : Column(children: _buildActionRows(undated, workspace)),
+        ),
+'''
+new_sections = '''        const SizedBox(height: AppSpacing.lg),
+        _WorkspaceSection(
+          key: const Key('workspace-pending-verification-section'),
+          title: '待验证',
+          count: '${pendingVerification.length} 个问题',
+          showTopDivider: true,
+          action: pendingVerification.length > _todayPreviewLimit
+              ? TextButton(
+                  key: const Key('workspace-pending-verification-toggle'),
+                  onPressed: () => setState(
+                    () => _showAllPendingVerification =
+                        !_showAllPendingVerification,
+                  ),
+                  child: Text(_showAllPendingVerification ? '收起' : '查看全部'),
+                )
+              : null,
+          child: pendingVerification.isEmpty
+              ? const _WorkspaceStateNotice(
+                  title: '还没有待验证事项',
+                  message: '完成一次检查后，在这里确认是否稳定。',
+                  icon: Icons.fact_check_outlined,
+                )
+              : Column(
+                  children: [
+                    for (final item in (_showAllPendingVerification
+                        ? pendingVerification
+                        : pendingVerification.take(_todayPreviewLimit)))
+                      _WorkspaceCaseRow(
+                        student: item.student,
+                        learningCase: item.learningCase,
+                        onOpen: () =>
+                            _openCase(item.student, item.learningCase),
+                      ),
+                  ],
+                ),
+        ),
+        if (future.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          _WorkspaceSection(
+            key: const Key('workspace-future-actions-section'),
+            title: '之后要处理',
+            count: '${future.length} 项',
+            showTopDivider: true,
+            action: future.length > _todayPreviewLimit
+                ? TextButton(
+                    key: const Key('workspace-future-actions-toggle'),
+                    onPressed: () => setState(
+                      () => _showAllFutureActions = !_showAllFutureActions,
+                    ),
+                    child: Text(_showAllFutureActions ? '收起' : '查看全部'),
+                  )
+                : null,
+            child: Column(
+              children: _buildActionRows(
+                _showAllFutureActions
+                    ? future
+                    : future.take(_todayPreviewLimit).toList(),
+                workspace,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.lg),
+        _WorkspaceSection(
+          key: const Key('workspace-undated-actions-section'),
+          title: '待安排',
+          count: '${undated.length} 项',
+          showTopDivider: true,
+          action: undated.length > _todayPreviewLimit
+              ? TextButton(
+                  key: const Key('workspace-undated-actions-toggle'),
+                  onPressed: () => setState(
+                    () => _showAllUndatedActions = !_showAllUndatedActions,
+                  ),
+                  child: Text(_showAllUndatedActions ? '收起' : '查看全部'),
+                )
+              : null,
+          child: undated.isEmpty
+              ? const _WorkspaceStateNotice(
+                  title: '没有待安排的行动',
+                  message: '需要跟进但尚未设定日期的行动会一直保留在这里。',
+                  icon: Icons.event_available_outlined,
+                )
+              : Column(
+                  children: _buildActionRows(
+                    _showAllUndatedActions
+                        ? undated
+                        : undated.take(_todayPreviewLimit).toList(),
+                    workspace,
+                  ),
+                ),
+        ),
+'''
+if source.count(old_sections) != 1:
+    raise SystemExit('Today section anchor drifted')
+source = source.replace(old_sections, new_sections, 1)
+source_path.write_text(source)
+
+test_path = Path('test/features/teacher_workspace_test.dart')
+tests = test_path.read_text()
+anchor = "  testWidgets('reschedules an action from Today', (tester) async {\n"
+if tests.count(anchor) != 1:
+    raise SystemExit('Today test insertion anchor drifted')
+new_test = r'''  testWidgets('bounds lower-priority Today sections until explicitly expanded', (
+    tester,
+  ) async {
+    final cases = <WorkspaceCase>[
+      for (var index = 1; index <= 4; index++)
+        _caseFixture(
+          id: 'pending-$index',
+          title: '待验证问题 $index',
+          status: LearningCaseStatus.pendingVerification,
+          actionBucket: WorkspaceActionBucket.today,
+          actionDueAt: DateTime(2026, 9, 5),
+        ),
+      for (var index = 1; index <= 4; index++)
+        _caseFixture(
+          id: 'future-$index',
+          title: '未来问题 $index',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.future,
+          actionDueAt: DateTime(2026, 9, 5 + index),
+        ),
+      for (var index = 1; index <= 4; index++)
+        _caseFixture(
+          id: 'undated-$index',
+          title: '待安排问题 $index',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.undated,
+          actionDueAt: null,
+        ),
+    ];
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents([
+        _studentFixture(id: 'preview', name: '预览学生', cases: cases),
+      ]),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    expect(find.text('4 个问题'), findsOneWidget);
+    expect(find.text('之后要处理'), findsOneWidget);
+    expect(find.text('待验证问题 4'), findsNothing);
+    expect(find.text('未来问题 4 的下一步'), findsNothing);
+    expect(find.text('待安排问题 4 的下一步'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('workspace-pending-verification-toggle')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('待验证问题 4'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('workspace-future-actions-toggle')),
+    );
+    await tester.tap(find.byKey(const Key('workspace-future-actions-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.text('未来问题 4 的下一步'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('workspace-undated-actions-toggle')),
+    );
+    await tester.tap(find.byKey(const Key('workspace-undated-actions-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.text('待安排问题 4 的下一步'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('workspace-undated-actions-toggle')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('待安排问题 4 的下一步'), findsNothing);
+  });
+
+'''
+tests = tests.replace(anchor, new_test + anchor, 1)
+test_path.write_text(tests)
