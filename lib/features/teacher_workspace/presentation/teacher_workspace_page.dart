@@ -5692,8 +5692,9 @@ class _WorkspaceNoAccessBody extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const _WorkspaceStateNotice(
-                title: '当前账号没有可用的教师教学范围',
-                message: '请联系机构管理员确认 active membership、教师角色、学科范围和学生分配。页面不会展示受限学生或 Case 的摘要。',
+                title: '当前账号还没有可用的教学权限',
+                message:
+                    '请联系机构管理员确认你的成员状态、老师身份、可教学科和任课学生。为保护学生隐私，这里不会显示未授权学生或学习问题。',
                 icon: Icons.lock_outline,
               ),
               if (invitationAcceptanceCard != null) ...[

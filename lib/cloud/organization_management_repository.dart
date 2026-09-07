@@ -932,7 +932,7 @@ String? organizationTeacherSubjectScopeErrorMessage(Object error) {
     return null;
   }
   return switch (detail.toLowerCase()) {
-    'invalid_teacher_subject_scope_input' => '教学范围信息不完整，请刷新后重试。',
+    'invalid_teacher_subject_scope_input' => '可教学科配置不完整，请刷新后重试。',
     'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
     'membership_not_found' => '这位老师已不在本机构，请刷新后重试。',
     'teacher_membership_not_active' => '这位老师当前不是在岗状态，请刷新后重试。',

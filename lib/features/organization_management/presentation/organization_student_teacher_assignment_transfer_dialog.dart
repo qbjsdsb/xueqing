@@ -97,7 +97,7 @@ class _OrganizationStudentTeacherAssignmentTransferDialogState
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                '交接会在同一个事务中结束当前关系并建立新的历史关系，保留版本和操作记录。开放案件与待办行动的负责人不会自动改变；如需停用原老师的教学范围，还要单独完成那些事项的交接。',
+                '交接会在同一个事务中结束当前任课并建立新的任课记录，历史不会丢失。学生已有的开放问题和待办不会自动换负责人；如需停用原老师的可教学科，请先把这些事项交接清楚。',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -127,7 +127,7 @@ class _OrganizationStudentTeacherAssignmentTransferDialogState
               if (widget.candidates.isEmpty) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '当前没有同时满足“在岗、老师角色、该学科教学范围有效”的接收老师。',
+                  '当前没有在岗且已配置该学科为可教学科的接收老师。',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ] else if (selectedTeacher != null) ...[

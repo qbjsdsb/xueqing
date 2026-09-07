@@ -162,7 +162,7 @@ class _OrganizationStudentSetupDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '保存后会一次性创建学生档案、学科画像和主负责关系。请先为老师配置对应学科的有效教学范围。',
+                  '保存后会一次性创建学生档案、学科画像和主负责关系。请先确认负责老师已把该学科配置为可教学科。',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: AppSpacing.md),
