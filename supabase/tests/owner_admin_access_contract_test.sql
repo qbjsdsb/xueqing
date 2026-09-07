@@ -139,15 +139,13 @@ select is(
   'member name maintenance persists through the public manager read model'
 );
 
-select throws_ok(
+select lives_ok(
   $$select public.create_organization_invitation(
       '00000000-0000-0000-0000-000000000001',
-      'admin-must-not-invite@xueqing.test',
+      'admin-can-invite-teacher@xueqing.test',
       'teacher'
     )$$,
-  'P0001',
-  'organization_owner_required',
-  'an admin cannot invite a member'
+  'an admin can invite a teacher'
 );
 
 select throws_ok(
@@ -160,7 +158,7 @@ select throws_ok(
     )$$,
   'P0001',
   'organization_owner_required',
-  'an admin cannot disable or restore another member'
+  'an admin cannot disable or restore an owner or admin account'
 );
 
 reset role;
@@ -175,7 +173,7 @@ select throws_ok(
     )$$,
   'P0001',
   'organization_owner_required',
-  'an admin cannot reissue another member credential through the trusted service path'
+  'an admin cannot reissue a protected manager credential through the trusted service path'
 );
 
 reset role;
@@ -247,13 +245,11 @@ select set_config(
   true
 );
 
-select throws_ok(
+select lives_ok(
   $$select public.revoke_organization_invitation(
       (current_setting('xueqing.owner_test_invite')::jsonb ->> 'id')::uuid
     )$$,
-  'P0001',
-  'organization_owner_required',
-  'an admin cannot revoke an owner-created invitation'
+  'an admin can revoke a pending teacher invitation'
 );
 
 select is(
@@ -263,7 +259,7 @@ select is(
     where title = '管理员机构级学情测试'
   ),
   1,
-  'member-account restrictions do not remove admin learning access'
+  'teacher-account permissions do not remove admin learning access'
 );
 
 select * from finish();
