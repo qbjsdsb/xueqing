@@ -25,17 +25,17 @@ class _ManagementOverview extends StatelessWidget {
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
   final Future<void> Function(OrganizationInvitation invitation)?
-      onProvisionInvitation;
+  onProvisionInvitation;
   final Future<void> Function(OrganizationMember member)? onEditMemberName;
   final Future<void> Function(OrganizationStudentRecord student) onEditStudent;
   final Future<void> Function(OrganizationMember member) onToggleMemberStatus;
   final Future<void> Function(OrganizationMember member)?
-      onReissueMemberCredential;
+  onReissueMemberCredential;
   final VoidCallback onAddTeacherScope;
   final Future<void> Function(OrganizationTeacherSubjectScope scope)
-      onToggleTeacherScope;
+  onToggleTeacherScope;
   final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
-      onTransferStudentTeacherAssignment;
+  onTransferStudentTeacherAssignment;
 
   @override
   Widget build(BuildContext context) {
@@ -82,8 +82,8 @@ class _ManagementOverview extends StatelessWidget {
                                   onToggleMemberStatus(member),
                               onReissueCredential:
                                   onReissueMemberCredential == null
-                                      ? null
-                                      : () => onReissueMemberCredential!(member),
+                                  ? null
+                                  : () => onReissueMemberCredential!(member),
                             ),
                         ],
                       ),
@@ -107,7 +107,8 @@ class _ManagementOverview extends StatelessWidget {
                               busy: busy,
                               onApprove: () => onApprove(invitation),
                               onRevoke: () => onRevoke(invitation),
-                              onProvision: invitation.isPending &&
+                              onProvision:
+                                  invitation.isPending &&
                                       onProvisionInvitation != null
                                   ? () => onProvisionInvitation!(invitation)
                                   : null,
@@ -136,8 +137,9 @@ class _ManagementOverview extends StatelessWidget {
                             _TeacherSubjectScopeTile(
                               scope: scope,
                               busy: busy,
-                              showReactivate:
-                                  latestEndedScopeIds.contains(scope.scopeId),
+                              showReactivate: latestEndedScopeIds.contains(
+                                scope.scopeId,
+                              ),
                               onToggle: () => onToggleTeacherScope(scope),
                             ),
                         ],
@@ -195,8 +197,8 @@ class _ManagementOverview extends StatelessWidget {
                               busy: busy,
                               onTransfer: assignment.isActive
                                   ? () => onTransferStudentTeacherAssignment(
-                                        assignment,
-                                      )
+                                      assignment,
+                                    )
                                   : null,
                             ),
                         ],

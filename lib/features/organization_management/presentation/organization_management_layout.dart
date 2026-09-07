@@ -34,9 +34,8 @@ class _ManagementHeader extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Text(
           '$organizationName · $roleLabel',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       ],
     );
@@ -175,9 +174,8 @@ class _ManagementAreaCard extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xxs),
                     Text(
                       description,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
                     ),
                   ],
                 ),
@@ -215,8 +213,8 @@ class _ManagementSection extends StatelessWidget {
             Text(
               count,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -242,8 +240,8 @@ class _ManagementSetupHint extends StatelessWidget {
     final message = ready
         ? '学生建档条件已就绪：机构已有可用学科，并且至少一位老师具备对应可教学科。'
         : options.subjects.isEmpty && subjectCatalog.isNotEmpty
-            ? '还缺机构学科。点击页面顶部“添加学科”即可选择。'
-            : '还缺可用老师教学配置。先确认老师已加入，再配置其可教学科。';
+        ? '还缺机构学科。点击页面顶部“添加学科”即可选择。'
+        : '还缺可用老师教学配置。先确认老师已加入，再配置其可教学科。';
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
@@ -333,10 +331,7 @@ class _ManagementErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off_outlined, size: 40),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              '机构管理暂时无法加载',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('机构管理暂时无法加载', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.xs),
             const Text('请检查网络和账号状态后重试。'),
             const SizedBox(height: AppSpacing.md),
@@ -364,9 +359,7 @@ class _ManagementErrorText extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onErrorContainer,
-        ),
+        style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
       ),
     );
   }

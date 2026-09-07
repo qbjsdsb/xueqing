@@ -31,9 +31,8 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
       final message = result.status == 'disabled'
           ? '已停用 $displayName；结束了 ${result.endedScopeCount + result.endedAssignmentCount} 条当前教学关系。'
           : '已恢复 $displayName 的机构访问；需要的教学关系请重新配置。';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     } finally {
@@ -78,11 +77,7 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
         final copied = await _showInviteCode(invitation);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              copied ? '邀请代码已复制。' : '邀请已创建，可在邀请列表中继续处理。',
-            ),
-          ),
+          SnackBar(content: Text(copied ? '邀请代码已复制。' : '邀请已创建，可在邀请列表中继续处理。')),
         );
       }
       if (mounted) await _refresh();
@@ -121,9 +116,9 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
       await _refresh();
       if (!mounted) return;
       widget.onChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已更新成员姓名：${result.displayName}。')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已更新成员姓名：${result.displayName}。')));
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     } finally {
@@ -147,9 +142,7 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('等待负责人审批'),
-          content: Text(
-            '${result.email} 的负责人身份需要现有负责人审批。审批后再点击“开通账号”。',
-          ),
+          content: Text('${result.email} 的负责人身份需要现有负责人审批。审批后再点击“开通账号”。'),
           actions: [
             FilledButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -178,9 +171,7 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '请通过可信方式把临时密码交给 ${result.email}。它只显示这一次；成员首次登录后必须设置新密码。',
-                ),
+                Text('请通过可信方式把临时密码交给 ${result.email}。它只显示这一次；成员首次登录后必须设置新密码。'),
                 const SizedBox(height: AppSpacing.md),
                 SelectableText(
                   temporaryPassword,

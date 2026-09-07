@@ -86,9 +86,8 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
       await _refresh();
       if (mounted) {
         widget.onChanged?.call();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(successMessage)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(successMessage)));
       }
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));

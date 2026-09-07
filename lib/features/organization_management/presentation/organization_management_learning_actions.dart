@@ -11,9 +11,8 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       final snapshot = await _snapshotFuture;
       if (!mounted) return;
       if (snapshot.subjectCatalog.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前没有可添加的活跃学科。')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('当前没有可添加的活跃学科。')));
         return;
       }
       final result = await showDialog<OrganizationSubjectSetupResult>(
@@ -31,9 +30,9 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       await _refresh();
       if (!mounted) return;
       widget.onChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已添加学科：${result.subjectName}。')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已添加学科：${result.subjectName}。')));
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     } finally {
@@ -53,9 +52,9 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       final teachers = snapshot.setupOptions.teachers;
       final subjects = snapshot.setupOptions.subjects;
       if (teachers.isEmpty || subjects.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先准备至少一位在岗老师和一个机构学科。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('请先准备至少一位在岗老师和一个机构学科。')));
         return;
       }
       final activeScopeKeys = <String>{
@@ -71,9 +70,8 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
         ),
       );
       if (!hasAvailablePair) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('目前所有老师与学科组合都已配置。')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('目前所有老师与学科组合都已配置。')));
         return;
       }
       final draft = await showDialog<OrganizationTeacherSubjectScopeDraft>(
@@ -109,9 +107,8 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     if (_busy) return;
     final ending = scope.isActive;
     if (!ending && scope.membershipStatus != 'active') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('成员恢复后才能重新启用可教学科。')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('成员恢复后才能重新启用可教学科。')));
       return;
     }
     final confirmed = await _confirm(
@@ -162,20 +159,20 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
             teacher,
       ];
       if (candidates.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前没有具备该学科有效授权的在岗接收老师。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('当前没有具备该学科有效授权的在岗接收老师。')));
         return;
       }
       final draft =
           await showDialog<OrganizationStudentTeacherAssignmentTransferDraft>(
-        context: context,
-        builder: (context) =>
-            OrganizationStudentTeacherAssignmentTransferDialog(
-          assignment: assignment,
-          candidates: candidates,
-        ),
-      );
+            context: context,
+            builder: (context) =>
+                OrganizationStudentTeacherAssignmentTransferDialog(
+                  assignment: assignment,
+                  candidates: candidates,
+                ),
+          );
       if (!mounted || draft == null) return;
       await _runMutation(
         () => widget.repository.transferStudentTeacherAssignment(

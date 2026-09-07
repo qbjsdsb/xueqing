@@ -49,8 +49,7 @@ class OrganizationManagementPage extends StatefulWidget {
       _OrganizationManagementPageState();
 }
 
-class _OrganizationManagementPageState
-    extends State<OrganizationManagementPage>
+class _OrganizationManagementPageState extends State<OrganizationManagementPage>
     with
         _OrganizationManagementCore,
         _OrganizationManagementLearningActions,
@@ -112,8 +111,7 @@ class _OrganizationManagementPageState
                     canEditMemberName: widget.provisioningRepository != null,
                     onApprove: _approveInvitation,
                     onRevoke: _revokeInvitation,
-                    onProvisionInvitation:
-                        widget.provisioningRepository == null
+                    onProvisionInvitation: widget.provisioningRepository == null
                         ? null
                         : _provisionExistingInvitation,
                     onEditMemberName: widget.provisioningRepository == null

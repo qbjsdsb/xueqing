@@ -79,7 +79,10 @@ class OrganizationMemberDisplayNameUpdateResult {
     Map<String, dynamic> json,
   ) {
     return OrganizationMemberDisplayNameUpdateResult(
-      organizationId: _requiredString(json['organization_id'], 'organization_id'),
+      organizationId: _requiredString(
+        json['organization_id'],
+        'organization_id',
+      ),
       membershipId: _requiredString(json['membership_id'], 'membership_id'),
       appUserId: _requiredString(json['app_user_id'], 'app_user_id'),
       displayName: _requiredString(json['display_name'], 'display_name'),

@@ -38,9 +38,8 @@ class _MemberTile extends StatelessWidget {
           const SizedBox(height: AppSpacing.xxs),
           Text(
             member.email,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: AppSpacing.xs),
           Wrap(
@@ -88,9 +87,7 @@ class _MemberTile extends StatelessWidget {
                         : Icons.person_off_outlined,
                     size: 18,
                   ),
-                  label: Text(
-                    member.status == 'disabled' ? '恢复成员' : '停用成员',
-                  ),
+                  label: Text(member.status == 'disabled' ? '恢复成员' : '停用成员'),
                 ),
             ],
           ),
@@ -138,10 +135,7 @@ class _InvitationTile extends StatelessWidget {
     }
     if (invitation.isPending || invitation.isAwaitingOwnerApproval) {
       actions.add(
-        TextButton(
-          onPressed: busy ? null : onRevoke,
-          child: const Text('撤销'),
-        ),
+        TextButton(onPressed: busy ? null : onRevoke, child: const Text('撤销')),
       );
     }
     return _ManagementRowShell(
@@ -154,10 +148,7 @@ class _InvitationTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            invitation.email,
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
+          Text(invitation.email, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: AppSpacing.xs),
           Wrap(
             spacing: AppSpacing.xs,
@@ -212,12 +203,12 @@ class _TeacherSubjectScopeTile extends StatelessWidget {
             label: const Text('停用'),
           )
         : showReactivate && scope.membershipStatus == 'active'
-            ? TextButton.icon(
-                onPressed: busy ? null : onToggle,
-                icon: const Icon(Icons.play_circle_outline, size: 18),
-                label: const Text('重新启用'),
-              )
-            : null;
+        ? TextButton.icon(
+            onPressed: busy ? null : onToggle,
+            icon: const Icon(Icons.play_circle_outline, size: 18),
+            label: const Text('重新启用'),
+          )
+        : null;
     return _ManagementRowShell(
       leading: Icon(
         scope.isActive ? Icons.menu_book_outlined : Icons.history_outlined,
@@ -351,7 +342,9 @@ class _StudentTeacherAssignmentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return _ManagementRowShell(
       leading: Icon(
-        assignment.isActive ? Icons.person_pin_outlined : Icons.history_outlined,
+        assignment.isActive
+            ? Icons.person_pin_outlined
+            : Icons.history_outlined,
         color: Theme.of(context).colorScheme.primary,
       ),
       child: Column(
@@ -444,7 +437,9 @@ class _ManagementStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final color = isPositive ? colorScheme.primary : colorScheme.onSurfaceVariant;
+    final color = isPositive
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
     return Chip(
       label: Text(label),
       visualDensity: VisualDensity.compact,
