@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/layout/responsive.dart';
+import '../../../app/theme/app_motion.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
@@ -1421,13 +1422,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           title: '今日',
           subtitle: '先处理今天要做的事，再回看需要判断的学生。',
           actions: [
-            if (workspace.canManageCaseTypes &&
-                workspace.organizationId != null)
-              OutlinedButton.icon(
-                onPressed: _showCaseTypeManager,
-                icon: Icon(Icons.category_outlined),
-                label: const Text('问题类型'),
-              ),
             FilledButton.icon(
               onPressed: () => _showQuickCapture(),
               icon: Icon(Icons.edit_note_outlined),
@@ -1481,7 +1475,16 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     () => _showAllPendingVerification =
                         !_showAllPendingVerification,
                   ),
-                  child: Text(_showAllPendingVerification ? '收起' : '查看全部'),
+                  child: AnimatedSwitcher(
+                    duration: AppMotion.effectiveDuration(
+                      context,
+                      AppMotion.quick,
+                    ),
+                    child: Text(
+                      _showAllPendingVerification ? '收起' : '查看全部',
+                      key: ValueKey<bool>(_showAllPendingVerification),
+                    ),
+                  ),
                 )
               : null,
           child: pendingVerification.isEmpty
@@ -1518,7 +1521,16 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     onPressed: () => setState(
                       () => _showAllFutureActions = !_showAllFutureActions,
                     ),
-                    child: Text(_showAllFutureActions ? '收起' : '查看全部'),
+                    child: AnimatedSwitcher(
+                      duration: AppMotion.effectiveDuration(
+                        context,
+                        AppMotion.quick,
+                      ),
+                      child: Text(
+                        _showAllFutureActions ? '收起' : '查看全部',
+                        key: ValueKey<bool>(_showAllFutureActions),
+                      ),
+                    ),
                   )
                 : null,
             child: Column(
@@ -1543,7 +1555,16 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                   onPressed: () => setState(
                     () => _showAllUndatedActions = !_showAllUndatedActions,
                   ),
-                  child: Text(_showAllUndatedActions ? '收起' : '查看全部'),
+                  child: AnimatedSwitcher(
+                    duration: AppMotion.effectiveDuration(
+                      context,
+                      AppMotion.quick,
+                    ),
+                    child: Text(
+                      _showAllUndatedActions ? '收起' : '查看全部',
+                      key: ValueKey<bool>(_showAllUndatedActions),
+                    ),
+                  ),
                 )
               : null,
           child: undated.isEmpty

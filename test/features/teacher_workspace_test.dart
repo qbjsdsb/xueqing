@@ -1241,31 +1241,17 @@ void main() {
     expect(find.text('问题类型（可调整）'), findsOneWidget);
   });
 
-  testWidgets('shows custom type settings to an organization manager', (
+  testWidgets('keeps configuration actions out of Today for managers', (
     tester,
   ) async {
-    final customType = WorkspaceCaseType(
-      id: 'case-type-1',
-      displayName: '审题策略',
-      baseType: LearningCaseType.examStrategy,
-      status: 'active',
-      sortOrder: 0,
-      version: 1,
-    );
     final repository = _FakeLearningRepository(
-      _fixtureWorkspace(
-        caseTypes: [...WorkspaceCaseType.builtInTypes, customType],
-        canManageCaseTypes: true,
-      ),
+      _fixtureWorkspace(canManageCaseTypes: true),
     );
     await _pumpWorkspace(tester, repository);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '问题类型'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('可用于新记录'), findsOneWidget);
-    expect(find.text('审题策略'), findsOneWidget);
-    expect(find.textContaining('系统类型始终保留。自定义类型只负责分类'), findsOneWidget);
+    expect(find.text('今日'), findsWidgets);
+    expect(find.widgetWithText(FilledButton, '记录问题'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '问题类型'), findsNothing);
   });
 
   testWidgets('sends a selected custom type with its base classification', (

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../app/theme/app_motion.dart';
 import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
@@ -260,93 +261,105 @@ class _OrganizationStudentSetupDialogState
                     label: Text(_showOptionalDetails ? '收起补充信息' : '补充信息（可选）'),
                   ),
                 ),
-                if (_showOptionalDetails) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    '这些信息不是建档必填项；如果现在已知，可以一起保存。',
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextFormField(
-                    key: const Key('student-setup-code-field'),
-                    controller: _studentCodeController,
-                    maxLength: 80,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: '学生编号',
-                      hintText: '可选',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  TextFormField(
-                    controller: _gradeController,
-                    maxLength: 120,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: '年级',
-                      hintText: '可选',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  TextFormField(
-                    controller: _classNameController,
-                    maxLength: 120,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: '班级',
-                      hintText: '可选',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  TextFormField(
-                    controller: _campusController,
-                    maxLength: 120,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: '校区',
-                      hintText: '可选',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    '学情背景（可选）',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  TextFormField(
-                    controller: _positioningController,
-                    maxLength: 2000,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: '当前定位',
-                      hintText: '例如：函数基础需要持续巩固',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextFormField(
-                    controller: _strengthsController,
-                    maxLength: 2000,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: '已有优势',
-                      hintText: '例如：愿意复盘错题',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextFormField(
-                    controller: _cadenceNoteController,
-                    maxLength: 160,
-                    maxLines: 1,
-                    decoration: const InputDecoration(
-                      labelText: '跟进节奏',
-                      hintText: '例如：每周一次',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
+                AnimatedSize(
+                  duration: AppMotion.effectiveDuration(context),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: _showOptionalDetails
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              '这些信息不是建档必填项；如果现在已知，可以一起保存。',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TextFormField(
+                              key: const Key('student-setup-code-field'),
+                              controller: _studentCodeController,
+                              maxLength: 80,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: '学生编号',
+                                hintText: '可选',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            TextFormField(
+                              controller: _gradeController,
+                              maxLength: 120,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: '年级',
+                                hintText: '可选',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            TextFormField(
+                              controller: _classNameController,
+                              maxLength: 120,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: '班级',
+                                hintText: '可选',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            TextFormField(
+                              controller: _campusController,
+                              maxLength: 120,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: '校区',
+                                hintText: '可选',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              '学情背景（可选）',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            TextFormField(
+                              controller: _positioningController,
+                              maxLength: 2000,
+                              maxLines: 2,
+                              decoration: const InputDecoration(
+                                labelText: '当前定位',
+                                hintText: '例如：函数基础需要持续巩固',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TextFormField(
+                              controller: _strengthsController,
+                              maxLength: 2000,
+                              maxLines: 2,
+                              decoration: const InputDecoration(
+                                labelText: '已有优势',
+                                hintText: '例如：愿意复盘错题',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            TextFormField(
+                              controller: _cadenceNoteController,
+                              maxLength: 160,
+                              maxLines: 1,
+                              decoration: const InputDecoration(
+                                labelText: '跟进节奏',
+                                hintText: '例如：每周一次',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: AppSpacing.sm),
                   Container(
@@ -375,13 +388,20 @@ class _OrganizationStudentSetupDialogState
         FilledButton(
           key: const Key('student-setup-submit'),
           onPressed: _busy ? null : _submit,
-          child: _busy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('添加学生'),
+          child: AnimatedSwitcher(
+            duration: AppMotion.effectiveDuration(context, AppMotion.quick),
+            child: _busy
+                ? const SizedBox(
+                    key: ValueKey<String>('student-setup-saving'),
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text(
+                    '添加学生',
+                    key: ValueKey<String>('student-setup-ready'),
+                  ),
+          ),
         ),
       ],
     );
