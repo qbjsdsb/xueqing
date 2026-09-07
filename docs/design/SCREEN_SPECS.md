@@ -394,8 +394,9 @@ Case detail 遵循 subject assignment/role 可见范围。可查看不可编辑�
 1. 学生 + 学科上下文（可确认、可更改）。
 2. 必填单行 `问题标题`。
 3. 必填一句 `具体表现`，只记录题目、行为或课堂中实际看到的事实。
-4. 非阻塞相近 Case 提示。
-5. `记录问题` 保存；取消/稍后整理为次要动作。
+4. `问题类型` 使用已有默认值，只有教师当下确定时才调整；分类不得排在事实输入之前。
+5. 非阻塞相近 Case 提示。
+6. `记录问题` 保存；取消/稍后整理为次要动作。
 
 不在最短路径强制要求 taxonomy、根因、正式 owner、长篇 Evidence、手工填写 Next Action、due date 或附件。
 
@@ -419,6 +420,8 @@ Case detail 遵循 subject assignment/role 可见范围。可查看不可编辑�
 
 具体表现 *
 [题目、行为或课堂里实际看到的表现 ]
+
+问题类型（可调整）  [当前默认类型      v]
 
 [取消]                         [记录问题]
 ```
@@ -456,7 +459,7 @@ compact 是 bottom sheet/全屏短任务；medium 是可滚动 dialog；expanded
 
 ### 4.11 Keyboard behavior
 
-title 输入时允许 Enter 完成（note 未展开/单行语境）；note 多行时使用 Ctrl+Enter 保存。Tab 顺序为 Student/Subject → title → note → 保存 → 取消。Esc/back：先收键盘，再按脏状态确认。全局快捷键不抢文本输入。
+title 输入时允许 Enter 完成（note 未展开/单行语境）；note 多行时使用 Ctrl+Enter 保存。Tab 顺序为 Student/Subject → title → note → type → 保存 → 取消。Esc/back：先收键盘，再按脏状态确认。全局快捷键不抢文本输入。
 
 ### 4.12 Touch behavior
 
@@ -468,7 +471,7 @@ title 输入时允许 Enter 完成（note 未展开/单行语境）；note 多�
 
 ### 4.14 Anti-patterns
 
-不做完整 Case 表单、强制 taxonomy/根因/owner/action/date/附件、不强行合并重复 Case、不在课堂显示 AI 建议、不用大面积浮层/渐变/卡片堆砌，不因失败关闭 sheet 并丢掉文字。
+不做完整 Case 表单、把 taxonomy/分类放在事实输入之前、强制根因/owner/action/date/附件、不强行合并重复 Case、不在课堂显示 AI 建议、不用大面积浮层/渐变/卡片堆砌，不因失败关闭 sheet 并丢掉文字。
 
 ### 4.15 Acceptance scenarios
 
