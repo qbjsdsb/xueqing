@@ -4281,6 +4281,39 @@ class _WorkspaceShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A management-only account has one valid workspace surface. Flutter's
+    // NavigationBar/NavigationRail require at least two destinations, so do
+    // not render a navigation shell that would manufacture a second tab or
+    // expose a teaching page outside the account's scope.
+    if (!hasTeachingAccess && showManagement) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('机构管理'),
+          actions: [
+            if (onCheckForUpdates != null)
+              IconButton(
+                tooltip: '检查更新',
+                onPressed: checkingForUpdates ? null : onCheckForUpdates,
+                icon: checkingForUpdates
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.system_update_alt),
+              ),
+            if (onSignOut != null)
+              IconButton(
+                tooltip: '退出登录',
+                onPressed: onSignOut,
+                icon: const Icon(Icons.logout),
+              ),
+          ],
+        ),
+        body: SafeArea(child: child),
+      );
+    }
+
     return ResponsiveLayout(
       builder: (context, sizeClass) {
         if (sizeClass == WindowSizeClass.compact) {
