@@ -79,3 +79,5 @@ jobs:
           git commit -m "feat: complete student subject lifecycle"
           test -z "$(git diff --name-only)"
           git push origin HEAD:feature/student-subject-lifecycle
+
+      # Run 3: validates a growable fake assignment collection for restore.
