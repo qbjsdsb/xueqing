@@ -183,6 +183,75 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     }
   }
 
+  Future<void> _toggleStudentSubjectService(
+    OrganizationStudentRecord student,
+    OrganizationStudentSubjectService service,
+  ) async {
+    if (_busy || service.isArchived) return;
+
+    if (service.isActive) {
+      final confirmed = await _confirm(
+        title: '结束 ${student.studentName} · ${service.subjectName}？',
+        message: '历史学情、证据和已结束记录都会保留。系统不会自动关闭问题或行动；如果仍有未关闭 Case 或待执行行动，本次结束会被拒绝并提示先完成闭环。',
+        confirmLabel: '确认结束',
+      );
+      if (!mounted || !confirmed) return;
+      await _runMutation(
+        () => widget.repository.endStudentSubjectService(
+          operationId: createOperationId(),
+          organizationId: widget.organizationId,
+          studentSubjectProfileId: service.profileId,
+          expectedProfileVersion: service.version,
+        ),
+        '已结束 ${student.studentName} 的 ${service.subjectName} 学科服务。',
+      );
+      return;
+    }
+
+    if (!service.isInactive) return;
+    if (!student.isActive) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('先把学生恢复为正常教学状态，再恢复具体学科。')));
+      return;
+    }
+
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) return;
+      final teachers = snapshot.setupOptions.teachersForSubject(
+        service.organizationSubjectId,
+      );
+      if (teachers.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('当前没有在岗且具备该学科有效教学范围的老师。')));
+        return;
+      }
+      final teacher = await showDialog<OrganizationSetupTeacher>(
+        context: context,
+        builder: (context) => OrganizationStudentSubjectRestoreDialog(
+          student: student,
+          service: service,
+          teachers: teachers,
+        ),
+      );
+      if (!mounted || teacher == null) return;
+      await _runMutation(
+        () => widget.repository.restoreStudentSubjectService(
+          operationId: createOperationId(),
+          organizationId: widget.organizationId,
+          studentSubjectProfileId: service.profileId,
+          expectedProfileVersion: service.version,
+          teacherMembershipId: teacher.membershipId,
+        ),
+        '已恢复 ${student.studentName} 的 ${service.subjectName} · ${teacher.displayName} 负责。',
+      );
+    } catch (error) {
+      if (mounted) setState(() => _errorMessage = _describeError(error));
+    }
+  }
+
   Future<void> _transferStudentTeacherAssignment(
     OrganizationStudentTeacherAssignment assignment,
   ) async {

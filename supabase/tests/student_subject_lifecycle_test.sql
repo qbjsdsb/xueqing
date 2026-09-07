@@ -1,17 +1,4 @@
-from pathlib import Path
-
-migration = Path('supabase/migrations/20260908013000_student_subject_lifecycle.sql')
-text = migration.read_text()
-old = 'create or replace function public.list_organization_students(\n'
-new = 'create or replace function private.list_organization_students(\n'
-assert text.count(old) == 1, text.count(old)
-# Preserve the hardened API boundary: the existing public SECURITY INVOKER
-# wrapper continues to delegate to the private privileged implementation.
-text = text.replace(old, new, 1)
-migration.write_text(text)
-
-test = Path('supabase/tests/student_subject_lifecycle_test.sql')
-test.write_text(r'''begin;
+begin;
 
 select plan(24);
 
@@ -456,4 +443,3 @@ select throws_ok(
 
 select * from finish();
 rollback;
-''')

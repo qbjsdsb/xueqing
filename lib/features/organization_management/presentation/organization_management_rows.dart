@@ -272,12 +272,15 @@ class _OrganizationStudentTile extends StatelessWidget {
     required this.student,
     required this.busy,
     required this.onAddSubject,
+    required this.onToggleSubjectService,
     required this.onEdit,
   });
 
   final OrganizationStudentRecord student;
   final bool busy;
   final VoidCallback? onAddSubject;
+  final Future<void> Function(OrganizationStudentSubjectService service)?
+  onToggleSubjectService;
   final VoidCallback? onEdit;
 
   @override
@@ -312,7 +315,24 @@ class _OrganizationStudentTile extends StatelessWidget {
               for (final detail in details) _ManagementRoleChip(label: detail),
             ],
           ),
-          if (student.subjectNames.isNotEmpty) ...[
+          if (student.subjectServices.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Column(
+              children: [
+                for (final service in student.subjectServices)
+                  _StudentSubjectServiceRow(
+                    service: service,
+                    busy: busy,
+                    onToggle:
+                        onToggleSubjectService == null ||
+                            service.isArchived ||
+                            service.isInactive && !student.isActive
+                        ? null
+                        : () => onToggleSubjectService!(service),
+                  ),
+              ],
+            ),
+          ] else if (student.subjectNames.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(
               '学科：${student.subjectNames.join('、')}',
@@ -338,6 +358,53 @@ class _OrganizationStudentTile extends StatelessWidget {
                     label: const Text('编辑'),
                   ),
               ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StudentSubjectServiceRow extends StatelessWidget {
+  const _StudentSubjectServiceRow({
+    required this.service,
+    required this.busy,
+    required this.onToggle,
+  });
+
+  final OrganizationStudentSubjectService service;
+  final bool busy;
+  final VoidCallback? onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              service.subjectName,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          _ManagementStatusChip(
+            label: _studentSubjectStatusLabel(service.status),
+            isPositive: service.isActive,
+          ),
+          if (onToggle != null) ...[
+            const SizedBox(width: AppSpacing.xxs),
+            TextButton(
+              key: ValueKey<String>(
+                service.isActive
+                    ? 'student-subject-end-${service.profileId}'
+                    : 'student-subject-restore-${service.profileId}',
+              ),
+              onPressed: busy ? null : onToggle,
+              child: Text(service.isActive ? '结束' : '恢复'),
             ),
           ],
         ],

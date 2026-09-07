@@ -11,6 +11,7 @@ class _ManagementOverview extends StatefulWidget {
     required this.canEditMemberName,
     required this.onAddStudent,
     required this.onAddStudentSubject,
+    required this.onToggleStudentSubjectService,
     required this.onInviteMember,
     required this.onApprove,
     required this.onRevoke,
@@ -35,6 +36,11 @@ class _ManagementOverview extends StatefulWidget {
   final VoidCallback onAddStudent;
   final Future<void> Function(OrganizationStudentRecord student)
   onAddStudentSubject;
+  final Future<void> Function(
+    OrganizationStudentRecord student,
+    OrganizationStudentSubjectService service,
+  )
+  onToggleStudentSubjectService;
   final VoidCallback onInviteMember;
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
@@ -283,6 +289,9 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                   student.className,
                   student.campus,
                   ...student.subjectNames,
+                  ...student.subjectServices.map(
+                    (service) => service.subjectName,
+                  ),
                 ].whereType<String>().join(' ').toLowerCase();
                 return searchable.contains(normalizedQuery);
               })
@@ -365,6 +374,13 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                           onAddSubject: student.isActive && !student.isMerged
                               ? () => widget.onAddStudentSubject(student)
                               : null,
+                          onToggleSubjectService: student.isMerged
+                              ? null
+                              : (service) =>
+                                    widget.onToggleStudentSubjectService(
+                                      student,
+                                      service,
+                                    ),
                           onEdit: student.isMerged
                               ? null
                               : () => widget.onEditStudent(student),

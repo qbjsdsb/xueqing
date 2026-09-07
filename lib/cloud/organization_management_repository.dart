@@ -543,6 +543,44 @@ class OrganizationStudentSetupResult {
   }
 }
 
+class OrganizationStudentSubjectService {
+  const OrganizationStudentSubjectService({
+    required this.profileId,
+    required this.organizationSubjectId,
+    required this.subjectName,
+    required this.status,
+    required this.version,
+  });
+
+  final String profileId;
+  final String organizationSubjectId;
+  final String subjectName;
+  final String status;
+  final int version;
+
+  bool get isActive => status == 'active';
+  bool get isInactive => status == 'inactive';
+  bool get isArchived => status == 'archived';
+
+  factory OrganizationStudentSubjectService.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationStudentSubjectService(
+      profileId: _requiredString(
+        json['student_subject_profile_id'],
+        'student_subject_profile_id',
+      ),
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      subjectName: _stringValue(json['display_name']) ?? '未命名学科',
+      status: _stringValue(json['status']) ?? 'unknown',
+      version: _intValue(json['version']) ?? 1,
+    );
+  }
+}
+
 class OrganizationStudentRecord {
   const OrganizationStudentRecord({
     required this.studentId,
@@ -556,6 +594,7 @@ class OrganizationStudentRecord {
     required this.startsOn,
     required this.endsOn,
     required this.subjectNames,
+    this.subjectServices = const <OrganizationStudentSubjectService>[],
   });
 
   final String studentId;
@@ -569,6 +608,7 @@ class OrganizationStudentRecord {
   final DateTime? startsOn;
   final DateTime? endsOn;
   final List<String> subjectNames;
+  final List<OrganizationStudentSubjectService> subjectServices;
 
   bool get isActive => status == 'active';
   bool get isMerged => status == 'merged';
@@ -576,14 +616,22 @@ class OrganizationStudentRecord {
   factory OrganizationStudentRecord.fromJson(Map<String, dynamic> json) {
     final rawSubjects = json['subjects'];
     final subjectNames = <String>[];
+    final subjectServices = <OrganizationStudentSubjectService>[];
     if (rawSubjects is List) {
       for (final item in rawSubjects) {
-        if (item is Map) {
-          final name = _stringValue(item['display_name']);
-          if (name != null) {
-            subjectNames.add(name);
-          }
+        if (item is! Map) continue;
+        final mapped = Map<String, dynamic>.from(item);
+        final name = _stringValue(mapped['display_name']);
+        final profileId = _stringValue(mapped['student_subject_profile_id']);
+        if (profileId == null) {
+          // Backward-compatible with a server that has not deployed the
+          // lifecycle read shape yet.
+          if (name != null) subjectNames.add(name);
+          continue;
         }
+        final service = OrganizationStudentSubjectService.fromJson(mapped);
+        subjectServices.add(service);
+        if (service.isActive) subjectNames.add(service.subjectName);
       }
     }
     return OrganizationStudentRecord(
@@ -598,6 +646,73 @@ class OrganizationStudentRecord {
       startsOn: _dateTimeValue(json['starts_on']),
       endsOn: _dateTimeValue(json['ends_on']),
       subjectNames: List<String>.unmodifiable(subjectNames),
+      subjectServices: List<OrganizationStudentSubjectService>.unmodifiable(
+        subjectServices,
+      ),
+    );
+  }
+}
+
+class OrganizationStudentSubjectLifecycleResult {
+  const OrganizationStudentSubjectLifecycleResult({
+    required this.operationId,
+    required this.organizationId,
+    required this.studentId,
+    required this.studentName,
+    required this.studentSubjectProfileId,
+    required this.organizationSubjectId,
+    required this.subjectName,
+    required this.status,
+    required this.profileVersion,
+    required this.endedAssignmentCount,
+    this.assignmentId,
+    this.teacherMembershipId,
+    this.teacherDisplayName,
+    this.startsOn,
+  });
+
+  final String operationId;
+  final String organizationId;
+  final String studentId;
+  final String studentName;
+  final String studentSubjectProfileId;
+  final String organizationSubjectId;
+  final String subjectName;
+  final String status;
+  final int profileVersion;
+  final int endedAssignmentCount;
+  final String? assignmentId;
+  final String? teacherMembershipId;
+  final String? teacherDisplayName;
+  final DateTime? startsOn;
+
+  factory OrganizationStudentSubjectLifecycleResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationStudentSubjectLifecycleResult(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      organizationId: _requiredString(
+        json['organization_id'],
+        'organization_id',
+      ),
+      studentId: _requiredString(json['student_id'], 'student_id'),
+      studentName: _stringValue(json['student_name']) ?? '未命名学生',
+      studentSubjectProfileId: _requiredString(
+        json['student_subject_profile_id'],
+        'student_subject_profile_id',
+      ),
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      subjectName: _stringValue(json['subject_name']) ?? '未命名学科',
+      status: _stringValue(json['status']) ?? 'unknown',
+      profileVersion: _intValue(json['profile_version']) ?? 1,
+      endedAssignmentCount: _intValue(json['ended_assignment_count']) ?? 0,
+      assignmentId: _stringValue(json['assignment_id']),
+      teacherMembershipId: _stringValue(json['teacher_membership_id']),
+      teacherDisplayName: _stringValue(json['teacher_display_name']),
+      startsOn: _dateTimeValue(json['starts_on']),
     );
   }
 }
@@ -758,6 +873,23 @@ abstract interface class OrganizationManagementRepository {
     required String organizationId,
     required String studentId,
     required String organizationSubjectId,
+    required String teacherMembershipId,
+    DateTime? startsOn,
+  });
+
+  Future<OrganizationStudentSubjectLifecycleResult> endStudentSubjectService({
+    required String operationId,
+    required String organizationId,
+    required String studentSubjectProfileId,
+    required int expectedProfileVersion,
+  });
+
+  Future<OrganizationStudentSubjectLifecycleResult>
+  restoreStudentSubjectService({
+    required String operationId,
+    required String organizationId,
+    required String studentSubjectProfileId,
+    required int expectedProfileVersion,
     required String teacherMembershipId,
     DateTime? startsOn,
   });
@@ -999,6 +1131,39 @@ String? organizationStudentTeacherAssignmentErrorMessage(Object error) {
   };
 }
 
+String? organizationStudentSubjectLifecycleErrorMessage(Object error) {
+  final detail = switch (error) {
+    AuthException(:final message) => message.trim(),
+    PostgrestException(:final message) => message.trim(),
+    _ => null,
+  };
+  if (detail == null) return null;
+  return switch (detail.toLowerCase()) {
+    'invalid_student_subject_lifecycle_input' => '学科服务状态信息不完整，请刷新后重试。',
+    'student_subject_profile_not_found' => '这门学生学科档案已变化，请刷新后重试。',
+    'student_subject_profile_archived' => '这门学科档案已经归档，不能直接恢复。',
+    'student_subject_service_not_active' => '这门学科当前已经不是进行中状态，请刷新后重试。',
+    'student_subject_service_not_inactive' => '这门学科当前不处于可恢复状态，请刷新后重试。',
+    'student_subject_pending_actions' => '这门学科还有待执行行动，请先完成、取消或交接行动后再结束学科。',
+    'student_subject_open_cases' => '这门学科还有未关闭的学情问题，请先完成验证并关闭 Case 后再结束学科。',
+    'student_subject_active_assignment_exists' => '这门学科仍有当前任课关系，请刷新后核对。',
+    'student_not_active' => '学生当前不是正常教学状态，恢复学科前请先恢复学生状态。',
+    'organization_subject_not_active' => '该机构学科已停用，暂不能恢复学生学科服务。',
+    'teacher_membership_not_found' => '所选老师已不在本机构，请刷新后重新选择。',
+    'teacher_membership_not_active' => '所选老师当前不是在岗状态，请刷新后重新选择。',
+    'teacher_app_user_not_active' => '所选老师账号当前不可用，请刷新后重新选择。',
+    'teacher_role_required' => '所选成员还没有老师角色，暂不能负责学生。',
+    'teacher_subject_scope_required' => '所选老师没有该学科的有效教学范围，请先配置教学范围。',
+    'version_conflict' => '这门学生学科档案刚刚被别人修改，请刷新后重试。',
+    'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
+    'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
+    'invalid_live_session' => '登录状态已失效，请重新登录。',
+    'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
+    'organization_manager_required' => '当前账号没有本机构管理权限。',
+    _ => null,
+  };
+}
+
 String? organizationStudentSetupErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),
@@ -1235,6 +1400,66 @@ class SupabaseOrganizationManagementRepository
       },
     );
     return OrganizationStudentSetupResult.fromJson(_mapResponse(response));
+  }
+
+  @override
+  Future<OrganizationStudentSubjectLifecycleResult> endStudentSubjectService({
+    required String operationId,
+    required String organizationId,
+    required String studentSubjectProfileId,
+    required int expectedProfileVersion,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        organizationId.trim().isEmpty ||
+        studentSubjectProfileId.trim().isEmpty ||
+        expectedProfileVersion <= 0) {
+      throw ArgumentError('Student subject lifecycle identity is invalid.');
+    }
+    final response = await _call(
+      'end_organization_student_subject_service',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_subject_profile_id': studentSubjectProfileId,
+        'p_expected_profile_version': expectedProfileVersion,
+      },
+    );
+    return OrganizationStudentSubjectLifecycleResult.fromJson(
+      _mapResponse(response),
+    );
+  }
+
+  @override
+  Future<OrganizationStudentSubjectLifecycleResult>
+  restoreStudentSubjectService({
+    required String operationId,
+    required String organizationId,
+    required String studentSubjectProfileId,
+    required int expectedProfileVersion,
+    required String teacherMembershipId,
+    DateTime? startsOn,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        organizationId.trim().isEmpty ||
+        studentSubjectProfileId.trim().isEmpty ||
+        expectedProfileVersion <= 0 ||
+        teacherMembershipId.trim().isEmpty) {
+      throw ArgumentError('Student subject lifecycle identity is invalid.');
+    }
+    final response = await _call(
+      'restore_organization_student_subject_service',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_subject_profile_id': studentSubjectProfileId,
+        'p_expected_profile_version': expectedProfileVersion,
+        'p_teacher_membership_id': teacherMembershipId,
+        'p_starts_on': _dateOnlyValue(startsOn),
+      },
+    );
+    return OrganizationStudentSubjectLifecycleResult.fromJson(
+      _mapResponse(response),
+    );
   }
 
   @override

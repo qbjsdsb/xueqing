@@ -70,6 +70,15 @@ String _studentStatusLabel(String status) {
   };
 }
 
+String _studentSubjectStatusLabel(String status) {
+  return switch (status) {
+    'active' => '进行中',
+    'inactive' => '已结束',
+    'archived' => '已归档',
+    _ => '状态未知',
+  };
+}
+
 String _membershipStatusLabel(String status) {
   return switch (status) {
     'active' => '正常',
