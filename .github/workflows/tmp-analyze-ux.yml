@@ -1,0 +1,46 @@
+name: Temporary UX analyze diagnostics
+
+on:
+  push:
+    branches:
+      - ux/simplify-management-and-member-names
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out UX branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/simplify-management-and-member-names
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Capture analyzer output
+        shell: bash
+        run: |
+          flutter analyze > tmp-flutter-analyze.txt 2>&1 || true
+          cat tmp-flutter-analyze.txt
+
+      - name: Commit analyzer output
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tmp-flutter-analyze.txt
+          git commit -m "ci: capture UX analyzer diagnostics"
+          git push origin HEAD:ux/simplify-management-and-member-names
