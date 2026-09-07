@@ -164,13 +164,39 @@ void main() {
         isFalse,
         reason: 'A successful replacement must remove old files.',
       );
-      await Future<void>.delayed(const Duration(seconds: 6));
     } finally {
-      if (await root.exists()) {
-        await root.delete(recursive: true);
-      }
+      await _deleteTestRootWhenReleased(root);
     }
   });
+}
+
+const _cleanupTimeout = Duration(seconds: 10);
+const _cleanupRetryInterval = Duration(milliseconds: 250);
+
+Future<void> _deleteTestRootWhenReleased(Directory root) async {
+  if (!await root.exists()) {
+    return;
+  }
+
+  final deadline = DateTime.now().add(_cleanupTimeout);
+  FileSystemException? lastAccessError;
+  while (DateTime.now().isBefore(deadline)) {
+    try {
+      await root.delete(recursive: true);
+      return;
+    } on FileSystemException catch (error) {
+      lastAccessError = error;
+      await Future<void>.delayed(_cleanupRetryInterval);
+    }
+  }
+
+  if (!await root.exists()) {
+    return;
+  }
+  throw StateError(
+    'Updater integration cleanup stayed locked for '
+    '${_cleanupTimeout.inSeconds} seconds: $lastAccessError',
+  );
 }
 
 Future<File> _createPackage({
