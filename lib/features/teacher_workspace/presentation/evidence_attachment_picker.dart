@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,6 +19,69 @@ class PickedEvidenceAttachment {
   final Uint8List bytes;
   final String fileName;
   final String contentType;
+}
+
+typedef EvidenceAttachmentLostDataLoader =
+    Future<PickedEvidenceAttachment?> Function();
+
+/// Starts Android picker recovery early, then lets Quick Capture consume the
+/// result exactly once. The recovery future captures errors until consumption
+/// so startup never emits an unhandled asynchronous plugin error.
+class EvidenceAttachmentLostDataRecovery {
+  EvidenceAttachmentLostDataRecovery(this._loader);
+
+  final EvidenceAttachmentLostDataLoader _loader;
+  Future<_LostDataRecoveryResult>? _pending;
+  bool _consumed = false;
+
+  void prime() {
+    _pending ??= _loadSafely();
+  }
+
+  Future<PickedEvidenceAttachment?> take() async {
+    if (_consumed) {
+      return null;
+    }
+    _consumed = true;
+    prime();
+    final result = await _pending!;
+    if (result.error != null) {
+      Error.throwWithStackTrace(result.error!, result.stackTrace!);
+    }
+    return result.attachment;
+  }
+
+  Future<_LostDataRecoveryResult> _loadSafely() async {
+    try {
+      return _LostDataRecoveryResult.success(await _loader());
+    } catch (error, stackTrace) {
+      return _LostDataRecoveryResult.failure(error, stackTrace);
+    }
+  }
+}
+
+class _LostDataRecoveryResult {
+  const _LostDataRecoveryResult.success(this.attachment)
+    : error = null,
+      stackTrace = null;
+
+  const _LostDataRecoveryResult.failure(this.error, this.stackTrace)
+    : attachment = null;
+
+  final PickedEvidenceAttachment? attachment;
+  final Object? error;
+  final StackTrace? stackTrace;
+}
+
+final EvidenceAttachmentLostDataRecovery _defaultLostDataRecovery =
+    EvidenceAttachmentLostDataRecovery(_retrieveLostEvidenceAttachment);
+
+/// Call once during application startup. This deliberately does not await the
+/// plugin so a large recovered image cannot block the first frame.
+void primeLostEvidenceAttachmentRecovery() {
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    _defaultLostDataRecovery.prime();
+  }
 }
 
 String describeEvidenceAttachmentError(
@@ -90,6 +155,13 @@ Future<PickedEvidenceAttachment?> pickEvidenceAttachment(
 }
 
 Future<PickedEvidenceAttachment?> recoverLostEvidenceAttachment() async {
+  if (defaultTargetPlatform != TargetPlatform.android) {
+    return null;
+  }
+  return _defaultLostDataRecovery.take();
+}
+
+Future<PickedEvidenceAttachment?> _retrieveLostEvidenceAttachment() async {
   final response = await ImagePicker().retrieveLostData();
   if (response.isEmpty || response.files == null || response.files!.isEmpty) {
     return null;
