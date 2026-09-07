@@ -76,17 +76,12 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
               _ManagementHeader(
                 organizationName: widget.organizationName,
                 roleLabel: _roleSummary(widget.roles),
-                busy: _busy,
-                canInvite: _inviteRoles.isNotEmpty,
-                onAddStudent: _addStudent,
-                onInviteMember: _inviteMember,
               ),
-              const _ManagementBoundaryBanner(),
               if (_errorMessage != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 _ManagementErrorText(message: _errorMessage!),
               ],
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.md),
               FutureBuilder<_OrganizationManagementSnapshot>(
                 future: _snapshotFuture,
                 builder: (context, snapshotState) {
@@ -103,7 +98,10 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                     snapshot: snapshotState.data!,
                     isOwner: _isOwner,
                     busy: _busy,
+                    canInvite: _inviteRoles.isNotEmpty,
                     canEditMemberName: widget.provisioningRepository != null,
+                    onAddStudent: _addStudent,
+                    onInviteMember: _inviteMember,
                     onApprove: _approveInvitation,
                     onRevoke: _revokeInvitation,
                     onProvisionInvitation: widget.provisioningRepository == null
