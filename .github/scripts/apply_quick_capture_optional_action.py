@@ -50,8 +50,8 @@ repository = replace_once(
 repository = replace_once(
     repository,
     'Supabase Quick Capture nullable Action param',
-    "      'p_next_action_title': command.nextActionTitle.trim(),",
-    "      'p_next_action_title': command.nextActionTitle?.trim(),",
+    '''      'p_evidence_summary': command.evidenceSummary.trim(),\n      'p_next_action_title': command.nextActionTitle.trim(),\n      'p_next_action_due_at': command.nextActionDueAt''',
+    '''      'p_evidence_summary': command.evidenceSummary.trim(),\n      'p_next_action_title': command.nextActionTitle?.trim(),\n      'p_next_action_due_at': command.nextActionDueAt''',
 )
 repository_path.write_text(repository)
 
