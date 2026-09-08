@@ -1496,7 +1496,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
 
   Widget _buildToday(TeacherWorkspace workspace) {
     final actions = <WorkspaceActionWithContext>[];
-    final pendingVerification = <WorkspaceCaseWithContext>[];
     for (final student in workspace.students) {
       for (final learningCase in student.cases) {
         if (learningCase.status == LearningCaseStatus.newCase &&
@@ -1505,13 +1504,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           // growth record until the teacher explicitly creates a reminder.
           continue;
         }
-        if (learningCase.status == LearningCaseStatus.pendingVerification) {
-          pendingVerification.add(
-            WorkspaceCaseWithContext(
-              student: student,
-              learningCase: learningCase,
-            ),
-          );
+        if (learningCase.status == LearningCaseStatus.pendingVerification &&
+            learningCase.primaryAction == null) {
+          // A completed check is a student fact, not a second confirmation task.
           continue;
         }
         final action = learningCase.primaryAction;
@@ -1562,7 +1557,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             title: '今天暂时没有需要处理的事项',
             message: recentStudents.isEmpty
                 ? '新的任课学生或需要跟进的问题会出现在这里。'
-                : '可以回看最近学生，或在课堂中先记录一句问题。',
+                : '可以回看最近学生，或在课堂中随手记下一条新情况。',
             icon: Icons.check_circle_outline,
           )
         else if (hasScheduledWork)
@@ -1592,48 +1587,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               ],
             ),
           ),
-        if (pendingVerification.isNotEmpty) ...[
-          if (hasScheduledWork || !hasImmediateWork)
-            const SizedBox(height: AppSpacing.lg),
-          _WorkspaceSection(
-            key: const Key('workspace-pending-verification-section'),
-            title: '待验证',
-            count: '${pendingVerification.length} 个问题',
-            showTopDivider: true,
-            action: pendingVerification.length > _todayPreviewLimit
-                ? TextButton(
-                    key: const Key('workspace-pending-verification-toggle'),
-                    onPressed: () => setState(
-                      () => _showAllPendingVerification =
-                          !_showAllPendingVerification,
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: AppMotion.effectiveDuration(
-                        context,
-                        AppMotion.quick,
-                      ),
-                      child: Text(
-                        _showAllPendingVerification ? '收起' : '查看全部',
-                        key: ValueKey<bool>(_showAllPendingVerification),
-                      ),
-                    ),
-                  )
-                : null,
-            child: Column(
-              children: [
-                for (final item
-                    in (_showAllPendingVerification
-                        ? pendingVerification
-                        : pendingVerification.take(_todayPreviewLimit)))
-                  _WorkspaceCaseRow(
-                    student: item.student,
-                    learningCase: item.learningCase,
-                    onOpen: () => _openCase(item.student, item.learningCase),
-                  ),
-              ],
-            ),
-          ),
-        ],
         if (future.isNotEmpty) ...[
           if (hasBlockBeforeFuture) const SizedBox(height: AppSpacing.lg),
           _WorkspaceSection(
