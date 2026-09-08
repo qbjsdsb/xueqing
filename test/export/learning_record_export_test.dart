@@ -94,7 +94,7 @@ void main() {
       );
       expect(rows.last.assessmentResult, '部分改善');
       expect(rows.last.nextStep, '下节课再检查一次');
-      expect(rows.last.status, '待验证');
+      expect(rows.last.status, '继续关注');
 
       final bytes = LearningRecordExport.buildWorkbook(rows: rows);
       expect(bytes, isNotEmpty);
