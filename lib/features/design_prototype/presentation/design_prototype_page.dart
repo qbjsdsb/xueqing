@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -146,7 +148,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
       _addQuickCapture(result.capture!);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已记录为待整理问题，并已显示在当前预览。')));
+          .showSnackBar(const SnackBar(content: Text('已记录到学生成长记录，并已显示在当前预览。')));
       return;
     }
     if (result.outcome == QuickCaptureOutcome.draft && result.capture != null) {
@@ -176,34 +178,25 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     final now = DateTime.now();
     final event = PrototypeTimelineEvent(
       dateLabel: _previewDateLabel(now),
-      typeLabel: 'Quick Capture',
-      text: capture.note.isEmpty
-          ? '记录为待整理问题：${capture.title}'
-          : '${capture.title}：${capture.note}',
+      typeLabel: '发现问题',
+      text: capture.note,
     );
     final caseNumber = ++_localCaptureSerial;
     final learningCase = PrototypeCase(
       id: 'preview-case-$caseNumber',
       title: capture.title,
       status: PrototypeCaseStatus.newCase,
-      statusLabel: '待整理',
+      statusLabel: '新记录',
       priorityLabel: '新记录',
       subject: student.subject,
       problem: capture.title,
-      evidence: capture.note.isEmpty ? '刚刚记录，尚未补充具体证据。' : capture.note,
+      evidence: capture.note,
       judgement: '尚未形成教师判断。',
       intervention: '尚未记录。',
       assessment: '尚未记录。',
-      nextAction: '补充一条题目或课堂证据后再整理',
-      nextActionDue: '待安排',
+      nextAction: '尚未设置提醒',
+      nextActionDue: '—',
       timeline: <PrototypeTimelineEvent>[event],
-      primaryAction: PrototypeAction(
-        id: 'preview-action-$caseNumber',
-        title: '补充一条题目或课堂证据后再整理',
-        dueLabel: '待安排',
-        kind: PrototypeActionKind.evidence,
-        dueBucket: PrototypeActionDueBucket.undated,
-      ),
     );
     final updatedStudent = PrototypeStudent(
       id: student.id,
@@ -230,9 +223,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   }
 
   void _completeAction(PrototypeAction action) {
-    setState(() => _completedActionIds.add(action.id));
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('已完成：${action.title}')));
+    _showPrototypeNotice('处理“${action.title}”');
   }
 
   Widget _buildPreviewDraftSection({String? studentId}) {
@@ -250,12 +241,8 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           for (final draft in drafts)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(draft.title.isEmpty ? '未填写标题' : draft.title),
-              subtitle: Text(
-                draft.note.isEmpty
-                    ? '尚未补充说明 · 仅本次预览会话保留'
-                    : '${draft.note}\n仅本次预览会话保留',
-              ),
+              title: Text(draft.note.isEmpty ? '未填写内容' : draft.note),
+              subtitle: const Text('仅本次预览会话保留'),
             ),
         ],
       ),
@@ -279,56 +266,29 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   }
 
   Widget _buildToday(BuildContext context) {
-    final actionGroups = <String, List<_ActionWithContext>>{};
+    final actions = <_ActionWithContext>[];
     for (final student in _students) {
       for (final learningCase in student.cases) {
         final action = learningCase.primaryAction;
         if (action == null ||
             _completedActionIds.contains(action.id) ||
-            learningCase.status == PrototypeCaseStatus.pendingVerification) {
+            learningCase.status == PrototypeCaseStatus.closed) {
           continue;
         }
-        actionGroups
-            .putIfAbsent(student.id, () => <_ActionWithContext>[])
-            .add(
-              _ActionWithContext(
-                student: student,
-                learningCase: learningCase,
-                action: action,
-              ),
-            );
+        actions.add(
+          _ActionWithContext(
+            student: student,
+            learningCase: learningCase,
+            action: action,
+          ),
+        );
       }
     }
 
-    final ordinaryActions = actionGroups.values.expand((items) => items);
-    final overdue = _actionsInBucket(
-      ordinaryActions,
-      PrototypeActionDueBucket.overdue,
-    );
-    final dueToday = _actionsInBucket(
-      ordinaryActions,
-      PrototypeActionDueBucket.today,
-    );
-    final future = _actionsInBucket(
-      ordinaryActions,
-      PrototypeActionDueBucket.future,
-    );
-    final undated = _actionsInBucket(
-      ordinaryActions,
-      PrototypeActionDueBucket.undated,
-    );
-    final pendingVerification = _students
-        .expand(
-          (student) => student.cases.map(
-            (learningCase) => (student: student, learningCase: learningCase),
-          ),
-        )
-        .where(
-          (item) =>
-              item.learningCase.status ==
-              PrototypeCaseStatus.pendingVerification,
-        )
-        .toList();
+    final overdue = _actionsInBucket(actions, PrototypeActionDueBucket.overdue);
+    final dueToday = _actionsInBucket(actions, PrototypeActionDueBucket.today);
+    final future = _actionsInBucket(actions, PrototypeActionDueBucket.future);
+    final undated = _actionsInBucket(actions, PrototypeActionDueBucket.undated);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,12 +297,12 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
         const SizedBox(height: AppSpacing.lg),
         DesignPageHeader(
           title: '今日',
-          subtitle: '先处理今天要做的事，再回看需要判断的学生。',
+          subtitle: '只放已经明确安排的事；普通记录安静留在学生成长历史里。',
           actions: [
             FilledButton.icon(
               key: const Key('design-preview-today-record-question'),
               onPressed: () => _showQuickCapture(),
-              icon: Icon(Icons.edit_note_outlined),
+              icon: const Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -377,60 +337,30 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           ),
         ] else
           const DesignStateNotice(
-            title: '今天没有待完成的行动',
-            message: '可以回看最近记录，或在课堂中先记录一句问题。',
+            title: '今天暂时没有需要处理的事项',
+            message: '可以回看最近学生，或在课堂中随手记下一条新情况。',
             icon: Icons.check_circle_outline,
           ),
-        const SizedBox(height: AppSpacing.lg),
-        DesignSection(
-          key: const Key('pending-verification-section'),
-          title: '待验证',
-          count: '${pendingVerification.length} 个 Case',
-          showTopDivider: true,
-          child: pendingVerification.isEmpty
-              ? const DesignStateNotice(
-                  title: '还没有待验证事项',
-                  message: '完成一次检查后，在这里确认是否稳定。',
-                  icon: Icons.fact_check_outlined,
-                )
-              : Column(
-                  children: [
-                    for (final item in pendingVerification)
-                      DesignCaseRow(
-                        student: item.student,
-                        learningCase: item.learningCase,
-                        onOpen: () => _openCase(item.learningCase),
-                        onPrimaryAction: _casePrimaryAction(item.learningCase),
-                        primaryActionLabel: _casePrimaryLabel(
-                          item.learningCase,
-                        ),
-                      ),
-                  ],
-                ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        if (future.isNotEmpty)
+        if (future.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
           DesignSection(
             key: const Key('future-actions-section'),
-            title: '未来',
+            title: '之后要处理',
             count: '${future.length} 项',
             showTopDivider: true,
             child: Column(children: _buildActionGroups(future)),
           ),
-        if (future.isNotEmpty) const SizedBox(height: AppSpacing.lg),
-        DesignSection(
-          key: const Key('undated-actions-section'),
-          title: '待安排',
-          count: '${undated.length} 项',
-          showTopDivider: true,
-          child: undated.isEmpty
-              ? const DesignStateNotice(
-                  title: '没有待安排的行动',
-                  message: '需要跟进但尚未设定日期的行动会一直保留在这里。',
-                  icon: Icons.event_available_outlined,
-                )
-              : Column(children: _buildActionGroups(undated)),
-        ),
+        ],
+        if (undated.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          DesignSection(
+            key: const Key('undated-actions-section'),
+            title: '待安排',
+            count: '${undated.length} 项',
+            showTopDivider: true,
+            child: Column(children: _buildActionGroups(undated)),
+          ),
+        ],
         const SizedBox(height: AppSpacing.lg),
         DesignSection(
           title: '最近学生',
@@ -607,7 +537,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
         const SizedBox(height: AppSpacing.lg),
         DesignPageHeader(
           title: '学情',
-          subtitle: '按 Case 查看问题、证据、教学动作和下一行动。',
+          subtitle: '查看学生问题和连续成长记录，需要时再安排提醒。',
           actions: [
             FilledButton.icon(
               onPressed: () => _showQuickCapture(),
@@ -618,7 +548,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
         ),
         _buildPreviewDraftSection(),
         DesignSection(
-          title: '当前 Learning Cases',
+          title: '全部问题',
           count: '${cases.length} 个',
           child: Column(
             children: [
@@ -642,12 +572,9 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     PrototypeStudent student,
     WindowSizeClass sizeClass,
   ) {
-    final importantCases = student.cases.take(3).toList();
-    final pendingCases = student.cases
-        .where(
-          (learningCase) =>
-              learningCase.status == PrototypeCaseStatus.pendingVerification,
-        )
+    final importantCases = student.cases
+        .where((item) => item.status != PrototypeCaseStatus.closed)
+        .take(3)
         .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -659,12 +586,12 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           leading: IconButton(
             tooltip: '返回',
             onPressed: _goBack,
-            icon: Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back),
           ),
           actions: [
             FilledButton.icon(
               onPressed: () => _showQuickCapture(student: student),
-              icon: Icon(Icons.edit_note_outlined),
+              icon: const Icon(Icons.edit_note_outlined),
               label: const Text('记录问题'),
             ),
           ],
@@ -677,8 +604,8 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
         const SizedBox(height: AppSpacing.lg),
         if (importantCases.isEmpty)
           const DesignStateNotice(
-            title: '还没有 Learning Case',
-            message: '发现问题时，可以先记录一句，课后再整理。',
+            title: '还没有需要跟进的问题',
+            message: '发现情况时，可以先记下来；以后有新情况再继续记录。',
             icon: Icons.inbox_outlined,
           )
         else
@@ -700,42 +627,18 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           ),
         const SizedBox(height: AppSpacing.lg),
         DesignSection(
-          title: '当前 Learning Cases',
+          title: '全部问题',
           count: '${student.cases.length} 个',
           showTopDivider: true,
           child: student.cases.isEmpty
               ? const DesignStateNotice(
-                  title: '还没有当前 Case',
-                  message: '问题出现时可以从这里开始记录。',
+                  title: '还没有问题记录',
+                  message: '发现情况时，可以从这里开始记录。',
                   icon: Icons.inbox_outlined,
                 )
               : Column(
                   children: [
                     for (final learningCase in student.cases)
-                      DesignCaseRow(
-                        student: student,
-                        learningCase: learningCase,
-                        onOpen: () => _openCase(learningCase),
-                        onPrimaryAction: _casePrimaryAction(learningCase),
-                        primaryActionLabel: _casePrimaryLabel(learningCase),
-                      ),
-                  ],
-                ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        DesignSection(
-          title: '待验证',
-          count: '${pendingCases.length} 个',
-          showTopDivider: true,
-          child: pendingCases.isEmpty
-              ? const DesignStateNotice(
-                  title: '目前没有待验证 Case',
-                  message: '完成一次检查后，回到这里确认是否稳定。',
-                  icon: Icons.fact_check_outlined,
-                )
-              : Column(
-                  children: [
-                    for (final learningCase in pendingCases)
                       DesignCaseRow(
                         student: student,
                         learningCase: learningCase,
@@ -758,6 +661,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     PrototypeStudent student,
     PrototypeCase learningCase,
   ) {
+    final hasReminder = learningCase.primaryAction != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -767,7 +671,7 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           leading: IconButton(
             tooltip: '返回学生详情',
             onPressed: _goBack,
-            icon: Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back),
           ),
           actions: [
             DesignStatusMarker(label: learningCase.statusLabel),
@@ -782,26 +686,31 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           runSpacing: AppSpacing.xs,
           children: [
             DesignMetadata(learningCase.priorityLabel),
-            DesignMetadata('下一行动：${learningCase.nextAction}'),
             DesignMetadata(
-              learningCase.nextActionDue,
-              icon: Icons.event_outlined,
+              hasReminder ? '当前提醒：${learningCase.nextAction}' : '当前没有设置提醒',
             ),
+            if (hasReminder)
+              DesignMetadata(
+                learningCase.nextActionDue,
+                icon: Icons.event_outlined,
+              ),
           ],
         ),
-        const SizedBox(height: AppSpacing.lg),
-        if (learningCase.status == PrototypeCaseStatus.pendingVerification)
+        if (learningCase.status == PrototypeCaseStatus.pendingVerification) ...[
+          const SizedBox(height: AppSpacing.lg),
           const DesignStateNotice(
-            title: '本次验证通过，仍待确认是否稳定',
-            message: 'Assessment passed 不是 stable。请确认稳定或继续跟进，并保留这次检查记录。',
+            title: '这次检查已经记录',
+            message: '之后有新情况继续记录；只有确实需要某天提醒自己时，才设置提醒。',
             icon: Icons.fact_check_outlined,
-          )
-        else if (learningCase.status == PrototypeCaseStatus.stable)
+          ),
+        ] else if (learningCase.status == PrototypeCaseStatus.stable) ...[
+          const SizedBox(height: AppSpacing.lg),
           const DesignStateNotice(
-            title: '稳定；仍需安排下一次检查',
-            message: '稳定不等于已关闭，仍需保留 review / verify action。',
+            title: '当前表现暂时稳定',
+            message: '记录会继续保留；没有新的教学需要时，不自动生成复查任务。',
             icon: Icons.check_circle_outline,
           ),
+        ],
         const SizedBox(height: AppSpacing.lg),
         _CaseNarrativeSection(
           title: '问题',
@@ -810,10 +719,10 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           onAction: () => _showPrototypeNotice('补充问题说明'),
         ),
         _CaseNarrativeSection(
-          title: 'Evidence / 证据',
+          title: '学生表现',
           content: learningCase.evidence,
-          actionLabel: '补充证据',
-          onAction: () => _showPrototypeNotice('补充证据'),
+          actionLabel: '补充学生表现',
+          onAction: () => _showPrototypeNotice('补充学生表现'),
         ),
         _CaseNarrativeSection(
           title: '教师判断',
@@ -822,26 +731,28 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
           onAction: () => _showPrototypeNotice('记录教师判断'),
         ),
         _CaseNarrativeSection(
-          title: 'Intervention / 教学动作',
+          title: '教学处理',
           content: learningCase.intervention,
-          actionLabel: '记录教学动作',
-          onAction: () => _showPrototypeNotice('记录教学动作'),
+          actionLabel: '记录教学处理',
+          onAction: () => _showPrototypeNotice('记录教学处理'),
         ),
         _CaseNarrativeSection(
-          title: 'Assessment / Verification',
+          title: '检查结果',
           content: learningCase.assessment,
-          actionLabel: '记录一次检查',
-          onAction: () => _showPrototypeNotice('记录一次检查'),
+          actionLabel: '记录检查结果',
+          onAction: () => _showPrototypeNotice('记录检查结果'),
         ),
         _CaseNarrativeSection(
-          title: 'Next Action / 下一行动',
-          content: '${learningCase.nextAction}（${learningCase.nextActionDue}）',
-          actionLabel: '安排/改期',
-          onAction: () => _showPrototypeNotice('安排/改期'),
-          isPrimary: true,
+          title: '当前提醒',
+          content: hasReminder
+              ? '${learningCase.nextAction}（${learningCase.nextActionDue}）'
+              : '尚未设置提醒。需要时再设置，不影响问题记录继续保留。',
+          actionLabel: hasReminder ? '调整提醒' : '设置提醒',
+          onAction: () => _showPrototypeNotice(hasReminder ? '调整提醒' : '设置提醒'),
+          isPrimary: hasReminder,
         ),
         DesignSection(
-          title: '历史 timeline',
+          title: '最近记录',
           showTopDivider: true,
           child: Column(
             children: [
@@ -854,36 +765,14 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
     );
   }
 
-  bool _isCaseStateCommand(PrototypeCase learningCase) {
-    return switch (learningCase.status) {
-      PrototypeCaseStatus.pendingVerification ||
-      PrototypeCaseStatus.stable ||
-      PrototypeCaseStatus.closed => true,
-      _ => false,
-    };
-  }
-
   VoidCallback _casePrimaryAction(PrototypeCase learningCase) {
-    if (_isCaseStateCommand(learningCase)) {
-      return () => _showCaseCommandNotice(learningCase);
+    if (learningCase.status == PrototypeCaseStatus.closed) {
+      return () => _showPrototypeNotice('重新跟进');
     }
-
-    final action = learningCase.primaryAction;
-    if (action != null) {
-      return () => _completeAction(action);
+    if (learningCase.primaryAction != null) {
+      return () => _showPrototypeNotice('处理');
     }
-
-    return () => _showPrototypeNotice('处理下一步');
-  }
-
-  void _showCaseCommandNotice(PrototypeCase learningCase) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '设计预览：${_casePrimaryLabel(learningCase)}只展示命令入口，不改变领域状态。',
-        ),
-      ),
-    );
+    return () => _showPrototypeNotice('记录进展');
   }
 
   void _showPrototypeNotice(String actionLabel) {
@@ -893,12 +782,10 @@ class _DesignPrototypePageState extends State<DesignPrototypePage> {
   }
 
   String _casePrimaryLabel(PrototypeCase learningCase) {
-    return switch (learningCase.status) {
-      PrototypeCaseStatus.pendingVerification => '确认稳定',
-      PrototypeCaseStatus.stable => '安排下一次检查',
-      PrototypeCaseStatus.closed => '重新打开',
-      _ => '处理下一步',
-    };
+    if (learningCase.status == PrototypeCaseStatus.closed) {
+      return '重新跟进';
+    }
+    return learningCase.primaryAction == null ? '记录进展' : '处理';
   }
 }
 
@@ -1386,44 +1273,51 @@ class DesignQuickCaptureForm extends StatefulWidget {
 }
 
 class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
-  late final TextEditingController _titleController;
   late final TextEditingController _noteController;
+  late final FocusNode _noteFocusNode;
   PrototypeStudent? _selectedStudent;
   bool _saving = false;
   String? _studentError;
-  String? _titleError;
+  String? _noteError;
 
-  bool get _isDirty =>
-      _titleController.text.trim().isNotEmpty ||
-      _noteController.text.trim().isNotEmpty;
+  bool get _isDirty => _noteController.text.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    _selectedStudent = widget.student;
-    _titleController = TextEditingController();
-    _noteController = TextEditingController();
-    _titleController.addListener(_onTextChanged);
-    _noteController.addListener(_onTextChanged);
+    _selectedStudent =
+        widget.student ??
+        (widget.students.length == 1 ? widget.students.first : null);
+    _noteController = TextEditingController()..addListener(_onTextChanged);
+    _noteFocusNode = FocusNode(debugLabel: '设计预览快速记录');
   }
 
   @override
   void dispose() {
-    _titleController
-      ..removeListener(_onTextChanged)
-      ..dispose();
     _noteController
       ..removeListener(_onTextChanged)
       ..dispose();
+    _noteFocusNode.dispose();
     super.dispose();
   }
 
   void _onTextChanged() {
-    if (_titleError != null && _titleController.text.trim().isNotEmpty) {
-      setState(() => _titleError = null);
-      return;
+    if (_noteError != null && _noteController.text.trim().isNotEmpty) {
+      setState(() => _noteError = null);
     }
-    setState(() {});
+  }
+
+  String _deriveTitle(String note) {
+    final normalized = note.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final punctuationIndex = normalized.indexOf(RegExp(r'[。！？!?；;]'));
+    var candidate = punctuationIndex > 0
+        ? normalized.substring(0, punctuationIndex)
+        : normalized;
+    const maxTitleLength = 48;
+    if (candidate.length > maxTitleLength) {
+      candidate = '${candidate.substring(0, maxTitleLength)}…';
+    }
+    return candidate;
   }
 
   Future<void> _save() async {
@@ -1431,9 +1325,9 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
       setState(() => _studentError = '请选择学生');
       return;
     }
-    final title = _titleController.text.trim();
-    if (title.isEmpty) {
-      setState(() => _titleError = '请先写下问题标题');
+    final note = _noteController.text.trim();
+    if (note.isEmpty) {
+      setState(() => _noteError = '请写下今天看到的情况');
       return;
     }
     setState(() => _saving = true);
@@ -1443,8 +1337,8 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
       QuickCaptureResult.saved(
         PrototypeQuickCapture(
           studentId: _selectedStudent!.id,
-          title: title,
-          note: _noteController.text.trim(),
+          title: _deriveTitle(note),
+          note: note,
         ),
       ),
     );
@@ -1459,7 +1353,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('暂存这段记录？'),
-        content: const Text('这段记录还没有形成 Case。暂存后会留在本次预览会话，关闭应用后不会保留。'),
+        content: const Text('这段内容还没有保存为正式预览记录。暂存后只保留在本次预览会话中。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -1473,13 +1367,14 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
       ),
     );
     if (!mounted || result == null) return;
+    final note = _noteController.text.trim();
     Navigator.of(context).pop(
       result
           ? QuickCaptureResult.draft(
               PrototypeQuickCapture(
                 studentId: _selectedStudent?.id,
-                title: _titleController.text.trim(),
-                note: _noteController.text.trim(),
+                title: note.isEmpty ? '' : _deriveTitle(note),
+                note: note,
               ),
             )
           : null,
@@ -1492,7 +1387,7 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
     return PopScope<void>(
       canPop: !_isDirty && !_saving,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !_saving) _cancel();
+        if (!didPop && !_saving) unawaited(_cancel());
       },
       child: SafeArea(
         child: AnimatedPadding(
@@ -1517,72 +1412,80 @@ class _DesignQuickCaptureFormState extends State<DesignQuickCaptureForm> {
                       IconButton(
                         tooltip: '关闭',
                         onPressed: _saving ? null : _cancel,
-                        icon: Icon(Icons.close),
+                        icon: const Icon(Icons.close),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  DropdownButtonFormField<PrototypeStudent>(
-                    initialValue: _selectedStudent,
-                    decoration: InputDecoration(
-                      labelText: '学生 *',
-                      errorText: _studentError,
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    '先把刚看到的情况记下来；没有明确提醒，就不会自动变成待办。',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    hint: const Text('选择学生后开始'),
-                    items: [
-                      for (final student in widget.students)
-                        DropdownMenuItem<PrototypeStudent>(
-                          value: student,
-                          child: Text('${student.name} · ${student.subject}'),
-                        ),
-                    ],
-                    onChanged: _saving
-                        ? null
-                        : (student) {
-                            setState(() {
-                              _selectedStudent = student;
-                              _studentError = null;
-                            });
-                          },
                   ),
+                  const SizedBox(height: AppSpacing.md),
+                  if (widget.student != null)
+                    _ContextField(
+                      label: '学生',
+                      value:
+                          '${widget.student!.name} · ${widget.student!.subject}',
+                    )
+                  else
+                    DropdownButtonFormField<PrototypeStudent>(
+                      initialValue: _selectedStudent,
+                      decoration: InputDecoration(
+                        labelText: '学生 *',
+                        errorText: _studentError,
+                      ),
+                      hint: const Text('选择学生后开始'),
+                      items: [
+                        for (final student in widget.students)
+                          DropdownMenuItem<PrototypeStudent>(
+                            value: student,
+                            child: Text('${student.name} · ${student.subject}'),
+                          ),
+                      ],
+                      onChanged: _saving
+                          ? null
+                          : (student) {
+                              setState(() {
+                                _selectedStudent = student;
+                                _studentError = null;
+                              });
+                              if (student != null) {
+                                _noteFocusNode.requestFocus();
+                              }
+                            },
+                    ),
                   _ContextField(
                     label: '学科',
                     value: _selectedStudent?.subject ?? '尚未选择',
                   ),
                   const SizedBox(height: AppSpacing.md),
                   TextField(
-                    controller: _titleController,
+                    key: const Key('design-preview-quick-capture-note'),
+                    controller: _noteController,
+                    focusNode: _noteFocusNode,
                     autofocus: _selectedStudent != null,
                     enabled: !_saving,
-                    textInputAction: TextInputAction.next,
-                    onSubmitted: (_) => _save(),
+                    minLines: 3,
+                    maxLines: 7,
+                    textInputAction: TextInputAction.newline,
                     decoration: InputDecoration(
-                      labelText: '问题标题 *',
-                      hintText: '用一句话记下刚发现的问题',
-                      errorText: _titleError,
+                      labelText: '今天发现什么？ *',
+                      hintText: '写下刚才真实看到的题目、行为或表现',
+                      errorText: _noteError,
+                      alignLabelWithHint: true,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '看起来已有相近的 Case 时，这里只提示，不会阻止你先记录。',
+                    '一句话也可以。真实工作台里的分类、图片和提醒都按需展开。',
                     style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    controller: _noteController,
-                    enabled: !_saving,
-                    minLines: 3,
-                    maxLines: 6,
-                    textInputAction: TextInputAction.newline,
-                    decoration: const InputDecoration(
-                      labelText: '补充说明（可选）',
-                      hintText: '记下关键表现、题目或课堂语境',
-                      alignLabelWithHint: true,
-                    ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   if (_saving)
-                    Padding(
+                    const Padding(
                       padding: EdgeInsets.only(bottom: AppSpacing.sm),
                       child: Text('保存中…'),
                     ),
