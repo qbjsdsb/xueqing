@@ -1,6 +1,117 @@
 part of 'organization_management_page.dart';
 
 mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
+  Future<void> _exportTeacherRecords() async {
+    if (_busy) return;
+    final repository = widget.teacherLearningRecordRepository;
+    if (repository == null) return;
+
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) return;
+      final teachers =
+          snapshot.members
+              .where((member) => member.roles.contains('teacher'))
+              .toList(growable: false)
+            ..sort(
+              (left, right) =>
+                  _teacherExportName(left).compareTo(_teacherExportName(right)),
+            );
+      if (teachers.isEmpty) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('当前没有可导出的老师记录。')));
+        return;
+      }
+
+      final teacher = await showDialog<OrganizationMember>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: const Text('选择要导出的老师'),
+          children: [
+            for (final member in teachers)
+              SimpleDialogOption(
+                onPressed: () => Navigator.of(context).pop(member),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _teacherExportName(member),
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        member.email,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+      if (!mounted || teacher == null) return;
+
+      setState(() {
+        _busy = true;
+        _errorMessage = null;
+      });
+      final records = await repository.listTeacherRecords(
+        organizationId: widget.organizationId,
+        membershipId: teacher.membershipId,
+      );
+      if (!mounted) return;
+      if (records.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_teacherExportName(teacher)} 还没有可导出的教学记录。'),
+          ),
+        );
+        return;
+      }
+
+      final teacherName = _teacherExportName(teacher);
+      final rows = LearningRecordExport.rowsForTeacherRecords(
+        records,
+        teacherName: teacherName,
+      );
+      final savedPath = await LearningRecordExport.saveAsXlsx(
+        fileNameWithoutExtension: LearningRecordExport.teacherFileName(
+          teacherName,
+        ),
+        rows: rows,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            savedPath == null ? '已取消导出。' : '$teacherName 的教学记录表已生成。',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            teacherLearningRecordExportErrorMessage(error) ??
+            '导出失败，请检查网络和账号状态后重试。';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String _teacherExportName(OrganizationMember member) {
+    final displayName = member.displayName?.trim() ?? '';
+    if (displayName.isNotEmpty &&
+        displayName.toLowerCase() != member.email.trim().toLowerCase()) {
+      return displayName;
+    }
+    return member.email.trim().isEmpty ? '未命名老师' : member.email.trim();
+  }
+
   Future<void> _addSubject() async {
     if (_busy) return;
     setState(() {

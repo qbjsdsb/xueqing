@@ -4,6 +4,7 @@ import 'package:excel/excel.dart';
 import 'package:file_saver/file_saver.dart';
 
 import '../cloud/learning_repository.dart';
+import '../cloud/teacher_learning_record_repository.dart';
 
 class LearningRecordExportRow {
   const LearningRecordExportRow({
@@ -138,6 +139,33 @@ class LearningRecordExport {
     return List<LearningRecordExportRow>.unmodifiable(rows);
   }
 
+  static List<LearningRecordExportRow> rowsForTeacherRecords(
+    List<TeacherLearningRecord> records, {
+    required String teacherName,
+  }) {
+    final rows = <LearningRecordExportRow>[
+      for (final record in records)
+        LearningRecordExportRow(
+          occurredAt: record.occurredAt,
+          studentName: record.studentName,
+          subjectName: record.subjectName,
+          issueTitle: record.issueTitle,
+          recordType: _teacherRecordTypeLabel(record.recordKind),
+          content: record.content,
+          assessmentResult: record.assessmentResult == null
+              ? null
+              : _assessmentResultLabel(record.assessmentResult!),
+          teacherName: teacherName,
+          attachmentNote: record.attachmentCount <= 0
+              ? null
+              : '${record.attachmentCount} 个附件',
+          status: _wireStatusLabel(record.currentStatus),
+        ),
+    ];
+    rows.sort((left, right) => left.occurredAt.compareTo(right.occurredAt));
+    return List<LearningRecordExportRow>.unmodifiable(rows);
+  }
+
   static WorkspaceEvidence? _initialQuickCaptureEvidence(
     WorkspaceCase learningCase,
   ) {
@@ -260,6 +288,27 @@ class LearningRecordExport {
       LearningCaseStatus.pendingVerification => '待验证',
       LearningCaseStatus.stable => '暂时稳定',
       LearningCaseStatus.closed => '已结束',
+    };
+  }
+
+  static String _wireStatusLabel(String status) {
+    return switch (status) {
+      'new' => '待整理',
+      'confirmed' || 'intervening' => '跟进中',
+      'pending_verification' => '待验证',
+      'stable' => '暂时稳定',
+      'closed' => '已结束',
+      _ => '状态未知',
+    };
+  }
+
+  static String _teacherRecordTypeLabel(String kind) {
+    return switch (kind) {
+      'case_created' => '发现问题',
+      'evidence' => '学生表现',
+      'intervention' => '教学处理',
+      'assessment' => '检查结果',
+      _ => '其他记录',
     };
   }
 

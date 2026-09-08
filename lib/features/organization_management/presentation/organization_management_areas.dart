@@ -25,6 +25,7 @@ class _ManagementOverview extends StatefulWidget {
     required this.onTransferStudentTeacherAssignment,
     required this.canManageCaseTypes,
     this.onProvisionInvitation,
+    this.onExportTeacherRecords,
     this.onEditMemberName,
     this.onReissueMemberCredential,
     this.onOpenCaseTypes,
@@ -48,6 +49,7 @@ class _ManagementOverview extends StatefulWidget {
   final Future<void> Function(OrganizationStudentRecord student)
   onToggleStudentArchive;
   final VoidCallback onInviteMember;
+  final Future<void> Function()? onExportTeacherRecords;
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
   final Future<void> Function(OrganizationInvitation invitation)?
@@ -191,11 +193,26 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           _ManagementSection(
             title: '机构成员',
             count: '${widget.snapshot.members.length} 人',
-            action: widget.canInvite
-                ? FilledButton.tonalIcon(
-                    onPressed: widget.busy ? null : widget.onInviteMember,
-                    icon: const Icon(Icons.group_add_outlined, size: 18),
-                    label: const Text('邀请成员'),
+            action: widget.canInvite || widget.onExportTeacherRecords != null
+                ? Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      if (widget.onExportTeacherRecords != null)
+                        OutlinedButton.icon(
+                          onPressed: widget.busy
+                              ? null
+                              : widget.onExportTeacherRecords,
+                          icon: const Icon(Icons.download_outlined, size: 18),
+                          label: const Text('导出老师记录'),
+                        ),
+                      if (widget.canInvite)
+                        FilledButton.tonalIcon(
+                          onPressed: widget.busy ? null : widget.onInviteMember,
+                          icon: const Icon(Icons.group_add_outlined, size: 18),
+                          label: const Text('邀请成员'),
+                        ),
+                    ],
                   )
                 : null,
             child: widget.snapshot.members.isEmpty
