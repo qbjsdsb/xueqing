@@ -1482,8 +1482,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.teacherScopeUpdateCount, 1);
-      expect(find.text('示例老师 · 数学'), findsOneWidget);
-      final stop = find.text('停用该学科');
+      expect(find.text('示例老师'), findsOneWidget);
+      expect(find.text('数学'), findsOneWidget);
+      final stop = find.text('停用');
       await tester.ensureVisible(stop);
       await tester.tap(stop);
       await tester.pumpAndSettle();

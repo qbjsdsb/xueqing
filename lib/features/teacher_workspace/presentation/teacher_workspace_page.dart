@@ -1416,8 +1416,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _WorkspaceBoundaryBanner(),
-        const SizedBox(height: AppSpacing.lg),
         _WorkspacePageHeader(
           title: '今日',
           subtitle: '先处理今天要做的事，再回看需要判断的学生。',
@@ -1732,8 +1730,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _WorkspaceBoundaryBanner(),
-            const SizedBox(height: AppSpacing.lg),
             _WorkspacePageHeader(
               title: '学生',
               subtitle: '搜索学生，先理解当前重点，再进入需要处理的问题。',
@@ -6155,48 +6151,6 @@ class _WorkspaceStateNotice extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _WorkspaceBoundaryBanner extends StatelessWidget {
-  const _WorkspaceBoundaryBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      label: '开发环境数据，仅显示当前账号有权访问的内容',
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHigh,
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-          borderRadius: BorderRadius.circular(AppRadii.small),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.shield_outlined,
-              size: 18,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                '开发环境虚构资料 · 只显示当前权限范围 · 保存会写入开发数据库',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
