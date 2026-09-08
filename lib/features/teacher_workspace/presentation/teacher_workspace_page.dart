@@ -3311,6 +3311,7 @@ class _WorkspaceQuickCaptureFormState
     extends State<_WorkspaceQuickCaptureForm> {
   late final TextEditingController _titleController;
   late final TextEditingController _evidenceController;
+  late final FocusNode _titleFocusNode;
   late final String _operationId;
   WorkspaceStudent? _selectedStudent;
   String _selectedCaseTypeKey = WorkspaceCaseType.builtInTypes.last.key;
@@ -3353,6 +3354,7 @@ class _WorkspaceQuickCaptureFormState
     _operationId = createOperationId();
     _titleController = TextEditingController();
     _evidenceController = TextEditingController();
+    _titleFocusNode = FocusNode();
     _titleController.addListener(_clearInlineErrors);
     _evidenceController.addListener(_clearInlineErrors);
     if (widget.evidenceAttachmentRepository != null &&
@@ -3369,6 +3371,7 @@ class _WorkspaceQuickCaptureFormState
     _evidenceController
       ..removeListener(_clearInlineErrors)
       ..dispose();
+    _titleFocusNode.dispose();
     super.dispose();
   }
 
@@ -3555,6 +3558,21 @@ class _WorkspaceQuickCaptureFormState
     return '保存失败。输入仍保留在这里，请重试；未确认成功前不会生成重复问题。';
   }
 
+  void _selectStudent(WorkspaceStudent? student) {
+    setState(() {
+      _selectedStudent = student;
+      _studentError = null;
+    });
+    if (student == null) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_saving) {
+        _titleFocusNode.requestFocus();
+      }
+    });
+  }
+
   bool _isCompact(BuildContext context) =>
       ResponsiveBreakpoints.classify(MediaQuery.sizeOf(context).width) ==
       WindowSizeClass.compact;
@@ -3575,14 +3593,7 @@ class _WorkspaceQuickCaptureFormState
               child: Text([student.name, student.subject].join(' · ')),
             ),
         ],
-        onChanged: _saving
-            ? null
-            : (student) {
-                setState(() {
-                  _selectedStudent = student;
-                  _studentError = null;
-                });
-              },
+        onChanged: _saving ? null : _selectStudent,
       );
     }
 
@@ -3652,10 +3663,7 @@ class _WorkspaceQuickCaptureFormState
     if (!mounted || selectedStudent == null) {
       return;
     }
-    setState(() {
-      _selectedStudent = selectedStudent;
-      _studentError = null;
-    });
+    _selectStudent(selectedStudent);
   }
 
   Future<void> _openCaseTypePicker() async {
@@ -3740,6 +3748,7 @@ class _WorkspaceQuickCaptureFormState
                   TextField(
                     key: const Key('quick-capture-title-field'),
                     controller: _titleController,
+                    focusNode: _titleFocusNode,
                     autofocus: _selectedStudent != null,
                     enabled: !_saving,
                     textInputAction: TextInputAction.next,

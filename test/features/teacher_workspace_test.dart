@@ -1234,6 +1234,29 @@ void main() {
     },
   );
 
+  testWidgets('focuses the problem title after choosing a student', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.text('记录问题').first);
+    await tester.pumpAndSettle();
+
+    final studentPicker = find.byType(
+      DropdownButtonFormField<WorkspaceStudent>,
+    );
+    await tester.ensureVisible(studentPicker);
+    await tester.tap(studentPicker);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('示例学生甲 · 数学').last);
+    await tester.pumpAndSettle();
+
+    final titleField = find.byKey(const Key('quick-capture-title-field'));
+    expect(titleField, findsOneWidget);
+    expect(tester.widget<TextField>(titleField).focusNode?.hasFocus, isTrue);
+  });
+
   testWidgets('keeps Quick Capture facts before classification', (
     tester,
   ) async {
