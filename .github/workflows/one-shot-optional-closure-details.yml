@@ -1,0 +1,85 @@
+name: One-shot optional closure details
+
+on:
+  push:
+    branches:
+      - ux/optional-closure-details
+    paths:
+      - .github/workflows/one-shot-optional-closure-details.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/optional-closure-details
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Make closure details optional in the UI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
+              return text.replace(old, new, 1)
+
+          def replace_between(text, start, end, replacement, label):
+              if text.count(start) != 1 or text.count(end) < 1:
+                  raise SystemExit(f'{label}: markers not unique/present')
+              start_i = text.index(start)
+              end_i = text.index(end, start_i)
+              return text[:start_i] + replacement + text[end_i:]
+
+          forms_path = Path('lib/features/teacher_workspace/presentation/progressive_case_forms.dart')
+          forms = forms_path.read_text(encoding='utf-8')
+          forms = replace_once(forms, '  bool _showNextStepOptions = false;\n  RecordCaseProgressCommand? _submittedCommand;', '  bool _showNextStepOptions = false;\n  bool _showClosureDetails = false;\n  RecordCaseProgressCommand? _submittedCommand;', 'progress closure detail state')
+          forms = replace_once(forms, '  bool _submissionAttempted = false;\n\n  @override\n  void initState() {\n    super.initState();\n    _operationId = createOperationId();\n    _noteController = TextEditingController();', '  bool _submissionAttempted = false;\n  bool _showClosureDetails = false;\n\n  @override\n  void initState() {\n    super.initState();\n    _operationId = createOperationId();\n    _noteController = TextEditingController();', 'direct closure detail state')
+          progress_block = base64.b64decode('ICAgICAgICAgICAgICAgICAgaWYgKF9uZXh0U3RlcCA9PSBDYXNlUHJvZ3Jlc3NOZXh0U3RlcC5jbG9zZSkgLi4uWwogICAgICAgICAgICAgICAgICAgIGNvbnN0IFNpemVkQm94KGhlaWdodDogQXBwU3BhY2luZy5tZCksCiAgICAgICAgICAgICAgICAgICAgQWxpZ24oCiAgICAgICAgICAgICAgICAgICAgICBhbGlnbm1lbnQ6IEFsaWdubWVudC5jZW50ZXJMZWZ0LAogICAgICAgICAgICAgICAgICAgICAgY2hpbGQ6IFRleHRCdXR0b24uaWNvbigKICAgICAgICAgICAgICAgICAgICAgICAga2V5OiBjb25zdCBLZXkoJ3Byb2dyZXNzLWNsb3NlLWRldGFpbHMtdG9nZ2xlJyksCiAgICAgICAgICAgICAgICAgICAgICAgIG9uUHJlc3NlZDogX2lucHV0c0xvY2tlZAogICAgICAgICAgICAgICAgICAgICAgICAgICAgPyBudWxsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICA6ICgpID0+IHNldFN0YXRlKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICgpID0+IF9zaG93Q2xvc3VyZURldGFpbHMgPQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAhX3Nob3dDbG9zdXJlRGV0YWlscywKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICAgICAgICAgaWNvbjogSWNvbigKICAgICAgICAgICAgICAgICAgICAgICAgICBfc2hvd0Nsb3N1cmVEZXRhaWxzCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID8gSWNvbnMuZXhwYW5kX2xlc3MKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgOiBJY29ucy5ub3Rlc19vdXRsaW5lZCwKICAgICAgICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICAgICAgICAgbGFiZWw6IFRleHQoCiAgICAgICAgICAgICAgICAgICAgICAgICAgX3Nob3dDbG9zdXJlRGV0YWlscwogICAgICAgICAgICAgICAgICAgICAgICAgICAgICA/ICfmlLbotbfnu5PmnZ/or7TmmI4nCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDogJ+ihpeWFhee7k+adn+WOn+WboO+8iOWPr+mAie+8iScsCiAgICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgaWYgKF9zaG93Q2xvc3VyZURldGFpbHMpIC4uLlsKICAgICAgICAgICAgICAgICAgICAgIGNvbnN0IFNpemVkQm94KGhlaWdodDogQXBwU3BhY2luZy54cyksCiAgICAgICAgICAgICAgICAgICAgICBEcm9wZG93bkJ1dHRvbkZvcm1GaWVsZDxDYXNlQ2xvc3VyZVJlYXNvbj4oCiAgICAgICAgICAgICAgICAgICAgICAgIGtleTogY29uc3QgS2V5KCdwcm9ncmVzcy1jbG9zZS1yZWFzb24nKSwKICAgICAgICAgICAgICAgICAgICAgICAgaW5pdGlhbFZhbHVlOiBfY2xvc3VyZVJlYXNvbiwKICAgICAgICAgICAgICAgICAgICAgICAgZGVjb3JhdGlvbjogY29uc3QgSW5wdXREZWNvcmF0aW9uKAogICAgICAgICAgICAgICAgICAgICAgICAgIGxhYmVsVGV4dDogJ+e7k+adn+WOn+WboO+8iOWPr+mAie+8iScsCiAgICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgICAgIGl0ZW1zOiBbCiAgICAgICAgICAgICAgICAgICAgICAgICAgZm9yIChmaW5hbCByZWFzb24gaW4gQ2FzZUNsb3N1cmVSZWFzb24udmFsdWVzKQogICAgICAgICAgICAgICAgICAgICAgICAgICAgRHJvcGRvd25NZW51SXRlbTxDYXNlQ2xvc3VyZVJlYXNvbj4oCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlOiByZWFzb24sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNoaWxkOiBUZXh0KHJlYXNvbi5sYWJlbCksCiAgICAgICAgICAgICAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICAgICBvbkNoYW5nZWQ6IF9pbnB1dHNMb2NrZWQKICAgICAgICAgICAgICAgICAgICAgICAgICAgID8gbnVsbAogICAgICAgICAgICAgICAgICAgICAgICAgICAgOiAocmVhc29uKSB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaWYgKHJlYXNvbiAhPSBudWxsKSB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzZXRTdGF0ZSgoKSA9PiBfY2xvc3VyZVJlYXNvbiA9IHJlYXNvbik7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICAgICAgIGNvbnN0IFNpemVkQm94KGhlaWdodDogQXBwU3BhY2luZy5tZCksCiAgICAgICAgICAgICAgICAgICAgICBUZXh0RmllbGQoCiAgICAgICAgICAgICAgICAgICAgICAgIGtleTogY29uc3QgS2V5KCdwcm9ncmVzcy1jbG9zZS1ub3RlJyksCiAgICAgICAgICAgICAgICAgICAgICAgIGNvbnRyb2xsZXI6IF9jbG9zZU5vdGVDb250cm9sbGVyLAogICAgICAgICAgICAgICAgICAgICAgICBlbmFibGVkOiAhX2lucHV0c0xvY2tlZCwKICAgICAgICAgICAgICAgICAgICAgICAgbWluTGluZXM6IDIsCiAgICAgICAgICAgICAgICAgICAgICAgIG1heExpbmVzOiA0LAogICAgICAgICAgICAgICAgICAgICAgICBkZWNvcmF0aW9uOiBjb25zdCBJbnB1dERlY29yYXRpb24oCiAgICAgICAgICAgICAgICAgICAgICAgICAgbGFiZWxUZXh0OiAn6KGl5YWF6K+05piO77yI5Y+v6YCJ77yJJywKICAgICAgICAgICAgICAgICAgICAgICAgICBoaW50VGV4dDogJ+WPquWGmeWvueS7peWQjumHjeaWsOeQhuino+i/meS4qumXrumimOacieW4ruWKqeeahOWGheWuuScsCiAgICAgICAgICAgICAgICAgICAgICAgICAgYWxpZ25MYWJlbFdpdGhIaW50OiB0cnVlLAogICAgICAgICAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICBdLAo=').decode('utf-8')
+          progress_start = '                  if (_nextStep == CaseProgressNextStep.close) ...[\n'
+          progress_end = '                  if (_saveError != null) ...[\n'
+          forms = replace_between(forms, progress_start, progress_end, progress_block, 'progress close details')
+
+          direct_marker = 'class _EndCaseFollowUpFormState extends State<EndCaseFollowUpForm> {'
+          head, tail = forms.split(direct_marker, 1)
+          direct_block = base64.b64decode('ICAgICAgICAgICAgICAgICAgY29uc3QgU2l6ZWRCb3goaGVpZ2h0OiBBcHBTcGFjaW5nLm1kKSwKICAgICAgICAgICAgICAgICAgVGV4dCgKICAgICAgICAgICAgICAgICAgICAn55u05o6l57uT5p2f5Y2z5Y+v77yb6buY6K6k5Y+q6KGo56S64oCc6L+Z5qyh5YWI5LiN57un57ut6Lef6L+b4oCd77yM5LiN5Luj6KGo6Zeu6aKY5bey57uP6Kej5Yaz44CCJywKICAgICAgICAgICAgICAgICAgICBzdHlsZTogVGhlbWUub2YoY29udGV4dCkudGV4dFRoZW1lLmJvZHlTbWFsbCwKICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICAgQWxpZ24oCiAgICAgICAgICAgICAgICAgICAgYWxpZ25tZW50OiBBbGlnbm1lbnQuY2VudGVyTGVmdCwKICAgICAgICAgICAgICAgICAgICBjaGlsZDogVGV4dEJ1dHRvbi5pY29uKAogICAgICAgICAgICAgICAgICAgICAga2V5OiBjb25zdCBLZXkoJ2VuZC1mb2xsb3ctdXAtZGV0YWlscy10b2dnbGUnKSwKICAgICAgICAgICAgICAgICAgICAgIG9uUHJlc3NlZDogX3NhdmluZyB8fCBfc3VibWlzc2lvbkF0dGVtcHRlZAogICAgICAgICAgICAgICAgICAgICAgICAgID8gbnVsbAogICAgICAgICAgICAgICAgICAgICAgICAgIDogKCkgPT4gc2V0U3RhdGUoCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICgpID0+IF9zaG93Q2xvc3VyZURldGFpbHMgPQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIV9zaG93Q2xvc3VyZURldGFpbHMsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICAgICAgICAgaWNvbjogSWNvbigKICAgICAgICAgICAgICAgICAgICAgICAgX3Nob3dDbG9zdXJlRGV0YWlscwogICAgICAgICAgICAgICAgICAgICAgICAgICAgPyBJY29ucy5leHBhbmRfbGVzcwogICAgICAgICAgICAgICAgICAgICAgICAgICAgOiBJY29ucy5ub3Rlc19vdXRsaW5lZCwKICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgICBsYWJlbDogVGV4dCgKICAgICAgICAgICAgICAgICAgICAgICAgX3Nob3dDbG9zdXJlRGV0YWlscwogICAgICAgICAgICAgICAgICAgICAgICAgICAgPyAn5pS26LW357uT5p2f6K+05piOJwogICAgICAgICAgICAgICAgICAgICAgICAgICAgOiAn6KGl5YWF57uT5p2f5Y6f5Zug77yI5Y+v6YCJ77yJJywKICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICAgaWYgKF9zaG93Q2xvc3VyZURldGFpbHMpIC4uLlsKICAgICAgICAgICAgICAgICAgICBjb25zdCBTaXplZEJveChoZWlnaHQ6IEFwcFNwYWNpbmcueHMpLAogICAgICAgICAgICAgICAgICAgIERyb3Bkb3duQnV0dG9uRm9ybUZpZWxkPENhc2VDbG9zdXJlUmVhc29uPigKICAgICAgICAgICAgICAgICAgICAgIGtleTogY29uc3QgS2V5KCdlbmQtZm9sbG93LXVwLXJlYXNvbicpLAogICAgICAgICAgICAgICAgICAgICAgaW5pdGlhbFZhbHVlOiBfcmVhc29uLAogICAgICAgICAgICAgICAgICAgICAgZGVjb3JhdGlvbjogY29uc3QgSW5wdXREZWNvcmF0aW9uKAogICAgICAgICAgICAgICAgICAgICAgICBsYWJlbFRleHQ6ICfnu5PmnZ/ljp/lm6DvvIjlj6/pgInvvIknLAogICAgICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICAgICAgIGl0ZW1zOiBbCiAgICAgICAgICAgICAgICAgICAgICAgIGZvciAoZmluYWwgcmVhc29uIGluIENhc2VDbG9zdXJlUmVhc29uLnZhbHVlcykKICAgICAgICAgICAgICAgICAgICAgICAgICBEcm9wZG93bk1lbnVJdGVtPENhc2VDbG9zdXJlUmVhc29uPigKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHZhbHVlOiByZWFzb24sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICBjaGlsZDogVGV4dChyZWFzb24ubGFiZWwpLAogICAgICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgICBdLAogICAgICAgICAgICAgICAgICAgICAgb25DaGFuZ2VkOiBfc2F2aW5nIHx8IF9zdWJtaXNzaW9uQXR0ZW1wdGVkCiAgICAgICAgICAgICAgICAgICAgICAgICAgPyBudWxsCiAgICAgICAgICAgICAgICAgICAgICAgICAgOiAocmVhc29uKSB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlmIChyZWFzb24gIT0gbnVsbCkgewogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNldFN0YXRlKCgpID0+IF9yZWFzb24gPSByZWFzb24pOwogICAgICAgICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgY29uc3QgU2l6ZWRCb3goaGVpZ2h0OiBBcHBTcGFjaW5nLm1kKSwKICAgICAgICAgICAgICAgICAgICBUZXh0RmllbGQoCiAgICAgICAgICAgICAgICAgICAgICBrZXk6IGNvbnN0IEtleSgnZW5kLWZvbGxvdy11cC1ub3RlJyksCiAgICAgICAgICAgICAgICAgICAgICBjb250cm9sbGVyOiBfbm90ZUNvbnRyb2xsZXIsCiAgICAgICAgICAgICAgICAgICAgICBlbmFibGVkOiAhX3NhdmluZyAmJiAhX3N1Ym1pc3Npb25BdHRlbXB0ZWQsCiAgICAgICAgICAgICAgICAgICAgICBtaW5MaW5lczogMiwKICAgICAgICAgICAgICAgICAgICAgIG1heExpbmVzOiA1LAogICAgICAgICAgICAgICAgICAgICAgZGVjb3JhdGlvbjogY29uc3QgSW5wdXREZWNvcmF0aW9uKAogICAgICAgICAgICAgICAgICAgICAgICBsYWJlbFRleHQ6ICfooaXlhYXor7TmmI7vvIjlj6/pgInvvIknLAogICAgICAgICAgICAgICAgICAgICAgICBoaW50VGV4dDogJ+S+i+Wmgu+8mui/nue7reS4pOWRqOacquWGjeWHuueOsO+8jOaaguaXtue7k+adn+i3n+i/mycsCiAgICAgICAgICAgICAgICAgICAgICAgIGFsaWduTGFiZWxXaXRoSGludDogdHJ1ZSwKICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICAgXSwK').decode('utf-8')
+          direct_start = "                  const SizedBox(height: AppSpacing.md),\n                  DropdownButtonFormField<CaseClosureReason>(\n                    key: const Key('end-follow-up-reason'),"
+          direct_end = '                  if (_saveError != null) ...[\n'
+          tail = replace_between(tail, direct_start, direct_end, direct_block, 'direct close details')
+          forms = head + direct_marker + tail
+          forms_path.write_text(forms, encoding='utf-8')
+
+          test_path = Path('test/features/progressive_case_forms_test.dart')
+          test = test_path.read_text(encoding='utf-8')
+          test = replace_once(test, "      expect(find.byKey(const Key('progress-close-reason')), findsOneWidget);", "      expect(find.byKey(const Key('progress-close-reason')), findsNothing);\n      expect(\n        find.byKey(const Key('progress-close-details-toggle')),\n        findsOneWidget,\n      );", 'progress default close details test')
+          test = replace_once(test, "    expect(find.text('结束当前跟进'), findsOneWidget);\n    await tester.tap(find.byKey(const Key('end-follow-up-save')));", "    expect(find.byKey(const Key('end-follow-up-details-toggle')), findsOneWidget);\n    expect(find.byKey(const Key('end-follow-up-reason')), findsNothing);\n    expect(find.byKey(const Key('end-follow-up-note')), findsNothing);\n    await tester.tap(find.byKey(const Key('end-follow-up-save')));", 'direct default close details test')
+          test = replace_once(test, "    final reasonField = find.byKey(const Key('end-follow-up-reason'));\n    await _tapVisible(tester, reasonField);", "    await _tapVisible(\n      tester,\n      find.byKey(const Key('end-follow-up-details-toggle')),\n    );\n    await tester.pumpAndSettle();\n    final reasonField = find.byKey(const Key('end-follow-up-reason'));\n    await _tapVisible(tester, reasonField);", 'direct explicit closure detail expansion')
+          marker = "  testWidgets('a new case can end follow-up directly', (tester) async {\n"
+          if test.count(marker) != 1:
+              raise SystemExit(f'progress explicit closure test marker: expected one match, got {test.count(marker)}')
+          addition = base64.b64decode('ICB0ZXN0V2lkZ2V0cygncHJvZ3Jlc3MgY2FuIG9wdGlvbmFsbHkgcmVjb3JkIGFuIGV4cGxpY2l0IGNsb3N1cmUgcmVhc29uJywgKAogICAgdGVzdGVyLAogICkgYXN5bmMgewogICAgZmluYWwgcmVwb3NpdG9yeSA9IF9GYWtlUHJvZ3Jlc3NpdmVDYXNlUmVwb3NpdG9yeSgpOwogICAgYXdhaXQgdGVzdGVyLnB1bXBXaWRnZXQoCiAgICAgIF9ob3N0KENhc2VQcm9ncmVzc0Zvcm0ocmVwb3NpdG9yeTogcmVwb3NpdG9yeSwgbGVhcm5pbmdDYXNlOiBfY2FzZSgpKSksCiAgICApOwoKICAgIGF3YWl0IHRlc3Rlci5lbnRlclRleHQoCiAgICAgIGZpbmQuYnlLZXkoY29uc3QgS2V5KCdwcm9ncmVzcy1zdW1tYXJ5JykpLAogICAgICAn5pyA6L+R5rKh5pyJ5YaN5Ye6546w5ZCM57G76Zeu6aKYJywKICAgICk7CiAgICBhd2FpdCB0ZXN0ZXIudGFwKGZpbmQuYnlLZXkoY29uc3QgS2V5KCdwcm9ncmVzcy1uZXh0LW9wdGlvbnMtdG9nZ2xlJykpKTsKICAgIGF3YWl0IHRlc3Rlci5wdW1wQW5kU2V0dGxlKCk7CiAgICBhd2FpdCB0ZXN0ZXIudGFwKGZpbmQuYnlLZXkoY29uc3QgS2V5KCdwcm9ncmVzcy1uZXh0LWNsb3NlJykpKTsKICAgIGF3YWl0IHRlc3Rlci5wdW1wQW5kU2V0dGxlKCk7CgogICAgZXhwZWN0KGZpbmQuYnlLZXkoY29uc3QgS2V5KCdwcm9ncmVzcy1jbG9zZS1yZWFzb24nKSksIGZpbmRzTm90aGluZyk7CiAgICBhd2FpdCBfdGFwVmlzaWJsZSgKICAgICAgdGVzdGVyLAogICAgICBmaW5kLmJ5S2V5KGNvbnN0IEtleSgncHJvZ3Jlc3MtY2xvc2UtZGV0YWlscy10b2dnbGUnKSksCiAgICApOwogICAgYXdhaXQgdGVzdGVyLnB1bXBBbmRTZXR0bGUoKTsKCiAgICBmaW5hbCByZWFzb25GaWVsZCA9IGZpbmQuYnlLZXkoY29uc3QgS2V5KCdwcm9ncmVzcy1jbG9zZS1yZWFzb24nKSk7CiAgICBhd2FpdCBfdGFwVmlzaWJsZSh0ZXN0ZXIsIHJlYXNvbkZpZWxkKTsKICAgIGF3YWl0IHRlc3Rlci5wdW1wQW5kU2V0dGxlKCk7CiAgICBhd2FpdCB0ZXN0ZXIudGFwKGZpbmQudGV4dCgn6Zeu6aKY5bey6Kej5YazJykubGFzdCk7CiAgICBhd2FpdCB0ZXN0ZXIucHVtcEFuZFNldHRsZSgpOwogICAgYXdhaXQgX3RhcFZpc2libGUodGVzdGVyLCBmaW5kLmJ5S2V5KGNvbnN0IEtleSgncHJvZ3Jlc3Mtc2F2ZScpKSk7CiAgICBhd2FpdCB0ZXN0ZXIucHVtcEFuZFNldHRsZSgpOwoKICAgIGV4cGVjdCgKICAgICAgcmVwb3NpdG9yeS5wcm9ncmVzc0NvbW1hbmRzLnNpbmdsZS5jbG9zZVJlYXNvbiwKICAgICAgQ2FzZUNsb3N1cmVSZWFzb24ucmVzb2x2ZWQsCiAgICApOwogIH0pOwoK').decode('utf-8')
+          test = test.replace(marker, addition + marker, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+      - name: Format and run focused tests
+        run: |
+          dart format lib/features/teacher_workspace/presentation/progressive_case_forms.dart test/features/progressive_case_forms_test.dart
+          flutter test test/features/progressive_case_forms_test.dart
+      - name: Remove one-shot workflow and commit
+        run: |
+          rm .github/workflows/one-shot-optional-closure-details.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "UX: hide closure details until requested"
+          git push origin HEAD:ux/optional-closure-details
