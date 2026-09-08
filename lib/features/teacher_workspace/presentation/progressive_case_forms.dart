@@ -865,7 +865,7 @@ class _EndCaseFollowUpFormState extends State<EndCaseFollowUpForm> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '结束的是这一次跟进，不会删除问题、证据、教学处理和检查历史。以后再次出现时仍可继续跟进。',
+                    '结束的是这一次跟进，不会删除问题、学生表现、教学处理和检查记录。以后再次出现时仍可继续跟进。',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
