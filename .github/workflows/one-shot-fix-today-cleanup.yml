@@ -1,0 +1,32 @@
+name: One-shot fix Today cleanup refs
+
+on:
+  push:
+    branches: [ux/teacher-friction-reduction]
+    paths: [.github/workflows/one-shot-fix-today-cleanup.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/teacher-friction-reduction
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+      - run: python .github/scripts/fix_today_cleanup_refs.py
+      - run: dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart
+      - run: |
+          rm .github/scripts/fix_today_cleanup_refs.py
+          rm .github/workflows/one-shot-fix-today-cleanup.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: finish Today pseudo-task cleanup"
+          git push origin HEAD:ux/teacher-friction-reduction
