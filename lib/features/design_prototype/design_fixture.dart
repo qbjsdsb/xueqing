@@ -16,8 +16,8 @@ enum PrototypeActionKind { evidence, intervention, verification, review }
 
 /// Date semantics for an ordinary action queue.
 ///
-/// `pendingVerification` is deliberately not a value here: it is a Case-level
-/// bucket and therefore cannot be duplicated in an ordinary action bucket.
+/// Case status and Action due buckets are intentionally separate. A Case in
+/// any open status enters Today only when it actually has an explicit Action.
 enum PrototypeActionDueBucket { overdue, today, future, undated }
 
 class PrototypeAction {
@@ -127,47 +127,47 @@ abstract final class DesignFixture {
           id: 'demo-case-a1',
           title: '异分母比较时把分子分母直接相加',
           status: PrototypeCaseStatus.pendingVerification,
-          statusLabel: '待验证',
+          statusLabel: '继续关注',
           priorityLabel: '重点跟进',
           subject: '数学',
           problem: '在异分母比较时，容易直接相加分子和分母，尚未形成通分的稳定步骤。',
           evidence: '9 月 2 日课堂练习中，3 道题有 2 道跳过通分；口头复述时能说出“要找公分母”。',
           judgement: '概念能够复述，但迁移到新题型时步骤不稳定，需要再观察过程而不只看答案。',
           intervention: '用一条数轴重新演示，再让学生先说步骤、后写计算。',
-          assessment: '本次验证通过，仍待确认是否稳定。',
+          assessment: '本次检查达到预期，先保留记录并继续关注。',
           nextAction: '再做两道迁移题并核对过程',
           nextActionDue: '9 月 4 日',
           timeline: <PrototypeTimelineEvent>[
             PrototypeTimelineEvent(
               dateLabel: '9 月 2 日',
-              typeLabel: 'Assessment / Verification',
-              text: '本次验证通过，等待教师确认是否稳定。',
+              typeLabel: '检查结果',
+              text: '本次检查达到预期；目前继续关注，不额外制造确认任务。',
             ),
             PrototypeTimelineEvent(
               dateLabel: '9 月 2 日',
-              typeLabel: 'Evidence',
+              typeLabel: '学生表现',
               text: '课堂练习中 3 道题有 2 道跳过通分。',
             ),
             PrototypeTimelineEvent(
               dateLabel: '8 月 30 日',
-              typeLabel: 'Intervention',
+              typeLabel: '教学处理',
               text: '使用数轴和口头步骤复述进行干预。',
             ),
           ],
           primaryAction: PrototypeAction(
             id: 'demo-action-a1',
-            title: '确认是否稳定',
-            dueLabel: '今天到期',
+            title: '再做两道迁移题并核对过程',
+            dueLabel: '9 月 4 日',
             kind: PrototypeActionKind.verification,
-            dueBucket: PrototypeActionDueBucket.today,
-            dueDate: previewDate,
+            dueBucket: PrototypeActionDueBucket.future,
+            dueDate: DateTime(2026, 9, 4),
           ),
         ),
         PrototypeCase(
           id: 'demo-case-a2',
           title: '应用题审题时跳过数量关系',
           status: PrototypeCaseStatus.intervening,
-          statusLabel: '干预中',
+          statusLabel: '跟进中',
           priorityLabel: '常规跟进',
           subject: '数学',
           problem: '读完题目后直接列式，容易漏掉单位关系和已知条件之间的对应。',
@@ -180,12 +180,12 @@ abstract final class DesignFixture {
           timeline: <PrototypeTimelineEvent>[
             PrototypeTimelineEvent(
               dateLabel: '8 月 29 日',
-              typeLabel: 'Intervention',
+              typeLabel: '教学处理',
               text: '开始使用“已知—求—关系”三句复述。',
             ),
             PrototypeTimelineEvent(
               dateLabel: '8 月 28 日',
-              typeLabel: 'Evidence',
+              typeLabel: '学生表现',
               text: '两道应用题列式前没有写出数量关系。',
             ),
           ],
@@ -223,36 +223,29 @@ abstract final class DesignFixture {
           id: 'demo-case-b1',
           title: '近义词辨析混淆',
           status: PrototypeCaseStatus.newCase,
-          statusLabel: '待整理',
+          statusLabel: '新记录',
           priorityLabel: '新记录',
           subject: '英语',
           problem: '在两个相近词的语境选择中，容易依赖中文直译。',
-          evidence: '课堂口头练习中出现一次选择犹豫，尚未补充题目记录。',
-          judgement: '尚未形成足够判断，需要补充一条具体题目证据。',
+          evidence: '课堂口头练习中出现一次选择犹豫。',
+          judgement: '目前信息还少，先保留这条事实；以后有新情况再继续记录。',
           intervention: '尚未记录。',
           assessment: '尚未记录。',
-          nextAction: '补充一条题目证据后再整理',
-          nextActionDue: '待安排',
+          nextAction: '尚未设置提醒',
+          nextActionDue: '—',
           timeline: <PrototypeTimelineEvent>[
             PrototypeTimelineEvent(
               dateLabel: '9 月 2 日',
-              typeLabel: 'Quick Capture',
-              text: '课堂中先记录为待整理问题。',
+              typeLabel: '发现问题',
+              text: '课堂中记录一条新情况。',
             ),
           ],
-          primaryAction: PrototypeAction(
-            id: 'demo-action-b1',
-            title: '补充一条题目证据后再整理',
-            dueLabel: '待安排',
-            kind: PrototypeActionKind.evidence,
-            dueBucket: PrototypeActionDueBucket.undated,
-          ),
         ),
         PrototypeCase(
           id: 'demo-case-b2',
           title: '句子语境中近义词选择不稳定',
           status: PrototypeCaseStatus.intervening,
-          statusLabel: '干预中',
+          statusLabel: '跟进中',
           priorityLabel: '常规跟进',
           subject: '英语',
           problem: '在两个相近词的语境选择中，仍会依赖中文直译，回答前缺少复述步骤。',
@@ -265,12 +258,12 @@ abstract final class DesignFixture {
           timeline: <PrototypeTimelineEvent>[
             PrototypeTimelineEvent(
               dateLabel: '9 月 2 日',
-              typeLabel: 'Intervention',
+              typeLabel: '教学处理',
               text: '开始用短句复述语境后再选择近义词。',
             ),
             PrototypeTimelineEvent(
               dateLabel: '9 月 2 日',
-              typeLabel: 'Evidence',
+              typeLabel: '学生表现',
               text: '口头练习中有一题先依赖中文直译。',
             ),
           ],
@@ -287,7 +280,7 @@ abstract final class DesignFixture {
           id: 'demo-case-b3',
           title: '阅读理解中概括依据不足',
           status: PrototypeCaseStatus.intervening,
-          statusLabel: '干预中',
+          statusLabel: '跟进中',
           priorityLabel: '常规跟进',
           subject: '英语',
           problem: '概括段落时容易只复述结论，没有指出答案对应的原文依据。',
@@ -300,7 +293,7 @@ abstract final class DesignFixture {
           timeline: <PrototypeTimelineEvent>[
             PrototypeTimelineEvent(
               dateLabel: '9 月 2 日',
-              typeLabel: 'Intervention',
+              typeLabel: '教学处理',
               text: '开始练习先标出依据句，再概括答案。',
             ),
           ],
@@ -317,8 +310,8 @@ abstract final class DesignFixture {
       recentFacts: <PrototypeTimelineEvent>[
         PrototypeTimelineEvent(
           dateLabel: '9 月 2 日',
-          typeLabel: '课堂记录',
-          text: '新增一条待整理问题，尚未安排日期。',
+          typeLabel: '发现问题',
+          text: '记录一条新情况；目前没有设置提醒。',
         ),
       ],
     ),

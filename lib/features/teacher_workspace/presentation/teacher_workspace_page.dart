@@ -525,8 +525,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   static const int _todayPreviewLimit = 3;
   static const int _studentPendingPreviewLimit = 2;
   static const int _caseTimelinePreviewLimit = 3;
-  bool _showAllPendingVerification = false;
-  bool _showAllNewCases = false;
   bool _showAllFutureActions = false;
   bool _showAllUndatedActions = false;
   bool _showAllStudentCases = false;
@@ -851,7 +849,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       return;
     }
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已记录为待整理问题。')));
+        .showSnackBar(const SnackBar(content: Text('已记录到学生成长记录。')));
   }
 
   Future<void> _showCaseTypeManager() async {
@@ -1497,27 +1495,17 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
 
   Widget _buildToday(TeacherWorkspace workspace) {
     final actions = <WorkspaceActionWithContext>[];
-    final pendingVerification = <WorkspaceCaseWithContext>[];
-    final newCases = <WorkspaceCaseWithContext>[];
     for (final student in workspace.students) {
       for (final learningCase in student.cases) {
         if (learningCase.status == LearningCaseStatus.newCase &&
             learningCase.primaryAction == null) {
-          newCases.add(
-            WorkspaceCaseWithContext(
-              student: student,
-              learningCase: learningCase,
-            ),
-          );
+          // A newly recorded fact is not a task. It remains on the student's
+          // growth record until the teacher explicitly creates a reminder.
           continue;
         }
-        if (learningCase.status == LearningCaseStatus.pendingVerification) {
-          pendingVerification.add(
-            WorkspaceCaseWithContext(
-              student: student,
-              learningCase: learningCase,
-            ),
-          );
+        if (learningCase.status == LearningCaseStatus.pendingVerification &&
+            learningCase.primaryAction == null) {
+          // A completed check is a student fact, not a second confirmation task.
           continue;
         }
         final action = learningCase.primaryAction;
@@ -1541,16 +1529,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final undated = _actionsInBucket(actions, WorkspaceActionBucket.undated);
     final recentStudents = _studentsByRecentActivity(workspace.students);
     final hasScheduledWork = overdue.isNotEmpty || today.isNotEmpty;
-    final hasImmediateWork =
-        hasScheduledWork ||
-        pendingVerification.isNotEmpty ||
-        newCases.isNotEmpty ||
-        undated.isNotEmpty;
-    final hasBlockBeforeFuture =
-        hasScheduledWork ||
-        !hasImmediateWork ||
-        pendingVerification.isNotEmpty ||
-        newCases.isNotEmpty;
+    final hasImmediateWork = hasScheduledWork || undated.isNotEmpty;
+    final hasBlockBeforeFuture = hasScheduledWork || !hasImmediateWork;
     final hasBlockBeforeUndated = hasBlockBeforeFuture || future.isNotEmpty;
 
     return Column(
@@ -1572,7 +1552,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             title: '今天暂时没有需要处理的事项',
             message: recentStudents.isEmpty
                 ? '新的任课学生或需要跟进的问题会出现在这里。'
-                : '可以回看最近学生，或在课堂中先记录一句问题。',
+                : '可以回看最近学生，或在课堂中随手记下一条新情况。',
             icon: Icons.check_circle_outline,
           )
         else if (hasScheduledWork)
@@ -1602,88 +1582,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               ],
             ),
           ),
-        if (pendingVerification.isNotEmpty) ...[
-          if (hasScheduledWork || !hasImmediateWork)
-            const SizedBox(height: AppSpacing.lg),
-          _WorkspaceSection(
-            key: const Key('workspace-pending-verification-section'),
-            title: '待验证',
-            count: '${pendingVerification.length} 个问题',
-            showTopDivider: true,
-            action: pendingVerification.length > _todayPreviewLimit
-                ? TextButton(
-                    key: const Key('workspace-pending-verification-toggle'),
-                    onPressed: () => setState(
-                      () => _showAllPendingVerification =
-                          !_showAllPendingVerification,
-                    ),
-                    child: AnimatedSwitcher(
-                      duration: AppMotion.effectiveDuration(
-                        context,
-                        AppMotion.quick,
-                      ),
-                      child: Text(
-                        _showAllPendingVerification ? '收起' : '查看全部',
-                        key: ValueKey<bool>(_showAllPendingVerification),
-                      ),
-                    ),
-                  )
-                : null,
-            child: Column(
-              children: [
-                for (final item
-                    in (_showAllPendingVerification
-                        ? pendingVerification
-                        : pendingVerification.take(_todayPreviewLimit)))
-                  _WorkspaceCaseRow(
-                    student: item.student,
-                    learningCase: item.learningCase,
-                    onOpen: () => _openCase(item.student, item.learningCase),
-                  ),
-              ],
-            ),
-          ),
-        ],
-        if (newCases.isNotEmpty) ...[
-          if (hasScheduledWork || pendingVerification.isNotEmpty)
-            const SizedBox(height: AppSpacing.lg),
-          _WorkspaceSection(
-            key: const Key('workspace-new-cases-section'),
-            title: '待整理',
-            count: '${newCases.length} 个问题',
-            showTopDivider: true,
-            action: newCases.length > _todayPreviewLimit
-                ? TextButton(
-                    key: const Key('workspace-new-cases-toggle'),
-                    onPressed: () =>
-                        setState(() => _showAllNewCases = !_showAllNewCases),
-                    child: AnimatedSwitcher(
-                      duration: AppMotion.effectiveDuration(
-                        context,
-                        AppMotion.quick,
-                      ),
-                      child: Text(
-                        _showAllNewCases ? '收起' : '查看全部',
-                        key: ValueKey<bool>(_showAllNewCases),
-                      ),
-                    ),
-                  )
-                : null,
-            child: Column(
-              children: [
-                for (final item
-                    in (_showAllNewCases
-                        ? newCases
-                        : newCases.take(_todayPreviewLimit)))
-                  _WorkspaceCaseRow(
-                    student: item.student,
-                    learningCase: item.learningCase,
-                    onOpen: () => _openCase(item.student, item.learningCase),
-                  ),
-              ],
-            ),
-          ),
-        ],
         if (future.isNotEmpty) ...[
           if (hasBlockBeforeFuture) const SizedBox(height: AppSpacing.lg),
           _WorkspaceSection(
@@ -2103,7 +2001,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           const SizedBox(height: AppSpacing.lg),
           _WorkspaceSection(
             key: const Key('student-detail-pending-section'),
-            title: '另外待验证',
+            title: '另外需要关注',
             count: '${additionalPendingCases.length} 个',
             showTopDivider: true,
             action: additionalPendingCases.length > _studentPendingPreviewLimit
@@ -2276,7 +2174,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           )
         else if (learningCase.status == LearningCaseStatus.newCase)
           _WorkspaceStateNotice(
-            title: '待整理问题',
+            title: '新记录',
             message: useProgressiveFlow
                 ? '这是一条课堂快速记录；有新情况时继续记录，确认无需再跟进时可以直接结束。'
                 : '这是一条课堂快速记录；确认前请补充教师判断和合适的下一步。',
@@ -3573,23 +3471,22 @@ class _WorkspaceQuickCaptureForm extends StatefulWidget {
 class _WorkspaceQuickCaptureFormState
     extends State<_WorkspaceQuickCaptureForm> {
   late final TextEditingController _titleController;
-  late final TextEditingController _evidenceController;
   late final FocusNode _titleFocusNode;
   late final String _operationId;
   WorkspaceStudent? _selectedStudent;
   String _selectedCaseTypeKey = WorkspaceCaseType.builtInTypes.last.key;
   String? _studentError;
   String? _titleError;
-  String? _evidenceError;
   String? _attachmentError;
   String? _saveError;
   bool _saving = false;
+  bool _showMoreOptions = false;
   PickedEvidenceAttachment? _selectedAttachment;
 
   bool get _isDirty =>
       _titleController.text.trim().isNotEmpty ||
-      _evidenceController.text.trim().isNotEmpty ||
-      _selectedAttachment != null;
+      _selectedAttachment != null ||
+      _selectedCaseTypeKey != WorkspaceCaseType.builtInTypes.last.key;
 
   List<WorkspaceCaseType> get _caseTypeOptions {
     final customTypes = widget.caseTypes.where(
@@ -3613,13 +3510,13 @@ class _WorkspaceQuickCaptureFormState
   @override
   void initState() {
     super.initState();
-    _selectedStudent = widget.initialStudent;
+    _selectedStudent =
+        widget.initialStudent ??
+        (widget.students.length == 1 ? widget.students.first : null);
     _operationId = createOperationId();
     _titleController = TextEditingController();
-    _evidenceController = TextEditingController();
     _titleFocusNode = FocusNode();
     _titleController.addListener(_clearInlineErrors);
-    _evidenceController.addListener(_clearInlineErrors);
     if (widget.evidenceAttachmentRepository != null &&
         defaultTargetPlatform == TargetPlatform.android) {
       unawaited(_restoreLostAttachment());
@@ -3631,9 +3528,6 @@ class _WorkspaceQuickCaptureFormState
     _titleController
       ..removeListener(_clearInlineErrors)
       ..dispose();
-    _evidenceController
-      ..removeListener(_clearInlineErrors)
-      ..dispose();
     _titleFocusNode.dispose();
     super.dispose();
   }
@@ -3643,15 +3537,10 @@ class _WorkspaceQuickCaptureFormState
       return;
     }
     if ((_titleError != null && _titleController.text.trim().isNotEmpty) ||
-        (_evidenceError != null &&
-            _evidenceController.text.trim().isNotEmpty) ||
         _attachmentError != null) {
       setState(() {
         if (_titleController.text.trim().isNotEmpty) {
           _titleError = null;
-        }
-        if (_evidenceController.text.trim().isNotEmpty) {
-          _evidenceError = null;
         }
         _attachmentError = null;
       });
@@ -3662,7 +3551,10 @@ class _WorkspaceQuickCaptureFormState
     try {
       final attachment = await recoverLostEvidenceAttachment();
       if (attachment != null && mounted) {
-        setState(() => _selectedAttachment = attachment);
+        setState(() {
+          _selectedAttachment = attachment;
+          _showMoreOptions = true;
+        });
       }
     } catch (error) {
       if (mounted) {
@@ -3695,18 +3587,28 @@ class _WorkspaceQuickCaptureFormState
     return describeEvidenceAttachmentError(error);
   }
 
+  String _deriveQuickCaptureTitle(String note) {
+    final normalized = note.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final punctuationIndex = normalized.indexOf(RegExp(r'[。！？!?；;]'));
+    var candidate = punctuationIndex > 0
+        ? normalized.substring(0, punctuationIndex)
+        : normalized;
+    const maxTitleLength = 48;
+    if (candidate.length > maxTitleLength) {
+      candidate = '${candidate.substring(0, maxTitleLength)}…';
+    }
+    return candidate;
+  }
+
   Future<void> _save() async {
     var valid = true;
     if (_selectedStudent == null) {
       _studentError = '请选择学生';
       valid = false;
     }
-    if (_titleController.text.trim().isEmpty) {
-      _titleError = '请先写下问题标题';
-      valid = false;
-    }
-    if (_evidenceController.text.trim().isEmpty) {
-      _evidenceError = '请记下一条可观察的表现或证据';
+    final note = _titleController.text.trim();
+    if (note.isEmpty) {
+      _titleError = '请写下今天看到的情况';
       valid = false;
     }
     if (!valid) {
@@ -3727,10 +3629,10 @@ class _WorkspaceQuickCaptureFormState
           expectedProfileVersion: student.profileVersion,
           caseType: _selectedCaseType.baseType,
           organizationCaseTypeId: _selectedCaseType.id,
-          title: _titleController.text.trim(),
-          description: _evidenceController.text.trim(),
+          title: _deriveQuickCaptureTitle(note),
+          description: note,
           observedAt: DateTime.now(),
-          evidenceSummary: _evidenceController.text.trim(),
+          evidenceSummary: note,
         ),
       );
       final attachment = _selectedAttachment;
@@ -3998,13 +3900,22 @@ class _WorkspaceQuickCaptureFormState
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '先记下刚看到的问题和具体表现，课后再补充判断与跟进。',
+                    '先把刚看到的情况记下来。分类、图片和后续提醒都可以以后再补。',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  _buildStudentField(context),
+                  if (widget.initialStudent != null)
+                    _WorkspaceContextLine(
+                      label: '学生',
+                      value: [
+                        widget.initialStudent!.name,
+                        widget.initialStudent!.subject,
+                      ].join(' · '),
+                    )
+                  else
+                    _buildStudentField(context),
                   const SizedBox(height: AppSpacing.md),
                   TextField(
                     key: const Key('quick-capture-title-field'),
@@ -4012,43 +3923,51 @@ class _WorkspaceQuickCaptureFormState
                     focusNode: _titleFocusNode,
                     autofocus: _selectedStudent != null,
                     enabled: !_saving,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: '一句话问题 *',
-                      hintText: '例如：阅读题总漏掉题干里的限制词',
-                      errorText: _titleError,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    key: const Key('quick-capture-evidence-field'),
-                    controller: _evidenceController,
-                    enabled: !_saving,
                     minLines: 3,
-                    maxLines: 6,
+                    maxLines: 7,
                     textInputAction: TextInputAction.newline,
                     decoration: InputDecoration(
-                      labelText: '具体表现 *',
-                      hintText: '写下题目、行为或课堂里实际看到的表现',
-                      errorText: _evidenceError,
+                      labelText: '今天发现什么？ *',
+                      hintText: '例如：阅读题经常漏看限制词。今天连续两题都没注意“不正确的是”。',
+                      errorText: _titleError,
                       alignLabelWithHint: true,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '这段记录会作为问题依据保留；之后可以继续补充，不会覆盖原记录。',
+                    '一句话也可以。保存后只进入学生记录，不会自动生成待办。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildCaseTypeField(context),
-                  if (widget.evidenceAttachmentRepository != null) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    _buildAttachmentField(context),
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('quick-capture-more-options'),
+                      onPressed: _saving
+                          ? null
+                          : () => setState(
+                              () => _showMoreOptions = !_showMoreOptions,
+                            ),
+                      icon: Icon(
+                        _showMoreOptions
+                            ? Icons.expand_less
+                            : Icons.tune_outlined,
+                      ),
+                      label: Text(_showMoreOptions ? '收起更多选项' : '更多选项'),
+                    ),
+                  ),
+                  if (_showMoreOptions) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    _buildCaseTypeField(context),
+                    if (widget.evidenceAttachmentRepository != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _buildAttachmentField(context),
+                    ],
                   ],
                   const SizedBox(height: AppSpacing.md),
-                  _WorkspaceContextLine(
+                  const _WorkspaceContextLine(
                     label: '保存后',
-                    value: '待整理问题 · ${_selectedCaseType.label} · 之后补充判断并安排跟进',
+                    value: '进入学生成长记录，不自动生成待办；需要提醒时再设置。',
                   ),
                   if (_saveError != null) ...[
                     const SizedBox(height: AppSpacing.md),
@@ -4105,7 +4024,7 @@ class _WorkspaceQuickCaptureFormState
         const SizedBox(height: AppSpacing.xs),
         if (attachment == null)
           Text(
-            '可以补一张题目、作业或课堂照片；仍建议写一句文字，之后更容易查找。',
+            '图片只用于补充现场信息；主要记录仍以刚才那句话为准。',
             style: Theme.of(context).textTheme.bodySmall,
           )
         else

@@ -2,7 +2,7 @@
 
 状态：Phase 0A.5 component baseline
 
-最后更新：2026-09-02
+最后更新：2026-09-09
 
 组件只覆盖 Today、Student Detail、Learning Case、Android Quick Capture 的真实高频场景。组件的职责是保持语义、状态、焦点和响应式行为一致，不是建立一个为了完整而完整的组件库。
 
@@ -49,19 +49,19 @@
 
 ### `CaseRow`
 
-显示：Case title、status marker、最近关键事实或更新时间、Next Action 的短文案。Case status 与 action status 分开显示；“待验证”不能被写成“逾期”。Case row 是信息容器，不是包住其他按钮的父级 button；使用独立的 `查看 Case` 导航按钮，再用一个分开的主操作按钮，避免 row navigation 与 action 的嵌套 focus/semantics。
+显示：Case title、status marker、最近关键事实或更新时间、Next Action 的短文案。Case status 与 action status 分开显示；“继续关注”不能被写成“逾期”。Case row 是信息容器，不是包住其他按钮的父级 button；使用独立的 `查看问题` 导航按钮，再用一个分开的主操作按钮，避免 row navigation 与 action 的嵌套 focus/semantics。
 
 ### `ActionRow`
 
-显示：动作标题、关联学生/Case、due 文案（今天到期/已逾期/未来日期/待安排）、动作类型或对象。`完成` 是直接 action；Case 状态命令（如确认稳定、重新打开）不使用普通 `完成` 语义。`查看 Case` 是次动作；同一学生的多条 Action 由父级 Student cluster 合并姓名。
+显示：动作标题、关联学生/Case、due 文案（今天到期/已逾期/未来日期/待安排）、动作类型或对象。`处理` 是进入当前行动上下文的直接入口；Case 状态变化不伪装成普通任务完成。`查看问题` 是次动作；同一学生的多条 Action 由父级 Student cluster 合并姓名。
 
-动作完成后保留可理解的反馈：已完成、撤销窗口或进入详情；不将 Case 自动关闭。
+动作处理后保留可理解的反馈；是否继续记录、设置提醒或结束跟进由真实教学情况决定，不自动制造下一份任务，也不自动关闭 Case。
 
 ## 4. 状态与元数据
 
 ### `StatusMarker`
 
-由小图形/短线、明确中文文本和可选背景组成。颜色仅辅助。至少支持：今天到期、已逾期、待验证、稳定、已关闭、保存失败、离线草稿。
+由小图形/短线、明确中文文本和可选背景组成。颜色仅辅助。至少支持：今天到期、已逾期、新记录、跟进中、继续关注、已结束、保存失败、离线草稿。
 
 ### `MetadataLine`
 
@@ -69,7 +69,7 @@
 
 ### `TimelineItem`
 
-显示时间、事件类型、事实/动作文本、来源和关联对象。Evidence、教师判断、Intervention、Assessment 需要不同事件类型或 heading；不能用同一“备注”样式混合。
+显示时间、事件类型、事实/动作文本、来源和关联对象。Evidence、教师判断、Intervention、Assessment 需要不同事件类型或 heading；不能用同一“备注”样式混合。一次教师操作尽量聚合成一条自然记录，不能把同一句 Quick Capture 同时重复成“问题标题”和“具体表现”。
 
 ## 5. 输入组件
 
@@ -82,23 +82,24 @@
 ### `TextField` / `Textarea`
 
 - label 永远可见，placeholder 不代替 label。
-- Quick Capture 标题必填；note 可选，允许长中文自然换行。
+- Quick Capture 只要求一个主记录输入；系统可从首句生成内部 Case title，不要求教师再写第二份标题或说明。
+- 记录进展同样先只问“这次有什么新情况？”，记录类型、说明、提醒和结束跟进按需展开。
 - saving 时保留文字；error 时保留文字并把 focus/语义引导到恢复动作。
 - 错误提示说明修复方式，不只显示红色边框。
 
 ### `TaxonomyPicker`
 
-只在课后 formalize 或完整 Case 编辑场景出现。课堂 Quick Capture 默认不要求。compact 使用 sheet，Windows 使用 dialog/侧栏；选择后显示文字，不只显示颜色。
+只在教师确实需要调整分类时出现。课堂 Quick Capture 默认藏在 `更多选项` 中，不要求先分类；compact 使用 sheet，Windows 使用 dialog/侧栏；选择后显示文字，不只显示颜色。
 
 ### `DateActionControl`
 
-让教师设置/更改 due date、负责人和动作文案。无日期必须有显式 `待安排` 状态；不能通过隐藏在筛选里解决无日期问题。
+只在教师明确需要提醒或调整已有 Action 时出现。无日期的已创建 Action 必须有显式 `待安排` 状态；但普通观察记录不因为没有日期而自动变成“待安排”。
 
 ## 6. Feedback components
 
 ### `EmptyState`
 
-结构：当前没有什么 + 为什么这不一定是错误 + 下一步动作。例如学生刚建档：“还没有 Learning Case。发现问题时可以先记录一句，课后再整理。”
+结构：当前没有什么 + 为什么这不一定是错误 + 下一步动作。例如学生刚建档：“还没有记录的问题。发现情况时，可以先记下来。”
 
 ### `LoadingState`
 
@@ -122,7 +123,7 @@
 
 - dialog 适合短确认或补充少量字段；宽屏可用右侧 panel 保留底层学生/Case 上下文。
 - modal 只有一层；明确标题、关闭、主/次按钮；Esc 的脏内容保护明确。
-- 主操作在可预期位置，Tab 顺序为上下文选择 → 输入 → 保存 → 取消。
+- 主操作在可预期位置，Tab 顺序为上下文选择 → 主输入 → 更多选项（若展开）→ 保存 → 取消。
 
 ### Android
 
@@ -132,7 +133,7 @@
 
 ### Quick Capture
 
-最小结构：已知 Student/Subject 上下文 → 问题标题 → 一句具体表现 → `记录问题`。具体表现只要求可观察事实；重复提示保持非阻塞，保存后反馈为“已记录为待整理问题”，不强迫立即填写 taxonomy、根因、完整方案或日期。
+最小结构：已知 Student/Subject 上下文 → `今天发现什么？` 一条真实观察 → `记录问题`。同一句完整输入作为首次事实，内部短标题由系统从首句生成；问题类型和现场图片放入 `更多选项`，默认不打断课堂记录。保存成功反馈为“已记录到学生成长记录”，默认不创建 Action、不进入 Today，也不要求课后再完成一次“整理”。
 
 ## 8. Component state contract
 

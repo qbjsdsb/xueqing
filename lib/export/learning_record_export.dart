@@ -282,10 +282,10 @@ class LearningRecordExport {
 
   static String _statusLabel(LearningCaseStatus status) {
     return switch (status) {
-      LearningCaseStatus.newCase => '待整理',
+      LearningCaseStatus.newCase => '新记录',
       LearningCaseStatus.confirmed => '跟进中',
       LearningCaseStatus.intervening => '跟进中',
-      LearningCaseStatus.pendingVerification => '待验证',
+      LearningCaseStatus.pendingVerification => '继续关注',
       LearningCaseStatus.stable => '暂时稳定',
       LearningCaseStatus.closed => '已结束',
     };

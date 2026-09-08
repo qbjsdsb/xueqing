@@ -646,8 +646,8 @@ void main() {
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
     expect(find.text('分数步骤需要继续观察'), findsOneWidget);
-    expect(find.text('待整理问题'), findsOneWidget);
-    expect(find.text('待整理'), findsOneWidget);
+    expect(find.text('新记录'), findsWidgets);
+    expect(find.text('待整理问题'), findsNothing);
     expect(find.text('尚未记录教学处理。'), findsOneWidget);
   });
 
@@ -731,51 +731,47 @@ void main() {
     },
   );
 
-  testWidgets('pending verification is treated as real Today work', (
-    tester,
-  ) async {
-    final repository = _FakeLearningRepository(
-      _fixtureWorkspace(status: LearningCaseStatus.pendingVerification),
-    );
-    await _pumpWorkspace(tester, repository);
-
-    expect(find.text('今天暂时没有需要处理的事项'), findsNothing);
-    expect(find.text('今天没有已安排的行动'), findsNothing);
-    expect(
-      find.byKey(const Key('workspace-pending-verification-section')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('workspace-undated-actions-section')),
-      findsNothing,
-    );
-    expect(find.text('分数步骤需要继续观察'), findsOneWidget);
-  });
-
   testWidgets(
-    'new Quick Capture Case without an Action remains visible in Today',
+    'a completed check without an Action is not a second Today task',
     (tester) async {
       final repository = _FakeLearningRepository(
         _fixtureWorkspace(
-          status: LearningCaseStatus.newCase,
+          status: LearningCaseStatus.pendingVerification,
           includeAction: false,
         ),
       );
       await _pumpWorkspace(tester, repository);
 
-      expect(find.text('今天暂时没有需要处理的事项'), findsNothing);
+      expect(find.text('今天暂时没有需要处理的事项'), findsOneWidget);
       expect(
-        find.byKey(const Key('workspace-new-cases-section')),
-        findsOneWidget,
+        find.byKey(const Key('workspace-pending-verification-section')),
+        findsNothing,
       );
-      expect(find.text('待整理'), findsWidgets);
-      expect(find.text('分数步骤需要继续观察'), findsOneWidget);
       expect(
         find.byKey(const Key('workspace-undated-actions-section')),
         findsNothing,
       );
     },
   );
+
+  testWidgets('new Quick Capture fact without an Action stays out of Today', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(
+        status: LearningCaseStatus.newCase,
+        includeAction: false,
+      ),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    expect(find.text('今天暂时没有需要处理的事项'), findsOneWidget);
+    expect(find.byKey(const Key('workspace-new-cases-section')), findsNothing);
+    expect(
+      find.byKey(const Key('workspace-undated-actions-section')),
+      findsNothing,
+    );
+  });
 
   testWidgets(
     'quiet Today uses one useful empty state and hides empty sections',
@@ -788,7 +784,7 @@ void main() {
       await _pumpWorkspace(tester, repository);
 
       expect(find.text('今天暂时没有需要处理的事项'), findsOneWidget);
-      expect(find.text('可以回看最近学生，或在课堂中先记录一句问题。'), findsOneWidget);
+      expect(find.text('可以回看最近学生，或在课堂中随手记下一条新情况。'), findsOneWidget);
       expect(
         find.byKey(const Key('workspace-pending-verification-section')),
         findsNothing,
@@ -823,79 +819,56 @@ void main() {
     );
   });
 
-  testWidgets(
-    'bounds lower-priority Today sections until explicitly expanded',
-    (tester) async {
-      final cases = <WorkspaceCase>[
-        for (var index = 1; index <= 4; index++)
-          _caseFixture(
-            id: 'pending-$index',
-            title: '待验证问题 $index',
-            status: LearningCaseStatus.pendingVerification,
-            actionBucket: WorkspaceActionBucket.today,
-            actionDueAt: DateTime(2026, 9, 5),
-          ),
-        for (var index = 1; index <= 4; index++)
-          _caseFixture(
-            id: 'future-$index',
-            title: '未来问题 $index',
-            status: LearningCaseStatus.confirmed,
-            actionBucket: WorkspaceActionBucket.future,
-            actionDueAt: DateTime(2026, 9, 5 + index),
-          ),
-        for (var index = 1; index <= 4; index++)
-          _caseFixture(
-            id: 'undated-$index',
-            title: '待安排问题 $index',
-            status: LearningCaseStatus.confirmed,
-            actionBucket: WorkspaceActionBucket.undated,
-            actionDueAt: null,
-          ),
-      ];
-      final repository = _FakeLearningRepository(
-        _workspaceWithStudents([
-          _studentFixture(id: 'preview', name: '预览学生', cases: cases),
-        ]),
-      );
-      await _pumpWorkspace(tester, repository);
+  testWidgets('bounds explicit future and undated reminders until expanded', (
+    tester,
+  ) async {
+    final cases = <WorkspaceCase>[
+      for (var index = 1; index <= 4; index++)
+        _caseFixture(
+          id: 'future-$index',
+          title: '未来问题 $index',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.future,
+          actionDueAt: DateTime(2026, 9, 5 + index),
+        ),
+      for (var index = 1; index <= 4; index++)
+        _caseFixture(
+          id: 'undated-$index',
+          title: '待安排问题 $index',
+          status: LearningCaseStatus.confirmed,
+          actionBucket: WorkspaceActionBucket.undated,
+          actionDueAt: null,
+        ),
+    ];
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents([
+        _studentFixture(id: 'preview', name: '预览学生', cases: cases),
+      ]),
+    );
+    await _pumpWorkspace(tester, repository);
 
-      expect(find.text('4 个问题'), findsOneWidget);
-      expect(find.text('之后要处理'), findsOneWidget);
-      expect(find.text('待验证问题 4'), findsNothing);
-      expect(find.text('未来问题 4 的下一步'), findsNothing);
-      expect(find.text('待安排问题 4 的下一步'), findsNothing);
+    expect(
+      find.byKey(const Key('workspace-pending-verification-section')),
+      findsNothing,
+    );
+    expect(find.text('之后要处理'), findsOneWidget);
+    expect(find.text('未来问题 4 的下一步'), findsNothing);
+    expect(find.text('待安排问题 4 的下一步'), findsNothing);
 
-      await tester.tap(
-        find.byKey(const Key('workspace-pending-verification-toggle')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('待验证问题 4'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const Key('workspace-future-actions-toggle')),
+    );
+    await tester.tap(find.byKey(const Key('workspace-future-actions-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.text('未来问题 4 的下一步'), findsOneWidget);
 
-      await tester.ensureVisible(
-        find.byKey(const Key('workspace-future-actions-toggle')),
-      );
-      await tester.tap(
-        find.byKey(const Key('workspace-future-actions-toggle')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('未来问题 4 的下一步'), findsOneWidget);
-
-      await tester.ensureVisible(
-        find.byKey(const Key('workspace-undated-actions-toggle')),
-      );
-      await tester.tap(
-        find.byKey(const Key('workspace-undated-actions-toggle')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('待安排问题 4 的下一步'), findsOneWidget);
-
-      await tester.tap(
-        find.byKey(const Key('workspace-undated-actions-toggle')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('待安排问题 4 的下一步'), findsNothing);
-    },
-  );
+    await tester.ensureVisible(
+      find.byKey(const Key('workspace-undated-actions-toggle')),
+    );
+    await tester.tap(find.byKey(const Key('workspace-undated-actions-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.text('待安排问题 4 的下一步'), findsOneWidget);
+  });
 
   testWidgets(
     'student detail keeps priorities concise and removes duplicate problem lists',
@@ -946,7 +919,7 @@ void main() {
       expect(find.text('现在最重要的事'), findsOneWidget);
       expect(find.text('当前 Learning Cases'), findsNothing);
       expect(find.text('学科上下文'), findsNothing);
-      expect(find.text('另外待验证'), findsOneWidget);
+      expect(find.text('另外需要关注'), findsOneWidget);
       expect(find.text('待验证问题 3'), findsNothing);
       expect(
         find.byKey(const Key('student-detail-pending-toggle')),
@@ -960,7 +933,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('全部问题'), findsOneWidget);
-      expect(find.text('另外待验证'), findsNothing);
+      expect(find.text('另外需要关注'), findsNothing);
       expect(find.text('待验证问题 3'), findsOneWidget);
       expect(find.text('今天重点一'), findsOneWidget);
       expect(find.widgetWithText(TextButton, '只看重点'), findsOneWidget);
@@ -1411,7 +1384,7 @@ void main() {
   });
 
   testWidgets(
-    'keeps Quick Capture input and reuses operation id after failure',
+    'keeps the single Quick Capture note and reuses operation id after failure',
     (tester) async {
       final repository = _FakeLearningRepository(_fixtureWorkspace())
         ..failFirstSave = true;
@@ -1419,40 +1392,43 @@ void main() {
 
       await tester.tap(find.text('记录问题').first);
       await tester.pumpAndSettle();
-      expect(find.text('具体表现 *'), findsOneWidget);
-
-      final studentPicker = find.byType(
-        DropdownButtonFormField<WorkspaceStudent>,
+      expect(find.text('今天发现什么？ *'), findsOneWidget);
+      expect(
+        find.byKey(const Key('quick-capture-evidence-field')),
+        findsNothing,
       );
-      await tester.ensureVisible(studentPicker);
-      await tester.tap(studentPicker);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('示例学生甲 · 数学').last);
-      await tester.pumpAndSettle();
 
-      final textFields = find.byType(TextField);
-      await tester.enterText(textFields.at(0), '新的课堂问题');
-      await tester.enterText(textFields.at(1), '课堂练习中连续两次跳过通分。');
+      final noteField = find.byKey(const Key('quick-capture-title-field'));
+      await tester.enterText(noteField, '通分步骤容易跳过。课堂练习中连续两次直接写结果。');
       final saveButton = find.byKey(const Key('workspace-quick-capture-save'));
       await tester.ensureVisible(saveButton);
       await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
       expect(find.textContaining('网络暂时不可用'), findsOneWidget);
-      expect(find.text('新的课堂问题'), findsOneWidget);
-      expect(find.text('课堂练习中连续两次跳过通分。'), findsOneWidget);
+      expect(find.text('通分步骤容易跳过。课堂练习中连续两次直接写结果。'), findsOneWidget);
 
       await tester.ensureVisible(saveButton);
       await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('已记录为待整理问题。'), findsOneWidget);
+      expect(find.text('已记录到学生成长记录。'), findsOneWidget);
       expect(repository.saveCount, 2);
       expect(
         repository.commands[0].operationId,
         repository.commands[1].operationId,
       );
       expect(repository.commands[1].profileId, 'profile-1');
+      expect(repository.commands[1].title, '通分步骤容易跳过');
+      expect(
+        repository.commands[1].evidenceSummary,
+        '通分步骤容易跳过。课堂练习中连续两次直接写结果。',
+      );
+      expect(
+        repository.commands[1].description,
+        repository.commands[1].evidenceSummary,
+      );
+      expect(repository.commands[1].nextActionTitle, isNull);
     },
   );
 
@@ -1479,7 +1455,7 @@ void main() {
     expect(tester.widget<TextField>(titleField).focusNode?.hasFocus, isTrue);
   });
 
-  testWidgets('keeps Quick Capture facts before classification', (
+  testWidgets('keeps optional Quick Capture classification behind disclosure', (
     tester,
   ) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace());
@@ -1488,23 +1464,20 @@ void main() {
     await tester.tap(find.text('记录问题').first);
     await tester.pumpAndSettle();
 
-    final titleField = find.byKey(const Key('quick-capture-title-field'));
-    final evidenceField = find.byKey(const Key('quick-capture-evidence-field'));
+    final noteField = find.byKey(const Key('quick-capture-title-field'));
     final typePicker = find.byKey(
       const Key('quick-capture-case-type-dropdown'),
     );
 
-    expect(titleField, findsOneWidget);
-    expect(evidenceField, findsOneWidget);
+    expect(noteField, findsOneWidget);
+    expect(find.byKey(const Key('quick-capture-evidence-field')), findsNothing);
+    expect(typePicker, findsNothing);
+    expect(find.text('问题类型（可调整）'), findsNothing);
+    expect(find.text('更多选项'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('quick-capture-more-options')));
+    await tester.pumpAndSettle();
     expect(typePicker, findsOneWidget);
-    expect(
-      tester.getTopLeft(titleField).dy,
-      lessThan(tester.getTopLeft(typePicker).dy),
-    );
-    expect(
-      tester.getTopLeft(evidenceField).dy,
-      lessThan(tester.getTopLeft(typePicker).dy),
-    );
     expect(find.text('问题类型（可调整）'), findsOneWidget);
   });
 
@@ -1541,6 +1514,8 @@ void main() {
 
     await tester.tap(find.text('记录问题').first);
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('quick-capture-more-options')));
+    await tester.pumpAndSettle();
 
     final studentPicker = find.byType(
       DropdownButtonFormField<WorkspaceStudent>,
@@ -1558,9 +1533,10 @@ void main() {
     await tester.tap(find.text('审题策略').last);
     await tester.pumpAndSettle();
 
-    final textFields = find.byType(TextField);
-    await tester.enterText(textFields.at(0), '新题审题策略不稳定');
-    await tester.enterText(textFields.at(1), '面对综合题时没有先识别已知条件。');
+    await tester.enterText(
+      find.byKey(const Key('quick-capture-title-field')),
+      '新题审题策略不稳定。面对综合题时没有先识别已知条件。',
+    );
     final saveButton = find.byKey(const Key('workspace-quick-capture-save'));
     await tester.ensureVisible(saveButton);
     await tester.tap(saveButton);
@@ -1617,6 +1593,9 @@ void main() {
       find.descendant(of: studentPicker, matching: find.text('示例学生甲 · 数学')),
       findsOneWidget,
     );
+
+    await tester.tap(find.byKey(const Key('quick-capture-more-options')));
+    await tester.pumpAndSettle();
 
     final typePicker = find.byKey(
       const Key('quick-capture-case-type-dropdown'),

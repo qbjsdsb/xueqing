@@ -117,6 +117,8 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
   String? _saveError;
   bool _saving = false;
   bool _submissionAttempted = false;
+  bool _showRecordOptions = false;
+  bool _showNextStepOptions = false;
   RecordCaseProgressCommand? _submittedCommand;
 
   bool get _inputsLocked => _saving || _submissionAttempted;
@@ -176,9 +178,9 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
   }
 
   String get _summaryLabel => switch (_kind) {
-    CaseProgressKind.observation => '这次看到了什么？ *',
+    CaseProgressKind.observation => '这次有什么新情况？ *',
     CaseProgressKind.intervention => '这次怎么处理的？ *',
-    CaseProgressKind.assessment => '这次检查结果怎么样？ *',
+    CaseProgressKind.assessment => '补充说明（可选）',
   };
 
   String get _summaryHint => switch (_kind) {
@@ -218,7 +220,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
     final summary = _summaryController.text.trim();
     final reminder = _reminderController.text.trim();
     var valid = true;
-    if (summary.isEmpty) {
+    if (summary.isEmpty && _kind != CaseProgressKind.assessment) {
       _summaryError = '请写下这次实际发生的情况';
       valid = false;
     }
@@ -231,13 +233,17 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
       return null;
     }
 
+    final effectiveSummary =
+        summary.isEmpty && _kind == CaseProgressKind.assessment
+        ? '检查结果：${_assessmentResult.label}'
+        : summary;
     final action = widget.currentAction;
     return RecordCaseProgressCommand(
       operationId: _operationId,
       caseId: widget.learningCase.id,
       expectedCaseVersion: widget.learningCase.version,
       progressKind: _kind,
-      summary: summary,
+      summary: effectiveSummary,
       assessmentResult: _kind == CaseProgressKind.assessment
           ? _assessmentResult
           : null,
@@ -394,7 +400,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '只记这次真实发生了什么；要不要提醒下一步，由你决定。',
+                    '先写下这次真实发生了什么。分类、提醒和结束跟进都按需要再选。',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -417,25 +423,62 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                     ),
                   ],
                   const SizedBox(height: AppSpacing.md),
-                  Text('这次记录什么', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: AppSpacing.xs),
-                  Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      for (final kind in CaseProgressKind.values)
-                        ChoiceChip(
-                          key: ValueKey<String>(
-                            'progress-kind-${kind.wireValue}',
-                          ),
-                          label: Text(kind.label),
-                          selected: _kind == kind,
-                          onSelected: _inputsLocked
-                              ? null
-                              : (_) => setState(() => _kind = kind),
-                        ),
-                    ],
+                  TextField(
+                    key: const Key('progress-summary'),
+                    controller: _summaryController,
+                    autofocus: true,
+                    enabled: !_inputsLocked,
+                    minLines: 3,
+                    maxLines: 7,
+                    textInputAction: TextInputAction.newline,
+                    decoration: InputDecoration(
+                      labelText: _summaryLabel,
+                      hintText: _summaryHint,
+                      errorText: _summaryError,
+                      alignLabelWithHint: true,
+                    ),
                   ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('progress-record-options-toggle'),
+                      onPressed: _inputsLocked
+                          ? null
+                          : () => setState(
+                              () => _showRecordOptions = !_showRecordOptions,
+                            ),
+                      icon: Icon(
+                        _showRecordOptions
+                            ? Icons.expand_less
+                            : Icons.label_outline,
+                      ),
+                      label: Text(_showRecordOptions ? '收起记录方式' : '补充记录方式（可选）'),
+                    ),
+                  ),
+                  if (_showRecordOptions) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        for (final kind in CaseProgressKind.values)
+                          ChoiceChip(
+                            key: ValueKey<String>(
+                              'progress-kind-${kind.wireValue}',
+                            ),
+                            label: Text(kind.label),
+                            selected: _kind == kind,
+                            onSelected: _inputsLocked
+                                ? null
+                                : (_) => setState(() {
+                                    _kind = kind;
+                                    _summaryError = null;
+                                  }),
+                          ),
+                      ],
+                    ),
+                  ],
                   if (_kind == CaseProgressKind.assessment) ...[
                     const SizedBox(height: AppSpacing.md),
                     DropdownButtonFormField<CaseAssessmentResult>(
@@ -457,53 +500,63 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                               }
                             },
                     ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '只选检查结果也可以保存；需要时再补一句说明。',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    key: const Key('progress-summary'),
-                    controller: _summaryController,
-                    autofocus: true,
-                    enabled: !_inputsLocked,
-                    minLines: 3,
-                    maxLines: 7,
-                    textInputAction: TextInputAction.newline,
-                    decoration: InputDecoration(
-                      labelText: _summaryLabel,
-                      hintText: _summaryHint,
-                      errorText: _summaryError,
-                      alignLabelWithHint: true,
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('progress-next-options-toggle'),
+                      onPressed: _inputsLocked
+                          ? null
+                          : () => setState(
+                              () =>
+                                  _showNextStepOptions = !_showNextStepOptions,
+                            ),
+                      icon: Icon(
+                        _showNextStepOptions
+                            ? Icons.expand_less
+                            : Icons.notifications_none_outlined,
+                      ),
+                      label: Text(
+                        _showNextStepOptions ? '收起后续选项' : '需要提醒或结束跟进？',
+                      ),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text('接下来', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: AppSpacing.xs),
-                  Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      for (final step in CaseProgressNextStep.values)
-                        ChoiceChip(
-                          key: ValueKey<String>(
-                            'progress-next-${step.wireValue}',
+                  if (_showNextStepOptions) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        for (final step in CaseProgressNextStep.values)
+                          ChoiceChip(
+                            key: ValueKey<String>(
+                              'progress-next-${step.wireValue}',
+                            ),
+                            label: Text(step.label),
+                            selected: _nextStep == step,
+                            onSelected: _inputsLocked
+                                ? null
+                                : (_) => setState(() {
+                                    _nextStep = step;
+                                    _reminderError = null;
+                                  }),
                           ),
-                          label: Text(step.label),
-                          selected: _nextStep == step,
-                          onSelected: _inputsLocked
-                              ? null
-                              : (_) => setState(() {
-                                  _nextStep = step;
-                                  _reminderError = null;
-                                }),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(switch (_nextStep) {
-                    CaseProgressNextStep.continueTracking =>
-                      '不生成新待办。问题继续保留，之后有新情况再记录。',
-                    CaseProgressNextStep.remind => '只在确实需要提醒自己时生成一条待办。',
-                    CaseProgressNextStep.close => '结束当前这次跟进，完整历史仍然保留。',
-                  }, style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(switch (_nextStep) {
+                      CaseProgressNextStep.continueTracking =>
+                        '默认不生成待办；之后有新情况再记录。',
+                      CaseProgressNextStep.remind => '只有确实需要提醒自己时才生成一条待办。',
+                      CaseProgressNextStep.close => '结束当前跟进，完整历史仍然保留。',
+                    }, style: Theme.of(context).textTheme.bodySmall),
+                  ],
                   if (_nextStep == CaseProgressNextStep.remind) ...[
                     const SizedBox(height: AppSpacing.md),
                     TextField(
@@ -611,7 +664,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                                 ? '重试原提交'
                                 : switch (_nextStep) {
                                     CaseProgressNextStep.continueTracking =>
-                                      '保存进展',
+                                      '保存记录',
                                     CaseProgressNextStep.remind => '保存并设置提醒',
                                     CaseProgressNextStep.close => '保存并结束跟进',
                                   },

@@ -7,7 +7,7 @@ import 'package:xueqing/features/teacher_workspace/presentation/progressive_case
 
 void main() {
   testWidgets(
-    'progress defaults to continue without manufacturing a reminder',
+    'progress starts with one main input and no manufactured next decision',
     (tester) async {
       final repository = _FakeProgressiveCaseRepository();
       await tester.pumpWidget(
@@ -15,7 +15,17 @@ void main() {
       );
 
       expect(find.text('记录进展'), findsOneWidget);
-      expect(find.text('继续观察'), findsOneWidget);
+      expect(find.byKey(const Key('progress-summary')), findsOneWidget);
+      expect(
+        find.byKey(const Key('progress-record-options-toggle')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('progress-next-options-toggle')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('progress-kind-observation')), findsNothing);
+      expect(find.byKey(const Key('progress-next-continue')), findsNothing);
       expect(find.byKey(const Key('progress-reminder-title')), findsNothing);
 
       await tester.enterText(
@@ -26,12 +36,30 @@ void main() {
       await tester.pumpAndSettle();
 
       final command = repository.progressCommands.single;
+      expect(command.progressKind, CaseProgressKind.observation);
+      expect(command.summary, '今天能主动说出审题限制词');
       expect(command.nextStep, CaseProgressNextStep.continueTracking);
       expect(command.nextActionTitle, isNull);
       expect(command.nextActionDueOn, isNull);
       expect(command.completeCurrentAction, isFalse);
     },
   );
+
+  testWidgets('record type choices appear only when teacher asks for them', (
+    tester,
+  ) async {
+    final repository = _FakeProgressiveCaseRepository();
+    await tester.pumpWidget(
+      _host(CaseProgressForm(repository: repository, learningCase: _case())),
+    );
+
+    expect(find.byKey(const Key('progress-kind-intervention')), findsNothing);
+    await tester.tap(find.byKey(const Key('progress-record-options-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('progress-kind-observation')), findsOneWidget);
+    expect(find.byKey(const Key('progress-kind-intervention')), findsOneWidget);
+    expect(find.byKey(const Key('progress-kind-assessment')), findsOneWidget);
+  });
 
   testWidgets('reminder fields appear only after teacher asks for a reminder', (
     tester,
@@ -41,6 +69,9 @@ void main() {
       _host(CaseProgressForm(repository: repository, learningCase: _case())),
     );
 
+    expect(find.byKey(const Key('progress-next-remind')), findsNothing);
+    await tester.tap(find.byKey(const Key('progress-next-options-toggle')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('progress-next-remind')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('progress-reminder-title')), findsOneWidget);
@@ -59,6 +90,43 @@ void main() {
     final command = repository.progressCommands.single;
     expect(command.nextStep, CaseProgressNextStep.remind);
     expect(command.nextActionTitle, '下周抽查一次同类阅读题');
+  });
+
+  testWidgets('assessment result can be saved without manufacturing notes', (
+    tester,
+  ) async {
+    final repository = _FakeProgressiveCaseRepository();
+    await tester.pumpWidget(
+      _host(CaseProgressForm(repository: repository, learningCase: _case())),
+    );
+
+    await tester.tap(find.byKey(const Key('progress-record-options-toggle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('progress-kind-assessment')));
+    await tester.pumpAndSettle();
+
+    final resultPicker = find.byKey(const Key('progress-assessment-result'));
+    expect(resultPicker, findsOneWidget);
+    await tester.tap(resultPicker);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('通过').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('progress-summary')))
+          .controller
+          ?.text,
+      isEmpty,
+    );
+    await _tapVisible(tester, find.byKey(const Key('progress-save')));
+    await tester.pumpAndSettle();
+
+    final command = repository.progressCommands.single;
+    expect(command.progressKind, CaseProgressKind.assessment);
+    expect(command.assessmentResult, CaseAssessmentResult.passed);
+    expect(command.summary, '检查结果：通过');
+    expect(command.nextStep, CaseProgressNextStep.continueTracking);
   });
 
   testWidgets(
@@ -101,29 +169,33 @@ void main() {
     },
   );
 
-  testWidgets('progress can end follow-up with a natural closure reason', (
-    tester,
-  ) async {
-    final repository = _FakeProgressiveCaseRepository();
-    await tester.pumpWidget(
-      _host(CaseProgressForm(repository: repository, learningCase: _case())),
-    );
+  testWidgets(
+    'progress can end follow-up only after teacher opens follow-up options',
+    (tester) async {
+      final repository = _FakeProgressiveCaseRepository();
+      await tester.pumpWidget(
+        _host(CaseProgressForm(repository: repository, learningCase: _case())),
+      );
 
-    await tester.enterText(
-      find.byKey(const Key('progress-summary')),
-      '连续两周都没有再出现漏看限制词',
-    );
-    await tester.tap(find.byKey(const Key('progress-next-close')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('progress-close-reason')), findsOneWidget);
-    await _tapVisible(tester, find.byKey(const Key('progress-save')));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('progress-summary')),
+        '连续两周都没有再出现漏看限制词',
+      );
+      expect(find.byKey(const Key('progress-next-close')), findsNothing);
+      await tester.tap(find.byKey(const Key('progress-next-options-toggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('progress-next-close')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('progress-close-reason')), findsOneWidget);
+      await _tapVisible(tester, find.byKey(const Key('progress-save')));
+      await tester.pumpAndSettle();
 
-    final command = repository.progressCommands.single;
-    expect(command.nextStep, CaseProgressNextStep.close);
-    expect(command.closeReason, CaseClosureReason.resolved);
-    expect(command.nextActionTitle, isNull);
-  });
+      final command = repository.progressCommands.single;
+      expect(command.nextStep, CaseProgressNextStep.close);
+      expect(command.closeReason, CaseClosureReason.resolved);
+      expect(command.nextActionTitle, isNull);
+    },
+  );
 
   testWidgets('a new case can end follow-up directly', (tester) async {
     final repository = _FakeProgressiveCaseRepository();

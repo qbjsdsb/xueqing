@@ -302,8 +302,8 @@ class DesignStudentRow extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     student.cases.isEmpty
-                        ? '还没有 Learning Case'
-                        : '${student.cases.length} 个当前 Learning Case',
+                        ? '暂无需要跟进的问题'
+                        : '${student.cases.length} 个问题记录',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -342,7 +342,7 @@ class DesignCaseRow extends StatelessWidget {
     return Semantics(
       container: true,
       explicitChildNodes: true,
-      label: 'Case 信息：${student.name} · ${learningCase.title}',
+      label: '问题信息：${student.name} · ${learningCase.title}',
       child: Container(
         decoration: BoxDecoration(
           border: Border(
@@ -376,7 +376,11 @@ class DesignCaseRow extends StatelessWidget {
                 children: [
                   DesignMetadata('${student.name} · ${learningCase.subject}'),
                   DesignMetadata(learningCase.priorityLabel),
-                  DesignMetadata('下一步：${learningCase.nextAction}'),
+                  DesignMetadata(
+                    learningCase.primaryAction == null
+                        ? '当前没有设置提醒'
+                        : '当前提醒：${learningCase.nextAction}',
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -384,14 +388,11 @@ class DesignCaseRow extends StatelessWidget {
                 spacing: AppSpacing.xs,
                 runSpacing: AppSpacing.xs,
                 children: [
-                  OutlinedButton(
-                    onPressed: onOpen,
-                    child: const Text('查看 Case'),
-                  ),
+                  OutlinedButton(onPressed: onOpen, child: const Text('查看问题')),
                   if (onPrimaryAction != null)
                     FilledButton(
                       onPressed: onPrimaryAction,
-                      child: Text(primaryActionLabel ?? '处理下一步'),
+                      child: Text(primaryActionLabel ?? '记录进展'),
                     ),
                 ],
               ),
@@ -481,10 +482,10 @@ class DesignActionRow extends StatelessWidget {
               children: [
                 OutlinedButton(
                   onPressed: onOpenCase,
-                  child: const Text('查看 Case'),
+                  child: const Text('查看问题'),
                 ),
                 if (!isCompleted)
-                  FilledButton(onPressed: onComplete, child: const Text('完成')),
+                  FilledButton(onPressed: onComplete, child: const Text('处理')),
               ],
             ),
           ),
@@ -674,7 +675,7 @@ _StatusColors _statusColors(String label, ColorScheme scheme) {
       icon: Icons.warning_amber_outlined,
     );
   }
-  if (label.contains('验证')) {
+  if (label.contains('验证') || label.contains('关注')) {
     return _StatusColors(
       foreground: scheme.tertiary,
       background: scheme.tertiaryContainer,
