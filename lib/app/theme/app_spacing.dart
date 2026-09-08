@@ -19,6 +19,7 @@ abstract final class AppRadii {
   static const small = 8.0;
   static const medium = 12.0;
   static const dialog = 28.0;
+  static const pill = 999.0;
 }
 
 abstract final class AppBorders {
