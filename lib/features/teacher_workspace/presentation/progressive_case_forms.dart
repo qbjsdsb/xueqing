@@ -107,12 +107,13 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
   late final String _operationId;
 
   CaseProgressKind _kind = CaseProgressKind.observation;
-  CaseAssessmentResult _assessmentResult = CaseAssessmentResult.partial;
+  CaseAssessmentResult? _assessmentResult;
   CaseProgressNextStep _nextStep = CaseProgressNextStep.continueTracking;
   CaseClosureReason _closureReason = CaseClosureReason.other;
   late bool _completeCurrentAction;
   DateTime? _reminderDueOn;
   String? _summaryError;
+  String? _assessmentError;
   String? _reminderError;
   String? _saveError;
   bool _saving = false;
@@ -129,7 +130,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
       _closeNoteController.text.trim().isNotEmpty ||
       _kind != CaseProgressKind.observation ||
       _nextStep != CaseProgressNextStep.continueTracking ||
-      _assessmentResult != CaseAssessmentResult.partial ||
+      _assessmentResult != null ||
       _closureReason != CaseClosureReason.other ||
       _reminderDueOn != null ||
       _completeCurrentAction != widget.completeCurrentActionInitially;
@@ -224,6 +225,10 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
       _summaryError = '请写下这次实际发生的情况';
       valid = false;
     }
+    if (_kind == CaseProgressKind.assessment && _assessmentResult == null) {
+      _assessmentError = '请选择这次检查结果';
+      valid = false;
+    }
     if (_nextStep == CaseProgressNextStep.remind && reminder.isEmpty) {
       _reminderError = '请写下需要提醒自己做什么';
       valid = false;
@@ -235,7 +240,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
 
     final effectiveSummary =
         summary.isEmpty && _kind == CaseProgressKind.assessment
-        ? '检查结果：${_assessmentResult.label}'
+        ? '检查结果：${_assessmentResult!.label}'
         : summary;
     final action = widget.currentAction;
     return RecordCaseProgressCommand(
@@ -474,6 +479,10 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                                 : (_) => setState(() {
                                     _kind = kind;
                                     _summaryError = null;
+                                    if (kind != CaseProgressKind.assessment) {
+                                      _assessmentResult = null;
+                                      _assessmentError = null;
+                                    }
                                   }),
                           ),
                       ],
@@ -484,7 +493,10 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                     DropdownButtonFormField<CaseAssessmentResult>(
                       key: const Key('progress-assessment-result'),
                       initialValue: _assessmentResult,
-                      decoration: const InputDecoration(labelText: '检查结果 *'),
+                      decoration: InputDecoration(
+                        labelText: '检查结果 *',
+                        errorText: _assessmentError,
+                      ),
                       items: [
                         for (final result in CaseAssessmentResult.values)
                           DropdownMenuItem<CaseAssessmentResult>(
@@ -496,13 +508,16 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                           ? null
                           : (result) {
                               if (result != null) {
-                                setState(() => _assessmentResult = result);
+                                setState(() {
+                                  _assessmentResult = result;
+                                  _assessmentError = null;
+                                });
                               }
                             },
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '只选检查结果也可以保存；需要时再补一句说明。',
+                      '先明确选择检查结果；补充说明仍然可以不写。',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],

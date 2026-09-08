@@ -92,6 +92,35 @@ void main() {
     expect(command.nextActionTitle, '下周抽查一次同类阅读题');
   });
 
+  testWidgets('assessment requires the teacher to choose a result explicitly', (
+    tester,
+  ) async {
+    final repository = _FakeProgressiveCaseRepository();
+    await tester.pumpWidget(
+      _host(CaseProgressForm(repository: repository, learningCase: _case())),
+    );
+
+    await tester.tap(find.byKey(const Key('progress-record-options-toggle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('progress-kind-assessment')));
+    await tester.pumpAndSettle();
+
+    final resultPicker = find.byKey(const Key('progress-assessment-result'));
+    expect(resultPicker, findsOneWidget);
+    expect(
+      tester
+          .widget<DropdownButtonFormField<CaseAssessmentResult>>(resultPicker)
+          .initialValue,
+      isNull,
+    );
+
+    await _tapVisible(tester, find.byKey(const Key('progress-save')));
+    await tester.pumpAndSettle();
+
+    expect(repository.progressCommands, isEmpty);
+    expect(find.text('请选择这次检查结果'), findsOneWidget);
+  });
+
   testWidgets('assessment result can be saved without manufacturing notes', (
     tester,
   ) async {
