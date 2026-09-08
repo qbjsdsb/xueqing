@@ -254,7 +254,8 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
       closeReason: _nextStep == CaseProgressNextStep.close
           ? _closureReason
           : null,
-      closeNote: _nextStep == CaseProgressNextStep.close &&
+      closeNote:
+          _nextStep == CaseProgressNextStep.close &&
               _closeNoteController.text.trim().isNotEmpty
           ? _closeNoteController.text.trim()
           : null,
@@ -399,10 +400,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  _ContextLine(
-                    label: '当前问题',
-                    value: widget.learningCase.title,
-                  ),
+                  _ContextLine(label: '当前问题', value: widget.learningCase.title),
                   if (action != null) ...[
                     const SizedBox(height: AppSpacing.sm),
                     _ContextLine(label: '当前待办', value: action.title),
@@ -427,7 +425,9 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                     children: [
                       for (final kind in CaseProgressKind.values)
                         ChoiceChip(
-                          key: ValueKey<String>('progress-kind-${kind.wireValue}'),
+                          key: ValueKey<String>(
+                            'progress-kind-${kind.wireValue}',
+                          ),
                           label: Text(kind.label),
                           selected: _kind == kind,
                           onSelected: _inputsLocked
@@ -483,7 +483,9 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                     children: [
                       for (final step in CaseProgressNextStep.values)
                         ChoiceChip(
-                          key: ValueKey<String>('progress-next-${step.wireValue}'),
+                          key: ValueKey<String>(
+                            'progress-next-${step.wireValue}',
+                          ),
                           label: Text(step.label),
                           selected: _nextStep == step,
                           onSelected: _inputsLocked
@@ -496,17 +498,12 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    switch (_nextStep) {
-                      CaseProgressNextStep.continueTracking =>
-                        '不生成新待办。问题继续保留，之后有新情况再记录。',
-                      CaseProgressNextStep.remind =>
-                        '只在确实需要提醒自己时生成一条待办。',
-                      CaseProgressNextStep.close =>
-                        '结束当前这次跟进，完整历史仍然保留。',
-                    },
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                  Text(switch (_nextStep) {
+                    CaseProgressNextStep.continueTracking =>
+                      '不生成新待办。问题继续保留，之后有新情况再记录。',
+                    CaseProgressNextStep.remind => '只在确实需要提醒自己时生成一条待办。',
+                    CaseProgressNextStep.close => '结束当前这次跟进，完整历史仍然保留。',
+                  }, style: Theme.of(context).textTheme.bodySmall),
                   if (_nextStep == CaseProgressNextStep.remind) ...[
                     const SizedBox(height: AppSpacing.md),
                     TextField(
@@ -552,7 +549,9 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                     DropdownButtonFormField<CaseClosureReason>(
                       key: const Key('progress-close-reason'),
                       initialValue: _closureReason,
-                      decoration: const InputDecoration(labelText: '为什么结束跟进？ *'),
+                      decoration: const InputDecoration(
+                        labelText: '为什么结束跟进？ *',
+                      ),
                       items: [
                         for (final reason in CaseClosureReason.values)
                           DropdownMenuItem<CaseClosureReason>(
@@ -586,7 +585,9 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                     const SizedBox(height: AppSpacing.md),
                     Text(
                       _saveError!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   const SizedBox(height: AppSpacing.lg),
@@ -611,10 +612,8 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                                 : switch (_nextStep) {
                                     CaseProgressNextStep.continueTracking =>
                                       '保存进展',
-                                    CaseProgressNextStep.remind =>
-                                      '保存并设置提醒',
-                                    CaseProgressNextStep.close =>
-                                      '保存并结束跟进',
+                                    CaseProgressNextStep.remind => '保存并设置提醒',
+                                    CaseProgressNextStep.close => '保存并结束跟进',
                                   },
                           ),
                         ),
@@ -817,7 +816,9 @@ class _EndCaseFollowUpFormState extends State<EndCaseFollowUpForm> {
                     const SizedBox(height: AppSpacing.md),
                     Text(
                       _saveError!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   const SizedBox(height: AppSpacing.lg),
@@ -867,7 +868,9 @@ class _ContextLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
       ),
       child: Row(
@@ -898,7 +901,8 @@ String describeProgressiveCaseError(Object error) {
   if (detail.contains('owner_permission_required')) {
     return '当前账号不能修改这条问题，请刷新后确认责任教师。';
   }
-  if (detail.contains('case_already_closed') || detail.contains('case_closed')) {
+  if (detail.contains('case_already_closed') ||
+      detail.contains('case_closed')) {
     return '这个问题已经结束跟进，请刷新后查看最新状态。';
   }
   if (detail.contains('action_not_pending')) {
