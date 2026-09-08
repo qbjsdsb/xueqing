@@ -2,8 +2,13 @@ from pathlib import Path
 
 path = Path('lib/app/theme/app_theme.dart')
 text = path.read_text()
+indicator_old = 'indicatorColor: colorScheme.secondaryContainer,'
+indicator_new = 'indicatorColor: colorScheme.primaryContainer,'
+if text.count(indicator_old) != 2:
+    raise SystemExit(f'expected two navigation indicator matches, got {text.count(indicator_old)}')
+text = text.replace(indicator_old, indicator_new)
+
 replacements = [
-    ('indicatorColor: colorScheme.secondaryContainer,', 'indicatorColor: colorScheme.primaryContainer,'),
     ('? colorScheme.onSecondaryContainer\n                : colorScheme.onSurfaceVariant,', '? colorScheme.onPrimaryContainer\n                : colorScheme.onSurfaceVariant,'),
     ('color: colorScheme.onSecondaryContainer,\n        ),\n        unselectedIconTheme:', 'color: colorScheme.onPrimaryContainer,\n        ),\n        unselectedIconTheme:'),
     ('color: colorScheme.onSecondaryContainer,\n          fontFamilyFallback: fontFallback,\n        ),\n        unselectedLabelTextStyle:', 'color: colorScheme.onPrimaryContainer,\n          fontFamilyFallback: fontFallback,\n        ),\n        unselectedLabelTextStyle:'),
