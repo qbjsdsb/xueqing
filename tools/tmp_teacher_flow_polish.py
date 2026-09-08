@@ -58,7 +58,6 @@ replacements = [
 for old, new, label in replacements:
     text = replace_all(text, old, new, label)
 
-# Hide optimistic-lock implementation versions from teacher-facing context.
 old_context = """    final caseContext =
         '${widget.learningCase.typeLabel} · ${widget.learningCase.status.label} · version ${widget.learningCase.version}';"""
 new_context = """    final caseContext =
@@ -72,8 +71,6 @@ new_complete_context = """    final caseContext =
         '${widget.learningCase.title} · ${widget.learningCase.status.label}';"""
 text = replace_all(text, old_complete_context, new_complete_context, 'complete action context version', 1)
 
-# Quick Capture should fail toward a neutral classification rather than silently
-# assuming every unedited classroom observation is a knowledge gap.
 old_default = "  String _selectedCaseTypeKey = WorkspaceCaseType.builtInTypes.first.key;"
 new_default = "  String _selectedCaseTypeKey = WorkspaceCaseType.builtInTypes.last.key;"
 text = replace_all(text, old_default, new_default, 'quick capture neutral default', 1)
@@ -91,6 +88,9 @@ for old, new, label in [
     ("'确认 Case'", "'整理并确认问题'", 'tests confirm case'),
     ("'关闭 Case'", "'结束跟进'", 'tests close case'),
     ("'记录复发并重新打开'", "'记录复发并继续跟进'", 'tests reopen case'),
+    ("'保存 Evidence'", "'保存证据'", 'tests save evidence'),
+    ("'重新打开 Case'", "'继续跟进'", 'tests continue tracking'),
+    ("'完成“补充一次课堂证据”后安排下一步。正式 Case 不会因为勾选完成就失去后续跟进。'", "'完成“补充一次课堂证据”后安排下一步。这个问题不会因为勾选完成就失去后续跟进。'", 'tests completion explanation'),
 ]:
     test_text = replace_all(test_text, old, new, label)
 
