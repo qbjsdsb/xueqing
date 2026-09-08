@@ -129,14 +129,14 @@ abstract final class AppTheme {
         height: 80,
         backgroundColor: colorScheme.surfaceContainer,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: colorScheme.secondaryContainer,
+        indicatorColor: colorScheme.primaryContainer,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: selected
-                ? colorScheme.onSecondaryContainer
+                ? colorScheme.onPrimaryContainer
                 : colorScheme.onSurfaceVariant,
             fontFamilyFallback: fontFallback,
           );
@@ -144,13 +144,11 @@ abstract final class AppTheme {
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: colorScheme.surfaceContainerLow,
-        indicatorColor: colorScheme.secondaryContainer,
-        selectedIconTheme: IconThemeData(
-          color: colorScheme.onSecondaryContainer,
-        ),
+        indicatorColor: colorScheme.primaryContainer,
+        selectedIconTheme: IconThemeData(color: colorScheme.onPrimaryContainer),
         unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
         selectedLabelTextStyle: TextStyle(
-          color: colorScheme.onSecondaryContainer,
+          color: colorScheme.onPrimaryContainer,
           fontFamilyFallback: fontFallback,
         ),
         unselectedLabelTextStyle: TextStyle(
