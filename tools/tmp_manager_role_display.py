@@ -18,13 +18,12 @@ if h.count(anchor) != 1:
 h = h.replace(anchor, helper, 1)
 helpers.write_text(h)
 
-# Add a regression against the manager+teacher combination now used by the backend.
 test = Path('test/features/organization_management_test.dart')
 t = test.read_text()
 insert_before = """  testWidgets('"""
 idx = t.find(insert_before)
 if idx < 0:
     raise SystemExit('no widget-test insertion anchor')
-case = """  testWidgets('manager teaching capability is shown as a responsibility, not a duplicate role', (tester) async {\n    final repository = _FakeOrganizationManagementRepository()\n      ..members = [\n        _memberFixture(\n          email: 'owner-teacher@example.com',\n          roles: const ['org_owner', 'teacher'],\n        ),\n      ];\n\n    await _pumpManagement(\n      tester,\n      repository,\n      roles: const ['org_owner', 'teacher'],\n    );\n\n    expect(find.text('负责人'), findsOneWidget);\n    expect(find.text('兼任教学'), findsOneWidget);\n  });\n\n"""
+case = """  testWidgets('manager teaching capability is shown as a responsibility, not a duplicate role', (tester) async {\n    final repository = _FakeOrganizationManagementRepository(\n      members: [\n        _member(\n          name: '负责人兼任老师',\n          email: 'owner-teacher@example.com',\n          roles: const ['org_owner', 'teacher'],\n        ),\n      ],\n      invitations: const [],\n    );\n\n    await _pumpManagement(\n      tester,\n      repository,\n      roles: const ['org_owner', 'teacher'],\n    );\n\n    expect(find.text('负责人'), findsOneWidget);\n    expect(find.text('兼任教学'), findsOneWidget);\n  });\n\n"""
 t = t[:idx] + case + t[idx:]
 test.write_text(t)
