@@ -1983,7 +1983,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         SnackBar(content: Text(savedPath == null ? '已取消导出。' : '学情记录表已生成。')),
       );
     } catch (error, stackTrace) {
-      AppLogger.instance.error(
+      _workspaceLogger.error(
         'student_subject_export_failed',
         error: error,
         stackTrace: stackTrace,
