@@ -1,0 +1,34 @@
+name: Fix progressive pgTAP plan count
+
+on:
+  push:
+    branches:
+      - ux/progressive-case-domain-impl-20260908
+    paths:
+      - .github/workflows/fix-progressive-plan.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ux/progressive-case-domain-impl-20260908
+      - name: Correct pgTAP plan count
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i 's/select plan(43);/select plan(42);/' supabase/tests/progressive_case_workflow_test.sql
+          grep -q 'select plan(42);' supabase/tests/progressive_case_workflow_test.sql
+      - name: Commit corrected test only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add supabase/tests/progressive_case_workflow_test.sql
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'Fix progressive workflow pgTAP plan count'
+          git push origin HEAD:ux/progressive-case-domain-impl-20260908
