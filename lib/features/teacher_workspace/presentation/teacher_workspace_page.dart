@@ -6394,7 +6394,7 @@ class _WorkspaceConfigBody extends StatelessWidget {
   }
 }
 
-class _WorkspaceLoginBody extends StatelessWidget {
+class _WorkspaceLoginBody extends StatefulWidget {
   const _WorkspaceLoginBody({
     required this.formKey,
     required this.emailController,
@@ -6412,6 +6412,27 @@ class _WorkspaceLoginBody extends StatelessWidget {
   final String? errorMessage;
   final bool isDevelopment;
   final VoidCallback onSubmit;
+
+  @override
+  State<_WorkspaceLoginBody> createState() => _WorkspaceLoginBodyState();
+}
+
+class _WorkspaceLoginBodyState extends State<_WorkspaceLoginBody> {
+  final FocusNode _passwordFocusNode = FocusNode();
+
+  GlobalKey<FormState> get formKey => widget.formKey;
+  TextEditingController get emailController => widget.emailController;
+  TextEditingController get passwordController => widget.passwordController;
+  bool get busy => widget.busy;
+  String? get errorMessage => widget.errorMessage;
+  bool get isDevelopment => widget.isDevelopment;
+  VoidCallback get onSubmit => widget.onSubmit;
+
+  @override
+  void dispose() {
+    _passwordFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -6441,21 +6462,30 @@ class _WorkspaceLoginBody extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     TextFormField(
+                      key: const Key('workspace-login-email'),
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const <String>[
+                        AutofillHints.username,
+                        AutofillHints.email,
+                      ],
+                      autocorrect: false,
+                      enableSuggestions: false,
                       decoration: const InputDecoration(labelText: '邮箱'),
+                      onFieldSubmitted: (_) =>
+                          _passwordFocusNode.requestFocus(),
                       validator: (value) =>
                           value == null || value.trim().isEmpty
                           ? '请输入邮箱'
                           : null,
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    TextFormField(
+                    _WorkspacePasswordField(
                       controller: passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: '密码'),
-                      validator: (value) =>
-                          value == null || value.isEmpty ? '请输入密码' : null,
+                      focusNode: _passwordFocusNode,
+                      busy: busy,
+                      onSubmit: onSubmit,
                     ),
                     const SizedBox(height: AppSpacing.md),
                     SizedBox(
@@ -6476,6 +6506,60 @@ class _WorkspaceLoginBody extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WorkspacePasswordField extends StatefulWidget {
+  const _WorkspacePasswordField({
+    required this.controller,
+    required this.focusNode,
+    required this.busy,
+    required this.onSubmit,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool busy;
+  final VoidCallback onSubmit;
+
+  @override
+  State<_WorkspacePasswordField> createState() =>
+      _WorkspacePasswordFieldState();
+}
+
+class _WorkspacePasswordFieldState extends State<_WorkspacePasswordField> {
+  bool _passwordVisible = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      key: const Key('workspace-login-password'),
+      controller: widget.controller,
+      focusNode: widget.focusNode,
+      obscureText: !_passwordVisible,
+      enabled: !widget.busy,
+      autofillHints: const <String>[AutofillHints.password],
+      autocorrect: false,
+      enableSuggestions: false,
+      textInputAction: TextInputAction.done,
+      decoration: InputDecoration(
+        labelText: '密码',
+        suffixIcon: IconButton(
+          key: const Key('workspace-login-password-visibility'),
+          tooltip: _passwordVisible ? '隐藏密码' : '显示密码',
+          onPressed: widget.busy
+              ? null
+              : () => setState(() => _passwordVisible = !_passwordVisible),
+          icon: Icon(
+            _passwordVisible
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+          ),
+        ),
+      ),
+      onFieldSubmitted: widget.busy ? null : (_) => widget.onSubmit(),
+      validator: (value) => value == null || value.isEmpty ? '请输入密码' : null,
     );
   }
 }
