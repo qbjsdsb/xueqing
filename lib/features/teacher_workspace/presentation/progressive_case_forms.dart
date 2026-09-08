@@ -109,7 +109,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
   CaseProgressKind _kind = CaseProgressKind.observation;
   CaseAssessmentResult _assessmentResult = CaseAssessmentResult.partial;
   CaseProgressNextStep _nextStep = CaseProgressNextStep.continueTracking;
-  CaseClosureReason _closureReason = CaseClosureReason.resolved;
+  CaseClosureReason _closureReason = CaseClosureReason.other;
   late bool _completeCurrentAction;
   DateTime? _reminderDueOn;
   String? _summaryError;
@@ -130,7 +130,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
       _kind != CaseProgressKind.observation ||
       _nextStep != CaseProgressNextStep.continueTracking ||
       _assessmentResult != CaseAssessmentResult.partial ||
-      _closureReason != CaseClosureReason.resolved ||
+      _closureReason != CaseClosureReason.other ||
       _reminderDueOn != null ||
       _completeCurrentAction != widget.completeCurrentActionInitially;
 
@@ -700,7 +700,7 @@ class EndCaseFollowUpForm extends StatefulWidget {
 class _EndCaseFollowUpFormState extends State<EndCaseFollowUpForm> {
   late final TextEditingController _noteController;
   late final String _operationId;
-  CaseClosureReason _reason = CaseClosureReason.resolved;
+  CaseClosureReason _reason = CaseClosureReason.other;
   EndCaseFollowUpCommand? _submittedCommand;
   String? _saveError;
   bool _saving = false;

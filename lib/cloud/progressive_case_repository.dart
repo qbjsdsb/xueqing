@@ -48,7 +48,7 @@ extension CaseClosureReasonPresentation on CaseClosureReason {
     CaseClosureReason.resolved => '问题已解决',
     CaseClosureReason.pauseTracking => '暂不继续跟进',
     CaseClosureReason.notIssue => '确认不是问题',
-    CaseClosureReason.other => '其他',
+    CaseClosureReason.other => '结束当前跟进',
   };
 }
 

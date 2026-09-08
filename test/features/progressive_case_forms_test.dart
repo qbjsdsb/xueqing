@@ -192,7 +192,7 @@ void main() {
 
       final command = repository.progressCommands.single;
       expect(command.nextStep, CaseProgressNextStep.close);
-      expect(command.closeReason, CaseClosureReason.resolved);
+      expect(command.closeReason, CaseClosureReason.other);
       expect(command.nextActionTitle, isNull);
     },
   );
@@ -209,13 +209,36 @@ void main() {
     );
 
     expect(find.text('结束跟进'), findsWidgets);
-    expect(find.text('问题已解决'), findsOneWidget);
+    expect(find.text('结束当前跟进'), findsOneWidget);
     await tester.tap(find.byKey(const Key('end-follow-up-save')));
     await tester.pumpAndSettle();
 
     final command = repository.endCommands.single;
     expect(command.expectedCaseVersion, 3);
-    expect(command.reason, CaseClosureReason.resolved);
+    expect(command.reason, CaseClosureReason.other);
+  });
+  testWidgets('teacher can explicitly mark a follow-up as resolved', (
+    tester,
+  ) async {
+    final repository = _FakeProgressiveCaseRepository();
+    await tester.pumpWidget(
+      _host(
+        EndCaseFollowUpForm(
+          repository: repository,
+          learningCase: _case(status: LearningCaseStatus.newCase),
+        ),
+      ),
+    );
+
+    final reasonField = find.byKey(const Key('end-follow-up-reason'));
+    await _tapVisible(tester, reasonField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('问题已解决').last);
+    await tester.pumpAndSettle();
+    await _tapVisible(tester, find.byKey(const Key('end-follow-up-save')));
+    await tester.pumpAndSettle();
+
+    expect(repository.endCommands.single.reason, CaseClosureReason.resolved);
   });
 }
 
