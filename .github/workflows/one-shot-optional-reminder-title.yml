@@ -2,14 +2,14 @@ name: One-shot optional reminder title
 
 on:
   push:
-    branches: [ux/optional-reminder-title]
+    branches:
+      - ux/optional-reminder-title
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -20,9 +20,9 @@ jobs:
           channel: stable
           flutter-version: '3.47.1'
           cache: true
-      - name: Make reminder title optional
-        shell: python
+      - name: Apply focused UX changes
         run: |
+          python3 <<'PY'
           from pathlib import Path
 
           def replace_once(path, old, new):
@@ -60,7 +60,7 @@ jobs:
                 valid = false;
               }
 """,
-              """""",
+              '',
           )
 
           replace_once(
@@ -101,8 +101,7 @@ jobs:
 """,
           )
 
-          marker = """  testWidgets('assessment requires the teacher to choose a result explicitly', (
-"""
+          marker = "  testWidgets('assessment requires the teacher to choose a result explicitly', (\n"
           new_test = """  testWidgets('reminder can be saved without repeating a reminder title', (
     tester,
   ) async {
@@ -137,16 +136,17 @@ jobs:
               marker,
               new_test + marker,
           )
+          PY
       - name: Format and focused test
         run: |
           flutter pub get
           dart format lib/cloud/progressive_case_repository.dart lib/features/teacher_workspace/presentation/progressive_case_forms.dart test/features/progressive_case_forms_test.dart
           flutter test test/features/progressive_case_forms_test.dart
-      - name: Remove one-shot workflow and commit
+      - name: Commit production changes and remove this workflow
         run: |
           rm .github/workflows/one-shot-optional-reminder-title.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add lib/cloud/progressive_case_repository.dart lib/features/teacher_workspace/presentation/progressive_case_forms.dart test/features/progressive_case_forms_test.dart .github/workflows/one-shot-optional-reminder-title.yml
+          git add -A
           git commit -m "UX: make reminder titles optional"
           git push origin HEAD:ux/optional-reminder-title
