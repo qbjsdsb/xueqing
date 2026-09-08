@@ -1671,5 +1671,31 @@ void main() {
     expect(find.text('学生25'), findsNWidgets(2));
     expect(find.text('学生01'), findsNothing);
     expect(find.text('1 个结果'), findsOneWidget);
+    expect(
+      find.byKey(const Key('management-student-search-clear')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('management-area-people')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('management-student-search')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('management-area-students')));
+    await tester.pumpAndSettle();
+    final restoredSearch = find.byKey(const Key('management-student-search'));
+    expect(restoredSearch, findsOneWidget);
+    expect(tester.widget<TextField>(restoredSearch).controller?.text, '学生25');
+    expect(find.text('1 个结果'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('management-student-search-clear')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(restoredSearch).controller?.text, isEmpty);
+    expect(
+      find.byKey(const Key('management-student-search-clear')),
+      findsNothing,
+    );
+    expect(find.text('学生20'), findsOneWidget);
+    expect(find.text('学生21'), findsNothing);
+    expect(find.text('查看全部 25 位学生'), findsOneWidget);
   });
 }

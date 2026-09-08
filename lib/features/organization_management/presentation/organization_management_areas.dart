@@ -74,6 +74,8 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
   static const int _initialStudentLimit = 20;
 
   late _ManagementArea _selectedArea;
+  final TextEditingController _studentSearchController =
+      TextEditingController();
   String _studentQuery = '';
   bool _showAllStudents = false;
   bool _showEndedTeacherScopes = false;
@@ -83,6 +85,23 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
   void initState() {
     super.initState();
     _selectedArea = _initialArea(widget.snapshot);
+  }
+
+  @override
+  void dispose() {
+    _studentSearchController.dispose();
+    super.dispose();
+  }
+
+  void _clearStudentSearch() {
+    if (_studentQuery.isEmpty && _studentSearchController.text.isEmpty) {
+      return;
+    }
+    _studentSearchController.clear();
+    setState(() {
+      _studentQuery = '';
+      _showAllStudents = false;
+    });
   }
 
   _ManagementArea _initialArea(_OrganizationManagementSnapshot snapshot) {
@@ -354,11 +373,22 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           if (widget.snapshot.students.length > 8) ...[
             TextField(
               key: const Key('management-student-search'),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
+              controller: _studentSearchController,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
                 hintText: '搜索姓名、编号、年级、班级、校区或学科',
                 isDense: true,
+                suffixIcon: _studentQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        key: const Key('management-student-search-clear'),
+                        tooltip: '清空搜索',
+                        onPressed: _clearStudentSearch,
+                        icon: const Icon(Icons.close),
+                      ),
               ),
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => FocusScope.of(context).unfocus(),
               onChanged: (value) {
                 setState(() {
                   _studentQuery = value;
