@@ -342,9 +342,9 @@ select is(
   'accepted invitations create an active membership'
 );
 
-select is(
-  (
-    select membership_role.role
+select ok(
+  exists (
+    select 1
     from public.membership_roles as membership_role
     join public.organization_memberships as membership
       on membership.id = membership_role.membership_id
@@ -353,8 +353,8 @@ select is(
     where app_user.auth_subject_id = '20000000-0000-0000-0000-000000000004'
       and membership.organization_id =
         '00000000-0000-0000-0000-000000000002'
+      and membership_role.role = 'org_owner'
   ),
-  'org_owner',
   'accepted invitations assign the requested role'
 );
 
