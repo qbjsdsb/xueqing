@@ -1,0 +1,43 @@
+name: Temporary manager teaching role display
+on:
+  push:
+    branches:
+      - ux/manager-teaching-role-display
+permissions:
+  contents: write
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ux/manager-teaching-role-display
+          fetch-depth: 0
+      - name: Apply exact display patch
+        run: python tools/tmp_manager_role_display.py
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Format
+        run: dart format lib/features/organization_management/presentation/organization_management_rows.dart lib/features/organization_management/presentation/organization_management_helpers.dart test/features/organization_management_test.dart
+      - name: Analyze
+        run: flutter analyze
+      - name: Management tests
+        run: flutter test test/features/organization_management_test.dart
+      - name: Remove temporary machinery
+        run: rm tools/tmp_manager_role_display.py .github/workflows/tmp-manager-role-display.yml
+      - name: Commit verified product changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'ux: clarify manager teaching roles in member lists'
+          git push origin HEAD:ux/manager-teaching-role-display
