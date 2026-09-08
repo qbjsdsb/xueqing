@@ -518,7 +518,7 @@ void main() {
     expect(find.text('现在最重要的事'), findsOneWidget);
     expect(find.text('函数基础需要持续巩固'), findsOneWidget);
 
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
@@ -563,16 +563,16 @@ void main() {
       await tester.ensureVisible(studentRow);
       await tester.tap(studentRow);
       await tester.pumpAndSettle();
-      final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+      final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
       await tester.ensureVisible(caseButton);
       await tester.tap(caseButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('Next Action / 下一行动'), findsOneWidget);
+      expect(find.text('下一步'), findsOneWidget);
       expect(find.text('下一步：阅读题关键问题 的下一步'), findsNothing);
       expect(find.textContaining('阅读题关键问题 的下一步'), findsOneWidget);
       expect(
-        tester.getTopLeft(find.text('Next Action / 下一行动')).dy,
+        tester.getTopLeft(find.text('下一步')).dy,
         lessThan(tester.getTopLeft(find.text('问题')).dy),
       );
 
@@ -598,7 +598,7 @@ void main() {
       await tester.tap(backButton);
       await tester.pumpAndSettle();
       final reopenCaseButton = find
-          .widgetWithText(OutlinedButton, '查看 Case')
+          .widgetWithText(OutlinedButton, '查看问题')
           .first;
       await tester.ensureVisible(reopenCaseButton);
       await tester.tap(reopenCaseButton);
@@ -789,7 +789,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('完成“补充一次课堂证据”后安排下一步。正式 Case 不会因为勾选完成就失去后续跟进。'),
+      find.text('完成“补充一次课堂证据”后安排下一步。这个问题不会因为勾选完成就失去后续跟进。'),
       findsOneWidget,
     );
     expect(
@@ -976,12 +976,12 @@ void main() {
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
 
-    final commandButton = find.widgetWithText(FilledButton, '确认 Case');
+    final commandButton = find.widgetWithText(FilledButton, '整理并确认问题');
     await tester.ensureVisible(commandButton);
     await tester.tap(commandButton);
     await tester.pumpAndSettle();
@@ -1375,12 +1375,12 @@ void main() {
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
 
-    final commandButton = find.widgetWithText(FilledButton, '确认 Case');
+    final commandButton = find.widgetWithText(FilledButton, '整理并确认问题');
     await tester.ensureVisible(commandButton);
     await tester.tap(commandButton);
     await tester.pumpAndSettle();
@@ -1407,7 +1407,7 @@ void main() {
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
@@ -1442,7 +1442,7 @@ void main() {
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
@@ -1478,7 +1478,7 @@ void main() {
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
@@ -1631,7 +1631,7 @@ void main() {
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
@@ -1660,12 +1660,12 @@ void main() {
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
 
-    final closeButton = find.widgetWithText(FilledButton, '关闭 Case');
+    final closeButton = find.widgetWithText(FilledButton, '结束跟进');
     await tester.ensureVisible(closeButton);
     await tester.tap(closeButton);
     await tester.pumpAndSettle();
@@ -1690,12 +1690,12 @@ void main() {
     await tester.ensureVisible(studentRow);
     await tester.tap(studentRow);
     await tester.pumpAndSettle();
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, '关闭 Case'));
+    await tester.tap(find.widgetWithText(FilledButton, '结束跟进'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '关闭').last);
     await tester.pumpAndSettle();
@@ -1704,7 +1704,7 @@ void main() {
     expect(repository.closeCount, 1);
     final firstOperationId = repository.closeCommands.single.operationId;
 
-    await tester.tap(find.widgetWithText(FilledButton, '关闭 Case'));
+    await tester.tap(find.widgetWithText(FilledButton, '结束跟进'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '关闭').last);
     await tester.pumpAndSettle();
@@ -1730,12 +1730,12 @@ void main() {
     await tester.ensureVisible(allCasesButton);
     await tester.tap(allCasesButton);
     await tester.pumpAndSettle();
-    final caseButton = find.widgetWithText(OutlinedButton, '查看 Case').first;
+    final caseButton = find.widgetWithText(OutlinedButton, '查看问题').first;
     await tester.ensureVisible(caseButton);
     await tester.tap(caseButton);
     await tester.pumpAndSettle();
 
-    final reopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    final reopenButton = find.widgetWithText(FilledButton, '记录复发并继续跟进');
     await tester.ensureVisible(reopenButton);
     await tester.tap(reopenButton);
     await tester.pumpAndSettle();
@@ -1752,7 +1752,7 @@ void main() {
       find.byKey(const Key('reopen-next-action')),
       '复核复发原因并安排验证',
     );
-    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存 Evidence');
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存证据');
     await tester.ensureVisible(saveEvidenceButton);
     await tester.tap(saveEvidenceButton);
     await tester.pumpAndSettle();
@@ -1792,9 +1792,9 @@ void main() {
     await tester.ensureVisible(firstAllCasesButton);
     await tester.tap(firstAllCasesButton);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    await tester.tap(find.widgetWithText(OutlinedButton, '查看问题').first);
     await tester.pumpAndSettle();
-    final firstReopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    final firstReopenButton = find.widgetWithText(FilledButton, '记录复发并继续跟进');
     await tester.ensureVisible(firstReopenButton);
     await tester.tap(firstReopenButton);
     await tester.pumpAndSettle();
@@ -1811,7 +1811,7 @@ void main() {
       find.byKey(const Key('reopen-next-action')),
       '复核复发原因并安排验证',
     );
-    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存 Evidence');
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存证据');
     await tester.ensureVisible(saveEvidenceButton);
     await tester.tap(saveEvidenceButton);
     await tester.pumpAndSettle();
@@ -1843,15 +1843,15 @@ void main() {
     await tester.ensureVisible(restoredAllCasesButton);
     await tester.tap(restoredAllCasesButton);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    await tester.tap(find.widgetWithText(OutlinedButton, '查看问题').first);
     await tester.pumpAndSettle();
-    final restoredReopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    final restoredReopenButton = find.widgetWithText(FilledButton, '记录复发并继续跟进');
     await tester.ensureVisible(restoredReopenButton);
     await tester.tap(restoredReopenButton);
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(FilledButton, '重新打开 Case'), findsOneWidget);
-    final reopenCaseButton = find.widgetWithText(FilledButton, '重新打开 Case');
+    expect(find.widgetWithText(FilledButton, '继续跟进'), findsOneWidget);
+    final reopenCaseButton = find.widgetWithText(FilledButton, '继续跟进');
     await tester.ensureVisible(reopenCaseButton);
     await tester.tap(reopenCaseButton);
     await tester.pumpAndSettle();
@@ -1879,9 +1879,9 @@ void main() {
     await tester.ensureVisible(allCasesButton);
     await tester.tap(allCasesButton);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '查看 Case').first);
+    await tester.tap(find.widgetWithText(OutlinedButton, '查看问题').first);
     await tester.pumpAndSettle();
-    final reopenButton = find.widgetWithText(FilledButton, '记录复发并重新打开');
+    final reopenButton = find.widgetWithText(FilledButton, '记录复发并继续跟进');
     await tester.ensureVisible(reopenButton);
     await tester.tap(reopenButton);
     await tester.pumpAndSettle();
@@ -1894,7 +1894,7 @@ void main() {
       find.byKey(const Key('reopen-evidence-summary')),
       '学生再次跳过通分步骤，需要重新安排验证。',
     );
-    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存 Evidence');
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存证据');
     await tester.ensureVisible(saveEvidenceButton);
     await tester.tap(saveEvidenceButton);
     await tester.pumpAndSettle();
