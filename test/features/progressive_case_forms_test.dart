@@ -113,7 +113,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<TextField>(find.byKey(const Key('progress-summary'))).controller?.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('progress-summary')))
+          .controller
+          ?.text,
       isEmpty,
     );
     await _tapVisible(tester, find.byKey(const Key('progress-save')));
@@ -166,32 +169,33 @@ void main() {
     },
   );
 
-  testWidgets('progress can end follow-up only after teacher opens follow-up options', (
-    tester,
-  ) async {
-    final repository = _FakeProgressiveCaseRepository();
-    await tester.pumpWidget(
-      _host(CaseProgressForm(repository: repository, learningCase: _case())),
-    );
+  testWidgets(
+    'progress can end follow-up only after teacher opens follow-up options',
+    (tester) async {
+      final repository = _FakeProgressiveCaseRepository();
+      await tester.pumpWidget(
+        _host(CaseProgressForm(repository: repository, learningCase: _case())),
+      );
 
-    await tester.enterText(
-      find.byKey(const Key('progress-summary')),
-      '连续两周都没有再出现漏看限制词',
-    );
-    expect(find.byKey(const Key('progress-next-close')), findsNothing);
-    await tester.tap(find.byKey(const Key('progress-next-options-toggle')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('progress-next-close')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('progress-close-reason')), findsOneWidget);
-    await _tapVisible(tester, find.byKey(const Key('progress-save')));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('progress-summary')),
+        '连续两周都没有再出现漏看限制词',
+      );
+      expect(find.byKey(const Key('progress-next-close')), findsNothing);
+      await tester.tap(find.byKey(const Key('progress-next-options-toggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('progress-next-close')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('progress-close-reason')), findsOneWidget);
+      await _tapVisible(tester, find.byKey(const Key('progress-save')));
+      await tester.pumpAndSettle();
 
-    final command = repository.progressCommands.single;
-    expect(command.nextStep, CaseProgressNextStep.close);
-    expect(command.closeReason, CaseClosureReason.resolved);
-    expect(command.nextActionTitle, isNull);
-  });
+      final command = repository.progressCommands.single;
+      expect(command.nextStep, CaseProgressNextStep.close);
+      expect(command.closeReason, CaseClosureReason.resolved);
+      expect(command.nextActionTitle, isNull);
+    },
+  );
 
   testWidgets('a new case can end follow-up directly', (tester) async {
     final repository = _FakeProgressiveCaseRepository();

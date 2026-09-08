@@ -849,7 +849,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       return;
     }
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('已记录为待整理问题。')));
+        .showSnackBar(const SnackBar(content: Text('已记录到学生成长记录。')));
   }
 
   Future<void> _showCaseTypeManager() async {
@@ -2001,7 +2001,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           const SizedBox(height: AppSpacing.lg),
           _WorkspaceSection(
             key: const Key('student-detail-pending-section'),
-            title: '另外待验证',
+            title: '另外需要关注',
             count: '${additionalPendingCases.length} 个',
             showTopDivider: true,
             action: additionalPendingCases.length > _studentPendingPreviewLimit
@@ -2174,7 +2174,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           )
         else if (learningCase.status == LearningCaseStatus.newCase)
           _WorkspaceStateNotice(
-            title: '待整理问题',
+            title: '新记录',
             message: useProgressiveFlow
                 ? '这是一条课堂快速记录；有新情况时继续记录，确认无需再跟进时可以直接结束。'
                 : '这是一条课堂快速记录；确认前请补充教师判断和合适的下一步。',
