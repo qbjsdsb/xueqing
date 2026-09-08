@@ -11,6 +11,7 @@ class _ManagementHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Column(
@@ -18,11 +19,32 @@ class _ManagementHeader extends StatelessWidget {
         children: [
           Text('机构管理', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            '$organizationName · $roleLabel',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xxs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                organizationName,
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xs,
+                  vertical: AppSpacing.xxs,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(AppRadii.pill),
+                ),
+                child: Text(
+                  roleLabel,
+                  style: Theme.of(context).textTheme.labelMedium
+                      ?.copyWith(color: colorScheme.onPrimaryContainer),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -41,28 +63,96 @@ class _ManagementAreaSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SegmentedButton<_ManagementArea>(
-      segments: const <ButtonSegment<_ManagementArea>>[
-        ButtonSegment<_ManagementArea>(
-          value: _ManagementArea.people,
-          icon: Icon(Icons.people_outline),
-          label: Text('成员', key: Key('management-area-people')),
-        ),
-        ButtonSegment<_ManagementArea>(
-          value: _ManagementArea.students,
-          icon: Icon(Icons.school_outlined),
-          label: Text('学生', key: Key('management-area-students')),
-        ),
-        ButtonSegment<_ManagementArea>(
-          value: _ManagementArea.settings,
-          icon: Icon(Icons.tune_outlined),
-          label: Text('学科设置', key: Key('management-area-settings')),
-        ),
-      ],
-      selected: <_ManagementArea>{selectedArea},
-      showSelectedIcon: false,
-      onSelectionChanged: (selection) {
-        if (selection.isNotEmpty) onChanged(selection.first);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 430) {
+          return Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              _ManagementAreaChoiceChip(
+                area: _ManagementArea.people,
+                icon: Icons.people_outline,
+                label: '成员',
+                labelKey: const Key('management-area-people'),
+                selectedArea: selectedArea,
+                onChanged: onChanged,
+              ),
+              _ManagementAreaChoiceChip(
+                area: _ManagementArea.students,
+                icon: Icons.school_outlined,
+                label: '学生',
+                labelKey: const Key('management-area-students'),
+                selectedArea: selectedArea,
+                onChanged: onChanged,
+              ),
+              _ManagementAreaChoiceChip(
+                area: _ManagementArea.settings,
+                icon: Icons.tune_outlined,
+                label: '学科设置',
+                labelKey: const Key('management-area-settings'),
+                selectedArea: selectedArea,
+                onChanged: onChanged,
+              ),
+            ],
+          );
+        }
+        return SegmentedButton<_ManagementArea>(
+          segments: const <ButtonSegment<_ManagementArea>>[
+            ButtonSegment<_ManagementArea>(
+              value: _ManagementArea.people,
+              icon: Icon(Icons.people_outline),
+              label: Text('成员', key: Key('management-area-people')),
+            ),
+            ButtonSegment<_ManagementArea>(
+              value: _ManagementArea.students,
+              icon: Icon(Icons.school_outlined),
+              label: Text('学生', key: Key('management-area-students')),
+            ),
+            ButtonSegment<_ManagementArea>(
+              value: _ManagementArea.settings,
+              icon: Icon(Icons.tune_outlined),
+              label: Text('学科设置', key: Key('management-area-settings')),
+            ),
+          ],
+          selected: <_ManagementArea>{selectedArea},
+          showSelectedIcon: false,
+          onSelectionChanged: (selection) {
+            if (selection.isNotEmpty) onChanged(selection.first);
+          },
+        );
+      },
+    );
+  }
+}
+
+class _ManagementAreaChoiceChip extends StatelessWidget {
+  const _ManagementAreaChoiceChip({
+    required this.area,
+    required this.icon,
+    required this.label,
+    required this.labelKey,
+    required this.selectedArea,
+    required this.onChanged,
+  });
+
+  final _ManagementArea area;
+  final IconData icon;
+  final String label;
+  final Key labelKey;
+  final _ManagementArea selectedArea;
+  final ValueChanged<_ManagementArea> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      selected: selectedArea == area,
+      avatar: Icon(icon, size: 18),
+      label: Text(label, key: labelKey),
+      onSelected: (selected) {
+        if (selected && selectedArea != area) {
+          onChanged(area);
+        }
       },
     );
   }
@@ -84,44 +174,67 @@ class _ManagementAreaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppRadii.medium),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 520;
+        return Material(
+          color: colorScheme.surfaceContainerLowest,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.medium),
+            side: BorderSide(color: colorScheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.lg),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: colorScheme.primary),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleLarge,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer.withValues(
+                          alpha: 0.55,
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadii.small),
                       ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        description,
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(color: colorScheme.onSurfaceVariant),
+                      child: Icon(
+                        icon,
+                        size: 20,
+                        color: colorScheme.onPrimaryContainer,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: AppSpacing.xxs),
+                          Text(
+                            description,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+                SizedBox(height: compact ? AppSpacing.md : AppSpacing.lg),
+                child,
               ],
             ),
-            const SizedBox(height: AppSpacing.lg),
-            child,
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -238,6 +351,9 @@ class _ManagementEmptyState extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.8),
+        ),
         borderRadius: BorderRadius.circular(AppRadii.small),
       ),
       child: Row(
@@ -295,16 +411,26 @@ class _ManagementErrorText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.errorContainer,
+        color: colorScheme.errorContainer,
         borderRadius: BorderRadius.circular(AppRadii.small),
       ),
-      child: Text(
-        message,
-        style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.error_outline, color: colorScheme.onErrorContainer),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: colorScheme.onErrorContainer),
+            ),
+          ),
+        ],
       ),
     );
   }
