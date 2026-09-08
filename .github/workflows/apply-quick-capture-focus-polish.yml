@@ -1,0 +1,123 @@
+name: Apply Quick Capture focus polish
+
+on:
+  push:
+    branches:
+      - ux/quick-capture-focus-polish-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply focused interaction patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          product = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
+          text = product.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  "  late final TextEditingController _titleController;\n  late final TextEditingController _evidenceController;\n  late final String _operationId;\n",
+                  "  late final TextEditingController _titleController;\n  late final TextEditingController _evidenceController;\n  late final FocusNode _titleFocusNode;\n  late final String _operationId;\n",
+              ),
+              (
+                  "    _titleController = TextEditingController();\n    _evidenceController = TextEditingController();\n    _titleController.addListener(_clearInlineErrors);\n",
+                  "    _titleController = TextEditingController();\n    _evidenceController = TextEditingController();\n    _titleFocusNode = FocusNode();\n    _titleController.addListener(_clearInlineErrors);\n",
+              ),
+              (
+                  "    _evidenceController\n      ..removeListener(_clearInlineErrors)\n      ..dispose();\n    super.dispose();\n",
+                  "    _evidenceController\n      ..removeListener(_clearInlineErrors)\n      ..dispose();\n    _titleFocusNode.dispose();\n    super.dispose();\n",
+              ),
+              (
+                  "  bool _isCompact(BuildContext context) =>\n",
+                  "  void _selectStudent(WorkspaceStudent? student) {\n    setState(() {\n      _selectedStudent = student;\n      _studentError = null;\n    });\n    if (student == null) {\n      return;\n    }\n    WidgetsBinding.instance.addPostFrameCallback((_) {\n      if (mounted && !_saving) {\n        _titleFocusNode.requestFocus();\n      }\n    });\n  }\n\n  bool _isCompact(BuildContext context) =>\n",
+              ),
+              (
+                  "        onChanged: _saving\n            ? null\n            : (student) {\n                setState(() {\n                  _selectedStudent = student;\n                  _studentError = null;\n                });\n              },\n",
+                  "        onChanged: _saving ? null : _selectStudent,\n",
+              ),
+              (
+                  "    setState(() {\n      _selectedStudent = selectedStudent;\n      _studentError = null;\n    });\n  }\n\n  Future<void> _openCaseTypePicker() async {\n",
+                  "    _selectStudent(selectedStudent);\n  }\n\n  Future<void> _openCaseTypePicker() async {\n",
+              ),
+              (
+                  "                    controller: _titleController,\n                    autofocus: _selectedStudent != null,\n",
+                  "                    controller: _titleController,\n                    focusNode: _titleFocusNode,\n                    autofocus: _selectedStudent != null,\n",
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected one product match, found {count}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          product.write_text(text, encoding='utf-8')
+
+          test_path = Path('test/features/teacher_workspace_test.dart')
+          tests = test_path.read_text(encoding='utf-8')
+          anchor = "  testWidgets('keeps Quick Capture facts before classification', (\n"
+          if tests.count(anchor) != 1:
+              raise SystemExit(f'Expected one test anchor, found {tests.count(anchor)}')
+
+          new_test = """  testWidgets('focuses the problem title after choosing a student', (tester) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.text('记录问题').first);
+    await tester.pumpAndSettle();
+
+    final studentPicker = find.byType(
+      DropdownButtonFormField<WorkspaceStudent>,
+    );
+    await tester.ensureVisible(studentPicker);
+    await tester.tap(studentPicker);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('示例学生甲 · 数学').last);
+    await tester.pumpAndSettle();
+
+    final titleField = find.byKey(const Key('quick-capture-title-field'));
+    expect(titleField, findsOneWidget);
+    expect(tester.widget<TextField>(titleField).focusNode?.hasFocus, isTrue);
+  });
+
+"""
+          tests = tests.replace(anchor, new_test + anchor, 1)
+          test_path.write_text(tests, encoding='utf-8')
+          PY
+
+      - name: Format focused files
+        run: dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart
+
+      - name: Run focused regression tests
+        run: |
+          flutter pub get
+          flutter test test/features/teacher_workspace_test.dart
+
+      - name: Commit product changes only
+        shell: bash
+        run: |
+          rm .github/workflows/apply-quick-capture-focus-polish.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Improve Quick Capture student-to-problem flow"
+          git push origin HEAD:ux/quick-capture-focus-polish-20260908
