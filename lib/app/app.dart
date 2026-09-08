@@ -19,9 +19,11 @@ class XueqingApp extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
-      initialRoute: config.showDeveloperTools
-          ? AppRoutes.bootstrap
-          : AppRoutes.teacherWorkspace,
+      // Always start from the root route. The router decides whether that
+      // root renders developer bootstrap tools or the teacher workspace.
+      // Using /teacher-workspace as initialRoute makes Flutter also create
+      // the '/' route beneath it, which duplicates the workspace on startup.
+      initialRoute: AppRoutes.bootstrap,
       onGenerateRoute: router.onGenerateRoute,
     );
   }
