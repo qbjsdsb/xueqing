@@ -49,12 +49,11 @@ jobs:
           grep -q 'default: 0.2.0+4' .github/workflows/publish-release-assets.yml
           grep -q '当前还没有可用的稳定更新。' lib/update/update_service.dart
 
-      - name: Commit product changes only
+      - name: Commit non-workflow product changes
         shell: bash
         run: |
           set -euo pipefail
-          git rm tools/apply_release_readiness_v020.py .github/workflows/apply-release-readiness-v020.yml
-          git add pubspec.yaml lib/config/app_config.dart lib/update/update_service.dart test/update/update_service_test.dart .github/workflows/publish-release-assets.yml docs/RELEASING.md docs/update-manifest.example.json
+          git add pubspec.yaml lib/config/app_config.dart lib/update/update_service.dart test/update/update_service_test.dart docs/RELEASING.md docs/update-manifest.example.json
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git commit -m 'Prepare v0.2.0 stable release baseline'
