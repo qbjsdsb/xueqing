@@ -1,0 +1,45 @@
+name: Apply teacher shell polish
+
+on:
+  push:
+    branches:
+      - ux/teacher-shell-polish-20260908
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply focused shell patch
+        run: python3 .github/scripts/patch_teacher_shell.py
+
+      - name: Format and inspect patch
+        run: |
+          dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart
+          git diff --check
+
+      - name: Commit product-only change
+        run: |
+          rm .github/scripts/patch_teacher_shell.py
+          rm .github/workflows/apply-teacher-shell-polish.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Polish medium-width teacher workspace shell"
+          git push origin HEAD:ux/teacher-shell-polish-20260908
