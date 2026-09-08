@@ -541,9 +541,21 @@ select is(
   'audit history records the admin as the real reopen actor'
 );
 
+-- Persist a real Case id before switching to an unassigned teacher. The write
+-- denial below must prove authorization, not merely fail because RLS hid the id.
+select set_config(
+  'xueqing.test.supervised_case_id',
+  (
+    select id::text
+    from public.learning_cases
+    where title = '监督权限回归：分数应用'
+  ),
+  true
+);
+
 -- A plain teacher in the same organization still needs a real assignment and
 -- teaching scope. Manager supervision must not weaken the teacher boundary.
-select set_config('request.jwt.claim.sub', '2f200000-0000-0000-000000000003', true);
+select set_config('request.jwt.claim.sub', '2f200000-0000-0000-0000-000000000003', true);
 select set_config(
   'request.jwt.claims',
   json_build_object(
@@ -568,7 +580,7 @@ select is(
 select throws_ok(
   $$select public.add_case_evidence(
       '2f700000-0000-0000-0000-000000000009',
-      (select id from public.learning_cases where title = '监督权限回归：分数应用'),
+      current_setting('xueqing.test.supervised_case_id')::uuid,
       7,
       'observation',
       '不应写入',
@@ -576,7 +588,7 @@ select throws_ok(
       '未任课老师不应能补充记录。'
     )$$,
   'P0001',
-  null,
+  'teaching_fact_gate',
   'unassigned teacher still cannot mutate organization learning records'
 );
 
