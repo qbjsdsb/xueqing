@@ -1,5 +1,6 @@
 name: Apply Quick Capture optional Action patch
 
+# One-shot guarded source patch; removed after the product commit lands.
 on:
   push:
     branches:
