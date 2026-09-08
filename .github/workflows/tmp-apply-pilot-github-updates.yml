@@ -1,0 +1,45 @@
+name: Temporary GitHub Pilot update channel
+
+on:
+  push:
+    branches:
+      - feature/pilot-github-update-channel
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feature/pilot-github-update-channel
+          fetch-depth: 0
+      - name: Apply exact update patch
+        run: python tools/tmp_apply_pilot_github_updates.py
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Format
+        run: dart format lib/update/update_service.dart lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/update/update_service_test.dart
+      - name: Analyze
+        run: flutter analyze
+      - name: Update tests
+        run: flutter test test/update/update_service_test.dart test/features/teacher_workspace_test.dart
+      - name: Remove temporary patch machinery
+        run: git rm tools/tmp_apply_pilot_github_updates.py .github/workflows/tmp-apply-pilot-github-updates.yml
+      - name: Commit verified update changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/update/update_service.dart lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/update/update_service_test.dart
+          git diff --cached --quiet && { echo "No verified update diff produced"; exit 1; }
+          git commit -m "feat: update Pilot builds directly from GitHub Releases"
+          git push origin HEAD:feature/pilot-github-update-channel
