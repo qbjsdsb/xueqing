@@ -1,0 +1,40 @@
+name: One-shot teacher error language
+
+on:
+  push:
+    branches:
+      - ux/teacher-error-language
+    paths:
+      - tool/one_shot_teacher_error_language.py
+      - .github/workflows/one-shot-teacher-error-language.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/teacher-error-language
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.1'
+          cache: true
+      - name: Apply focused copy cleanup
+        run: python3 tool/one_shot_teacher_error_language.py
+      - name: Format and focused tests
+        run: |
+          flutter pub get
+          dart format lib/features/teacher_workspace/presentation/progressive_case_forms.dart lib/features/teacher_workspace/presentation/teacher_workspace_page.dart lib/features/teacher_workspace/presentation/evidence_attachment_picker.dart test/features/teacher_workspace_test.dart test/features/evidence_attachment_picker_test.dart
+          flutter test test/features/progressive_case_forms_test.dart test/features/teacher_workspace_test.dart test/features/evidence_attachment_picker_test.dart
+      - name: Remove one-shot files and commit
+        run: |
+          rm tool/one_shot_teacher_error_language.py .github/workflows/one-shot-teacher-error-language.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "UX: use teacher language in recoverable errors"
+          git push origin HEAD:ux/teacher-error-language
