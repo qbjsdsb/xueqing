@@ -7,7 +7,9 @@
 --   * passing NULL for type/title/due date now means "complete only".
 --
 -- This is safe after the progressive Case workflow because an open Case may have
--- zero or one pending primary Action.
+-- zero or one pending primary Action. A new Case may also legitimately have a
+-- pending reminder created by an older client or compatibility path; finishing
+-- that reminder does not imply the Case has been confirmed.
 
 create or replace function private.complete_case_action_v2(
   p_operation_id uuid,
@@ -166,6 +168,7 @@ begin
   end if;
 
   if case_status not in (
+    'new',
     'confirmed',
     'intervening',
     'pending_verification',
