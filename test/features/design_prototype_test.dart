@@ -59,10 +59,7 @@ void main() {
     expect(find.text('已逾期'), findsOneWidget);
     expect(find.text('今天到期'), findsOneWidget);
     expect(find.text('之后要处理'), findsOneWidget);
-    expect(
-      find.byKey(const Key('pending-verification-section')),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('pending-verification-section')), findsNothing);
     expect(find.byKey(const Key('undated-actions-section')), findsNothing);
     expect(
       find.descendant(of: future, matching: find.text(pendingReminder)),
@@ -96,58 +93,58 @@ void main() {
     expect(newCase.primaryAction, isNull);
   });
 
-  testWidgets('navigates Student to problem detail without legacy state commands', (
-    tester,
-  ) async {
-    addTearDown(() => _resetView(tester));
-    final semanticsHandle = tester.ensureSemantics();
-    await _pumpPreview(tester, const Size(390, 844));
-    const caseTitle = '异分母比较时把分子分母直接相加';
+  testWidgets(
+    'navigates Student to problem detail without legacy state commands',
+    (tester) async {
+      addTearDown(() => _resetView(tester));
+      final semanticsHandle = tester.ensureSemantics();
+      await _pumpPreview(tester, const Size(390, 844));
+      const caseTitle = '异分母比较时把分子分母直接相加';
 
-    expect(find.bySemanticsLabel('打开 $caseTitle 的 Case 详情'), findsNothing);
-    expect(
-      find.bySemanticsLabel('问题信息：示例学生甲 · $caseTitle'),
-      findsOneWidget,
-    );
+      expect(find.bySemanticsLabel('打开 $caseTitle 的 Case 详情'), findsNothing);
+      expect(find.bySemanticsLabel('问题信息：示例学生甲 · $caseTitle'), findsOneWidget);
 
-    final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
-    await tester.ensureVisible(studentRow);
-    await tester.tap(studentRow);
-    await tester.pumpAndSettle();
-    expect(find.text('现在最重要的事'), findsOneWidget);
-    expect(find.text('全部问题'), findsOneWidget);
+      final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
+      await tester.ensureVisible(studentRow);
+      await tester.tap(studentRow);
+      await tester.pumpAndSettle();
+      expect(find.text('现在最重要的事'), findsOneWidget);
+      expect(find.text('全部问题'), findsOneWidget);
 
-    final viewProblemButton = find.widgetWithText(OutlinedButton, '查看问题').first;
-    expect(
-      tester
-          .getSemantics(viewProblemButton)
-          .getSemanticsData()
-          .hasAction(SemanticsAction.tap),
-      isTrue,
-    );
-    await tester.ensureVisible(viewProblemButton);
-    await tester.tap(viewProblemButton);
-    await tester.pumpAndSettle();
+      final viewProblemButton = find
+          .widgetWithText(OutlinedButton, '查看问题')
+          .first;
+      expect(
+        tester
+            .getSemantics(viewProblemButton)
+            .getSemanticsData()
+            .hasAction(SemanticsAction.tap),
+        isTrue,
+      );
+      await tester.ensureVisible(viewProblemButton);
+      await tester.tap(viewProblemButton);
+      await tester.pumpAndSettle();
 
-    expect(find.text('检查结果'), findsOneWidget);
-    expect(find.text('继续关注'), findsOneWidget);
-    expect(find.text('确认稳定'), findsNothing);
-    expect(find.text('安排下一次检查'), findsNothing);
-    expect(find.widgetWithText(FilledButton, '处理'), findsOneWidget);
+      expect(find.text('检查结果'), findsOneWidget);
+      expect(find.text('继续关注'), findsOneWidget);
+      expect(find.text('确认稳定'), findsNothing);
+      expect(find.text('安排下一次检查'), findsNothing);
+      expect(find.widgetWithText(FilledButton, '处理'), findsOneWidget);
 
-    final handleButton = find.widgetWithText(FilledButton, '处理');
-    await tester.ensureVisible(handleButton);
-    await tester.tap(handleButton);
-    await tester.pumpAndSettle();
-    expect(find.text('处理 入口已定义；当前预览不会写入业务数据。'), findsOneWidget);
+      final handleButton = find.widgetWithText(FilledButton, '处理');
+      await tester.ensureVisible(handleButton);
+      await tester.tap(handleButton);
+      await tester.pumpAndSettle();
+      expect(find.text('处理 入口已定义；当前预览不会写入业务数据。'), findsOneWidget);
 
-    final backButton = find.byTooltip('返回学生详情');
-    await tester.ensureVisible(backButton);
-    await tester.tap(backButton);
-    await tester.pumpAndSettle();
-    expect(find.text('全部问题'), findsOneWidget);
-    semanticsHandle.dispose();
-  });
+      final backButton = find.byTooltip('返回学生详情');
+      await tester.ensureVisible(backButton);
+      await tester.tap(backButton);
+      await tester.pumpAndSettle();
+      expect(find.text('全部问题'), findsOneWidget);
+      semanticsHandle.dispose();
+    },
+  );
 
   testWidgets('uses compact navigation and expanded navigation rail', (
     tester,
@@ -208,10 +205,7 @@ void main() {
     await tester.tap(filteredStudent);
     await tester.pumpAndSettle();
 
-    expect(
-      find.bySemanticsLabel('问题信息：示例学生甲 · 记录一个新的课堂问题'),
-      findsWidgets,
-    );
+    expect(find.bySemanticsLabel('问题信息：示例学生甲 · 记录一个新的课堂问题'), findsWidgets);
     expect(find.text('新记录'), findsWidgets);
     expect(find.text('当前没有设置提醒'), findsWidgets);
     expect(find.textContaining('补充一条题目或课堂证据后再整理'), findsNothing);
@@ -220,24 +214,28 @@ void main() {
     expect(find.text('记录一个新的课堂问题'), findsNothing);
   });
 
-  testWidgets('student-context Quick Capture does not ask for the student again', (
-    tester,
-  ) async {
-    addTearDown(() => _resetView(tester));
-    await _pumpPreview(tester, const Size(390, 844));
+  testWidgets(
+    'student-context Quick Capture does not ask for the student again',
+    (tester) async {
+      addTearDown(() => _resetView(tester));
+      await _pumpPreview(tester, const Size(390, 844));
 
-    final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
-    await tester.ensureVisible(studentRow);
-    await tester.tap(studentRow);
-    await tester.pumpAndSettle();
+      final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
+      await tester.ensureVisible(studentRow);
+      await tester.tap(studentRow);
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, '记录问题').first);
-    await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '记录问题').first);
+      await tester.pumpAndSettle();
 
-    expect(find.byType(DropdownButtonFormField<PrototypeStudent>), findsNothing);
-    expect(find.text('示例学生甲 · 数学'), findsOneWidget);
-    expect(find.text('今天发现什么？ *'), findsOneWidget);
-  });
+      expect(
+        find.byType(DropdownButtonFormField<PrototypeStudent>),
+        findsNothing,
+      );
+      expect(find.text('示例学生甲 · 数学'), findsOneWidget);
+      expect(find.text('今天发现什么？ *'), findsOneWidget);
+    },
+  );
 
   testWidgets('keeps a draft visible for the current preview session', (
     tester,
