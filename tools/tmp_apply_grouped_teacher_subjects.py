@@ -8,63 +8,21 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
-def remove_container_with_marker(text: str, marker: str) -> str:
-    marker_index = text.index(marker)
-    start = text.rfind('Container(', 0, marker_index)
-    if start < 0:
-        raise SystemExit('development banner: Container start not found')
-    # Keep indentation so the whole list item disappears cleanly.
-    line_start = text.rfind('\n', 0, start) + 1
-    prefix = text[line_start:start]
-    if prefix.strip():
-        line_start = start
-    depth = 0
-    quote = None
-    escape = False
-    end = None
-    for i in range(start, len(text)):
-        ch = text[i]
-        if quote is not None:
-            if escape:
-                escape = False
-                continue
-            if ch == '\\':
-                escape = True
-                continue
-            if ch == quote:
-                quote = None
-            continue
-        if ch in ('\"', "'"):
-            quote = ch
-            continue
-        if ch == '(':
-            depth += 1
-        elif ch == ')':
-            depth -= 1
-            if depth == 0:
-                end = i + 1
-                break
-    if end is None:
-        raise SystemExit('development banner: Container end not found')
-    j = end
-    while j < len(text) and text[j] in ' \t':
-        j += 1
-    if j < len(text) and text[j] == ',':
-        j += 1
-    if j < len(text) and text[j] == '\n':
-        j += 1
-    removed = text[line_start:j]
-    if marker not in removed or 'Icons.shield_outlined' not in removed:
-        raise SystemExit('development banner: safety check failed')
-    return text[:line_start] + text[j:]
-
-
 workspace = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
 text = workspace.read_text()
-text = remove_container_with_marker(
-    text,
-    '开发环境虚构资料 · 只显示当前权限范围 · 保存会写入开发数据库',
-)
+usage = "        const _WorkspaceBoundaryBanner(),\n        const SizedBox(height: AppSpacing.lg),\n"
+usage_count = text.count(usage)
+if usage_count != 2:
+    raise SystemExit(f'workspace banner usages: expected 2, got {usage_count}')
+text = text.replace(usage, '')
+class_start = text.find('class _WorkspaceBoundaryBanner extends StatelessWidget {\n')
+class_end = text.find('class _WorkspaceContextLine extends StatelessWidget {\n', class_start)
+if class_start < 0 or class_end < 0:
+    raise SystemExit('workspace banner class anchors not found')
+removed_class = text[class_start:class_end]
+if '开发环境虚构资料 · 只显示当前权限范围 · 保存会写入开发数据库' not in removed_class:
+    raise SystemExit('workspace banner class safety marker missing')
+text = text[:class_start] + text[class_end:]
 workspace.write_text(text)
 
 areas = Path('lib/features/organization_management/presentation/organization_management_areas.dart')
