@@ -484,6 +484,7 @@ Future<void> _pumpWorkspace(
   _FakeLearningRepository repository, {
   CaseReopenDraftStore? draftStore,
   String? sessionUserId,
+  VoidCallback? onSignOut,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -493,6 +494,7 @@ Future<void> _pumpWorkspace(
         repository: repository,
         caseReopenDraftStore: draftStore,
         sessionUserId: sessionUserId,
+        onSignOut: onSignOut,
       ),
     ),
   );
@@ -500,6 +502,26 @@ Future<void> _pumpWorkspace(
 }
 
 void main() {
+  testWidgets('medium-width rail keeps labels and sign out reachable', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    var signOutCount = 0;
+    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    await _pumpWorkspace(tester, repository, onSignOut: () => signOutCount++);
+
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+    expect(rail.extended, isFalse);
+    expect(rail.labelType, NavigationRailLabelType.all);
+    expect(find.byKey(const Key('workspace-rail-sign-out')), findsOneWidget);
+    expect(find.text('开发数据'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('workspace-rail-sign-out')));
+    expect(signOutCount, 1);
+  });
+
   testWidgets('loads the real workspace shape and keeps Case status separate', (
     tester,
   ) async {
