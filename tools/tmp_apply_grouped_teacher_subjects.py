@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -10,11 +11,13 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 workspace = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
 text = workspace.read_text()
-usage = "        const _WorkspaceBoundaryBanner(),\n        const SizedBox(height: AppSpacing.lg),\n"
-usage_count = text.count(usage)
+text, usage_count = re.subn(
+    r'(?m)^\s*const _WorkspaceBoundaryBanner\(\),\n\s*const SizedBox\(height: AppSpacing\.lg\),\n',
+    '',
+    text,
+)
 if usage_count != 2:
     raise SystemExit(f'workspace banner usages: expected 2, got {usage_count}')
-text = text.replace(usage, '')
 class_start = text.find('class _WorkspaceBoundaryBanner extends StatelessWidget {\n')
 class_end = text.find('class _WorkspaceContextLine extends StatelessWidget {\n', class_start)
 if class_start < 0 or class_end < 0:
