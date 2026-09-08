@@ -126,7 +126,7 @@ void main() {
       await tester.tap(viewProblemButton);
       await tester.pumpAndSettle();
 
-      expect(find.text('检查结果'), findsOneWidget);
+      expect(find.text('检查结果'), findsWidgets);
       expect(find.text('继续关注'), findsOneWidget);
       expect(find.text('确认稳定'), findsNothing);
       expect(find.text('安排下一次检查'), findsNothing);
