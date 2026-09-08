@@ -1414,6 +1414,14 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final future = _actionsInBucket(actions, WorkspaceActionBucket.future);
     final undated = _actionsInBucket(actions, WorkspaceActionBucket.undated);
     final recentStudents = _studentsByRecentActivity(workspace.students);
+    final hasScheduledWork = overdue.isNotEmpty || today.isNotEmpty;
+    final hasImmediateWork =
+        hasScheduledWork ||
+        pendingVerification.isNotEmpty ||
+        undated.isNotEmpty;
+    final hasBlockBeforeFuture =
+        hasScheduledWork || !hasImmediateWork || pendingVerification.isNotEmpty;
+    final hasBlockBeforeUndated = hasBlockBeforeFuture || future.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1429,13 +1437,15 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             ),
           ],
         ),
-        if (overdue.isEmpty && today.isEmpty)
-          const _WorkspaceStateNotice(
-            title: '今天没有已安排的行动',
-            message: '可以回看最近学生，或在课堂中先记录一句问题。',
+        if (!hasScheduledWork && !hasImmediateWork)
+          _WorkspaceStateNotice(
+            title: '今天暂时没有需要处理的事项',
+            message: recentStudents.isEmpty
+                ? '新的任课学生或需要跟进的问题会出现在这里。'
+                : '可以回看最近学生，或在课堂中先记录一句问题。',
             icon: Icons.check_circle_outline,
           )
-        else
+        else if (hasScheduledWork)
           _WorkspaceSection(
             key: const Key('workspace-today-work-section'),
             title: '今天的工作',
@@ -1462,54 +1472,50 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               ],
             ),
           ),
-        const SizedBox(height: AppSpacing.lg),
-        _WorkspaceSection(
-          key: const Key('workspace-pending-verification-section'),
-          title: '待验证',
-          count: '${pendingVerification.length} 个问题',
-          showTopDivider: true,
-          action: pendingVerification.length > _todayPreviewLimit
-              ? TextButton(
-                  key: const Key('workspace-pending-verification-toggle'),
-                  onPressed: () => setState(
-                    () => _showAllPendingVerification =
-                        !_showAllPendingVerification,
-                  ),
-                  child: AnimatedSwitcher(
-                    duration: AppMotion.effectiveDuration(
-                      context,
-                      AppMotion.quick,
+        if (pendingVerification.isNotEmpty) ...[
+          if (hasScheduledWork || !hasImmediateWork)
+            const SizedBox(height: AppSpacing.lg),
+          _WorkspaceSection(
+            key: const Key('workspace-pending-verification-section'),
+            title: '待验证',
+            count: '${pendingVerification.length} 个问题',
+            showTopDivider: true,
+            action: pendingVerification.length > _todayPreviewLimit
+                ? TextButton(
+                    key: const Key('workspace-pending-verification-toggle'),
+                    onPressed: () => setState(
+                      () => _showAllPendingVerification =
+                          !_showAllPendingVerification,
                     ),
-                    child: Text(
-                      _showAllPendingVerification ? '收起' : '查看全部',
-                      key: ValueKey<bool>(_showAllPendingVerification),
-                    ),
-                  ),
-                )
-              : null,
-          child: pendingVerification.isEmpty
-              ? const _WorkspaceStateNotice(
-                  title: '还没有待验证事项',
-                  message: '完成一次检查后，在这里确认是否稳定。',
-                  icon: Icons.fact_check_outlined,
-                )
-              : Column(
-                  children: [
-                    for (final item
-                        in (_showAllPendingVerification
-                            ? pendingVerification
-                            : pendingVerification.take(_todayPreviewLimit)))
-                      _WorkspaceCaseRow(
-                        student: item.student,
-                        learningCase: item.learningCase,
-                        onOpen: () =>
-                            _openCase(item.student, item.learningCase),
+                    child: AnimatedSwitcher(
+                      duration: AppMotion.effectiveDuration(
+                        context,
+                        AppMotion.quick,
                       ),
-                  ],
-                ),
-        ),
+                      child: Text(
+                        _showAllPendingVerification ? '收起' : '查看全部',
+                        key: ValueKey<bool>(_showAllPendingVerification),
+                      ),
+                    ),
+                  )
+                : null,
+            child: Column(
+              children: [
+                for (final item
+                    in (_showAllPendingVerification
+                        ? pendingVerification
+                        : pendingVerification.take(_todayPreviewLimit)))
+                  _WorkspaceCaseRow(
+                    student: item.student,
+                    learningCase: item.learningCase,
+                    onOpen: () => _openCase(item.student, item.learningCase),
+                  ),
+              ],
+            ),
+          ),
+        ],
         if (future.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.lg),
+          if (hasBlockBeforeFuture) const SizedBox(height: AppSpacing.lg),
           _WorkspaceSection(
             key: const Key('workspace-future-actions-section'),
             title: '之后要处理',
@@ -1543,63 +1549,61 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             ),
           ),
         ],
-        const SizedBox(height: AppSpacing.lg),
-        _WorkspaceSection(
-          key: const Key('workspace-undated-actions-section'),
-          title: '待安排',
-          count: '${undated.length} 项',
-          showTopDivider: true,
-          action: undated.length > _todayPreviewLimit
-              ? TextButton(
-                  key: const Key('workspace-undated-actions-toggle'),
-                  onPressed: () => setState(
-                    () => _showAllUndatedActions = !_showAllUndatedActions,
-                  ),
-                  child: AnimatedSwitcher(
-                    duration: AppMotion.effectiveDuration(
-                      context,
-                      AppMotion.quick,
+        if (undated.isNotEmpty) ...[
+          if (hasBlockBeforeUndated) const SizedBox(height: AppSpacing.lg),
+          _WorkspaceSection(
+            key: const Key('workspace-undated-actions-section'),
+            title: '待安排',
+            count: '${undated.length} 项',
+            showTopDivider: true,
+            action: undated.length > _todayPreviewLimit
+                ? TextButton(
+                    key: const Key('workspace-undated-actions-toggle'),
+                    onPressed: () => setState(
+                      () => _showAllUndatedActions = !_showAllUndatedActions,
                     ),
-                    child: Text(
-                      _showAllUndatedActions ? '收起' : '查看全部',
-                      key: ValueKey<bool>(_showAllUndatedActions),
+                    child: AnimatedSwitcher(
+                      duration: AppMotion.effectiveDuration(
+                        context,
+                        AppMotion.quick,
+                      ),
+                      child: Text(
+                        _showAllUndatedActions ? '收起' : '查看全部',
+                        key: ValueKey<bool>(_showAllUndatedActions),
+                      ),
                     ),
-                  ),
-                )
-              : null,
-          child: undated.isEmpty
-              ? const _WorkspaceStateNotice(
-                  title: '没有待安排的行动',
-                  message: '需要跟进但尚未设定日期的行动会一直保留在这里。',
-                  icon: Icons.event_available_outlined,
-                )
-              : Column(
-                  children: _buildActionRows(
-                    _showAllUndatedActions
-                        ? undated
-                        : undated.take(_todayPreviewLimit).toList(),
-                    workspace,
-                  ),
-                ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        _WorkspaceSection(
-          title: '最近学生',
-          showTopDivider: true,
-          action: TextButton(
-            onPressed: () => _selectDestination(1),
-            child: const Text('查看全部'),
+                  )
+                : null,
+            child: Column(
+              children: _buildActionRows(
+                _showAllUndatedActions
+                    ? undated
+                    : undated.take(_todayPreviewLimit).toList(),
+                workspace,
+              ),
+            ),
           ),
-          child: Column(
-            children: [
-              for (final student in recentStudents.take(5))
-                _WorkspaceStudentRow(
-                  student: student,
-                  onOpen: () => _openStudent(student),
-                ),
-            ],
+        ],
+        if (recentStudents.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          _WorkspaceSection(
+            title: '最近学生',
+            showTopDivider: true,
+            action: TextButton(
+              onPressed: () => _selectDestination(1),
+              child: const Text('查看全部'),
+            ),
+            child: Column(
+              children: [
+                for (final student in recentStudents.take(5))
+                  _WorkspaceStudentRow(
+                    student: student,
+                    onOpen: () => _openStudent(student),
+                  ),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
