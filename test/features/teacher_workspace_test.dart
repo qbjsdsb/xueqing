@@ -648,7 +648,7 @@ void main() {
     expect(find.text('分数步骤需要继续观察'), findsOneWidget);
     expect(find.text('待整理问题'), findsOneWidget);
     expect(find.text('待整理'), findsOneWidget);
-    expect(find.text('尚未记录教学动作。'), findsOneWidget);
+    expect(find.text('尚未记录教学处理。'), findsOneWidget);
   });
 
   testWidgets(
@@ -714,7 +714,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('历史记录 4'), findsOneWidget);
       expect(find.text('历史记录 5'), findsOneWidget);
-      expect(find.text('收起历史'), findsOneWidget);
+      expect(find.text('收起记录'), findsOneWidget);
 
       final backButton = find.byTooltip('返回学生详情');
       await tester.ensureVisible(backButton);
@@ -727,7 +727,7 @@ void main() {
       await tester.tap(reopenCaseButton);
       await tester.pumpAndSettle();
       expect(find.text('历史记录 4'), findsNothing);
-      expect(find.text('展开历史'), findsOneWidget);
+      expect(find.text('查看更早记录'), findsOneWidget);
     },
   );
 
