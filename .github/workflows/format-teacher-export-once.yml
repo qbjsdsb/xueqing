@@ -1,0 +1,48 @@
+name: One-shot teacher export formatter
+
+on:
+  push:
+    branches:
+      - feature/teacher-record-export
+    paths:
+      - .github/workflows/format-teacher-export-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/teacher-record-export
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+      - name: Apply repository Dart formatting
+        run: |
+          dart format \
+            lib/cloud/teacher_learning_record_repository.dart \
+            lib/features/organization_management/presentation/organization_management_learning_actions.dart \
+            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
+            test/cloud/teacher_learning_record_export_sql_contract_test.dart \
+            test/export/teacher_learning_record_export_test.dart
+      - name: Commit formatted files
+        run: |
+          if git diff --quiet; then
+            echo 'No formatting changes required.'
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/cloud/teacher_learning_record_repository.dart \
+            lib/features/organization_management/presentation/organization_management_learning_actions.dart \
+            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
+            test/cloud/teacher_learning_record_export_sql_contract_test.dart \
+            test/export/teacher_learning_record_export_test.dart
+          git commit -m "style: format teacher learning record export"
+          git push origin HEAD:feature/teacher-record-export
