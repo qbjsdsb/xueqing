@@ -350,8 +350,8 @@ class QuickCaptureCommand {
     required this.description,
     required this.observedAt,
     required this.evidenceSummary,
-    required this.nextActionTitle,
-    required this.nextActionDueAt,
+    this.nextActionTitle,
+    this.nextActionDueAt,
     this.organizationCaseTypeId,
   });
 
@@ -364,7 +364,7 @@ class QuickCaptureCommand {
   final String? description;
   final DateTime observedAt;
   final String evidenceSummary;
-  final String nextActionTitle;
+  final String? nextActionTitle;
   final DateTime? nextActionDueAt;
 
   void validate() {
@@ -383,8 +383,15 @@ class QuickCaptureCommand {
     if (evidenceSummary.trim().isEmpty) {
       throw ArgumentError('evidenceSummary cannot be empty.');
     }
-    if (nextActionTitle.trim().isEmpty) {
-      throw ArgumentError('nextActionTitle cannot be empty.');
+    final normalizedNextActionTitle = nextActionTitle?.trim();
+    if (normalizedNextActionTitle != null &&
+        normalizedNextActionTitle.isEmpty) {
+      throw ArgumentError('nextActionTitle cannot be blank.');
+    }
+    if (normalizedNextActionTitle == null && nextActionDueAt != null) {
+      throw ArgumentError(
+        'nextActionDueAt requires an explicit nextActionTitle.',
+      );
     }
     if (organizationCaseTypeId != null &&
         organizationCaseTypeId!.trim().isEmpty) {
@@ -398,7 +405,7 @@ class QuickCaptureReceipt {
     required this.operationId,
     required this.caseId,
     required this.evidenceId,
-    required this.actionId,
+    this.actionId,
     required this.status,
     required this.caseVersion,
   });
@@ -406,7 +413,7 @@ class QuickCaptureReceipt {
   final String operationId;
   final String caseId;
   final String evidenceId;
-  final String actionId;
+  final String? actionId;
   final String status;
   final int caseVersion;
 
@@ -414,7 +421,7 @@ class QuickCaptureReceipt {
     final operationId = _requiredString(json['operation_id'], 'operation_id');
     final caseId = _requiredString(json['case_id'], 'case_id');
     final evidenceId = _requiredString(json['evidence_id'], 'evidence_id');
-    final actionId = _requiredString(json['action_id'], 'action_id');
+    final actionId = _stringValue(json['action_id']);
     return QuickCaptureReceipt(
       operationId: operationId,
       caseId: caseId,
@@ -1230,7 +1237,7 @@ class SupabaseLearningRepository implements LearningRepository {
       'p_description': command.description?.trim(),
       'p_observed_at': command.observedAt.toUtc().toIso8601String(),
       'p_evidence_summary': command.evidenceSummary.trim(),
-      'p_next_action_title': command.nextActionTitle.trim(),
+      'p_next_action_title': command.nextActionTitle?.trim(),
       'p_next_action_due_at': command.nextActionDueAt
           ?.toUtc()
           .toIso8601String(),

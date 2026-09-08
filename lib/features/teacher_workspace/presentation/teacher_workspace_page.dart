@@ -3622,8 +3622,6 @@ class _WorkspaceQuickCaptureFormState
           description: _evidenceController.text.trim(),
           observedAt: DateTime.now(),
           evidenceSummary: _evidenceController.text.trim(),
-          nextActionTitle: '补充证据并确认下一步',
-          nextActionDueAt: null,
         ),
       );
       final attachment = _selectedAttachment;
