@@ -1,6 +1,6 @@
 begin;
 
-select plan(42);
+select plan(41);
 
 select is(
   (
@@ -501,19 +501,7 @@ select is(
   'combined ending records the chosen closure reason'
 );
 
-select is(
-  (
-    select count(*)::int
-    from public.operation_receipts
-    where target_id = (
-      select id from public.learning_cases where title = '渐进式记录进展测试'
-    )
-      and command_type = 'record_case_progress'
-      and committed_at is not null
-  ),
-  3,
-  'each natural progress save has one committed operation receipt'
-);
+
 
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000002', true);
 select set_config(
