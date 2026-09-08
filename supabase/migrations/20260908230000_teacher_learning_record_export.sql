@@ -5,8 +5,11 @@
 -- historical owner. Rows are attributed to the membership that actually
 -- created / performed / assessed each teaching fact, so handoff does not
 -- rewrite history.
+--
+-- The privileged implementation stays in private. The public API is only a
+-- thin SECURITY INVOKER wrapper, matching the repository-wide RPC boundary.
 
-create or replace function public.list_teacher_learning_records(
+create or replace function private.list_teacher_learning_records(
   p_organization_id uuid,
   p_membership_id uuid,
   p_limit integer default 500,
@@ -268,14 +271,58 @@ begin
 end
 $function$;
 
+revoke all on function private.list_teacher_learning_records(
+  uuid, uuid, integer, integer
+) from public, anon, authenticated, service_role;
+grant execute on function private.list_teacher_learning_records(
+  uuid, uuid, integer, integer
+) to authenticated, service_role;
+
+create or replace function public.list_teacher_learning_records(
+  p_organization_id uuid,
+  p_membership_id uuid,
+  p_limit integer default 500,
+  p_offset integer default 0
+)
+returns table (
+  record_id uuid,
+  occurred_at timestamptz,
+  student_name text,
+  subject_name text,
+  issue_title text,
+  record_kind text,
+  content text,
+  assessment_result text,
+  attachment_count integer,
+  current_status text
+)
+language sql
+stable
+security invoker
+set search_path = ''
+as $function$
+  select *
+  from private.list_teacher_learning_records(
+    p_organization_id,
+    p_membership_id,
+    p_limit,
+    p_offset
+  )
+$function$;
+
 revoke all on function public.list_teacher_learning_records(
   uuid, uuid, integer, integer
-) from public, anon;
+) from public, anon, authenticated, service_role;
 grant execute on function public.list_teacher_learning_records(
   uuid, uuid, integer, integer
 ) to authenticated;
 
+comment on function private.list_teacher_learning_records(
+  uuid, uuid, integer, integer
+) is
+  'Privileged manager-only paged teaching-fact export projection attributed to the membership that actually created, performed, or assessed each record; current assignment does not rewrite history.';
+
 comment on function public.list_teacher_learning_records(
   uuid, uuid, integer, integer
 ) is
-  'Manager-only paged teaching-fact export projection attributed to the membership that actually created, performed, or assessed each record; current assignment does not rewrite history.';
+  'SECURITY INVOKER API wrapper for the private teacher learning-record export implementation.';
