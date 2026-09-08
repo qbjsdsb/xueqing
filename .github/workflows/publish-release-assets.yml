@@ -9,10 +9,10 @@ on:
         type: string
         default: v0.2.0
       app_version:
-        description: "Stable semantic app version including Android build, for example 0.2.0+2"
+        description: "Stable semantic app version including Android build, for example 0.2.0+4"
         required: true
         type: string
-        default: 0.2.0+2
+        default: 0.2.0+4
       release_notes:
         description: "One update note per line; optional"
         required: false
