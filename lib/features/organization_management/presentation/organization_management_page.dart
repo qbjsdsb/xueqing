@@ -1,12 +1,15 @@
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/layout/responsive.dart';
 import '../../../app/theme/app_spacing.dart';
+import '../../../cloud/learning_export_repository.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/organization_member_provisioning_repository.dart';
+import '../../../export/learning_history_export.dart';
 import 'organization_student_edit_dialog.dart';
 import 'organization_student_setup_dialog.dart';
 import 'organization_student_subject_restore_dialog.dart';
@@ -23,6 +26,7 @@ part 'organization_management_layout.dart';
 part 'organization_management_rows.dart';
 part 'organization_management_dialogs.dart';
 part 'organization_management_helpers.dart';
+part 'organization_learning_export_dialog.dart';
 
 class OrganizationManagementPage extends StatefulWidget {
   const OrganizationManagementPage({
@@ -34,6 +38,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.onOpenCaseTypes,
     this.onChanged,
     this.provisioningRepository,
+    this.learningExportRepository,
     super.key,
   });
 
@@ -45,6 +50,7 @@ class OrganizationManagementPage extends StatefulWidget {
   final VoidCallback? onOpenCaseTypes;
   final VoidCallback? onChanged;
   final OrganizationMemberProvisioningRepository? provisioningRepository;
+  final LearningExportRepository? learningExportRepository;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -56,6 +62,21 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
         _OrganizationManagementCore,
         _OrganizationManagementLearningActions,
         _OrganizationManagementMemberActions {
+  Future<void> _showLearningExport(
+    _OrganizationManagementSnapshot snapshot,
+  ) async {
+    final repository = widget.learningExportRepository;
+    if (repository == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _OrganizationLearningExportDialog(
+        organizationId: widget.organizationId,
+        snapshot: snapshot,
+        repository: repository,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ResponsiveLayout(
@@ -97,6 +118,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                   if (snapshotState.hasError || !snapshotState.hasData) {
                     return _ManagementErrorState(onRetry: _retryLoad);
                   }
+                  final snapshot = snapshotState.data!;
                   final hasProvisioningRepository =
                       widget.provisioningRepository != null;
                   final canManageMemberAccounts =
@@ -117,8 +139,22 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                             ? const LinearProgressIndicator(minHeight: 2)
                             : null,
                       ),
+                      if (widget.learningExportRepository != null) ...[
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton.icon(
+                            key: const Key('management-export-learning-history'),
+                            onPressed: _busy
+                                ? null
+                                : () => _showLearningExport(snapshot),
+                            icon: const Icon(Icons.download_outlined, size: 18),
+                            label: const Text('导出记录'),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                      ],
                       _ManagementOverview(
-                        snapshot: snapshotState.data!,
+                        snapshot: snapshot,
                         isOwner: _isOwner,
                         busy: _busy,
                         canInvite: _inviteRoles.isNotEmpty,
