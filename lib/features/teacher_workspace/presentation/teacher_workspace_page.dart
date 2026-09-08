@@ -1751,13 +1751,23 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               ],
             ),
             TextField(
+              key: const Key('workspace-student-search'),
               controller: _studentSearchController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: '搜索学生或学情',
                 hintText: '输入姓名、学科或问题关键词',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _studentSearchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        key: const Key('workspace-student-search-clear'),
+                        tooltip: '清空搜索',
+                        onPressed: _studentSearchController.clear,
+                        icon: const Icon(Icons.close),
+                      ),
               ),
               textInputAction: TextInputAction.search,
+              onSubmitted: (_) => FocusScope.of(context).unfocus(),
             ),
             const SizedBox(height: AppSpacing.lg),
             if (students.isEmpty)
