@@ -730,6 +730,73 @@ void main() {
     },
   );
 
+  testWidgets('pending verification is treated as real Today work', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.pendingVerification),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    expect(find.text('今天暂时没有需要处理的事项'), findsNothing);
+    expect(find.text('今天没有已安排的行动'), findsNothing);
+    expect(
+      find.byKey(const Key('workspace-pending-verification-section')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('workspace-undated-actions-section')),
+      findsNothing,
+    );
+    expect(find.text('分数步骤需要继续观察'), findsOneWidget);
+  });
+
+  testWidgets(
+    'quiet Today uses one useful empty state and hides empty sections',
+    (tester) async {
+      final repository = _FakeLearningRepository(
+        _workspaceWithStudents([
+          _studentFixture(id: 'quiet', name: '安静学生', cases: const []),
+        ]),
+      );
+      await _pumpWorkspace(tester, repository);
+
+      expect(find.text('今天暂时没有需要处理的事项'), findsOneWidget);
+      expect(find.text('可以回看最近学生，或在课堂中先记录一句问题。'), findsOneWidget);
+      expect(
+        find.byKey(const Key('workspace-pending-verification-section')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('workspace-undated-actions-section')),
+        findsNothing,
+      );
+      expect(find.text('最近学生'), findsOneWidget);
+      expect(find.text('安静学生'), findsOneWidget);
+    },
+  );
+
+  testWidgets('empty assignment Today does not render a blank recent section', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _workspaceWithStudents(const []),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    expect(find.text('今天暂时没有需要处理的事项'), findsOneWidget);
+    expect(find.text('新的任课学生或需要跟进的问题会出现在这里。'), findsOneWidget);
+    expect(find.text('最近学生'), findsNothing);
+    expect(
+      find.byKey(const Key('workspace-pending-verification-section')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('workspace-undated-actions-section')),
+      findsNothing,
+    );
+  });
+
   testWidgets(
     'bounds lower-priority Today sections until explicitly expanded',
     (tester) async {
