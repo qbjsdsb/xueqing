@@ -27,7 +27,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Apply exact patch
+      - name: Apply exact patch preserving Dart escapes
         run: python .github/scripts/run_patch_action_completion.py
 
       - name: Format and run focused tests
