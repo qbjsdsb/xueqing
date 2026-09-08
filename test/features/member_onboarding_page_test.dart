@@ -56,7 +56,10 @@ class _FakeLifecycleRepository
 }
 
 bool _isObscured(WidgetTester tester, Finder field) {
-  final editable = find.descendant(of: field, matching: find.byType(EditableText));
+  final editable = find.descendant(
+    of: field,
+    matching: find.byType(EditableText),
+  );
   return tester.widget<EditableText>(editable).obscureText;
 }
 
