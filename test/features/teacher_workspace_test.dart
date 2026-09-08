@@ -2,11 +2,47 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:xueqing/app/theme/app_theme.dart';
+import 'package:xueqing/cloud/auth_repository.dart';
 import 'package:xueqing/cloud/case_reopen_draft_store.dart';
 import 'package:xueqing/cloud/learning_repository.dart';
+import 'package:xueqing/config/app_config.dart';
 import 'package:xueqing/features/teacher_workspace/presentation/'
     'teacher_workspace_page.dart';
+
+class _FakeLoginAuthRepository implements AuthRepository {
+  int signInCount = 0;
+  String? lastEmail;
+  String? lastPassword;
+
+  @override
+  User? get currentUser => null;
+
+  @override
+  Stream<AuthState> get authStateChanges => const Stream<AuthState>.empty();
+
+  @override
+  Future<void> signIn({required String email, required String password}) async {
+    signInCount++;
+    lastEmail = email;
+    lastPassword = password;
+  }
+
+  @override
+  Future<void> signOut({bool global = true}) async {}
+
+  @override
+  Future<void> updatePassword({required String password}) async {}
+}
+
+bool _isLoginPasswordObscured(WidgetTester tester) {
+  final editable = find.descendant(
+    of: find.byKey(const Key('workspace-login-password')),
+    matching: find.byType(EditableText),
+  );
+  return tester.widget<EditableText>(editable).obscureText;
+}
 
 class _FakeLearningRepository implements LearningRepository {
   _FakeLearningRepository(this.workspace);
@@ -502,6 +538,70 @@ Future<void> _pumpWorkspace(
 }
 
 void main() {
+  testWidgets('login form supports reveal, next, and done keyboard flow', (
+    tester,
+  ) async {
+    final authRepository = _FakeLoginAuthRepository();
+    final learningRepository = _FakeLearningRepository(_fixtureWorkspace());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: TeacherWorkspaceEntryPage(
+          config: AppConfig.fromValues(
+            environmentValue: 'development',
+            appVersion: '0.2.0+2',
+          ),
+          authRepository: authRepository,
+          learningRepository: learningRepository,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final emailField = find.byKey(const Key('workspace-login-email'));
+    final passwordField = find.byKey(const Key('workspace-login-password'));
+    expect(emailField, findsOneWidget);
+    expect(passwordField, findsOneWidget);
+    expect(_isLoginPasswordObscured(tester), isTrue);
+
+    final emailEditable = tester.widget<EditableText>(
+      find.descendant(of: emailField, matching: find.byType(EditableText)),
+    );
+    expect(emailEditable.textInputAction, TextInputAction.next);
+    expect(emailEditable.autofillHints, contains(AutofillHints.email));
+
+    await tester.tap(emailField);
+    await tester.enterText(emailField, 'teacher@example.com');
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pump();
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: passwordField,
+              matching: find.byType(EditableText),
+            ),
+          )
+          .focusNode
+          .hasFocus,
+      isTrue,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('workspace-login-password-visibility')),
+    );
+    await tester.pump();
+    expect(_isLoginPasswordObscured(tester), isFalse);
+
+    await tester.enterText(passwordField, 'example-password');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(authRepository.signInCount, 1);
+    expect(authRepository.lastEmail, 'teacher@example.com');
+    expect(authRepository.lastPassword, 'example-password');
+  });
+
   testWidgets('medium-width rail keeps labels and sign out reachable', (
     tester,
   ) async {
