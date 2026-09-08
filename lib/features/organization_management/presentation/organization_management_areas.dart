@@ -141,11 +141,27 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     );
   }
 
+  List<List<OrganizationTeacherSubjectScope>> _groupTeacherSubjectScopes(
+    List<OrganizationTeacherSubjectScope> scopes,
+  ) {
+    final grouped = <String, List<OrganizationTeacherSubjectScope>>{};
+    for (final scope in scopes) {
+      grouped.putIfAbsent(scope.membershipId, () => []).add(scope);
+    }
+    final groups = grouped.values.toList(growable: false);
+    for (final group in groups) {
+      group.sort((a, b) => a.subjectName.compareTo(b.subjectName));
+    }
+    groups.sort((a, b) => a.first.teacherName.compareTo(b.first.teacherName));
+    return groups;
+  }
+
   Widget _buildPeopleArea({
     required List<OrganizationTeacherSubjectScope> activeScopes,
     required List<OrganizationTeacherSubjectScope> endedScopes,
     required Set<String> latestEndedScopeIds,
   }) {
+    final activeScopeGroups = _groupTeacherSubjectScopes(activeScopes);
     return _ManagementAreaCard(
       icon: Icons.people_outline,
       title: '成员',
@@ -217,7 +233,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           const SizedBox(height: AppSpacing.lg),
           _ManagementSection(
             title: '老师可教学科',
-            count: '${activeScopes.length} 条有效',
+            count: '${activeScopeGroups.length} 位老师 · ${activeScopes.length} 科',
             action: TextButton.icon(
               onPressed: widget.busy ? null : widget.onAddTeacherScope,
               icon: const Icon(Icons.add, size: 18),
@@ -231,12 +247,11 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                   )
                 : Column(
                     children: [
-                      for (final scope in activeScopes)
-                        _TeacherSubjectScopeTile(
-                          scope: scope,
+                      for (final scopes in activeScopeGroups)
+                        _TeacherSubjectScopeGroupTile(
+                          scopes: scopes,
                           busy: widget.busy,
-                          showReactivate: false,
-                          onToggle: () => widget.onToggleTeacherScope(scope),
+                          onToggle: widget.onToggleTeacherScope,
                         ),
                     ],
                   ),

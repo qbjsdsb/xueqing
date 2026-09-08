@@ -188,6 +188,74 @@ class _InvitationTile extends StatelessWidget {
   }
 }
 
+class _TeacherSubjectScopeGroupTile extends StatelessWidget {
+  const _TeacherSubjectScopeGroupTile({
+    required this.scopes,
+    required this.busy,
+    required this.onToggle,
+  });
+
+  final List<OrganizationTeacherSubjectScope> scopes;
+  final bool busy;
+  final Future<void> Function(OrganizationTeacherSubjectScope scope) onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    assert(scopes.isNotEmpty);
+    final first = scopes.first;
+    final colorScheme = Theme.of(context).colorScheme;
+    return _ManagementRowShell(
+      leading: Icon(Icons.menu_book_outlined, color: colorScheme.primary),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            first.teacherName,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          if (first.teacherEmail.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              first.teacherEmail,
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+          for (final scope in scopes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      scope.subjectName,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  _ManagementStatusChip(label: '可教学', isPositive: true),
+                  const SizedBox(width: AppSpacing.xxs),
+                  TextButton(
+                    key: ValueKey<String>(
+                      'teacher-scope-stop-${scope.scopeId}',
+                    ),
+                    onPressed: busy
+                        ? null
+                        : () {
+                            onToggle(scope);
+                          },
+                    child: const Text('停用'),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TeacherSubjectScopeTile extends StatelessWidget {
   const _TeacherSubjectScopeTile({
     required this.scope,
