@@ -217,8 +217,7 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                             onPressed: _busy
                                 ? null
                                 : () => setState(
-                                    () => _obscurePassword =
-                                        !_obscurePassword,
+                                    () => _obscurePassword = !_obscurePassword,
                                   ),
                             icon: Icon(
                               _obscurePassword
@@ -257,8 +256,7 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                             key: const Key(
                               'onboarding-confirm-password-visibility',
                             ),
-                            tooltip:
-                                _obscureConfirmation ? '显示确认密码' : '隐藏确认密码',
+                            tooltip: _obscureConfirmation ? '显示确认密码' : '隐藏确认密码',
                             onPressed: _busy
                                 ? null
                                 : () => setState(
@@ -329,11 +327,7 @@ class _OnboardingInfoLine extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+        Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: AppSpacing.xs),
         SizedBox(
           width: 76,
@@ -345,12 +339,7 @@ class _OnboardingInfoLine extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.xs),
-        Expanded(
-          child: Text(
-            value,
-            style: theme.textTheme.bodyMedium,
-          ),
-        ),
+        Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
       ],
     );
   }
