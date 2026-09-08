@@ -3,6 +3,50 @@ from pathlib import Path
 product = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
 text = product.read_text(encoding='utf-8')
 
+login_marker = "class _WorkspaceLoginBody extends StatelessWidget {\n"
+login_start = text.find(login_marker)
+if login_start < 0:
+    raise SystemExit('Workspace login body not found')
+next_class = text.find('\nclass ', login_start + len(login_marker))
+if next_class < 0:
+    raise SystemExit('Could not locate class after WorkspaceLoginBody')
+login_block = text[login_start:next_class]
+
+login_block = login_block.replace(
+    login_marker,
+    "class _WorkspaceLoginBody extends StatefulWidget {\n",
+    1,
+)
+
+build_marker = "  @override\n  Widget build(BuildContext context) {\n"
+state_open = """  @override
+  State<_WorkspaceLoginBody> createState() => _WorkspaceLoginBodyState();
+}
+
+class _WorkspaceLoginBodyState extends State<_WorkspaceLoginBody> {
+  final FocusNode _passwordFocusNode = FocusNode();
+
+  GlobalKey<FormState> get formKey => widget.formKey;
+  TextEditingController get emailController => widget.emailController;
+  TextEditingController get passwordController => widget.passwordController;
+  bool get busy => widget.busy;
+  String? get errorMessage => widget.errorMessage;
+  bool get isDevelopment => widget.isDevelopment;
+  VoidCallback get onSubmit => widget.onSubmit;
+
+  @override
+  void dispose() {
+    _passwordFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+"""
+if login_block.count(build_marker) != 1:
+    raise SystemExit(f'Expected one login build method, found {login_block.count(build_marker)}')
+login_block = login_block.replace(build_marker, state_open, 1)
+
 old_email = """                    TextFormField(
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -25,16 +69,16 @@ new_email = """                    TextFormField(
                       autocorrect: false,
                       enableSuggestions: false,
                       decoration: const InputDecoration(labelText: '邮箱'),
-                      onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                      onFieldSubmitted: (_) => _passwordFocusNode.requestFocus(),
                       validator: (value) =>
                           value == null || value.trim().isEmpty
                           ? '请输入邮箱'
                           : null,
                     ),
 """
-if text.count(old_email) != 1:
-    raise SystemExit(f'Expected one login email field, found {text.count(old_email)}')
-text = text.replace(old_email, new_email, 1)
+if login_block.count(old_email) != 1:
+    raise SystemExit(f'Expected one login email field, found {login_block.count(old_email)}')
+login_block = login_block.replace(old_email, new_email, 1)
 
 old_password = """                    TextFormField(
                       controller: passwordController,
@@ -46,32 +90,27 @@ old_password = """                    TextFormField(
 """
 new_password = """                    _WorkspacePasswordField(
                       controller: passwordController,
+                      focusNode: _passwordFocusNode,
                       busy: busy,
                       onSubmit: onSubmit,
                     ),
 """
-if text.count(old_password) != 1:
-    raise SystemExit(f'Expected one login password field, found {text.count(old_password)}')
-text = text.replace(old_password, new_password, 1)
+if login_block.count(old_password) != 1:
+    raise SystemExit(f'Expected one login password field, found {login_block.count(old_password)}')
+login_block = login_block.replace(old_password, new_password, 1)
 
-marker = "class _WorkspaceLoginBody extends StatelessWidget {\n"
-marker_index = text.find(marker)
-if marker_index < 0:
-    raise SystemExit('Workspace login body not found')
-next_class_index = text.find('\nclass ', marker_index + len(marker))
-if next_class_index < 0:
-    raise SystemExit('Could not locate class after WorkspaceLoginBody')
-
-helper = """
+password_helper = """
 
 class _WorkspacePasswordField extends StatefulWidget {
   const _WorkspacePasswordField({
     required this.controller,
+    required this.focusNode,
     required this.busy,
     required this.onSubmit,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final bool busy;
   final VoidCallback onSubmit;
 
@@ -88,6 +127,7 @@ class _WorkspacePasswordFieldState extends State<_WorkspacePasswordField> {
     return TextFormField(
       key: const Key('workspace-login-password'),
       controller: widget.controller,
+      focusNode: widget.focusNode,
       obscureText: !_passwordVisible,
       enabled: !widget.busy,
       autofillHints: const <String>[AutofillHints.password],
@@ -115,7 +155,7 @@ class _WorkspacePasswordFieldState extends State<_WorkspacePasswordField> {
   }
 }
 """
-text = text[:next_class_index] + helper + text[next_class_index:]
+text = text[:login_start] + login_block + password_helper + text[next_class:]
 product.write_text(text, encoding='utf-8')
 
 test_path = Path('test/features/teacher_workspace_test.dart')
@@ -209,11 +249,9 @@ login_tests = """void main() {
     expect(passwordField, findsOneWidget);
     expect(_isLoginPasswordObscured(tester), isTrue);
 
-    final emailEditableFinder = find.descendant(
-      of: emailField,
-      matching: find.byType(EditableText),
+    final emailEditable = tester.widget<EditableText>(
+      find.descendant(of: emailField, matching: find.byType(EditableText)),
     );
-    final emailEditable = tester.widget<EditableText>(emailEditableFinder);
     expect(emailEditable.textInputAction, TextInputAction.next);
     expect(emailEditable.autofillHints, contains(AutofillHints.email));
 
