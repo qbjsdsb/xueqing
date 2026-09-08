@@ -1,0 +1,179 @@
+name: Complete Xueqing v0.2.0 RC1
+
+on:
+  push:
+    branches:
+      - release/stable-version-integrity-20260908
+    paths:
+      - ".github/release-requests/v0.2.0-rc.1-complete"
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  RC_TAG: v0.2.0-rc.1
+  RC_VERSION: 0.2.0-rc.1+4
+  RC_VERSION_NAME: 0.2.0-rc.1
+  RC_BUILD_NUMBER: "4"
+  SOURCE_SHA: 705ce6a450853c6c9772243d60d3e2b08c56c771
+  WINDOWS_RUN_ID: "34205940433"
+  XUEQING_ENV: production
+  XUEQING_ALLOW_DEVELOPMENT_RELEASE: "false"
+  XUEQING_SHOW_DEV_TOOLS: "false"
+  XUEQING_SUPABASE_URL: https://czuctoulgnfytcfonkhc.supabase.co
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI
+  XUEQING_SUPABASE_ALLOWED_HOSTS: czuctoulgnfytcfonkhc.supabase.co
+  XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+
+jobs:
+  complete:
+    name: Build signed Android and publish RC1
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout frozen source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Configure permanent Android release signing
+        shell: bash
+        env:
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in XUEQING_ANDROID_KEYSTORE_BASE64 XUEQING_ANDROID_KEYSTORE_PASSWORD XUEQING_ANDROID_KEY_ALIAS XUEQING_ANDROID_KEY_PASSWORD; do
+            test -n "${!name:-}" || { echo "Missing permanent signing secret: $name"; exit 1; }
+          done
+          printf '%s' "$XUEQING_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
+          {
+            printf 'storeFile=release-keystore.jks\n'
+            printf 'storePassword=%s\n' "$XUEQING_ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$XUEQING_ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$XUEQING_ANDROID_KEY_PASSWORD"
+          } > android/key.properties
+          chmod 600 android/release-keystore.jks android/key.properties
+
+      - name: Build production-channel RC APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release \
+            --build-name="$RC_VERSION_NAME" \
+            --build-number="$RC_BUILD_NUMBER" \
+            --dart-define="XUEQING_ENV=$XUEQING_ENV" \
+            --dart-define="XUEQING_APP_VERSION=$RC_VERSION" \
+            --dart-define="XUEQING_SUPABASE_URL=$XUEQING_SUPABASE_URL" \
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="XUEQING_SUPABASE_ALLOWED_HOSTS=$XUEQING_SUPABASE_ALLOWED_HOSTS" \
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$XUEQING_ALLOW_DEVELOPMENT_RELEASE" \
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$XUEQING_SHOW_DEV_TOOLS"
+
+      - name: Verify permanent Android signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          verify_output="$("$apksigner" verify --verbose --print-certs "$apk")"
+          printf '%s\n' "$verify_output"
+          actual="$(printf '%s\n' "$verify_output" | sed -n -e 's/^Signer #1 certificate SHA-256 digest: //p' -e 's/^V2 Signer: certificate SHA-256 digest: //p' | head -n 1 | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          expected="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$actual" =~ ^[0-9a-f]{64}$ ]] || [[ "$actual" != "$expected" ]]; then
+            echo "RC APK signer does not match the permanent release certificate."
+            exit 1
+          fi
+          echo "Permanent Android signer verified: $actual"
+
+      - name: Collect successful Windows RC assets from previous job
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh run download "$WINDOWS_RUN_ID" --repo "$GITHUB_REPOSITORY" -n rc1-windows --dir release-assets
+          test -s "release-assets/xueqing-${RC_TAG}-windows.zip"
+          test -s "release-assets/xueqing-${RC_TAG}-windows-setup.exe"
+          cp build/app/outputs/flutter-apk/app-release.apk "release-assets/xueqing-${RC_TAG}-android.apk"
+
+      - name: Generate RC metadata and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          info = {
+              "tag": os.environ["RC_TAG"],
+              "app_version": os.environ["RC_VERSION"],
+              "source_sha": os.environ["SOURCE_SHA"],
+              "environment": "production",
+              "update_channel": "stable",
+              "android_build_number": int(os.environ["RC_BUILD_NUMBER"]),
+              "permanent_android_signing_verified": True,
+              "upgrade_target": "v0.2.0 Stable with build number > 4",
+          }
+          Path("release-assets/candidate-info.json").write_text(json.dumps(info, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          PY
+          (cd release-assets && sha256sum *.apk *.zip *.exe candidate-info.json | sort) > release-assets/SHA256SUMS.txt
+
+      - name: Create RC Pre-release and upload immutable test assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RC_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RC_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_SHA" \
+              --prerelease \
+              --title "Xueqing v0.2.0 RC1" \
+              --notes $'实机测试候选版。\n\n- 基于当前全绿 main 构建。\n- 使用 Production 配置与 Stable 更新通道。\n- Android 已校验为永久 release keystore，build number = 4。\n- Windows Setup 已通过自动安装/卸载 smoke。\n- 后续正式 Stable 将使用更高 build number，因此本 RC 可直接在软件内升级到正式版。\n- 包含负责人/管理员机构级学情监督、教师工作台与管理端 UX、Evidence 图片附件、Windows Setup 和应用内更新链。\n\n这是 Pre-release，仅用于本轮实机验收，不会成为 Stable/latest。'
+          fi
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RC_TAG" --jq '.sha')"
+          test "$actual" = "$SOURCE_SHA"
+          gh release upload "$RC_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Verify final RC release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          json="$(gh release view "$RC_TAG" --repo "$GITHUB_REPOSITORY" --json url,isDraft,isPrerelease,assets)"
+          printf '%s\n' "$json"
+          JSON="$json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('RC release state is invalid')
+          names = {a['name'] for a in release['assets']}
+          tag = os.environ['RC_TAG']
+          required = {f'xueqing-{tag}-android.apk', f'xueqing-{tag}-windows.zip', f'xueqing-{tag}-windows-setup.exe', 'candidate-info.json', 'SHA256SUMS.txt'}
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit(f'Missing RC assets: {missing}')
+          PY
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f android/key.properties android/release-keystore.jks
