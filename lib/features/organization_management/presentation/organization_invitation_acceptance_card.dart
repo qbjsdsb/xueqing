@@ -50,39 +50,43 @@ class OrganizationInvitationAcceptanceCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '请使用被邀请的邮箱登录后，再粘贴邀请代码。代码只显示一次，接受后即加入对应机构。',
+                    '请先使用被邀请的邮箱登录，再粘贴完整的 24 位邀请代码。代码只显示一次，接受后会立即按你的机构身份进入对应工作范围。',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   TextFormField(
+                    key: const Key('invitation-accept-code'),
                     controller: inviteCodeController,
                     enabled: !busy,
                     textInputAction: TextInputAction.next,
                     autocorrect: false,
+                    enableSuggestions: false,
                     decoration: const InputDecoration(
-                      labelText: '邀请代码',
+                      labelText: '邀请代码 *',
                       hintText: '粘贴 24 位代码',
                     ),
                     validator: (value) {
                       final code = value?.trim() ?? '';
-                      if (code.length < 16) {
-                        return '请输入完整的邀请代码。';
+                      if (code.length != 24) {
+                        return '邀请代码应为完整的 24 位。';
                       }
-                      if (!RegExp(r'^[0-9a-fA-F]+$').hasMatch(code)) {
-                        return '邀请代码只能包含数字和英文字母。';
+                      if (!RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(code)) {
+                        return '邀请代码格式不正确，请重新粘贴。';
                       }
                       return null;
                     },
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   TextFormField(
+                    key: const Key('invitation-accept-display-name'),
                     controller: displayNameController,
                     enabled: !busy,
                     textInputAction: TextInputAction.done,
                     maxLength: 120,
                     decoration: const InputDecoration(
-                      labelText: '显示名称（可选）',
-                      hintText: '首次加入时使用的名称',
+                      labelText: '姓名（已有姓名可不填）',
+                      hintText: '例如：王老师',
+                      helperText: '首次加入时填写，会用于机构成员列表和老师显示名称。',
                     ),
                     onFieldSubmitted: (_) {
                       if (!busy) {
