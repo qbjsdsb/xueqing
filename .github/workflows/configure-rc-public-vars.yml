@@ -1,0 +1,43 @@
+name: Configure RC public release variables
+
+on:
+  push:
+    branches:
+      - release/stable-version-integrity-20260908
+    paths:
+      - ".github/release-requests/configure-rc-public-vars"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure and verify public Supabase release variables
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLIC_SUPABASE_URL: https://czuctoulgnfytcfonkhc.supabase.co
+          PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI
+          PUBLIC_SUPABASE_ALLOWED_HOSTS: czuctoulgnfytcfonkhc.supabase.co
+        run: |
+          set -euo pipefail
+          upsert() {
+            local name="$1"
+            local value="$2"
+            if gh api "repos/$GITHUB_REPOSITORY/actions/variables/$name" >/dev/null 2>&1; then
+              gh api --silent --method PATCH "repos/$GITHUB_REPOSITORY/actions/variables/$name" -f name="$name" -f value="$value"
+            else
+              gh api --silent --method POST "repos/$GITHUB_REPOSITORY/actions/variables" -f name="$name" -f value="$value"
+            fi
+          }
+          upsert XUEQING_SUPABASE_URL "$PUBLIC_SUPABASE_URL"
+          upsert XUEQING_SUPABASE_PUBLISHABLE_KEY "$PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          upsert XUEQING_SUPABASE_ALLOWED_HOSTS "$PUBLIC_SUPABASE_ALLOWED_HOSTS"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/variables/XUEQING_SUPABASE_URL" --jq '.value')" = "$PUBLIC_SUPABASE_URL"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/variables/XUEQING_SUPABASE_PUBLISHABLE_KEY" --jq '.value')" = "$PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/variables/XUEQING_SUPABASE_ALLOWED_HOSTS" --jq '.value')" = "$PUBLIC_SUPABASE_ALLOWED_HOSTS"
+          echo "Public RC release variables configured and verified."
