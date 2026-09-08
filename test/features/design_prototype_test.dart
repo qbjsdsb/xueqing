@@ -44,102 +44,110 @@ void main() {
     );
   });
 
-  testWidgets('Today keeps pending verification and date buckets exclusive', (
+  testWidgets('Today derives work only from explicit Action date buckets', (
     tester,
   ) async {
     addTearDown(() => _resetView(tester));
     await _pumpPreview(tester, const Size(390, 844));
 
     final today = find.byKey(const Key('today-work-section'));
-    final pending = find.byKey(const Key('pending-verification-section'));
     final future = find.byKey(const Key('future-actions-section'));
-    final undated = find.byKey(const Key('undated-actions-section'));
-    const pendingTitle = '异分母比较时把分子分母直接相加';
-    const futureTitle = '下次课检查两道依据题';
+    const pendingReminder = '再做两道迁移题并核对过程';
+    const futureReminder = '下次课检查两道依据题';
 
+    expect(today, findsOneWidget);
     expect(find.text('已逾期'), findsOneWidget);
-    expect(find.text('今天到期'), findsWidgets);
-    expect(find.text('未来'), findsOneWidget);
-    expect(find.text('待验证'), findsWidgets);
-    expect(find.text('待安排'), findsWidgets);
+    expect(find.text('今天到期'), findsOneWidget);
+    expect(find.text('之后要处理'), findsOneWidget);
     expect(
-      find.descendant(of: pending, matching: find.text(pendingTitle)),
+      find.byKey(const Key('pending-verification-section')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('undated-actions-section')), findsNothing);
+    expect(
+      find.descendant(of: future, matching: find.text(pendingReminder)),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: today, matching: find.text(pendingTitle)),
+      find.descendant(of: today, matching: find.text(pendingReminder)),
       findsNothing,
     );
     expect(
-      find.descendant(of: future, matching: find.text(futureTitle)),
+      find.descendant(of: future, matching: find.text(futureReminder)),
       findsOneWidget,
-    );
-    expect(
-      find.descendant(of: today, matching: find.text(futureTitle)),
-      findsNothing,
-    );
-    expect(
-      find.descendant(of: undated, matching: find.text(futureTitle)),
-      findsNothing,
     );
 
-    final futureAction = DesignFixture.cases
-        .firstWhere((learningCase) => learningCase.id == 'demo-case-b3')
-        .primaryAction!;
-    expect(futureAction.dueBucket, PrototypeActionDueBucket.future);
-    expect(futureAction.dueDate!.isAfter(DesignFixture.previewDate), isTrue);
+    final pendingCase = DesignFixture.cases.firstWhere(
+      (learningCase) => learningCase.id == 'demo-case-a1',
+    );
+    expect(pendingCase.status, PrototypeCaseStatus.pendingVerification);
+    expect(pendingCase.statusLabel, '继续关注');
+    expect(pendingCase.primaryAction, isNotNull);
+    expect(
+      pendingCase.primaryAction!.dueBucket,
+      PrototypeActionDueBucket.future,
+    );
+
+    final newCase = DesignFixture.cases.firstWhere(
+      (learningCase) => learningCase.id == 'demo-case-b1',
+    );
+    expect(newCase.status, PrototypeCaseStatus.newCase);
+    expect(newCase.statusLabel, '新记录');
+    expect(newCase.primaryAction, isNull);
   });
 
-  testWidgets(
-    'navigates Student to Case and back with separate Case controls',
-    (tester) async {
-      addTearDown(() => _resetView(tester));
-      final semanticsHandle = tester.ensureSemantics();
-      await _pumpPreview(tester, const Size(390, 844));
-      const caseTitle = '异分母比较时把分子分母直接相加';
+  testWidgets('navigates Student to problem detail without legacy state commands', (
+    tester,
+  ) async {
+    addTearDown(() => _resetView(tester));
+    final semanticsHandle = tester.ensureSemantics();
+    await _pumpPreview(tester, const Size(390, 844));
+    const caseTitle = '异分母比较时把分子分母直接相加';
 
-      expect(find.bySemanticsLabel('打开 $caseTitle 的 Case 详情'), findsNothing);
-      expect(
-        find.bySemanticsLabel('Case 信息：示例学生甲 · $caseTitle'),
-        findsOneWidget,
-      );
+    expect(find.bySemanticsLabel('打开 $caseTitle 的 Case 详情'), findsNothing);
+    expect(
+      find.bySemanticsLabel('问题信息：示例学生甲 · $caseTitle'),
+      findsOneWidget,
+    );
 
-      final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
-      await tester.ensureVisible(studentRow);
-      await tester.tap(studentRow);
-      await tester.pumpAndSettle();
-      expect(find.text('现在最重要的事'), findsOneWidget);
+    final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+    expect(find.text('现在最重要的事'), findsOneWidget);
+    expect(find.text('全部问题'), findsOneWidget);
 
-      final caseButtons = find.widgetWithText(OutlinedButton, '查看 Case');
-      final viewCaseButton = caseButtons.first;
-      expect(
-        tester
-            .getSemantics(viewCaseButton)
-            .getSemanticsData()
-            .hasAction(SemanticsAction.tap),
-        isTrue,
-      );
-      await tester.ensureVisible(viewCaseButton);
-      await tester.tap(viewCaseButton);
-      await tester.pumpAndSettle();
-      expect(find.text('Assessment / Verification'), findsWidgets);
-      expect(find.widgetWithText(FilledButton, '确认稳定'), findsOneWidget);
+    final viewProblemButton = find.widgetWithText(OutlinedButton, '查看问题').first;
+    expect(
+      tester
+          .getSemantics(viewProblemButton)
+          .getSemanticsData()
+          .hasAction(SemanticsAction.tap),
+      isTrue,
+    );
+    await tester.ensureVisible(viewProblemButton);
+    await tester.tap(viewProblemButton);
+    await tester.pumpAndSettle();
 
-      final confirmStableButton = find.widgetWithText(FilledButton, '确认稳定');
-      await tester.ensureVisible(confirmStableButton);
-      await tester.tap(confirmStableButton);
-      await tester.pumpAndSettle();
-      expect(find.text('设计预览：确认稳定只展示命令入口，不改变领域状态。'), findsOneWidget);
-      expect(find.widgetWithText(FilledButton, '确认稳定'), findsOneWidget);
+    expect(find.text('检查结果'), findsOneWidget);
+    expect(find.text('继续关注'), findsOneWidget);
+    expect(find.text('确认稳定'), findsNothing);
+    expect(find.text('安排下一次检查'), findsNothing);
+    expect(find.widgetWithText(FilledButton, '处理'), findsOneWidget);
 
-      final backButton = find.byTooltip('返回学生详情');
-      await tester.ensureVisible(backButton);
-      await tester.tap(backButton);
-      await tester.pumpAndSettle();
-      expect(find.text('当前 Learning Cases'), findsOneWidget);
-      semanticsHandle.dispose();
-    },
-  );
+    final handleButton = find.widgetWithText(FilledButton, '处理');
+    await tester.ensureVisible(handleButton);
+    await tester.tap(handleButton);
+    await tester.pumpAndSettle();
+    expect(find.text('处理 入口已定义；当前预览不会写入业务数据。'), findsOneWidget);
+
+    final backButton = find.byTooltip('返回学生详情');
+    await tester.ensureVisible(backButton);
+    await tester.tap(backButton);
+    await tester.pumpAndSettle();
+    expect(find.text('全部问题'), findsOneWidget);
+    semanticsHandle.dispose();
+  });
 
   testWidgets('uses compact navigation and expanded navigation rail', (
     tester,
@@ -155,32 +163,41 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
   });
 
-  testWidgets('shows Today work queue and opens quick capture', (tester) async {
+  testWidgets('Quick Capture records one fact without manufacturing a task', (
+    tester,
+  ) async {
     addTearDown(() => _resetView(tester));
     await _pumpPreview(tester, const Size(390, 844));
 
     expect(find.text('今日'), findsWidgets);
     expect(find.text('已逾期'), findsOneWidget);
-    expect(find.text('待验证'), findsWidgets);
-    expect(find.text('待安排'), findsWidgets);
+    expect(find.text('之后要处理'), findsOneWidget);
+    expect(find.byKey(const Key('undated-actions-section')), findsNothing);
 
     await tester.tap(
       find.byKey(const Key('design-preview-today-record-question')),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('问题标题 *'), findsOneWidget);
+    expect(find.text('今天发现什么？ *'), findsOneWidget);
+    expect(find.text('问题标题 *'), findsNothing);
+    expect(find.text('补充说明（可选）'), findsNothing);
+
     await tester.tap(find.byType(DropdownButtonFormField<PrototypeStudent>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('示例学生甲 · 数学').last);
-    await tester.enterText(find.byType(TextField).first, '记录一个新的课堂问题');
+    await tester.enterText(
+      find.byKey(const Key('design-preview-quick-capture-note')),
+      '记录一个新的课堂问题',
+    );
     await tester.tap(
       find.byKey(const Key('design-preview-quick-capture-save')),
     );
     await tester.pump(const Duration(milliseconds: 260));
     await tester.pumpAndSettle();
 
-    expect(find.text('已记录为待整理问题，并已显示在当前预览。'), findsOneWidget);
+    expect(find.text('已记录到学生成长记录，并已显示在当前预览。'), findsOneWidget);
+    expect(find.byKey(const Key('undated-actions-section')), findsNothing);
 
     await tester.tap(find.text('学生').last);
     await tester.pumpAndSettle();
@@ -191,11 +208,35 @@ void main() {
     await tester.tap(filteredStudent);
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('Case 信息：示例学生甲 · 记录一个新的课堂问题'), findsWidgets);
-    expect(find.textContaining('补充一条题目或课堂证据后再整理'), findsWidgets);
+    expect(
+      find.bySemanticsLabel('问题信息：示例学生甲 · 记录一个新的课堂问题'),
+      findsWidgets,
+    );
+    expect(find.text('新记录'), findsWidgets);
+    expect(find.text('当前没有设置提醒'), findsWidgets);
+    expect(find.textContaining('补充一条题目或课堂证据后再整理'), findsNothing);
 
     await _pumpPreview(tester, const Size(390, 844), pageKey: UniqueKey());
     expect(find.text('记录一个新的课堂问题'), findsNothing);
+  });
+
+  testWidgets('student-context Quick Capture does not ask for the student again', (
+    tester,
+  ) async {
+    addTearDown(() => _resetView(tester));
+    await _pumpPreview(tester, const Size(390, 844));
+
+    final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
+    await tester.ensureVisible(studentRow);
+    await tester.tap(studentRow);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, '记录问题').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DropdownButtonFormField<PrototypeStudent>), findsNothing);
+    expect(find.text('示例学生甲 · 数学'), findsOneWidget);
+    expect(find.text('今天发现什么？ *'), findsOneWidget);
   });
 
   testWidgets('keeps a draft visible for the current preview session', (
@@ -211,7 +252,10 @@ void main() {
     await tester.tap(find.byType(DropdownButtonFormField<PrototypeStudent>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('示例学生乙 · 英语').last);
-    await tester.enterText(find.byType(TextField).first, '暂存一条课堂观察');
+    await tester.enterText(
+      find.byKey(const Key('design-preview-quick-capture-note')),
+      '暂存一条课堂观察',
+    );
     await tester.tap(find.widgetWithText(OutlinedButton, '取消'));
     await tester.pumpAndSettle();
 
