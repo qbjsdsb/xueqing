@@ -127,6 +127,7 @@ void main() {
         ),
       );
 
+      final submit = find.byKey(const Key('onboarding-submit'));
       await tester.enterText(
         find.byKey(const Key('onboarding-new-password')),
         'short',
@@ -135,7 +136,8 @@ void main() {
         find.byKey(const Key('onboarding-confirm-password')),
         'short',
       );
-      await tester.tap(find.byKey(const Key('onboarding-submit')));
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
       await tester.pump();
 
       expect(find.text('新密码至少需要 12 位。'), findsOneWidget);
@@ -151,7 +153,8 @@ void main() {
         find.byKey(const Key('onboarding-confirm-password')),
         strongPassword,
       );
-      await tester.tap(find.byKey(const Key('onboarding-submit')));
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
       await tester.pumpAndSettle();
 
       expect(authRepository.updatePasswordCount, 1);
