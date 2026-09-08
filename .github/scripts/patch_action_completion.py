@@ -1,0 +1,544 @@
+from pathlib import Path
+import re
+
+
+def sub_once(text: str, pattern: str, replacement: str, label: str) -> str:
+    updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit(f"{label}: expected exactly one match, got {count}")
+    return updated
+
+
+learning_path = Path("lib/cloud/learning_repository.dart")
+learning = learning_path.read_text()
+
+learning = sub_once(
+    learning,
+    r"class CompleteCaseActionCommand \{.*?\n\}\n\nabstract interface class LearningRepository",
+    """class CompleteCaseActionCommand {
+  const CompleteCaseActionCommand({
+    required this.operationId,
+    required this.actionId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.expectedActionVersion,
+    this.nextActionType,
+    this.nextActionTitle,
+    this.nextActionDueOn,
+  });
+
+  final String operationId;
+  final String actionId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final int expectedActionVersion;
+  final CaseActionType? nextActionType;
+  final String? nextActionTitle;
+  final DateTime? nextActionDueOn;
+
+  void validate() {
+    _validateActionCommandIdentity(
+      operationId: operationId,
+      actionId: actionId,
+      caseId: caseId,
+      expectedCaseVersion: expectedCaseVersion,
+      expectedActionVersion: expectedActionVersion,
+    );
+    final normalizedTitle = nextActionTitle?.trim();
+    if (normalizedTitle != null && normalizedTitle.isEmpty) {
+      throw ArgumentError('nextActionTitle cannot be blank.');
+    }
+    if ((nextActionType == null) != (normalizedTitle == null)) {
+      throw ArgumentError(
+        'nextActionType and nextActionTitle must be supplied together.',
+      );
+    }
+    if (nextActionType == null && nextActionDueOn != null) {
+      throw ArgumentError(
+        'nextActionDueOn requires an explicit next action.',
+      );
+    }
+  }
+}
+
+abstract interface class LearningRepository""",
+    "CompleteCaseActionCommand",
+)
+
+learning = sub_once(
+    learning,
+    r"  @override\n  Future<CaseCommandReceipt> completeCaseAction\(\n    CompleteCaseActionCommand command,\n  \) async \{.*?\n  \}\n\n  Future<CaseCommandReceipt> _invokeCaseCommand",
+    """  @override
+  Future<CaseCommandReceipt> completeCaseAction(
+    CompleteCaseActionCommand command,
+  ) async {
+    command.validate();
+    return _invokeCaseCommand(
+      functionName: 'complete_case_action',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_action_id': command.actionId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_expected_action_version': command.expectedActionVersion,
+        'p_next_action_type': command.nextActionType?.wireValue,
+        'p_next_action_title': command.nextActionTitle?.trim(),
+        'p_next_action_due_on': _dateOnlyString(command.nextActionDueOn),
+      },
+    );
+  }
+
+  Future<CaseCommandReceipt> _invokeCaseCommand""",
+    "completeCaseAction repository method",
+)
+learning_path.write_text(learning)
+
+workspace_path = Path(
+    "lib/features/teacher_workspace/presentation/teacher_workspace_page.dart"
+)
+workspace = workspace_path.read_text()
+
+workspace = sub_once(
+    workspace,
+    r"  Future<void> _completeAction\(\n    TeacherWorkspace workspace,\n    WorkspaceActionWithContext item,\n  \) async \{.*?\n  \}\n\n  Future<CaseCommandReceipt\?> _showCompleteActionForm",
+    """  Future<void> _completeAction(
+    TeacherWorkspace workspace,
+    WorkspaceActionWithContext item,
+  ) async {
+    if (_completingActionId != null) {
+      return;
+    }
+    setState(() => _completingActionId = item.action.id);
+    try {
+      final result = await _showCompleteActionForm(
+        item: item,
+        businessDate: workspace.businessDate,
+      );
+      if (!mounted || result == null) {
+        return;
+      }
+      final reloaded = await _reload();
+      if (!mounted || !reloaded) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('已完成待办。')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _completingActionId = null);
+      }
+    }
+  }
+
+  Future<CaseCommandReceipt?> _showCompleteActionForm""",
+    "Today completion handler",
+)
+
+workspace = sub_once(
+    workspace,
+    r"class _WorkspaceCompleteActionFormState\n    extends State<_WorkspaceCompleteActionForm> \{.*?\n\}\n\nenum _CaseCommandMode",
+    """class _WorkspaceCompleteActionFormState
+    extends State<_WorkspaceCompleteActionForm> {
+  late final String _operationId;
+  CompleteCaseActionCommand? _submittedCommand;
+  String? _saveError;
+  bool _saving = false;
+  bool _submissionAttempted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _operationId = createOperationId();
+  }
+
+  Future<void> _save() async {
+    if (_saving) {
+      return;
+    }
+    _submittedCommand ??= CompleteCaseActionCommand(
+      operationId: _operationId,
+      actionId: widget.action.id,
+      caseId: widget.learningCase.id,
+      expectedCaseVersion: widget.learningCase.version,
+      expectedActionVersion: widget.action.version,
+    );
+    final command = _submittedCommand!;
+    setState(() {
+      _saving = true;
+      _submissionAttempted = true;
+      _saveError = null;
+    });
+    try {
+      final receipt = await widget.repository.completeCaseAction(command);
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(receipt);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _saving = false;
+        _saveError =
+            '${_describeCaseCommandError(error)}\\n本次提交内容已锁定；重试会沿用同一 operation ID。';
+      });
+    }
+  }
+
+  Future<void> _close() async {
+    if (_saving) {
+      return;
+    }
+    if (_submissionAttempted) {
+      final retry = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('提交结果未确认'),
+          content: const Text('上一次提交可能已经到达服务器。建议重试原提交。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('继续查看'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('重试原提交'),
+            ),
+          ],
+        ),
+      );
+      if (mounted && retry == true) {
+        await _save();
+      }
+      return;
+    }
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope<void>(
+      canPop: !_saving && !_submissionAttempted,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_saving) {
+          unawaited(_close());
+        }
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '完成待办',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: _saving ? null : _close,
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '只完成这件已经做完的事，不会自动写入学生表现，也不会强制生成下一步。',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _WorkspaceContextLine(label: '当前待办', value: widget.action.title),
+              const SizedBox(height: AppSpacing.sm),
+              _WorkspaceContextLine(
+                label: '对应问题',
+                value: widget.learningCase.title,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '如果出现了值得长期保留的新情况，完成后可进入问题继续“记录进展”。',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              if (_saveError != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  _saveError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _saving ? null : _close,
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: FilledButton(
+                      key: const Key('workspace-complete-action-save'),
+                      onPressed: _saving ? null : _save,
+                      child: Text(
+                        _saving
+                            ? '保存中…'
+                            : _submissionAttempted
+                            ? '重试原提交'
+                            : '完成待办',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _CaseCommandMode""",
+    "completion form state",
+)
+
+workspace, helper_count = re.subn(
+    r"\nCaseActionType _defaultNextActionType\(String wireValue\) \{.*?\n\}\n\nString _defaultNextActionTitle\(CaseActionType type\) \{.*?\n\}\n",
+    "\n",
+    workspace,
+    count=1,
+    flags=re.S,
+)
+if helper_count != 1:
+    raise SystemExit(
+        f"completion default helpers: expected one match, got {helper_count}"
+    )
+
+old_button = """                            icon: Icon(
+                              progressiveFlow
+                                  ? Icons.edit_note_outlined
+                                  : Icons.check,
+                            ),
+                            label: Text(progressiveFlow ? '处理' : '完成行动'),"""
+new_button = """                            icon: Icon(
+                              progressiveFlow
+                                  ? Icons.check_circle_outline
+                                  : Icons.check,
+                            ),
+                            label: Text(progressiveFlow ? '完成' : '完成行动'),"""
+if workspace.count(old_button) != 1:
+    raise SystemExit("Today completion button: expected exactly one old snippet")
+workspace = workspace.replace(old_button, new_button, 1)
+workspace_path.write_text(workspace)
+
+sql_path = Path("supabase/tests/case_action_completion_test.sql")
+sql = sql_path.read_text()
+if sql.count("select plan(38);") != 1:
+    raise SystemExit("SQL plan marker not found exactly once")
+sql = sql.replace("select plan(38);", "select plan(46);", 1)
+marker = """set local role authenticated;
+
+select throws_ok(
+  $$update public.case_actions"""
+if sql.count(marker) != 1:
+    raise SystemExit("SQL completion-only insertion marker not found exactly once")
+addition = """select lives_ok(
+  $$select public.complete_case_action(
+      '73000000-0000-0000-0000-000000000007',
+      (
+        select id
+        from public.case_actions
+        where learning_case_id = (
+          select id from public.learning_cases where title = 'Action 完成闭环测试'
+        )
+          and title = '高时区下的下一步'
+      ),
+      (select id from public.learning_cases where title = 'Action 完成闭环测试'),
+      4,
+      1,
+      null,
+      null,
+      null
+    )$$,
+  'Teacher A can complete a reminder without creating a successor'
+);
+
+select is(
+  (
+    select status
+    from public.case_actions
+    where learning_case_id = (
+      select id from public.learning_cases where title = 'Action 完成闭环测试'
+    )
+      and title = '高时区下的下一步'
+  ),
+  'done',
+  'completion-only marks the current Action done'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.case_actions
+    where learning_case_id = (
+      select id from public.learning_cases where title = 'Action 完成闭环测试'
+    )
+      and status = 'pending'
+      and is_primary
+  ),
+  0,
+  'completion-only leaves no fabricated pending Action'
+);
+
+select is(
+  (
+    select status
+    from public.learning_cases
+    where title = 'Action 完成闭环测试'
+  ),
+  'confirmed',
+  'completion-only keeps the Case open for future real observations'
+);
+
+select is(
+  (
+    select version
+    from public.learning_cases
+    where title = 'Action 完成闭环测试'
+  ),
+  5,
+  'completion-only increments the Case version once'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.case_events
+    where learning_case_id = (
+      select id from public.learning_cases where title = 'Action 完成闭环测试'
+    )
+      and event_type = 'action_completed'
+  ),
+  3,
+  'completion-only writes exactly one additional Action event'
+);
+
+select lives_ok(
+  $$select public.complete_case_action(
+      '73000000-0000-0000-0000-000000000007',
+      (
+        select id
+        from public.case_actions
+        where learning_case_id = (
+          select id from public.learning_cases where title = 'Action 完成闭环测试'
+        )
+          and title = '高时区下的下一步'
+      ),
+      (select id from public.learning_cases where title = 'Action 完成闭环测试'),
+      4,
+      1,
+      null,
+      null,
+      null
+    )$$,
+  'completion-only retry returns the committed result'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.case_events
+    where learning_case_id = (
+      select id from public.learning_cases where title = 'Action 完成闭环测试'
+    )
+      and event_type = 'action_completed'
+  ),
+  3,
+  'completion-only retry does not duplicate the Action event'
+);
+
+"""
+sql = sql.replace(marker, addition + marker, 1)
+sql_path.write_text(sql)
+
+test_path = Path("test/features/teacher_workspace_test.dart")
+tests = test_path.read_text()
+tests = sub_once(
+    tests,
+    r"  testWidgets\('completes an action and asks for the next action', \(\n    tester,\n  \) async \{.*?\n  \}\);\n\n  testWidgets\(\n    'updates autogenerated next action title after repeated type changes',.*?\n  \);\n",
+    """  testWidgets('completes an action without forcing another action', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.confirmed),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    final completeButton = find.widgetWithText(FilledButton, '完成行动');
+    expect(completeButton, findsOneWidget);
+    await tester.tap(completeButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('完成待办'), findsWidgets);
+    expect(find.textContaining('不会自动写入学生表现'), findsOneWidget);
+    expect(
+      find.byKey(const Key('complete-action-type-dropdown')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const Key('workspace-complete-action-save')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(repository.completeCount, 1);
+    final command = repository.completeCommands.single;
+    expect(command.actionId, 'action-1');
+    expect(command.caseId, 'case-1');
+    expect(command.expectedCaseVersion, 1);
+    expect(command.expectedActionVersion, 1);
+    expect(command.nextActionType, isNull);
+    expect(command.nextActionTitle, isNull);
+    expect(command.nextActionDueOn, isNull);
+    expect(find.text('已完成待办。'), findsOneWidget);
+  });
+""",
+    "legacy completion tests",
+)
+tests = tests.replace(
+    "find.widgetWithText(FilledButton, '完成并安排下一步')",
+    "find.widgetWithText(FilledButton, '完成待办')",
+)
+tests = tests.replace(
+    "    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);\n",
+    "",
+)
+old_reconciled = """    expect(
+      find.byKey(const Key('complete-action-type-dropdown')),
+      findsOneWidget,
+    );"""
+if tests.count(old_reconciled) != 1:
+    raise SystemExit(
+        f"ambiguous completion reconciliation marker count={tests.count(old_reconciled)}"
+    )
+tests = tests.replace(
+    old_reconciled,
+    """    expect(
+      find.byKey(const Key('workspace-complete-action-save')),
+      findsOneWidget,
+    );""",
+    1,
+)
+test_path.write_text(tests)
