@@ -7,6 +7,8 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/organization_member_provisioning_repository.dart';
+import '../../../cloud/teacher_learning_record_repository.dart';
+import '../../../export/learning_record_export.dart';
 import 'organization_student_edit_dialog.dart';
 import 'organization_student_setup_dialog.dart';
 import 'organization_student_subject_restore_dialog.dart';
@@ -34,6 +36,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.onOpenCaseTypes,
     this.onChanged,
     this.provisioningRepository,
+    this.teacherLearningRecordRepository,
     super.key,
   });
 
@@ -45,6 +48,7 @@ class OrganizationManagementPage extends StatefulWidget {
   final VoidCallback? onOpenCaseTypes;
   final VoidCallback? onChanged;
   final OrganizationMemberProvisioningRepository? provisioningRepository;
+  final TeacherLearningRecordRepository? teacherLearningRecordRepository;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -106,6 +110,11 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                       widget.roles.any(
                         (role) => role == 'org_owner' || role == 'org_admin',
                       );
+                  final canExportTeacherRecords =
+                      widget.teacherLearningRecordRepository != null &&
+                      widget.roles.any(
+                        (role) => role == 'org_owner' || role == 'org_admin',
+                      );
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -130,6 +139,9 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                         onToggleStudentTeaching: _toggleStudentTeaching,
                         onToggleStudentArchive: _toggleStudentArchive,
                         onInviteMember: _inviteMember,
+                        onExportTeacherRecords: canExportTeacherRecords
+                            ? _exportTeacherRecords
+                            : null,
                         onApprove: _approveInvitation,
                         onRevoke: _revokeInvitation,
                         onProvisionInvitation: canManageMemberAccounts

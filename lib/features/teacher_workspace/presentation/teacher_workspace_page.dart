@@ -17,6 +17,7 @@ import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/organization_member_provisioning_repository.dart';
 import '../../../cloud/progressive_case_repository.dart';
+import '../../../cloud/teacher_learning_record_repository.dart';
 import '../../../config/app_config.dart';
 import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
 import '../../organization_management/presentation/organization_management_page.dart';
@@ -40,6 +41,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     this.invitationAcceptanceRepository,
     this.organizationMemberProvisioningRepository,
     this.organizationMemberLifecycleRepository,
+    this.teacherLearningRecordRepository,
     this.caseReopenDraftStore,
     super.key,
   });
@@ -56,6 +58,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
   organizationMemberProvisioningRepository;
   final OrganizationMemberLifecycleRepository?
   organizationMemberLifecycleRepository;
+  final TeacherLearningRecordRepository? teacherLearningRecordRepository;
   final CaseReopenDraftStore? caseReopenDraftStore;
 
   @override
@@ -79,6 +82,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   OrganizationMemberProvisioningRepository?
   _organizationMemberProvisioningRepository;
   OrganizationMemberLifecycleRepository? _organizationMemberLifecycleRepository;
+  TeacherLearningRecordRepository? _teacherLearningRecordRepository;
   String? _errorMessage;
   String? _activeUserId;
   bool _signedIn = false;
@@ -131,6 +135,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           widget.organizationMemberProvisioningRepository;
       _organizationMemberLifecycleRepository =
           widget.organizationMemberLifecycleRepository;
+      _teacherLearningRecordRepository =
+          widget.teacherLearningRecordRepository;
     } else {
       widget.config.cloudConfig.validate(
         requireConfigured: widget.config.environment.isProduction,
@@ -162,6 +168,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           SupabaseOrganizationMemberProvisioningRepository(CloudClient.client);
       _organizationMemberLifecycleRepository =
           SupabaseOrganizationMemberLifecycleRepository(CloudClient.client);
+      _teacherLearningRecordRepository =
+          SupabaseTeacherLearningRecordRepository(CloudClient.client);
     }
 
     _activeUserId = _authRepository!.currentUser?.id;
@@ -418,6 +426,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           memberProvisioningRepository:
               _organizationMemberProvisioningRepository,
           invitationAcceptanceRepository: _invitationAcceptanceRepository,
+          teacherLearningRecordRepository: _teacherLearningRecordRepository,
           updateService: _updateService,
           updateInstaller: _updateInstaller,
           onSignOut: _busy ? null : _signOut,
@@ -465,6 +474,7 @@ class TeacherWorkspacePage extends StatefulWidget {
     this.managementRepository,
     this.memberProvisioningRepository,
     this.invitationAcceptanceRepository,
+    this.teacherLearningRecordRepository,
     this.updateService,
     this.updateInstaller,
     this.onSignOut,
@@ -480,6 +490,7 @@ class TeacherWorkspacePage extends StatefulWidget {
   final OrganizationMemberProvisioningRepository? memberProvisioningRepository;
   final OrganizationInvitationAcceptanceRepository?
   invitationAcceptanceRepository;
+  final TeacherLearningRecordRepository? teacherLearningRecordRepository;
   final UpdateService? updateService;
   final UpdateInstaller? updateInstaller;
   final VoidCallback? onSignOut;
@@ -1458,6 +1469,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     return OrganizationManagementPage(
       repository: managementRepository,
       provisioningRepository: widget.memberProvisioningRepository,
+      teacherLearningRecordRepository: widget.teacherLearningRecordRepository,
       organizationId: organizationId,
       organizationName: workspace.organizationName,
       roles: workspace.roles,
