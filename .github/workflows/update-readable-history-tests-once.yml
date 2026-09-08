@@ -1,0 +1,41 @@
+name: Update readable history tests once
+
+on:
+  push:
+    branches:
+      - ux/teacher-readable-history
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/teacher-readable-history
+      - name: Update intentional copy assertions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('test/features/teacher_workspace_test.dart')
+          text = path.read_text()
+          replacements = {
+              "'尚未记录教学动作。'": "'尚未记录教学处理。'",
+              "'收起历史'": "'收起记录'",
+              "'展开历史'": "'查看更早记录'",
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'missing expected assertion: {old}')
+              text = text.replace(old, new)
+          path.write_text(text)
+          PY
+      - name: Commit updated assertions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add test/features/teacher_workspace_test.dart
+          git commit -m "test: align workspace assertions with teacher-readable copy"
+          git push origin HEAD:ux/teacher-readable-history
