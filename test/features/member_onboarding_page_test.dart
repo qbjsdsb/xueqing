@@ -33,7 +33,8 @@ class _FakeAuthRepository implements AuthRepository {
   }
 }
 
-class _FakeLifecycleRepository implements OrganizationMemberLifecycleRepository {
+class _FakeLifecycleRepository
+    implements OrganizationMemberLifecycleRepository {
   int completeCount = 0;
 
   @override
@@ -95,60 +96,64 @@ void main() {
       find.byKey(const Key('onboarding-confirm-password-visibility')),
     );
     await tester.pump();
-    expect(tester.widget<TextFormField>(confirmationField).obscureText, isFalse);
+    expect(
+      tester.widget<TextFormField>(confirmationField).obscureText,
+      isFalse,
+    );
   });
 
-  testWidgets('blocks weak passwords and completes onboarding with a valid one', (
-    tester,
-  ) async {
-    final authRepository = _FakeAuthRepository();
-    final lifecycleRepository = _FakeLifecycleRepository();
-    var completed = false;
+  testWidgets(
+    'blocks weak passwords and completes onboarding with a valid one',
+    (tester) async {
+      final authRepository = _FakeAuthRepository();
+      final lifecycleRepository = _FakeLifecycleRepository();
+      var completed = false;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: MemberOnboardingPage(
-          authRepository: authRepository,
-          lifecycleRepository: lifecycleRepository,
-          email: 'teacher@example.com',
-          onTransitionChanged: (_) {},
-          onCompleted: () => completed = true,
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: MemberOnboardingPage(
+            authRepository: authRepository,
+            lifecycleRepository: lifecycleRepository,
+            email: 'teacher@example.com',
+            onTransitionChanged: (_) {},
+            onCompleted: () => completed = true,
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.enterText(
-      find.byKey(const Key('onboarding-new-password')),
-      'short',
-    );
-    await tester.enterText(
-      find.byKey(const Key('onboarding-confirm-password')),
-      'short',
-    );
-    await tester.tap(find.byKey(const Key('onboarding-submit')));
-    await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('onboarding-new-password')),
+        'short',
+      );
+      await tester.enterText(
+        find.byKey(const Key('onboarding-confirm-password')),
+        'short',
+      );
+      await tester.tap(find.byKey(const Key('onboarding-submit')));
+      await tester.pump();
 
-    expect(find.text('新密码至少需要 12 位。'), findsOneWidget);
-    expect(authRepository.updatePasswordCount, 0);
-    expect(lifecycleRepository.completeCount, 0);
+      expect(find.text('新密码至少需要 12 位。'), findsOneWidget);
+      expect(authRepository.updatePasswordCount, 0);
+      expect(lifecycleRepository.completeCount, 0);
 
-    const strongPassword = 'StrongPassword1';
-    await tester.enterText(
-      find.byKey(const Key('onboarding-new-password')),
-      strongPassword,
-    );
-    await tester.enterText(
-      find.byKey(const Key('onboarding-confirm-password')),
-      strongPassword,
-    );
-    await tester.tap(find.byKey(const Key('onboarding-submit')));
-    await tester.pumpAndSettle();
+      const strongPassword = 'StrongPassword1';
+      await tester.enterText(
+        find.byKey(const Key('onboarding-new-password')),
+        strongPassword,
+      );
+      await tester.enterText(
+        find.byKey(const Key('onboarding-confirm-password')),
+        strongPassword,
+      );
+      await tester.tap(find.byKey(const Key('onboarding-submit')));
+      await tester.pumpAndSettle();
 
-    expect(authRepository.updatePasswordCount, 1);
-    expect(authRepository.updatedPassword, strongPassword);
-    expect(authRepository.signInCount, 1);
-    expect(lifecycleRepository.completeCount, 1);
-    expect(completed, isTrue);
-  });
+      expect(authRepository.updatePasswordCount, 1);
+      expect(authRepository.updatedPassword, strongPassword);
+      expect(authRepository.signInCount, 1);
+      expect(lifecycleRepository.completeCount, 1);
+      expect(completed, isTrue);
+    },
+  );
 }
