@@ -1,0 +1,10 @@
+name: Temporary retrigger grouped UX head
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo retrigger
