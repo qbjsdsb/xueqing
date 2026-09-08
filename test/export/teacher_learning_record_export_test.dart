@@ -47,11 +47,7 @@ void main() {
     );
 
     expect(rows, hasLength(3));
-    expect(rows.map((row) => row.recordType), <String>[
-      '发现问题',
-      '教学处理',
-      '检查结果',
-    ]);
+    expect(rows.map((row) => row.recordType), <String>['发现问题', '教学处理', '检查结果']);
     expect(rows.first.teacherName, '王老师');
     expect(rows.first.attachmentNote, '1 个附件');
     expect(rows.first.status, '待验证');

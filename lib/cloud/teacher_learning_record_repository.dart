@@ -35,7 +35,10 @@ class TeacherLearningRecord {
       recordKind: _requiredString(json['record_kind'], 'record_kind'),
       content: _requiredString(json['content'], 'content'),
       assessmentResult: _optionalString(json['assessment_result']),
-      attachmentCount: _requiredInt(json['attachment_count'], 'attachment_count'),
+      attachmentCount: _requiredInt(
+        json['attachment_count'],
+        'attachment_count',
+      ),
       currentStatus: _requiredString(json['current_status'], 'current_status'),
     );
   }

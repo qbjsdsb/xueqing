@@ -135,8 +135,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           widget.organizationMemberProvisioningRepository;
       _organizationMemberLifecycleRepository =
           widget.organizationMemberLifecycleRepository;
-      _teacherLearningRecordRepository =
-          widget.teacherLearningRecordRepository;
+      _teacherLearningRecordRepository = widget.teacherLearningRecordRepository;
     } else {
       widget.config.cloudConfig.validate(
         requireConfigured: widget.config.environment.isProduction,

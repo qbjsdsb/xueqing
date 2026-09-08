@@ -9,17 +9,17 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     try {
       final snapshot = await _snapshotFuture;
       if (!mounted) return;
-      final teachers = snapshot.members
-          .where((member) => member.roles.contains('teacher'))
-          .toList(growable: false)
-        ..sort(
-          (left, right) =>
-              _teacherExportName(left).compareTo(_teacherExportName(right)),
-        );
+      final teachers =
+          snapshot.members
+              .where((member) => member.roles.contains('teacher'))
+              .toList(growable: false)
+            ..sort(
+              (left, right) =>
+                  _teacherExportName(left).compareTo(_teacherExportName(right)),
+            );
       if (teachers.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前没有可导出的老师记录。')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('当前没有可导出的老师记录。')));
         return;
       }
 
@@ -94,7 +94,8 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = teacherLearningRecordExportErrorMessage(error) ??
+        _errorMessage =
+            teacherLearningRecordExportErrorMessage(error) ??
             '导出失败，请检查网络和账号状态后重试。';
       });
     } finally {
@@ -110,6 +111,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     }
     return member.email.trim().isEmpty ? '未命名老师' : member.email.trim();
   }
+
   Future<void> _addSubject() async {
     if (_busy) return;
     setState(() {
