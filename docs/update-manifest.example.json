@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.2.0+2",
+  "version": "0.2.0+4",
   "minimum_supported": "0.1.0+1",
   "notes": [
     "改进教师工作台加载速度",
