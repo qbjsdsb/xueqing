@@ -250,4 +250,92 @@ void main() {
 
     expect(service.checkForUpdate(), throwsA(isA<UpdateException>()));
   });
+
+  test(
+    'GitHub Pilot catalog selects newest complete prerelease and digest',
+    () async {
+      final releases = <Object?>[
+        <String, Object?>{
+          'tag_name': 'v0.2.0-pilot.2',
+          'draft': false,
+          'prerelease': true,
+          'assets': <Object?>[
+            <String, Object?>{
+              'name': 'xueqing-v0.2.0-pilot.2-android.apk',
+              'browser_download_url': 'https://github.com/example/android2.apk',
+              'size': 20,
+              'digest': 'sha256:${'a' * 64}',
+            },
+            <String, Object?>{
+              'name': 'xueqing-v0.2.0-pilot.2-windows.zip',
+              'browser_download_url': 'https://github.com/example/windows2.zip',
+              'size': 30,
+              'digest': 'sha256:${'b' * 64}',
+            },
+          ],
+        },
+        <String, Object?>{
+          'tag_name': 'v0.2.0-pilot.3',
+          'draft': false,
+          'prerelease': true,
+          'assets': <Object?>[
+            <String, Object?>{
+              'name': 'xueqing-v0.2.0-pilot.3-android.apk',
+              'browser_download_url': 'https://github.com/example/android3.apk',
+              'size': 40,
+              'digest': 'sha256:${'c' * 64}',
+            },
+            <String, Object?>{
+              'name': 'xueqing-v0.2.0-pilot.3-windows.zip',
+              'browser_download_url': 'https://github.com/example/windows3.zip',
+              'size': 50,
+              'digest': 'sha256:${'d' * 64}',
+            },
+          ],
+        },
+      ];
+
+      final raw = UpdateService.pilotManifestFromGitHubReleasesForTest(
+        releases,
+      );
+      final service = UpdateService.githubPilot(
+        currentVersion: '0.2.0-pilot.2+3',
+        platform: UpdatePlatform.android,
+        manifestLoader: (_) async => raw,
+      );
+      final result = await service.checkForUpdate();
+
+      expect(service.channel, 'pilot');
+      expect(service.manifestUri, UpdateService.githubPilotReleasesUri);
+      expect(result.hasUpdate, isTrue);
+      expect(result.manifest.version, AppVersion.parse('0.2.0-pilot.3+0'));
+      expect(result.artifact?.sha256, 'c' * 64);
+    },
+  );
+
+  test(
+    'GitHub Pilot catalog fails closed when latest release is incomplete',
+    () {
+      final releases = <Object?>[
+        <String, Object?>{
+          'tag_name': 'v0.2.0-pilot.3',
+          'draft': false,
+          'prerelease': true,
+          'assets': <Object?>[
+            <String, Object?>{
+              'name': 'xueqing-v0.2.0-pilot.3-android.apk',
+              'browser_download_url': 'https://github.com/example/android3.apk',
+              'size': 40,
+              'digest': 'sha256:${'c' * 64}',
+            },
+          ],
+        },
+      ];
+
+      expect(
+        () => UpdateService.pilotManifestFromGitHubReleasesForTest(releases),
+        throwsFormatException,
+      );
+    },
+  );
 }

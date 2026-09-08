@@ -59,25 +59,49 @@ class UpdateService {
 
   UpdateService({
     required String currentVersion,
-    this.platform,
+    UpdatePlatform? platform,
     Uri? manifestUri,
     UpdateManifestLoader? manifestLoader,
     this.channel = 'stable',
     this.requestTimeout = const Duration(seconds: 12),
     this.maxDownloadBytes = defaultMaxDownloadBytes,
   }) : currentVersion = AppVersion.parse(currentVersion),
+       platform = platform ?? currentPlatform,
        manifestUri = manifestUri ?? defaultManifestUri,
        _manifestLoader = manifestLoader ?? _loadManifestFromNetwork;
+
+  factory UpdateService.githubPilot({
+    required String currentVersion,
+    UpdatePlatform? platform,
+    UpdateManifestLoader? manifestLoader,
+    Duration requestTimeout = const Duration(seconds: 12),
+    int maxDownloadBytes = defaultMaxDownloadBytes,
+  }) {
+    return UpdateService(
+      currentVersion: currentVersion,
+      platform: platform,
+      manifestUri: githubPilotReleasesUri,
+      manifestLoader: manifestLoader ?? _loadPilotManifestFromGitHub,
+      channel: 'pilot',
+      requestTimeout: requestTimeout,
+      maxDownloadBytes: maxDownloadBytes,
+    );
+  }
 
   static final Uri defaultManifestUri = Uri.parse(
     'https://github.com/qbjsdsb/xueqing/releases/latest/download/'
     'update-manifest.json',
   );
 
-  static final Uri pilotManifestUri = Uri.parse(
-    'https://github.com/qbjsdsb/xueqing/releases/download/'
-    'pilot-channel/update-manifest.json',
+  static final Uri githubPilotReleasesUri = Uri.parse(
+    'https://api.github.com/repos/qbjsdsb/xueqing/releases?per_page=20',
   );
+
+  static UpdatePlatform? get currentPlatform {
+    if (Platform.isWindows) return UpdatePlatform.windows;
+    if (Platform.isAndroid) return UpdatePlatform.android;
+    return null;
+  }
 
   final AppVersion currentVersion;
   final UpdatePlatform? platform;
@@ -219,6 +243,134 @@ class UpdateService {
     } on Object catch (error) {
       throw UpdateException('检查更新失败，请检查网络后重试。', cause: error);
     }
+  }
+
+  static Future<String> _loadPilotManifestFromGitHub(Uri uri) async {
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
+    try {
+      final request = await client.getUrl(uri);
+      request.followRedirects = true;
+      request.maxRedirects = 5;
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        'application/vnd.github+json',
+      );
+      request.headers.set(HttpHeaders.userAgentHeader, 'Xueqing-Updater');
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+      if (response.statusCode != HttpStatus.ok) {
+        throw UpdateException('检查 Pilot 更新失败（HTTP ${response.statusCode}）。');
+      }
+      if (body.length > 2 * 1024 * 1024) {
+        throw const UpdateException('GitHub Release 列表过大，已停止处理。');
+      }
+      final decoded = jsonDecode(body);
+      if (decoded is! List) {
+        throw const UpdateException('GitHub Release 返回格式无效。');
+      }
+      return _pilotManifestFromGitHubReleases(decoded);
+    } on UpdateException {
+      rethrow;
+    } on FormatException catch (error) {
+      throw UpdateException('GitHub Pilot Release 信息无效。', cause: error);
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  static String pilotManifestFromGitHubReleasesForTest(List<Object?> releases) {
+    return _pilotManifestFromGitHubReleases(releases);
+  }
+
+  static String _pilotManifestFromGitHubReleases(List<dynamic> releases) {
+    Map<dynamic, dynamic>? selected;
+    AppVersion? selectedVersion;
+    String? selectedTag;
+
+    for (final rawRelease in releases) {
+      if (rawRelease is! Map ||
+          rawRelease['draft'] == true ||
+          rawRelease['prerelease'] != true) {
+        continue;
+      }
+      final rawTag = rawRelease['tag_name'];
+      if (rawTag is! String || rawTag.trim().isEmpty) continue;
+      final tag = rawTag.trim();
+      final versionText = tag.startsWith('v') ? tag.substring(1) : tag;
+      late final AppVersion version;
+      try {
+        version = AppVersion.parse(versionText);
+      } on FormatException {
+        continue;
+      }
+      if (version.prerelease.length < 2 ||
+          version.prerelease.first != 'pilot') {
+        continue;
+      }
+      if (selectedVersion == null || version > selectedVersion) {
+        selected = rawRelease;
+        selectedVersion = version;
+        selectedTag = tag;
+      }
+    }
+
+    if (selected == null || selectedVersion == null || selectedTag == null) {
+      throw const FormatException('没有找到可用的 Pilot Release。');
+    }
+
+    final rawAssets = selected['assets'];
+    if (rawAssets is! List) {
+      throw const FormatException('Pilot Release 没有资产列表。');
+    }
+
+    Map<String, Object?>? assetFor(String expectedName, String format) {
+      for (final rawAsset in rawAssets) {
+        if (rawAsset is! Map || rawAsset['name'] != expectedName) continue;
+        final url = rawAsset['browser_download_url'];
+        final size = rawAsset['size'];
+        final rawDigest = rawAsset['digest'];
+        if (url is! String ||
+            size is! int ||
+            size <= 0 ||
+            rawDigest is! String) {
+          throw FormatException('$expectedName 缺少可验证的 Release 元数据。');
+        }
+        final digest = rawDigest.trim().toLowerCase();
+        if (!digest.startsWith('sha256:')) {
+          throw FormatException('$expectedName 缺少 SHA-256 digest。');
+        }
+        final sha256 = digest.substring('sha256:'.length);
+        if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(sha256)) {
+          throw FormatException('$expectedName 的 SHA-256 digest 无效。');
+        }
+        return <String, Object?>{
+          'url': url,
+          'sha256': sha256,
+          'size_bytes': size,
+          'format': format,
+          'file_name': expectedName,
+        };
+      }
+      return null;
+    }
+
+    final androidName = 'xueqing-$selectedTag-android.apk';
+    final windowsName = 'xueqing-$selectedTag-windows.zip';
+    final android = assetFor(androidName, 'apk');
+    final windows = assetFor(windowsName, 'zip');
+    if (android == null || windows == null) {
+      throw const FormatException(
+        '最新 Pilot Release 缺少 Android APK 或 Windows 更新 ZIP。',
+      );
+    }
+
+    return jsonEncode(<String, Object?>{
+      'schema': 1,
+      'channel': 'pilot',
+      'version': selectedVersion.toString(),
+      'notes': const <String>['Xueqing 内部 Pilot 更新'],
+      'platforms': <String, Object?>{'android': android, 'windows': windows},
+    });
   }
 
   static Future<String> _loadManifestFromNetwork(Uri uri) async {

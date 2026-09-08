@@ -89,7 +89,9 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
     super.initState();
     _caseReopenDraftStore =
         widget.caseReopenDraftStore ?? SecureCaseReopenDraftStore();
-    _updateService = UpdateService(currentVersion: widget.config.appVersion);
+    _updateService = widget.config.environment.isProduction
+        ? UpdateService(currentVersion: widget.config.appVersion)
+        : UpdateService.githubPilot(currentVersion: widget.config.appVersion);
     _updateInstaller = PlatformUpdateInstaller();
     _initialization = _initialize();
   }
