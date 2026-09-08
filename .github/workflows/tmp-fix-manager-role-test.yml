@@ -1,0 +1,42 @@
+name: Temporary manager teaching role correction
+
+on:
+  push:
+    branches:
+      - feature/manager-teaching-capability
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/manager-teaching-capability
+          fetch-depth: 0
+      - run: python tools/tmp_fix_manager_role_test.py
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+      - name: Start Supabase
+        run: supabase start
+      - name: Rebuild database
+        run: supabase db reset
+      - name: Run database tests
+        run: supabase test db
+      - name: Run old-token test
+        run: bash supabase/tests/old_token_security.sh
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
+      - name: Remove temporary validation files
+        run: git rm tools/tmp_fix_manager_role_test.py .github/workflows/tmp-fix-manager-role-test.yml
+      - name: Commit verified correction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/tests/organization_invitation_access_test.sql
+          git commit -m "test: allow manager teaching capability role composition"
+          git push origin HEAD:feature/manager-teaching-capability
