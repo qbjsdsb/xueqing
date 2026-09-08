@@ -225,9 +225,7 @@ abstract interface class ProgressiveCaseRepository {
     RecordCaseProgressCommand command,
   );
 
-  Future<ProgressiveCaseReceipt> endFollowUp(
-    EndCaseFollowUpCommand command,
-  );
+  Future<ProgressiveCaseReceipt> endFollowUp(EndCaseFollowUpCommand command);
 }
 
 class SupabaseProgressiveCaseRepository implements ProgressiveCaseRepository {
@@ -298,9 +296,7 @@ class SupabaseProgressiveCaseRepository implements ProgressiveCaseRepository {
     if (response is! Map) {
       throw FormatException('$functionName returned an invalid result.');
     }
-    return ProgressiveCaseReceipt.fromJson(
-      Map<String, dynamic>.from(response),
-    );
+    return ProgressiveCaseReceipt.fromJson(Map<String, dynamic>.from(response));
   }
 }
 
