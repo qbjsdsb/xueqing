@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -338,4 +339,35 @@ void main() {
       );
     },
   );
+
+  test('stable updater explains a missing manifest without raw HTTP details', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final subscription = server.listen((request) {
+      request.response.statusCode = HttpStatus.notFound;
+      unawaited(request.response.close());
+    });
+    try {
+      final service = UpdateService(
+        currentVersion: '0.2.0+4',
+        platform: UpdatePlatform.android,
+        manifestUri: Uri.parse(
+          'http://${server.address.address}:${server.port}/update-manifest.json',
+        ),
+      );
+
+      await expectLater(
+        service.checkForUpdate(),
+        throwsA(
+          isA<UpdateException>().having(
+            (error) => error.userMessage,
+            'userMessage',
+            '当前还没有可用的稳定更新。',
+          ),
+        ),
+      );
+    } finally {
+      await subscription.cancel();
+      await server.close(force: true);
+    }
+  });
 }

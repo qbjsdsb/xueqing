@@ -86,11 +86,11 @@ Windows PowerShell 可这样生成单行内容：
 ## Production Stable 一次发布流程
 
 1. 确认要发布的提交已经在 `main` 历史中，并完成对应 CI、真机与 Go / No-Go 验收。
-2. 在仓库为正式标签创建一个**已发布、非 Draft、Pre-release** 的暂存 Release。标签必须与正式版本一致，例如版本 `0.2.0+2` 使用标签 `v0.2.0`。这一步只是暂存，不会进入 `releases/latest`。
+2. 在仓库为正式标签创建一个**已发布、非 Draft、Pre-release** 的暂存 Release。标签必须与正式版本一致，例如版本 `0.2.0+4` 使用标签 `v0.2.0`。这一步只是暂存，不会进入 `releases/latest`。
 3. 打开 Actions → **Publish stable signed release assets and update manifest**。
 4. 输入：
    - `release_tag`：已有暂存 Pre-release 标签；
-   - `app_version`：三段正式版本号加正整数 build，例如 `0.2.0+2`；
+   - `app_version`：三段正式版本号加正整数 build，例如 `0.2.0+4`；
    - `release_notes`：每行一条更新说明。
 5. validate job 会先检查：正式版本格式、标签关系、Production Supabase 三项配置、固定 Android 证书指纹、目标 Release 仍处于“已发布 Pre-release 暂存”状态、tag commit 可从 `main` 到达。任一不满足立即失败，不启动后续昂贵构建。
 6. Android job 使用永久 release keystore 构建 APK，并用 `apksigner` 验证 APK 签名和证书 SHA-256 指纹；Windows job 构建完整 ZIP、updater、VC++ runtime 与 Setup EXE。

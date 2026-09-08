@@ -382,6 +382,9 @@ class UpdateService {
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       final response = await request.close();
       final body = await response.transform(utf8.decoder).join();
+      if (response.statusCode == HttpStatus.notFound) {
+        throw const UpdateException('当前还没有可用的稳定更新。');
+      }
       if (response.statusCode != HttpStatus.ok) {
         throw UpdateException('检查更新失败（HTTP ${response.statusCode}）。');
       }
