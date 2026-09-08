@@ -1,0 +1,41 @@
+name: One-shot remove pseudo Today tasks
+
+on:
+  push:
+    branches:
+      - ux/teacher-friction-reduction
+    paths:
+      - .github/workflows/one-shot-remove-pseudo-today.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/teacher-friction-reduction
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+      - name: Remove pseudo tasks from Today
+        run: python .github/scripts/remove_pseudo_today_tasks.py
+      - name: Format changed Dart files
+        run: |
+          dart format \
+            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
+            lib/cloud/learning_repository.dart \
+            lib/export/learning_record_export.dart
+      - name: Remove one-shot tooling and commit
+        run: |
+          rm .github/scripts/remove_pseudo_today_tasks.py
+          rm .github/workflows/one-shot-remove-pseudo-today.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "UX: keep passive records out of Today"
+          git push origin HEAD:ux/teacher-friction-reduction
