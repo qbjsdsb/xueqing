@@ -24,6 +24,16 @@ jobs:
           cache: true
       - name: Align development design preview with teacher flow
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/align_design_prototype_teacher_flow.py')
+          text = path.read_text(encoding='utf-8')
+          old = "updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)"
+          new = "updated, count = re.subn(pattern, lambda _: replacement, text, count=1, flags=re.S)"
+          if old not in text:
+              raise SystemExit('sub_once implementation changed unexpectedly')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
           python .github/scripts/align_design_prototype_teacher_flow.py
           python - <<'PY'
           from pathlib import Path
