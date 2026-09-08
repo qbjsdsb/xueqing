@@ -1170,6 +1170,35 @@ void main() {
     expect(find.text('未来再处理的问题'), findsOneWidget);
   });
 
+  testWidgets('clears student search in one tap and restores the list', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(_fixtureWorkspace());
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.byIcon(Icons.people_outline).first);
+    await tester.pumpAndSettle();
+
+    final searchField = find.byKey(const Key('workspace-student-search'));
+    expect(searchField, findsOneWidget);
+    await tester.enterText(searchField, '不存在的学生');
+    await tester.pump();
+
+    final clearButton = find.byKey(const Key('workspace-student-search-clear'));
+    expect(clearButton, findsOneWidget);
+    expect(find.text('没有找到匹配的学生'), findsOneWidget);
+
+    await tester.tap(clearButton);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(searchField).controller?.text, isEmpty);
+    expect(
+      find.byKey(const Key('workspace-student-search-clear')),
+      findsNothing,
+    );
+    expect(find.text('示例学生甲'), findsOneWidget);
+  });
+
   testWidgets('explains schema drift and lets the user retry', (tester) async {
     final repository = _FakeLearningRepository(_fixtureWorkspace())
       ..loadError = StateError(
