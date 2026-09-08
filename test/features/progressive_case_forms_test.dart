@@ -92,6 +92,34 @@ void main() {
     expect(command.nextActionTitle, '下周抽查一次同类阅读题');
   });
 
+  testWidgets('reminder can be saved without repeating a reminder title', (
+    tester,
+  ) async {
+    final repository = _FakeProgressiveCaseRepository();
+    await tester.pumpWidget(
+      _host(CaseProgressForm(repository: repository, learningCase: _case())),
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('progress-summary')),
+      '今天已经能主动圈出题干限制词',
+    );
+    await tester.tap(find.byKey(const Key('progress-next-options-toggle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('progress-next-remind')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('提醒内容（可选）'), findsOneWidget);
+    expect(find.text('不写也可以，系统会生成一条中性提醒。'), findsOneWidget);
+    await _tapVisible(tester, find.byKey(const Key('progress-save')));
+    await tester.pumpAndSettle();
+
+    final command = repository.progressCommands.single;
+    expect(command.nextStep, CaseProgressNextStep.remind);
+    expect(command.nextActionTitle, isNull);
+    command.validate();
+  });
+
   testWidgets('assessment requires the teacher to choose a result explicitly', (
     tester,
   ) async {
