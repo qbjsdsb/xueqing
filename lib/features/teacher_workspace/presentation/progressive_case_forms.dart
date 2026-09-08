@@ -120,6 +120,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
   bool _submissionAttempted = false;
   bool _showRecordOptions = false;
   bool _showNextStepOptions = false;
+  bool _showClosureDetails = false;
   RecordCaseProgressCommand? _submittedCommand;
 
   bool get _inputsLocked => _saving || _submissionAttempted;
@@ -614,40 +615,63 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                   ],
                   if (_nextStep == CaseProgressNextStep.close) ...[
                     const SizedBox(height: AppSpacing.md),
-                    DropdownButtonFormField<CaseClosureReason>(
-                      key: const Key('progress-close-reason'),
-                      initialValue: _closureReason,
-                      decoration: const InputDecoration(
-                        labelText: '为什么结束跟进？ *',
-                      ),
-                      items: [
-                        for (final reason in CaseClosureReason.values)
-                          DropdownMenuItem<CaseClosureReason>(
-                            value: reason,
-                            child: Text(reason.label),
-                          ),
-                      ],
-                      onChanged: _inputsLocked
-                          ? null
-                          : (reason) {
-                              if (reason != null) {
-                                setState(() => _closureReason = reason);
-                              }
-                            },
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextField(
-                      key: const Key('progress-close-note'),
-                      controller: _closeNoteController,
-                      enabled: !_inputsLocked,
-                      minLines: 2,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        labelText: '补充说明（可选）',
-                        hintText: '只写对以后重新理解这个问题有帮助的内容',
-                        alignLabelWithHint: true,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        key: const Key('progress-close-details-toggle'),
+                        onPressed: _inputsLocked
+                            ? null
+                            : () => setState(
+                                () =>
+                                    _showClosureDetails = !_showClosureDetails,
+                              ),
+                        icon: Icon(
+                          _showClosureDetails
+                              ? Icons.expand_less
+                              : Icons.notes_outlined,
+                        ),
+                        label: Text(
+                          _showClosureDetails ? '收起结束说明' : '补充结束原因（可选）',
+                        ),
                       ),
                     ),
+                    if (_showClosureDetails) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      DropdownButtonFormField<CaseClosureReason>(
+                        key: const Key('progress-close-reason'),
+                        initialValue: _closureReason,
+                        decoration: const InputDecoration(
+                          labelText: '结束原因（可选）',
+                        ),
+                        items: [
+                          for (final reason in CaseClosureReason.values)
+                            DropdownMenuItem<CaseClosureReason>(
+                              value: reason,
+                              child: Text(reason.label),
+                            ),
+                        ],
+                        onChanged: _inputsLocked
+                            ? null
+                            : (reason) {
+                                if (reason != null) {
+                                  setState(() => _closureReason = reason);
+                                }
+                              },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      TextField(
+                        key: const Key('progress-close-note'),
+                        controller: _closeNoteController,
+                        enabled: !_inputsLocked,
+                        minLines: 2,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          labelText: '补充说明（可选）',
+                          hintText: '只写对以后重新理解这个问题有帮助的内容',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                    ],
                   ],
                   if (_saveError != null) ...[
                     const SizedBox(height: AppSpacing.md),
@@ -720,6 +744,7 @@ class _EndCaseFollowUpFormState extends State<EndCaseFollowUpForm> {
   String? _saveError;
   bool _saving = false;
   bool _submissionAttempted = false;
+  bool _showClosureDetails = false;
 
   @override
   void initState() {
@@ -840,7 +865,7 @@ class _EndCaseFollowUpFormState extends State<EndCaseFollowUpForm> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '结束的是这一次跟进，不会删除问题、证据、教学处理和检查历史。以后再次出现时仍可继续跟进。',
+                    '结束的是这一次跟进，不会删除问题、学生表现、教学处理和检查记录。以后再次出现时仍可继续跟进。',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -848,38 +873,64 @@ class _EndCaseFollowUpFormState extends State<EndCaseFollowUpForm> {
                   const SizedBox(height: AppSpacing.md),
                   _ContextLine(label: '当前问题', value: widget.learningCase.title),
                   const SizedBox(height: AppSpacing.md),
-                  DropdownButtonFormField<CaseClosureReason>(
-                    key: const Key('end-follow-up-reason'),
-                    initialValue: _reason,
-                    decoration: const InputDecoration(labelText: '为什么结束跟进？ *'),
-                    items: [
-                      for (final reason in CaseClosureReason.values)
-                        DropdownMenuItem<CaseClosureReason>(
-                          value: reason,
-                          child: Text(reason.label),
-                        ),
-                    ],
-                    onChanged: _saving || _submissionAttempted
-                        ? null
-                        : (reason) {
-                            if (reason != null) {
-                              setState(() => _reason = reason);
-                            }
-                          },
+                  Text(
+                    '直接结束即可；默认只表示“这次先不继续跟进”，不代表问题已经解决。',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    key: const Key('end-follow-up-note'),
-                    controller: _noteController,
-                    enabled: !_saving && !_submissionAttempted,
-                    minLines: 2,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      labelText: '补充说明（可选）',
-                      hintText: '例如：连续两周未再出现，暂时结束跟进',
-                      alignLabelWithHint: true,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('end-follow-up-details-toggle'),
+                      onPressed: _saving || _submissionAttempted
+                          ? null
+                          : () => setState(
+                              () => _showClosureDetails = !_showClosureDetails,
+                            ),
+                      icon: Icon(
+                        _showClosureDetails
+                            ? Icons.expand_less
+                            : Icons.notes_outlined,
+                      ),
+                      label: Text(
+                        _showClosureDetails ? '收起结束说明' : '补充结束原因（可选）',
+                      ),
                     ),
                   ),
+                  if (_showClosureDetails) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    DropdownButtonFormField<CaseClosureReason>(
+                      key: const Key('end-follow-up-reason'),
+                      initialValue: _reason,
+                      decoration: const InputDecoration(labelText: '结束原因（可选）'),
+                      items: [
+                        for (final reason in CaseClosureReason.values)
+                          DropdownMenuItem<CaseClosureReason>(
+                            value: reason,
+                            child: Text(reason.label),
+                          ),
+                      ],
+                      onChanged: _saving || _submissionAttempted
+                          ? null
+                          : (reason) {
+                              if (reason != null) {
+                                setState(() => _reason = reason);
+                              }
+                            },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextField(
+                      key: const Key('end-follow-up-note'),
+                      controller: _noteController,
+                      enabled: !_saving && !_submissionAttempted,
+                      minLines: 2,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: '补充说明（可选）',
+                        hintText: '例如：连续两周未再出现，暂时结束跟进',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                  ],
                   if (_saveError != null) ...[
                     const SizedBox(height: AppSpacing.md),
                     Text(
