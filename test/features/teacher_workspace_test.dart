@@ -328,6 +328,7 @@ TeacherWorkspace _fixtureWorkspace({
   String? assessmentResult,
   DateTime? businessDate,
   DateTime? businessDueDate,
+  bool includeAction = true,
 }) {
   final action = WorkspaceAction(
     id: 'action-1',
@@ -364,7 +365,7 @@ TeacherWorkspace _fixtureWorkspace({
               assessedAt: DateTime(2026, 9, 3),
             ),
           ],
-    actions: status == LearningCaseStatus.closed
+    actions: status == LearningCaseStatus.closed || !includeAction
         ? const <WorkspaceAction>[]
         : <WorkspaceAction>[action],
     timeline: const <WorkspaceTimelineEvent>[],
@@ -750,6 +751,31 @@ void main() {
     );
     expect(find.text('分数步骤需要继续观察'), findsOneWidget);
   });
+
+  testWidgets(
+    'new Quick Capture Case without an Action remains visible in Today',
+    (tester) async {
+      final repository = _FakeLearningRepository(
+        _fixtureWorkspace(
+          status: LearningCaseStatus.newCase,
+          includeAction: false,
+        ),
+      );
+      await _pumpWorkspace(tester, repository);
+
+      expect(find.text('今天暂时没有需要处理的事项'), findsNothing);
+      expect(
+        find.byKey(const Key('workspace-new-cases-section')),
+        findsOneWidget,
+      );
+      expect(find.text('待整理'), findsWidgets);
+      expect(find.text('分数步骤需要继续观察'), findsOneWidget);
+      expect(
+        find.byKey(const Key('workspace-undated-actions-section')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets(
     'quiet Today uses one useful empty state and hides empty sections',

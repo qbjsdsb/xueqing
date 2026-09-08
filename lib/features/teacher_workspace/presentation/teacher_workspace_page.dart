@@ -515,6 +515,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   static const int _studentPendingPreviewLimit = 2;
   static const int _caseTimelinePreviewLimit = 3;
   bool _showAllPendingVerification = false;
+  bool _showAllNewCases = false;
   bool _showAllFutureActions = false;
   bool _showAllUndatedActions = false;
   bool _showAllStudentCases = false;
@@ -1485,8 +1486,19 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   Widget _buildToday(TeacherWorkspace workspace) {
     final actions = <WorkspaceActionWithContext>[];
     final pendingVerification = <WorkspaceCaseWithContext>[];
+    final newCases = <WorkspaceCaseWithContext>[];
     for (final student in workspace.students) {
       for (final learningCase in student.cases) {
+        if (learningCase.status == LearningCaseStatus.newCase &&
+            learningCase.primaryAction == null) {
+          newCases.add(
+            WorkspaceCaseWithContext(
+              student: student,
+              learningCase: learningCase,
+            ),
+          );
+          continue;
+        }
         if (learningCase.status == LearningCaseStatus.pendingVerification) {
           pendingVerification.add(
             WorkspaceCaseWithContext(
@@ -1520,9 +1532,13 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final hasImmediateWork =
         hasScheduledWork ||
         pendingVerification.isNotEmpty ||
+        newCases.isNotEmpty ||
         undated.isNotEmpty;
     final hasBlockBeforeFuture =
-        hasScheduledWork || !hasImmediateWork || pendingVerification.isNotEmpty;
+        hasScheduledWork ||
+        !hasImmediateWork ||
+        pendingVerification.isNotEmpty ||
+        newCases.isNotEmpty;
     final hasBlockBeforeUndated = hasBlockBeforeFuture || future.isNotEmpty;
 
     return Column(
@@ -1607,6 +1623,46 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     in (_showAllPendingVerification
                         ? pendingVerification
                         : pendingVerification.take(_todayPreviewLimit)))
+                  _WorkspaceCaseRow(
+                    student: item.student,
+                    learningCase: item.learningCase,
+                    onOpen: () => _openCase(item.student, item.learningCase),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        if (newCases.isNotEmpty) ...[
+          if (hasScheduledWork || pendingVerification.isNotEmpty)
+            const SizedBox(height: AppSpacing.lg),
+          _WorkspaceSection(
+            key: const Key('workspace-new-cases-section'),
+            title: '待整理',
+            count: '${newCases.length} 个问题',
+            showTopDivider: true,
+            action: newCases.length > _todayPreviewLimit
+                ? TextButton(
+                    key: const Key('workspace-new-cases-toggle'),
+                    onPressed: () =>
+                        setState(() => _showAllNewCases = !_showAllNewCases),
+                    child: AnimatedSwitcher(
+                      duration: AppMotion.effectiveDuration(
+                        context,
+                        AppMotion.quick,
+                      ),
+                      child: Text(
+                        _showAllNewCases ? '收起' : '查看全部',
+                        key: ValueKey<bool>(_showAllNewCases),
+                      ),
+                    ),
+                  )
+                : null,
+            child: Column(
+              children: [
+                for (final item
+                    in (_showAllNewCases
+                        ? newCases
+                        : newCases.take(_todayPreviewLimit)))
                   _WorkspaceCaseRow(
                     student: item.student,
                     learningCase: item.learningCase,
