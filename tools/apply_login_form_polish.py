@@ -209,9 +209,13 @@ login_tests = """void main() {
     expect(passwordField, findsOneWidget);
     expect(_isLoginPasswordObscured(tester), isTrue);
 
-    final emailWidget = tester.widget<TextFormField>(emailField);
-    expect(emailWidget.textInputAction, TextInputAction.next);
-    expect(emailWidget.autofillHints, contains(AutofillHints.email));
+    final emailEditableFinder = find.descendant(
+      of: emailField,
+      matching: find.byType(EditableText),
+    );
+    final emailEditable = tester.widget<EditableText>(emailEditableFinder);
+    expect(emailEditable.textInputAction, TextInputAction.next);
+    expect(emailEditable.autofillHints, contains(AutofillHints.email));
 
     await tester.tap(emailField);
     await tester.enterText(emailField, 'teacher@example.com');
