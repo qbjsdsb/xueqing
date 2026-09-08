@@ -4723,7 +4723,9 @@ class _WorkspaceRail extends StatelessWidget {
               backgroundColor: Colors.transparent,
               selectedIndex: selectedIndex,
               onDestinationSelected: onDestinationSelected,
-              labelType: NavigationRailLabelType.none,
+              labelType: extended
+                  ? NavigationRailLabelType.none
+                  : NavigationRailLabelType.all,
               indicatorColor: Theme.of(context).colorScheme.primaryContainer,
               selectedIconTheme: IconThemeData(
                 color: Theme.of(context).colorScheme.primary,
@@ -4744,35 +4746,65 @@ class _WorkspaceRail extends StatelessWidget {
               AppSpacing.sm,
               AppSpacing.lg,
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    extended ? '开发数据 · 仅当前权限范围' : '开发数据',
-                    textAlign: extended ? TextAlign.start : TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
+            child: extended
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (onCheckForUpdates != null)
+                        IconButton(
+                          key: const Key('workspace-rail-update'),
+                          tooltip: '检查更新',
+                          onPressed: checkingForUpdates
+                              ? null
+                              : onCheckForUpdates,
+                          icon: checkingForUpdates
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.system_update_alt),
+                        ),
+                      if (onSignOut != null)
+                        IconButton(
+                          key: const Key('workspace-rail-sign-out'),
+                          tooltip: '退出登录',
+                          onPressed: onSignOut,
+                          icon: const Icon(Icons.logout),
+                        ),
+                    ],
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onCheckForUpdates != null)
+                        IconButton(
+                          key: const Key('workspace-rail-update'),
+                          tooltip: '检查更新',
+                          onPressed: checkingForUpdates
+                              ? null
+                              : onCheckForUpdates,
+                          icon: checkingForUpdates
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.system_update_alt),
+                        ),
+                      if (onSignOut != null)
+                        IconButton(
+                          key: const Key('workspace-rail-sign-out'),
+                          tooltip: '退出登录',
+                          onPressed: onSignOut,
+                          icon: const Icon(Icons.logout),
+                        ),
+                    ],
                   ),
-                ),
-                if (onCheckForUpdates != null)
-                  IconButton(
-                    tooltip: '检查更新',
-                    onPressed: checkingForUpdates ? null : onCheckForUpdates,
-                    icon: checkingForUpdates
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.system_update_alt),
-                  ),
-                if (extended && onSignOut != null)
-                  IconButton(
-                    tooltip: '退出登录',
-                    onPressed: onSignOut,
-                    icon: Icon(Icons.logout),
-                  ),
-              ],
-            ),
           ),
         ],
       ),
