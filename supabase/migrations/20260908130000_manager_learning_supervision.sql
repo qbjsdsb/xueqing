@@ -4,7 +4,8 @@
 --   * org_owner / org_admin can inspect and operate every active learning record
 --     in their organization without requiring a student assignment or teaching
 --     subject scope.
---   * teacher remains assignment + teaching-scope bound.
+--   * teacher remains assignment + teaching-scope bound, including business-date
+--     activation and expiry boundaries.
 --   * manager edits must not silently steal a teacher's Case responsibility:
 --     lifecycle events record the real manager actor, while an existing legal
 --     Case owner / next-action assignee stays responsible unless the explicit
@@ -89,6 +90,13 @@ as $function$
               and assignment.organization_id = profile.organization_id
               and assignment.membership_id = membership.id
               and assignment.status = 'active'
+              and (now() at time zone organization.time_zone)::date
+                >= assignment.active_from
+              and (
+                assignment.active_to is null
+                or (now() at time zone organization.time_zone)::date
+                  <= assignment.active_to
+              )
           )
           and exists (
             select 1
@@ -98,6 +106,13 @@ as $function$
               and scope.organization_subject_id = profile.organization_subject_id
               and scope.scope_kind = 'teaching'
               and scope.status = 'active'
+              and (now() at time zone organization.time_zone)::date
+                >= scope.active_from
+              and (
+                scope.active_to is null
+                or (now() at time zone organization.time_zone)::date
+                  <= scope.active_to
+              )
           )
         )
       )
@@ -378,6 +393,6 @@ $patch_reopen$;
 comment on function private.manager_membership_can_supervise_v2(uuid, uuid) is
   'Returns whether a membership is an active owner/admin learning supervisor for an organization.';
 comment on function private.legal_case_responsibility_membership_v2(uuid, uuid) is
-  'Legal Case responsibility: active owner/admin, or teacher with active assignment and teaching scope.';
+  'Legal Case responsibility: active owner/admin, or teacher with currently effective assignment and teaching scope.';
 comment on function private.resolve_case_responsibility_membership_v2(uuid, uuid, uuid) is
   'Manager edits preserve an existing legal Case owner; ordinary teacher edits keep the acting teacher responsible.';
