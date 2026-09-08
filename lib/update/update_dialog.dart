@@ -9,11 +9,13 @@ class UpdateDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = switch (result.state) {
-      UpdateCheckState.upToDate => '已是最新版本',
-      UpdateCheckState.available => '发现新版本',
-      UpdateCheckState.unsupportedPlatform => '发现新版本',
-    };
+    final title = result.isMandatory
+        ? '建议立即更新'
+        : switch (result.state) {
+            UpdateCheckState.upToDate => '已是最新版本',
+            UpdateCheckState.available => '发现新版本',
+            UpdateCheckState.unsupportedPlatform => '发现新版本',
+          };
     final content = switch (result.state) {
       UpdateCheckState.upToDate => '当前版本 ${result.currentVersion} 已是最新版本。',
       UpdateCheckState.unsupportedPlatform =>
@@ -30,7 +32,7 @@ class UpdateDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text(result.isMandatory ? '稍后处理' : '关闭'),
+          child: Text(result.isMandatory ? '暂不更新' : '关闭'),
         ),
         if (result.hasUpdate)
           FilledButton(
@@ -45,7 +47,7 @@ class UpdateDialog extends StatelessWidget {
     final lines = <String>[
       '当前版本：${result.currentVersion}',
       '新版本：${result.manifest.version}',
-      if (result.isMandatory) '这是必须更新的版本。',
+      if (result.isMandatory) '当前版本已低于服务端声明的最低支持版本，建议现在更新以避免后续功能不兼容。',
       ...result.manifest.notes.map((note) => '• $note'),
     ];
     return lines.join('\n');
