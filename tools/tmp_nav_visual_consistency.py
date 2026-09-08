@@ -14,3 +14,11 @@ for old, new in replacements:
         raise SystemExit(f'expected one match, got {count}: {old[:50]}')
     text = text.replace(old, new, 1)
 path.write_text(text)
+
+test_path = Path('test/app/theme_test.dart')
+test = test_path.read_text()
+anchor = """    expect(light.bottomSheetTheme.shape, isNotNull);\n    expect(dark.bottomSheetTheme.shape, isNotNull);\n"""
+addition = """    expect(light.bottomSheetTheme.shape, isNotNull);\n    expect(dark.bottomSheetTheme.shape, isNotNull);\n    expect(\n      light.navigationBarTheme.indicatorColor,\n      light.colorScheme.primaryContainer,\n    );\n    expect(\n      dark.navigationBarTheme.indicatorColor,\n      dark.colorScheme.primaryContainer,\n    );\n    expect(\n      light.navigationRailTheme.indicatorColor,\n      light.colorScheme.primaryContainer,\n    );\n    expect(\n      dark.navigationRailTheme.indicatorColor,\n      dark.colorScheme.primaryContainer,\n    );\n"""
+if test.count(anchor) != 1:
+    raise SystemExit('theme test anchor mismatch')
+test_path.write_text(test.replace(anchor, addition, 1))
