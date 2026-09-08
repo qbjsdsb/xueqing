@@ -3,13 +3,16 @@ import 'package:xueqing/cloud/learning_repository.dart';
 
 void main() {
   group('QuickCaptureCommand', () {
-    test('allows recording a classroom fact without manufacturing an Action', () {
-      final command = _command();
+    test(
+      'allows recording a classroom fact without manufacturing an Action',
+      () {
+        final command = _command();
 
-      expect(command.nextActionTitle, isNull);
-      expect(command.nextActionDueAt, isNull);
-      expect(command.validate, returnsNormally);
-    });
+        expect(command.nextActionTitle, isNull);
+        expect(command.nextActionDueAt, isNull);
+        expect(command.validate, returnsNormally);
+      },
+    );
 
     test('rejects an explicit blank Action title', () {
       final command = _command(nextActionTitle: '   ');
