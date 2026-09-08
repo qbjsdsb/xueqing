@@ -84,6 +84,7 @@ void main() {
     expect(find.text('教师工作台'), findsOneWidget);
     expect(find.text('开发云端尚未配置'), findsOneWidget);
     expect(find.text('打开虚构数据预览'), findsNothing);
+    expect(find.byType(BackButton), findsNothing);
 
     await tester.pumpWidget(
       MaterialApp(
