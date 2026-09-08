@@ -74,6 +74,11 @@ class UpdateService {
     'update-manifest.json',
   );
 
+  static final Uri pilotManifestUri = Uri.parse(
+    'https://github.com/qbjsdsb/xueqing/releases/download/'
+    'pilot-channel/update-manifest.json',
+  );
+
   final AppVersion currentVersion;
   final UpdatePlatform? platform;
   final Uri manifestUri;
