@@ -325,7 +325,7 @@ do $patch_close$
 declare
   function_definition text;
   old_fragment text := '  if not exists (';
-  new_fragment text := '  if not (select private.can_manage_organization_v2(v_organization_id))\n    and not exists (';
+  new_fragment text := E'  if not (select private.can_manage_organization_v2(v_organization_id))\n    and not exists (';
 begin
   select pg_get_functiondef(
     'private.close_case(uuid,uuid,integer,timestamptz)'::regprocedure
@@ -344,7 +344,7 @@ do $patch_reopen$
 declare
   function_definition text;
   old_gate_fragment text := '  if not exists (';
-  new_gate_fragment text := '  if not (select private.can_manage_organization_v2(v_organization_id))\n    and not exists (';
+  new_gate_fragment text := E'  if not (select private.can_manage_organization_v2(v_organization_id))\n    and not exists (';
   old_owner_fragment text := 'owner_membership_id = v_membership_id,';
   new_owner_fragment text := 'owner_membership_id = private.resolve_case_responsibility_membership_v2(v_profile_id, owner_membership_id, v_membership_id),';
 begin
