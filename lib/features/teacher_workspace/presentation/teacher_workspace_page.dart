@@ -16,11 +16,13 @@ import '../../../cloud/evidence_attachment_repository.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/organization_member_provisioning_repository.dart';
+import '../../../cloud/progressive_case_repository.dart';
 import '../../../config/app_config.dart';
 import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
 import '../../organization_management/presentation/organization_management_page.dart';
 import 'member_onboarding_page.dart';
 import 'evidence_attachment_picker.dart';
+import 'progressive_case_forms.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../update/update_dialog.dart';
 import '../../../update/update_installer.dart';
@@ -31,6 +33,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     required this.config,
     this.authRepository,
     this.learningRepository,
+    this.progressiveCaseRepository,
     this.evidenceAttachmentRepository,
     this.organizationManagementRepository,
     this.invitationAcceptanceRepository,
@@ -43,6 +46,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
   final AppConfig config;
   final AuthRepository? authRepository;
   final LearningRepository? learningRepository;
+  final ProgressiveCaseRepository? progressiveCaseRepository;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final OrganizationManagementRepository? organizationManagementRepository;
   final OrganizationInvitationAcceptanceRepository?
@@ -67,6 +71,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   StreamSubscription<AuthState>? _authSubscription;
   AuthRepository? _authRepository;
   LearningRepository? _learningRepository;
+  ProgressiveCaseRepository? _progressiveCaseRepository;
   EvidenceAttachmentRepository? _evidenceAttachmentRepository;
   OrganizationManagementRepository? _organizationManagementRepository;
   OrganizationInvitationAcceptanceRepository? _invitationAcceptanceRepository;
@@ -116,6 +121,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
     if (hasAuthRepository && hasLearningRepository) {
       _authRepository = widget.authRepository;
       _learningRepository = widget.learningRepository;
+      _progressiveCaseRepository = widget.progressiveCaseRepository;
       _evidenceAttachmentRepository = widget.evidenceAttachmentRepository;
       _organizationManagementRepository =
           widget.organizationManagementRepository;
@@ -139,6 +145,9 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       );
       _authRepository = SupabaseAuthRepository(CloudClient.client);
       _learningRepository = SupabaseLearningRepository(CloudClient.client);
+      _progressiveCaseRepository = SupabaseProgressiveCaseRepository(
+        CloudClient.client,
+      );
       _evidenceAttachmentRepository = SupabaseEvidenceAttachmentRepository(
         CloudClient.client,
       );
@@ -402,6 +411,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
         return TeacherWorkspacePage(
           key: ValueKey(_activeUserId),
           repository: _learningRepository!,
+          progressiveCaseRepository: _progressiveCaseRepository,
           evidenceAttachmentRepository: _evidenceAttachmentRepository,
           managementRepository: _organizationManagementRepository,
           memberProvisioningRepository:
@@ -449,6 +459,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
 class TeacherWorkspacePage extends StatefulWidget {
   const TeacherWorkspacePage({
     required this.repository,
+    this.progressiveCaseRepository,
     this.evidenceAttachmentRepository,
     this.managementRepository,
     this.memberProvisioningRepository,
@@ -462,6 +473,7 @@ class TeacherWorkspacePage extends StatefulWidget {
   });
 
   final LearningRepository repository;
+  final ProgressiveCaseRepository? progressiveCaseRepository;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final OrganizationManagementRepository? managementRepository;
   final OrganizationMemberProvisioningRepository? memberProvisioningRepository;
@@ -867,6 +879,80 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
   }
 
+  Future<void> _recordProgress(
+    WorkspaceStudent student,
+    WorkspaceCase learningCase, {
+    WorkspaceAction? currentAction,
+    bool completeCurrentActionInitially = false,
+    bool preserveSelection = false,
+  }) async {
+    final repository = widget.progressiveCaseRepository;
+    if (repository == null) {
+      return;
+    }
+    final workspace = await _workspaceFuture;
+    if (!mounted) {
+      return;
+    }
+    final result = await showCaseProgressForm(
+      context,
+      repository: repository,
+      learningCase: learningCase,
+      currentAction: currentAction,
+      completeCurrentActionInitially: completeCurrentActionInitially,
+      businessDate: workspace.businessDate,
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    final reloaded = preserveSelection
+        ? await _reload(
+            preserveStudent: student,
+            preserveCaseId: learningCase.id,
+          )
+        : await _reload();
+    if (!mounted || !reloaded) {
+      return;
+    }
+    final message = switch (result.nextStep) {
+      'remind' => '已记录进展，并设置提醒。',
+      'close' => '已记录进展，并结束跟进。',
+      _ => '已记录进展。',
+    };
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _endProgressiveFollowUp(
+    WorkspaceStudent student,
+    WorkspaceCase learningCase, {
+    bool preserveSelection = false,
+  }) async {
+    final repository = widget.progressiveCaseRepository;
+    if (repository == null) {
+      return;
+    }
+    final result = await showEndCaseFollowUpForm(
+      context,
+      repository: repository,
+      learningCase: learningCase,
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    final reloaded = preserveSelection
+        ? await _reload(
+            preserveStudent: student,
+            preserveCaseId: learningCase.id,
+          )
+        : await _reload();
+    if (!mounted || !reloaded) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('已结束跟进，历史记录完整保留。')));
+  }
+
   Future<CaseCommandReceipt?> _showCaseForm({
     required _CaseCommandMode mode,
     required WorkspaceCase learningCase,
@@ -1170,6 +1256,22 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceActionWithContext item,
   ) async {
     if (_completingActionId != null) {
+      return;
+    }
+    if (widget.progressiveCaseRepository != null) {
+      setState(() => _completingActionId = item.action.id);
+      try {
+        await _recordProgress(
+          item.student,
+          item.learningCase,
+          currentAction: item.action,
+          completeCurrentActionInitially: true,
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _completingActionId = null);
+        }
+      }
       return;
     }
     setState(() => _completingActionId = item.action.id);
@@ -1705,6 +1807,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         _WorkspaceActionGroup(
           student: group.first.student,
           items: group,
+          progressiveFlow: widget.progressiveCaseRepository != null,
           onOpenCase: (learningCase) =>
               _openCase(group.first.student, learningCase),
           onReschedule: (item) => _rescheduleAction(workspace, item),
@@ -2007,8 +2110,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceCase learningCase,
   ) {
     final primaryAction = learningCase.primaryAction;
-    final commandLabel = _caseCommandLabel(learningCase);
-    final canStabilize = _canStabilizeCase(learningCase);
+    final useProgressiveFlow = widget.progressiveCaseRepository != null;
+    final commandLabel = useProgressiveFlow
+        ? null
+        : _caseCommandLabel(learningCase);
+    final canStabilize = !useProgressiveFlow && _canStabilizeCase(learningCase);
     final visibleTimeline = _showAllCaseTimeline
         ? learningCase.timeline
         : learningCase.timeline.take(_caseTimelinePreviewLimit);
@@ -2035,30 +2141,63 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         ),
         const SizedBox(height: AppSpacing.md),
         _WorkspaceNarrativeSection(
-          title: '下一步',
+          title: useProgressiveFlow ? '当前提醒' : '下一步',
           content: primaryAction == null
-              ? '当前没有待完成的主要行动。'
+              ? useProgressiveFlow
+                    ? '当前没有待办；有新情况时直接记录进展。'
+                    : '当前没有待完成的主要行动。'
               : '${primaryAction.title}（${_formatActionDate(primaryAction)}）',
           isPrimary: true,
         ),
         if (learningCase.status == LearningCaseStatus.pendingVerification)
-          const _WorkspaceStateNotice(
-            title: '本次验证通过，仍待确认是否稳定',
-            message: '本次检查已经通过，还需要你确认这个问题是否已经稳定。',
+          _WorkspaceStateNotice(
+            title: useProgressiveFlow ? '本次检查已经记录' : '本次验证通过，仍待确认是否稳定',
+            message: useProgressiveFlow
+                ? '可以继续观察、设置提醒，或者结束本轮跟进。'
+                : '本次检查已经通过，还需要你确认这个问题是否已经稳定。',
             icon: Icons.fact_check_outlined,
           )
         else if (learningCase.status == LearningCaseStatus.stable)
-          const _WorkspaceStateNotice(
-            title: '稳定；仍需安排下一次检查',
-            message: '当前表现已经稳定，但还没有结束跟进；请保留下一次复查。',
+          _WorkspaceStateNotice(
+            title: useProgressiveFlow ? '当前表现已经稳定' : '稳定；仍需安排下一次检查',
+            message: useProgressiveFlow
+                ? '可以继续观察，也可以直接结束本轮跟进。'
+                : '当前表现已经稳定，但还没有结束跟进；请保留下一次复查。',
             icon: Icons.check_circle_outline,
           )
         else if (learningCase.status == LearningCaseStatus.newCase)
-          const _WorkspaceStateNotice(
+          _WorkspaceStateNotice(
             title: '待整理问题',
-            message: '这是一条课堂快速记录；确认前请补充教师判断和合适的下一步。',
+            message: useProgressiveFlow
+                ? '这是一条课堂快速记录；有新情况时继续记录，确认无需再跟进时可以直接结束。'
+                : '这是一条课堂快速记录；确认前请补充教师判断和合适的下一步。',
             icon: Icons.edit_note_outlined,
           ),
+        if (useProgressiveFlow &&
+            learningCase.status != LearningCaseStatus.closed) ...[
+          const SizedBox(height: AppSpacing.md),
+          _WorkspaceCaseCommandSection(
+            title: '继续理解这个问题',
+            message: '记录本次真实发生的情况；只有确实需要提醒自己时才设置下一步。',
+            buttonLabel: '记录进展',
+            onPressed: () => unawaited(
+              _recordProgress(
+                student,
+                learningCase,
+                currentAction: primaryAction,
+                preserveSelection: true,
+              ),
+            ),
+            secondaryButtonLabel: '结束跟进',
+            onSecondaryPressed: () => unawaited(
+              _endProgressiveFollowUp(
+                student,
+                learningCase,
+                preserveSelection: true,
+              ),
+            ),
+          ),
+        ],
         if (commandLabel != null) ...[
           const SizedBox(height: AppSpacing.md),
           _WorkspaceCaseCommandSection(
@@ -2077,7 +2216,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             onPressed: () => _showStabilizeCase(student, learningCase),
           ),
         ],
-        if (learningCase.status == LearningCaseStatus.stable) ...[
+        if (!useProgressiveFlow &&
+            learningCase.status == LearningCaseStatus.stable) ...[
           const SizedBox(height: AppSpacing.md),
           _WorkspaceCaseCommandSection(
             title: '结束跟进',
@@ -4518,12 +4658,16 @@ class _WorkspaceCaseCommandSection extends StatelessWidget {
     required this.message,
     required this.buttonLabel,
     required this.onPressed,
+    this.secondaryButtonLabel,
+    this.onSecondaryPressed,
   });
 
   final String title;
   final String message;
   final String buttonLabel;
   final VoidCallback onPressed;
+  final String? secondaryButtonLabel;
+  final VoidCallback? onSecondaryPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -4558,6 +4702,15 @@ class _WorkspaceCaseCommandSection extends StatelessWidget {
                   icon: Icon(Icons.arrow_forward, size: 18),
                   label: Text(buttonLabel),
                 ),
+                if (secondaryButtonLabel != null &&
+                    onSecondaryPressed != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  OutlinedButton.icon(
+                    onPressed: onSecondaryPressed,
+                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                    label: Text(secondaryButtonLabel!),
+                  ),
+                ],
               ],
             ),
           ),
@@ -5182,6 +5335,7 @@ class _WorkspaceActionGroup extends StatelessWidget {
   const _WorkspaceActionGroup({
     required this.student,
     required this.items,
+    required this.progressiveFlow,
     required this.onOpenCase,
     required this.onReschedule,
     required this.onComplete,
@@ -5191,6 +5345,7 @@ class _WorkspaceActionGroup extends StatelessWidget {
 
   final WorkspaceStudent student;
   final List<WorkspaceActionWithContext> items;
+  final bool progressiveFlow;
   final ValueChanged<WorkspaceCase> onOpenCase;
   final Future<void> Function(WorkspaceActionWithContext item) onReschedule;
   final Future<void> Function(WorkspaceActionWithContext item) onComplete;
@@ -5260,8 +5415,12 @@ class _WorkspaceActionGroup extends StatelessWidget {
                             onPressed: completingActionId == item.action.id
                                 ? null
                                 : () => onComplete(item),
-                            icon: const Icon(Icons.check),
-                            label: const Text('完成行动'),
+                            icon: Icon(
+                              progressiveFlow
+                                  ? Icons.edit_note_outlined
+                                  : Icons.check,
+                            ),
+                            label: Text(progressiveFlow ? '处理' : '完成行动'),
                           ),
                         OutlinedButton(
                           onPressed: () => onOpenCase(item.learningCase),
