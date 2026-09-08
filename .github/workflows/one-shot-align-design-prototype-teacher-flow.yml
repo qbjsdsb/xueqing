@@ -1,0 +1,46 @@
+name: One-shot align design preview teacher flow
+
+on:
+  push:
+    branches:
+      - ux/teacher-friction-reduction
+    paths:
+      - .github/workflows/one-shot-align-design-prototype-teacher-flow.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/teacher-friction-reduction
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Align development design preview with teacher flow
+        run: |
+          python .github/scripts/align_design_prototype_teacher_flow.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('lib/features/design_prototype/presentation/design_prototype_page.dart')
+          text = path.read_text(encoding='utf-8')
+          if not text.startswith("import 'dart:async';"):
+              text = "import 'dart:async';\n\n" + text
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Format changed Dart files
+        run: dart format lib/features/design_prototype/design_fixture.dart lib/features/design_prototype/presentation/design_prototype_page.dart lib/features/design_prototype/presentation/design_components.dart
+      - name: Remove one-shot tooling and commit
+        run: |
+          rm .github/scripts/align_design_prototype_teacher_flow.py
+          rm .github/workflows/one-shot-align-design-prototype-teacher-flow.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "UX: align design preview with lightweight teacher flow"
+          git push origin HEAD:ux/teacher-friction-reduction
