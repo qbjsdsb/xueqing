@@ -1,6 +1,6 @@
 begin;
 
-select plan(26);
+select plan(25);
 
 -- Fictional manager actors in the seeded organization. Neither manager receives
 -- a student assignment or teaching subject scope: organization-level learning
@@ -543,7 +543,7 @@ select is(
 
 -- A plain teacher in the same organization still needs a real assignment and
 -- teaching scope. Manager supervision must not weaken the teacher boundary.
-select set_config('request.jwt.claim.sub', '2f200000-0000-0000-0000-000000000003', true);
+select set_config('request.jwt.claim.sub', '2f200000-0000-0000-000000000003', true);
 select set_config(
   'request.jwt.claims',
   json_build_object(
