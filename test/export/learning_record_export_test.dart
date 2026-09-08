@@ -82,11 +82,16 @@ void main() {
 
       final rows = LearningRecordExport.rowsForStudentSubject(student);
       expect(rows, hasLength(4));
+      expect(rows.map((row) => row.recordType), <String>[
+        '发现问题',
+        '学生表现',
+        '教学处理',
+        '检查结果',
+      ]);
       expect(
-        rows.map((row) => row.recordType),
-        <String>['发现问题', '学生表现', '教学处理', '检查结果'],
+        rows.where((row) => row.recordType.contains('Assessment')),
+        isEmpty,
       );
-      expect(rows.where((row) => row.recordType.contains('Assessment')), isEmpty);
       expect(rows.last.assessmentResult, '部分改善');
       expect(rows.last.nextStep, '下节课再检查一次');
       expect(rows.last.status, '待验证');

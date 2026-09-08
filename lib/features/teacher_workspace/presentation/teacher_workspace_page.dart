@@ -24,6 +24,7 @@ import 'member_onboarding_page.dart';
 import 'evidence_attachment_picker.dart';
 import 'progressive_case_forms.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../export/learning_record_export.dart';
 import '../../../update/update_dialog.dart';
 import '../../../update/update_installer.dart';
 import '../../../update/update_service.dart';
@@ -1959,6 +1960,41 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     );
   }
 
+  Future<void> _exportStudentSubject(WorkspaceStudent student) async {
+    final rows = LearningRecordExport.rowsForStudentSubject(student);
+    if (rows.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('当前没有可导出的记录。')));
+      }
+      return;
+    }
+    try {
+      final savedPath = await LearningRecordExport.saveAsXlsx(
+        fileNameWithoutExtension: LearningRecordExport.studentSubjectFileName(
+          student,
+        ),
+        rows: rows,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(savedPath == null ? '已取消导出。' : '学情记录表已生成。')),
+      );
+    } catch (error, stackTrace) {
+      AppLogger.instance.error(
+        'student_subject_export_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('导出失败，请重试。')));
+      }
+    }
+  }
+
   Widget _buildStudentDetail(
     WorkspaceStudent student,
     WindowSizeClass sizeClass,
@@ -1996,6 +2032,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             icon: Icon(Icons.arrow_back),
           ),
           actions: [
+            OutlinedButton.icon(
+              key: const Key('student-detail-export'),
+              onPressed: () => unawaited(_exportStudentSubject(student)),
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('导出学情记录'),
+            ),
             FilledButton.icon(
               onPressed: () => _showQuickCapture(student: student),
               icon: Icon(Icons.edit_note_outlined),
@@ -2302,9 +2344,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           repository: widget.evidenceAttachmentRepository,
         ),
         _WorkspaceNarrativeSection(
-          title: '已采取的方法',
+          title: '教学处理',
           content: learningCase.interventions.isEmpty
-              ? '尚未记录教学动作。'
+              ? '尚未记录教学处理。'
               : learningCase.interventions
                     .map(
                       (item) =>
@@ -2313,9 +2355,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     .join('\n\n'),
         ),
         _WorkspaceNarrativeSection(
-          title: '验证记录',
+          title: '检查结果',
           content: learningCase.assessments.isEmpty
-              ? '尚未记录验证。'
+              ? '尚未记录检查结果。'
               : learningCase.assessments
                     .map(
                       (item) =>
@@ -2324,7 +2366,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     .join('\n\n'),
         ),
         _WorkspaceSection(
-          title: '历史 timeline',
+          title: '成长记录',
           count: learningCase.timeline.isEmpty
               ? null
               : '${learningCase.timeline.length} 条',
@@ -2335,7 +2377,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                   onPressed: () => setState(
                     () => _showAllCaseTimeline = !_showAllCaseTimeline,
                   ),
-                  child: Text(_showAllCaseTimeline ? '收起历史' : '展开历史'),
+                  child: Text(_showAllCaseTimeline ? '收起记录' : '查看更早记录'),
                 )
               : null,
           child: learningCase.timeline.isEmpty

@@ -173,19 +173,7 @@ class LearningRecordExport {
       ]);
     }
 
-    const widths = <double>[
-      20,
-      14,
-      12,
-      28,
-      16,
-      48,
-      14,
-      28,
-      14,
-      18,
-      14,
-    ];
+    const widths = <double>[20, 14, 12, 28, 16, 48, 14, 28, 14, 18, 14];
     for (var column = 0; column < widths.length; column++) {
       sheet.setColumnWidth(column, widths[column]);
     }
@@ -193,10 +181,7 @@ class LearningRecordExport {
     for (var rowIndex = 1; rowIndex < sheet.maxRows; rowIndex++) {
       for (var column = 0; column < headers.length; column++) {
         final cell = sheet.cell(
-          CellIndex.indexByColumnRow(
-            columnIndex: column,
-            rowIndex: rowIndex,
-          ),
+          CellIndex.indexByColumnRow(columnIndex: column, rowIndex: rowIndex),
         );
         cell.cellStyle = (cell.cellStyle ?? CellStyle()).copyWith(
           verticalAlignVal: VerticalAlign.Top,
@@ -235,10 +220,7 @@ class LearningRecordExport {
     );
   }
 
-  static String teacherFileName(
-    String teacherName, {
-    DateTime? exportedAt,
-  }) {
+  static String teacherFileName(String teacherName, {DateTime? exportedAt}) {
     final now = exportedAt ?? DateTime.now();
     return sanitizeFileName('${teacherName}_教学记录_${_formatDate(now)}');
   }
