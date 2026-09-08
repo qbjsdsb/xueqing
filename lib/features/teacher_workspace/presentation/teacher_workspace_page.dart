@@ -1768,7 +1768,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               )
             else
               _WorkspaceSection(
-                title: '可访问的学生',
+                title: '学生列表',
                 count: '${students.length} 人',
                 child: Column(
                   children: [
@@ -2021,7 +2021,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         ),
         const SizedBox(height: AppSpacing.md),
         _WorkspaceNarrativeSection(
-          title: 'Next Action / 下一行动',
+          title: '下一步',
           content: primaryAction == null
               ? '当前没有待完成的主要行动。'
               : '${primaryAction.title}（${_formatActionDate(primaryAction)}）',
@@ -2057,8 +2057,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         if (canStabilize) ...[
           const SizedBox(height: AppSpacing.md),
           _WorkspaceCaseCommandSection(
-            title: '确认 Case 已稳定',
-            message: '最新验证结果为通过。确认稳定后会安排一次复查，Case 仍可继续保留历史。',
+            title: '确认已经稳定',
+            message: '最新验证结果为通过。确认稳定后会安排一次复查，问题历史会继续保留。',
             buttonLabel: '标记为稳定',
             onPressed: () => _showStabilizeCase(student, learningCase),
           ),
@@ -2066,18 +2066,18 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
         if (learningCase.status == LearningCaseStatus.stable) ...[
           const SizedBox(height: AppSpacing.md),
           _WorkspaceCaseCommandSection(
-            title: '关闭 Case',
-            message: '确认问题已经收口后再关闭；关闭会保留历史，但不再列入当前待跟进事项。',
-            buttonLabel: '关闭 Case',
+            title: '结束跟进',
+            message: '确认这个问题已经稳定收口后再结束跟进；历史记录会完整保留。',
+            buttonLabel: '结束跟进',
             onPressed: () => _closeCase(student, learningCase),
           ),
         ],
         if (learningCase.status == LearningCaseStatus.closed) ...[
           const SizedBox(height: AppSpacing.md),
           _WorkspaceCaseCommandSection(
-            title: '记录复发并重新打开',
-            message: '关闭后如果再次出现新的表现，可以记录后重新打开；原来的关闭历史会继续保留。',
-            buttonLabel: '记录复发并重新打开',
+            title: '记录复发并继续跟进',
+            message: '结束跟进后如果再次出现新的表现，可以记录复发并继续跟进；之前的历史会完整保留。',
+            buttonLabel: '记录复发并继续跟进',
             onPressed: () => _showReopenCase(student, learningCase),
           ),
         ],
@@ -2092,7 +2092,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           repository: widget.evidenceAttachmentRepository,
         ),
         _WorkspaceNarrativeSection(
-          title: 'Intervention / 教学动作',
+          title: '已采取的方法',
           content: learningCase.interventions.isEmpty
               ? '尚未记录教学动作。'
               : learningCase.interventions
@@ -2103,7 +2103,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     .join('\n\n'),
         ),
         _WorkspaceNarrativeSection(
-          title: 'Assessment / Verification',
+          title: '验证记录',
           content: learningCase.assessments.isEmpty
               ? '尚未记录验证。'
               : learningCase.assessments
@@ -2539,7 +2539,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
       final unknownResult = _isUnknownResultFailure(error);
       final saveError = error is _CaseReopenDraftStorageException
           ? hasCommittedEvidence
-                ? 'Evidence 已保存，但恢复记录暂时无法保存。请保持页面打开并重试。'
+                ? '证据已保存，但恢复记录暂时无法保存。请保持页面打开并重试。'
                 : '无法安全保存恢复记录，未提交到服务器。请重试。'
           : _describeCaseCommandError(error);
       setState(() {
@@ -2567,7 +2567,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('放弃这次复发记录？'),
-        content: const Text('当前输入还没有保存。放弃后不会产生新的 Evidence。'),
+        content: const Text('当前输入还没有保存。放弃后不会产生新的证据。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -2592,7 +2592,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final caseContext =
-        '${widget.learningCase.typeLabel} · ${widget.learningCase.status.label} · version ${widget.learningCase.version}';
+        '${widget.learningCase.typeLabel} · ${widget.learningCase.status.label}';
     return PopScope<void>(
       canPop: !_restoring && !_submissionStarted && !_saving,
       onPopInvokedWithResult: (didPop, _) {
@@ -2616,7 +2616,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                     children: [
                       Expanded(
                         child: Text(
-                          '记录复发并重新打开',
+                          '记录复发并继续跟进',
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
@@ -2637,7 +2637,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  _WorkspaceContextLine(label: '当前 Case', value: caseContext),
+                  _WorkspaceContextLine(label: '当前问题', value: caseContext),
                   const SizedBox(height: AppSpacing.md),
                   if (_restoring) const Text('正在恢复未完成的复发记录…'),
                   const SizedBox(height: AppSpacing.md),
@@ -2697,7 +2697,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                   const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<CaseActionType>(
                     initialValue: _nextActionType,
-                    decoration: const InputDecoration(labelText: '重新打开后的行动类型'),
+                    decoration: const InputDecoration(labelText: '下一步类型'),
                     items: [
                       for (final type in CaseActionType.values)
                         DropdownMenuItem<CaseActionType>(
@@ -2725,7 +2725,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                     enabled: !_inputsLocked,
                     textInputAction: TextInputAction.done,
                     decoration: InputDecoration(
-                      labelText: '重新打开后的下一行动 *',
+                      labelText: '接下来的行动 *',
                       hintText: '例如：复核复发原因并安排验证',
                       errorText: _nextActionError,
                     ),
@@ -2766,7 +2766,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                   if (_evidenceId != null) ...[
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Evidence 已保存，正在等待重新打开；请继续重试完成第二步。',
+                      '证据已保存，正在等待继续跟进；请重试完成第二步。',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.primary,
                       ),
@@ -2798,8 +2798,8 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                             _saving
                                 ? '保存中…'
                                 : _evidenceId == null
-                                ? '保存 Evidence'
-                                : '重新打开 Case',
+                                ? '保存证据'
+                                : '继续跟进',
                           ),
                         ),
                       ),
@@ -2858,15 +2858,15 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
   };
 
   String get _title => switch (widget.mode) {
-    _CaseCommandMode.confirm => '确认 Case',
+    _CaseCommandMode.confirm => '整理并确认问题',
     _CaseCommandMode.intervention => '记录教学动作',
     _CaseCommandMode.assessment => '记录验证结果',
-    _CaseCommandMode.stabilize => '确认 Case 已稳定',
+    _CaseCommandMode.stabilize => '确认已经稳定',
   };
 
   String get _subtitle => switch (widget.mode) {
     _CaseCommandMode.confirm => '把原始观察转成一个可执行的学习问题，并安排下一步。',
-    _CaseCommandMode.intervention => '记录这次实际做了什么；保存后系统会生成 verify action。',
+    _CaseCommandMode.intervention => '记录这次实际做了什么，并明确下一次要检查什么。',
     _CaseCommandMode.assessment => '记录本次检查看到的结果；不要用结果直接替代后续教师判断。',
     _CaseCommandMode.stabilize => '最新验证已经通过；确认稳定后会安排一次复查，不会删除历史记录。',
   };
@@ -3098,7 +3098,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final caseContext =
-        '${widget.learningCase.typeLabel} · ${widget.learningCase.status.label} · version ${widget.learningCase.version}';
+        '${widget.learningCase.typeLabel} · ${widget.learningCase.status.label}';
     return PopScope<void>(
       canPop: !_isDirty && !_saving,
       onPopInvokedWithResult: (didPop, _) {
@@ -3141,7 +3141,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  _WorkspaceContextLine(label: '当前 Case', value: caseContext),
+                  _WorkspaceContextLine(label: '当前问题', value: caseContext),
                   if (widget.mode == _CaseCommandMode.intervention) ...[
                     const SizedBox(height: AppSpacing.md),
                     TextField(
@@ -3152,7 +3152,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                       maxLines: 6,
                       textInputAction: TextInputAction.newline,
                       decoration: InputDecoration(
-                        labelText: '教学动作 / Intervention *',
+                        labelText: '这次怎么处理 *',
                         hintText: '记下讲解、练习、提示或调整方式',
                         errorText: _strategyError,
                         alignLabelWithHint: true,
@@ -3188,7 +3188,7 @@ class _WorkspaceCaseCommandFormState extends State<_WorkspaceCaseCommandForm> {
                       maxLines: 6,
                       textInputAction: TextInputAction.newline,
                       decoration: InputDecoration(
-                        labelText: '本次验证 / Evidence *',
+                        labelText: '本次验证表现 *',
                         hintText: '记下学生这次能否独立完成、错在哪里、是否需要提示',
                         errorText: _evidenceError,
                         alignLabelWithHint: true,
@@ -3313,7 +3313,7 @@ class _WorkspaceQuickCaptureFormState
   late final TextEditingController _evidenceController;
   late final String _operationId;
   WorkspaceStudent? _selectedStudent;
-  String _selectedCaseTypeKey = WorkspaceCaseType.builtInTypes.first.key;
+  String _selectedCaseTypeKey = WorkspaceCaseType.builtInTypes.last.key;
   String? _studentError;
   String? _titleError;
   String? _evidenceError;
@@ -3343,7 +3343,7 @@ class _WorkspaceQuickCaptureFormState
         return caseType;
       }
     }
-    return WorkspaceCaseType.builtInTypes.first;
+    return WorkspaceCaseType.builtInTypes.last;
   }
 
   @override
@@ -3552,7 +3552,7 @@ class _WorkspaceQuickCaptureFormState
         detail.contains('timeout')) {
       return '网络暂时不可用。输入仍保留在这里，请检查网络后重试。';
     }
-    return '保存失败。输入仍保留在这里，请重试；未确认成功前不会生成重复 Case。';
+    return '保存失败。输入仍保留在这里，请重试；未确认成功前不会生成重复问题。';
   }
 
   bool _isCompact(BuildContext context) =>
@@ -3744,8 +3744,8 @@ class _WorkspaceQuickCaptureFormState
                     enabled: !_saving,
                     textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
-                      labelText: '问题标题 *',
-                      hintText: '用一句话记下刚发现的问题',
+                      labelText: '一句话问题 *',
+                      hintText: '例如：阅读题总漏掉题干里的限制词',
                       errorText: _titleError,
                     ),
                   ),
@@ -3828,7 +3828,7 @@ class _WorkspaceQuickCaptureFormState
             OutlinedButton.icon(
               onPressed: _saving ? null : _pickAttachment,
               icon: const Icon(Icons.add_a_photo_outlined),
-              label: Text(attachment == null ? '拍照 / 选择' : '更换图片'),
+              label: Text(attachment == null ? '拍照或选图' : '更换图片'),
             ),
           ],
         ),
@@ -4446,7 +4446,7 @@ class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
                   ],
                 ),
                 Text(
-                  '系统类型始终保留。自定义类型只负责分类，仍沿用同一套 Case、证据、行动和验证流程。',
+                  '系统类型始终保留。自定义类型只负责分类，所有问题仍沿用同一套证据、行动和验证流程。',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -4468,7 +4468,7 @@ class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
                   title: '已归档',
                   types: archivedTypes,
                   emptyTitle: '没有已归档类型',
-                  emptyMessage: '归档后仍会保留历史名称，不会改变已有 Case。',
+                  emptyMessage: '归档后仍会保留历史名称，不会改变已有问题。',
                   icon: Icons.archive_outlined,
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -5116,7 +5116,7 @@ class _WorkspaceCaseRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          OutlinedButton(onPressed: onOpen, child: const Text('查看 Case')),
+          OutlinedButton(onPressed: onOpen, child: const Text('查看问题')),
         ],
       ),
     );
@@ -5210,7 +5210,7 @@ class _WorkspaceActionGroup extends StatelessWidget {
                           ),
                         OutlinedButton(
                           onPressed: () => onOpenCase(item.learningCase),
-                          child: const Text('查看 Case'),
+                          child: const Text('查看问题'),
                         ),
                         TextButton.icon(
                           onPressed: reschedulingActionId == item.action.id
@@ -5429,8 +5429,7 @@ class _WorkspaceCompleteActionFormState
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final caseContext =
-        '${widget.learningCase.title} · ${widget.learningCase.status.label} · '
-        'version ${widget.learningCase.version}';
+        '${widget.learningCase.title} · ${widget.learningCase.status.label}';
     return PopScope<void>(
       canPop: !_isDirty && !_saving && !_submissionAttempted,
       onPopInvokedWithResult: (didPop, _) {
@@ -5467,13 +5466,13 @@ class _WorkspaceCompleteActionFormState
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '完成“${widget.action.title}”后安排下一步。正式 Case 不会因为勾选完成就失去后续跟进。',
+                    '完成“${widget.action.title}”后安排下一步。这个问题不会因为勾选完成就失去后续跟进。',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  _WorkspaceContextLine(label: '当前 Case', value: caseContext),
+                  _WorkspaceContextLine(label: '当前问题', value: caseContext),
                   const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<CaseActionType>(
                     key: const Key('complete-action-type-dropdown'),
@@ -5679,10 +5678,10 @@ class _WorkspaceEvidenceSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Evidence / 证据', style: Theme.of(context).textTheme.titleMedium),
+          Text('观察与证据', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
           if (learningCase.evidence.isEmpty)
-            const Text('尚未记录 Evidence。')
+            const Text('还没有记录证据。')
           else
             for (final evidence in learningCase.evidence)
               _WorkspaceEvidenceItem(
@@ -5844,7 +5843,7 @@ class _WorkspaceEvidenceAttachmentsState
             errorBuilder: (context, error, stackTrace) => const SizedBox(
               width: 280,
               height: 180,
-              child: Center(child: Text('图片暂时无法读取，请重新打开 Case。')),
+              child: Center(child: Text('图片暂时无法读取，请关闭预览后重试。')),
             ),
           ),
         ),
@@ -6482,10 +6481,10 @@ _CaseCommandMode? _caseCommandMode(WorkspaceCase learningCase) {
 
 String? _caseCommandLabel(WorkspaceCase learningCase) {
   return switch (_caseCommandMode(learningCase)) {
-    _CaseCommandMode.confirm => '确认 Case',
+    _CaseCommandMode.confirm => '整理并确认问题',
     _CaseCommandMode.intervention => '记录教学动作',
     _CaseCommandMode.assessment => '记录验证结果',
-    _CaseCommandMode.stabilize => '确认 Case 已稳定',
+    _CaseCommandMode.stabilize => '确认已经稳定',
     null => null,
   };
 }
@@ -6606,19 +6605,19 @@ String _describeCaseCommandError(Object error) {
     return '复查行动需要安排日期。';
   }
   if (detail.contains('evidence_not_finalized')) {
-    return '这条 Evidence 还没有完成保存，不能用于重新打开 Case。';
+    return '这条证据还没有完成保存，暂时不能继续跟进。';
   }
   if (detail.contains('evidence_version_conflict')) {
-    return '复发 Evidence 已经发生变化，请刷新 Case 后重新选择。';
+    return '复发证据已经发生变化，请刷新问题后重新选择。';
   }
   if (detail.contains('owner_permission_required')) {
-    return '只有这条 Case 的负责教师可以执行这一步。';
+    return '只有这条问题的负责教师可以执行这一步。';
   }
   if (detail.contains('case_transition_not_allowed')) {
-    return 'Case 状态已经变化，请刷新后再试。';
+    return '问题状态已经变化，请刷新后再试。';
   }
   if (detail.contains('case_closed')) {
-    return '这个 Case 已经关闭，不能再完成其中的行动。请刷新后查看最新状态。';
+    return '这个问题已经结束跟进，不能再完成其中的行动。请刷新后查看最新状态。';
   }
   if (detail.contains('teaching_fact_gate')) {
     return '当前账号已经失去这名学生的教学权限，请刷新后查看最新分配。';
@@ -6634,7 +6633,7 @@ String _describeCaseCommandError(Object error) {
   }
   if (detail.contains('case_version_conflict') ||
       detail.contains('version_conflict')) {
-    return '这个 Case 已经被更新。输入仍保留，请先刷新后确认最新状态再重试。';
+    return '这个问题已经被更新。输入仍保留，请先刷新后确认最新状态再重试。';
   }
   if (detail.contains('no active session') ||
       detail.contains('not authenticated') ||
@@ -6644,7 +6643,7 @@ String _describeCaseCommandError(Object error) {
   if (detail.contains('not authorized') ||
       detail.contains('permission') ||
       detail.contains('teaching membership')) {
-    return '当前账号已经不能执行这一步，可能是权限或 Case 状态发生了变化。请刷新后再试。';
+    return '当前账号已经不能执行这一步，可能是权限或问题状态发生了变化。请刷新后再试。';
   }
   if (detail.contains('network') ||
       detail.contains('socket') ||
