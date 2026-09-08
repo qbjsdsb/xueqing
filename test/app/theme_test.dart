@@ -17,6 +17,22 @@ void main() {
     expect(light.colorScheme.onSurface, isNot(dark.colorScheme.onSurface));
     expect(light.bottomSheetTheme.shape, isNotNull);
     expect(dark.bottomSheetTheme.shape, isNotNull);
+    expect(
+      light.navigationBarTheme.indicatorColor,
+      light.colorScheme.primaryContainer,
+    );
+    expect(
+      dark.navigationBarTheme.indicatorColor,
+      dark.colorScheme.primaryContainer,
+    );
+    expect(
+      light.navigationRailTheme.indicatorColor,
+      light.colorScheme.primaryContainer,
+    );
+    expect(
+      dark.navigationRailTheme.indicatorColor,
+      dark.colorScheme.primaryContainer,
+    );
   });
 
   testWidgets('follows the system theme at the app root', (tester) async {
