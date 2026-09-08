@@ -305,7 +305,7 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
       setState(() {
         _saving = false;
         _saveError =
-            '${describeProgressiveCaseError(error)}\n本次提交内容已锁定；重试会沿用同一 operation ID，不会重复记录。';
+            '${describeProgressiveCaseError(error)}\n刚才填写的内容已保留；可以直接重试，不会重复保存。';
       });
     }
   }
@@ -792,7 +792,7 @@ class _EndCaseFollowUpFormState extends State<EndCaseFollowUpForm> {
       setState(() {
         _saving = false;
         _saveError =
-            '${describeProgressiveCaseError(error)}\n本次提交内容已锁定；重试会沿用同一 operation ID。';
+            '${describeProgressiveCaseError(error)}\n刚才填写的内容已保留；可以直接重试，不会重复保存。';
       });
     }
   }

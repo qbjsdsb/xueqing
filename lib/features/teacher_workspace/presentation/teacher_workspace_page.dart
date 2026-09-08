@@ -5518,7 +5518,7 @@ class _WorkspaceCompleteActionFormState
       setState(() {
         _saving = false;
         _saveError =
-            '${_describeCaseCommandError(error)}\n本次提交内容已锁定；重试会沿用同一 operation ID。';
+            '${_describeCaseCommandError(error)}\n刚才填写的内容已保留；可以直接重试，不会重复保存。';
       });
     }
   }

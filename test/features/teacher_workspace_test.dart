@@ -1010,7 +1010,8 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '完成待办'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('提交内容已锁定'), findsOneWidget);
+    expect(find.textContaining('刚才填写的内容已保留'), findsOneWidget);
+    expect(find.textContaining('operation ID'), findsNothing);
     final cancelButton = find.widgetWithText(OutlinedButton, '取消');
     await tester.ensureVisible(cancelButton);
     await tester.tap(cancelButton);
@@ -1047,7 +1048,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('网络暂时不可用'), findsOneWidget);
-    expect(find.textContaining('本次提交内容已锁定'), findsOneWidget);
+    expect(find.textContaining('刚才填写的内容已保留'), findsOneWidget);
+    expect(find.textContaining('operation ID'), findsNothing);
     expect(repository.completeCount, 1);
     final firstOperationId = repository.completeCommands.single.operationId;
 
