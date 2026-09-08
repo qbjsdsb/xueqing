@@ -26,8 +26,9 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import base64
 
-          def replace_once(text: str, old: str, new: str, label: str) -> str:
+          def replace_once(text, old, new, label):
               count = text.count(old)
               if count != 1:
                   raise SystemExit(f'{label}: expected exactly one match, got {count}')
@@ -35,60 +36,15 @@ jobs:
 
           forms_path = Path('lib/features/teacher_workspace/presentation/progressive_case_forms.dart')
           forms = forms_path.read_text(encoding='utf-8')
-          forms = replace_once(
-              forms,
-              'CaseAssessmentResult _assessmentResult = CaseAssessmentResult.partial;',
-              'CaseAssessmentResult? _assessmentResult;',
-              'nullable assessment result',
-          )
-          forms = replace_once(
-              forms,
-              'String? _summaryError;\n  String? _reminderError;',
-              'String? _summaryError;\n  String? _assessmentError;\n  String? _reminderError;',
-              'assessment error state',
-          )
-          forms = replace_once(
-              forms,
-              '_assessmentResult != CaseAssessmentResult.partial ||',
-              '_assessmentResult != null ||',
-              'assessment dirty baseline',
-          )
-          forms = replace_once(
-              forms,
-              "    if (_nextStep == CaseProgressNextStep.remind && reminder.isEmpty) {\n      _reminderError = '请写下需要提醒自己做什么';\n      valid = false;\n    }",
-              "    if (_kind == CaseProgressKind.assessment && _assessmentResult == null) {\n      _assessmentError = '请选择这次检查结果';\n      valid = false;\n    }\n    if (_nextStep == CaseProgressNextStep.remind && reminder.isEmpty) {\n      _reminderError = '请写下需要提醒自己做什么';\n      valid = false;\n    }",
-              'assessment validation',
-          )
-          forms = replace_once(
-              forms,
-              "        ? '检查结果：${_assessmentResult.label}'",
-              "        ? '检查结果：${_assessmentResult!.label}'",
-              'assessment summary null assertion',
-          )
-          forms = replace_once(
-              forms,
-              "                                : (_) => setState(() {\n                                    _kind = kind;\n                                    _summaryError = null;\n                                  }),",
-              "                                : (_) => setState(() {\n                                    _kind = kind;\n                                    _summaryError = null;\n                                    if (kind != CaseProgressKind.assessment) {\n                                      _assessmentResult = null;\n                                      _assessmentError = null;\n                                    }\n                                  }),",
-              'clear hidden assessment state',
-          )
-          forms = replace_once(
-              forms,
-              "                      decoration: const InputDecoration(labelText: '检查结果 *'),",
-              "                      decoration: InputDecoration(\n                        labelText: '检查结果 *',\n                        errorText: _assessmentError,\n                      ),",
-              'assessment field error',
-          )
-          forms = replace_once(
-              forms,
-              "                              if (result != null) {\n                                setState(() => _assessmentResult = result);\n                              }",
-              "                              if (result != null) {\n                                setState(() {\n                                  _assessmentResult = result;\n                                  _assessmentError = null;\n                                });\n                              }",
-              'clear assessment error on selection',
-          )
-          forms = replace_once(
-              forms,
-              "                      '只选检查结果也可以保存；需要时再补一句说明。',",
-              "                      '先明确选择检查结果；补充说明仍然可以不写。',",
-              'assessment helper copy',
-          )
+          forms = replace_once(forms, 'CaseAssessmentResult _assessmentResult = CaseAssessmentResult.partial;', 'CaseAssessmentResult? _assessmentResult;', 'nullable assessment result')
+          forms = replace_once(forms, 'String? _summaryError;\n  String? _reminderError;', 'String? _summaryError;\n  String? _assessmentError;\n  String? _reminderError;', 'assessment error state')
+          forms = replace_once(forms, '_assessmentResult != CaseAssessmentResult.partial ||', '_assessmentResult != null ||', 'assessment dirty baseline')
+          forms = replace_once(forms, "    if (_nextStep == CaseProgressNextStep.remind && reminder.isEmpty) {\n      _reminderError = '请写下需要提醒自己做什么';\n      valid = false;\n    }", "    if (_kind == CaseProgressKind.assessment && _assessmentResult == null) {\n      _assessmentError = '请选择这次检查结果';\n      valid = false;\n    }\n    if (_nextStep == CaseProgressNextStep.remind && reminder.isEmpty) {\n      _reminderError = '请写下需要提醒自己做什么';\n      valid = false;\n    }", 'assessment validation')
+          forms = replace_once(forms, "        ? '检查结果：${_assessmentResult.label}'", "        ? '检查结果：${_assessmentResult!.label}'", 'assessment summary null assertion')
+          forms = replace_once(forms, "                                : (_) => setState(() {\n                                    _kind = kind;\n                                    _summaryError = null;\n                                  }),", "                                : (_) => setState(() {\n                                    _kind = kind;\n                                    _summaryError = null;\n                                    if (kind != CaseProgressKind.assessment) {\n                                      _assessmentResult = null;\n                                      _assessmentError = null;\n                                    }\n                                  }),", 'clear hidden assessment state')
+          forms = replace_once(forms, "                      decoration: const InputDecoration(labelText: '检查结果 *'),", "                      decoration: InputDecoration(\n                        labelText: '检查结果 *',\n                        errorText: _assessmentError,\n                      ),", 'assessment field error')
+          forms = replace_once(forms, "                              if (result != null) {\n                                setState(() => _assessmentResult = result);\n                              }", "                              if (result != null) {\n                                setState(() {\n                                  _assessmentResult = result;\n                                  _assessmentError = null;\n                                });\n                              }", 'clear assessment error on selection')
+          forms = replace_once(forms, "                      '只选检查结果也可以保存；需要时再补一句说明。',", "                      '先明确选择检查结果；补充说明仍然可以不写。',", 'assessment helper copy')
           forms_path.write_text(forms, encoding='utf-8')
 
           test_path = Path('test/features/progressive_case_forms_test.dart')
@@ -96,42 +52,13 @@ jobs:
           marker = "  testWidgets('assessment result can be saved without manufacturing notes', (\n"
           if test.count(marker) != 1:
               raise SystemExit(f'assessment test marker: expected one match, got {test.count(marker)}')
-          addition = r'''  testWidgets('assessment requires the teacher to choose a result explicitly', (
-    tester,
-  ) async {
-    final repository = _FakeProgressiveCaseRepository();
-    await tester.pumpWidget(
-      _host(CaseProgressForm(repository: repository, learningCase: _case())),
-    );
-
-    await tester.tap(find.byKey(const Key('progress-record-options-toggle')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('progress-kind-assessment')));
-    await tester.pumpAndSettle();
-
-    final resultPicker = find.byKey(const Key('progress-assessment-result'));
-    expect(resultPicker, findsOneWidget);
-    expect(
-      tester.widget<DropdownButtonFormField<CaseAssessmentResult>>(resultPicker).initialValue,
-      isNull,
-    );
-
-    await _tapVisible(tester, find.byKey(const Key('progress-save')));
-    await tester.pumpAndSettle();
-
-    expect(repository.progressCommands, isEmpty);
-    expect(find.text('请选择这次检查结果'), findsOneWidget);
-  });
-
-'''
+          addition = base64.b64decode('ICB0ZXN0V2lkZ2V0cygnYXNzZXNzbWVudCByZXF1aXJlcyB0aGUgdGVhY2hlciB0byBjaG9vc2UgYSByZXN1bHQgZXhwbGljaXRseScsICgKICAgIHRlc3RlciwKICApIGFzeW5jIHsKICAgIGZpbmFsIHJlcG9zaXRvcnkgPSBfRmFrZVByb2dyZXNzaXZlQ2FzZVJlcG9zaXRvcnkoKTsKICAgIGF3YWl0IHRlc3Rlci5wdW1wV2lkZ2V0KAogICAgICBfaG9zdChDYXNlUHJvZ3Jlc3NGb3JtKHJlcG9zaXRvcnk6IHJlcG9zaXRvcnksIGxlYXJuaW5nQ2FzZTogX2Nhc2UoKSkpLAogICAgKTsKCiAgICBhd2FpdCB0ZXN0ZXIudGFwKGZpbmQuYnlLZXkoY29uc3QgS2V5KCdwcm9ncmVzcy1yZWNvcmQtb3B0aW9ucy10b2dnbGUnKSkpOwogICAgYXdhaXQgdGVzdGVyLnB1bXBBbmRTZXR0bGUoKTsKICAgIGF3YWl0IHRlc3Rlci50YXAoZmluZC5ieUtleShjb25zdCBLZXkoJ3Byb2dyZXNzLWtpbmQtYXNzZXNzbWVudCcpKSk7CiAgICBhd2FpdCB0ZXN0ZXIucHVtcEFuZFNldHRsZSgpOwoKICAgIGZpbmFsIHJlc3VsdFBpY2tlciA9IGZpbmQuYnlLZXkoY29uc3QgS2V5KCdwcm9ncmVzcy1hc3Nlc3NtZW50LXJlc3VsdCcpKTsKICAgIGV4cGVjdChyZXN1bHRQaWNrZXIsIGZpbmRzT25lV2lkZ2V0KTsKICAgIGV4cGVjdCgKICAgICAgdGVzdGVyLndpZGdldDxEcm9wZG93bkJ1dHRvbkZvcm1GaWVsZDxDYXNlQXNzZXNzbWVudFJlc3VsdD4+KHJlc3VsdFBpY2tlcikuaW5pdGlhbFZhbHVlLAogICAgICBpc051bGwsCiAgICApOwoKICAgIGF3YWl0IF90YXBWaXNpYmxlKHRlc3RlciwgZmluZC5ieUtleShjb25zdCBLZXkoJ3Byb2dyZXNzLXNhdmUnKSkpOwogICAgYXdhaXQgdGVzdGVyLnB1bXBBbmRTZXR0bGUoKTsKCiAgICBleHBlY3QocmVwb3NpdG9yeS5wcm9ncmVzc0NvbW1hbmRzLCBpc0VtcHR5KTsKICAgIGV4cGVjdChmaW5kLnRleHQoJ+ivt+mAieaLqei/measoeajgOafpee7k+aenCcpLCBmaW5kc09uZVdpZGdldCk7CiAgfSk7Cgo=').decode('utf-8')
           test = test.replace(marker, addition + marker, 1)
           test_path.write_text(test, encoding='utf-8')
           PY
       - name: Format and run focused tests
         run: |
-          dart format \
-            lib/features/teacher_workspace/presentation/progressive_case_forms.dart \
-            test/features/progressive_case_forms_test.dart
+          dart format lib/features/teacher_workspace/presentation/progressive_case_forms.dart test/features/progressive_case_forms_test.dart
           flutter test test/features/progressive_case_forms_test.dart
       - name: Remove one-shot workflow and commit
         run: |
