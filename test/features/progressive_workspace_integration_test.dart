@@ -6,16 +6,56 @@ import 'package:xueqing/cloud/progressive_case_repository.dart';
 import 'package:xueqing/features/teacher_workspace/presentation/teacher_workspace_page.dart';
 
 void main() {
-  testWidgets('Today uses progressive handling instead of forced next action', (
+  testWidgets('Today can complete a reminder without inventing progress', (
     tester,
   ) async {
-    await tester.pumpWidget(_host());
+    final repository = _WorkspaceRepository(_workspace());
+    await tester.pumpWidget(_host(repository: repository));
     await tester.pumpAndSettle();
 
-    expect(find.text('处理'), findsOneWidget);
-    expect(find.text('完成行动'), findsNothing);
+    expect(find.text('完成'), findsOneWidget);
+    expect(find.text('处理'), findsNothing);
     expect(find.text('今天的工作'), findsOneWidget);
+
+    await tester.tap(find.text('完成'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('完成待办'), findsWidgets);
+    expect(find.textContaining('不会自动写入学生表现'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('workspace-complete-action-save')));
+    await tester.pumpAndSettle();
+
+    final command = repository.completeCommands.single;
+    expect(command.actionId, 'action-1');
+    expect(command.caseId, 'case-1');
+    expect(command.nextActionType, isNull);
+    expect(command.nextActionTitle, isNull);
+    expect(command.nextActionDueOn, isNull);
   });
+
+  test(
+    'complete command accepts no successor and rejects a partial successor',
+    () {
+      final withoutFollowUp = CompleteCaseActionCommand(
+        operationId: 'operation-1',
+        actionId: 'action-1',
+        caseId: 'case-1',
+        expectedCaseVersion: 3,
+        expectedActionVersion: 2,
+      );
+      expect(withoutFollowUp.validate, returnsNormally);
+
+      final invalidPartialFollowUp = CompleteCaseActionCommand(
+        operationId: 'operation-2',
+        actionId: 'action-1',
+        caseId: 'case-1',
+        expectedCaseVersion: 3,
+        expectedActionVersion: 2,
+        nextActionType: CaseActionType.practice,
+      );
+      expect(invalidPartialFollowUp.validate, throwsArgumentError);
+    },
+  );
 
   testWidgets(
     'Case detail exposes progress and close, not legacy state steps',
@@ -37,11 +77,11 @@ void main() {
   );
 }
 
-Widget _host() {
+Widget _host({_WorkspaceRepository? repository}) {
   return MaterialApp(
     theme: AppTheme.light(),
     home: TeacherWorkspacePage(
-      repository: _WorkspaceRepository(_workspace()),
+      repository: repository ?? _WorkspaceRepository(_workspace()),
       progressiveCaseRepository: _NoopProgressiveRepository(),
     ),
   );
@@ -106,9 +146,26 @@ class _WorkspaceRepository implements LearningRepository {
   _WorkspaceRepository(this.workspace);
 
   final TeacherWorkspace workspace;
+  final List<CompleteCaseActionCommand> completeCommands =
+      <CompleteCaseActionCommand>[];
 
   @override
   Future<TeacherWorkspace> loadWorkspace() async => workspace;
+
+  @override
+  Future<CaseCommandReceipt> completeCaseAction(
+    CompleteCaseActionCommand command,
+  ) async {
+    command.validate();
+    completeCommands.add(command);
+    return CaseCommandReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      eventId: 'event-1',
+      status: 'confirmed',
+      caseVersion: command.expectedCaseVersion + 1,
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

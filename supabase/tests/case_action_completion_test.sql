@@ -1,6 +1,6 @@
 begin;
 
-select plan(38);
+select plan(46);
 
 select is(
   (
@@ -547,6 +547,121 @@ select is(
   ),
   date '2026-09-10',
   'a selected local date remains the same date in a UTC+14 organization'
+);
+
+select lives_ok(
+  $$select public.complete_case_action(
+      '73000000-0000-0000-0000-000000000007',
+      (
+        select id
+        from public.case_actions
+        where learning_case_id = (
+          select id from public.learning_cases where title = 'Action 完成闭环测试'
+        )
+          and title = '高时区下的下一步'
+      ),
+      (select id from public.learning_cases where title = 'Action 完成闭环测试'),
+      4,
+      1,
+      null,
+      null,
+      null
+    )$$,
+  'Teacher A can complete a reminder without creating a successor'
+);
+
+select is(
+  (
+    select status
+    from public.case_actions
+    where learning_case_id = (
+      select id from public.learning_cases where title = 'Action 完成闭环测试'
+    )
+      and title = '高时区下的下一步'
+  ),
+  'done',
+  'completion-only marks the current Action done'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.case_actions
+    where learning_case_id = (
+      select id from public.learning_cases where title = 'Action 完成闭环测试'
+    )
+      and status = 'pending'
+      and is_primary
+  ),
+  0,
+  'completion-only leaves no fabricated pending Action'
+);
+
+select is(
+  (
+    select status
+    from public.learning_cases
+    where title = 'Action 完成闭环测试'
+  ),
+  'confirmed',
+  'completion-only keeps the Case open for future real observations'
+);
+
+select is(
+  (
+    select version
+    from public.learning_cases
+    where title = 'Action 完成闭环测试'
+  ),
+  5,
+  'completion-only increments the Case version once'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.case_events
+    where learning_case_id = (
+      select id from public.learning_cases where title = 'Action 完成闭环测试'
+    )
+      and event_type = 'action_completed'
+  ),
+  3,
+  'completion-only writes exactly one additional Action event'
+);
+
+select lives_ok(
+  $$select public.complete_case_action(
+      '73000000-0000-0000-0000-000000000007',
+      (
+        select id
+        from public.case_actions
+        where learning_case_id = (
+          select id from public.learning_cases where title = 'Action 完成闭环测试'
+        )
+          and title = '高时区下的下一步'
+      ),
+      (select id from public.learning_cases where title = 'Action 完成闭环测试'),
+      4,
+      1,
+      null,
+      null,
+      null
+    )$$,
+  'completion-only retry returns the committed result'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.case_events
+    where learning_case_id = (
+      select id from public.learning_cases where title = 'Action 完成闭环测试'
+    )
+      and event_type = 'action_completed'
+  ),
+  3,
+  'completion-only retry does not duplicate the Action event'
 );
 
 set local role authenticated;
