@@ -26,9 +26,8 @@ class _ManagementHeader extends StatelessWidget {
             children: [
               Text(
                 organizationName,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -41,9 +40,8 @@ class _ManagementHeader extends StatelessWidget {
                 ),
                 child: Text(
                   roleLabel,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onPrimaryContainer,
-                  ),
+                  style: Theme.of(context).textTheme.labelMedium
+                      ?.copyWith(color: colorScheme.onPrimaryContainer),
                 ),
               ),
             ],
@@ -223,9 +221,7 @@ class _ManagementAreaCard extends StatelessWidget {
                           Text(
                             description,
                             style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ),
