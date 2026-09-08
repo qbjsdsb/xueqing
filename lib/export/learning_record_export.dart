@@ -56,21 +56,77 @@ class LearningRecordExport {
     final rows = <LearningRecordExportRow>[];
     for (final learningCase in student.cases) {
       final nextStep = learningCase.primaryAction?.title;
-      for (final event in learningCase.timeline) {
+      final status = _statusLabel(learningCase.status);
+
+      rows.add(
+        LearningRecordExportRow(
+          occurredAt: learningCase.firstObservedAt,
+          studentName: student.name,
+          subjectName: student.subject,
+          issueTitle: learningCase.title,
+          recordType: '发现问题',
+          content: learningCase.description?.trim().isNotEmpty == true
+              ? learningCase.description!.trim()
+              : learningCase.title,
+          nextStep: nextStep,
+          status: status,
+        ),
+      );
+
+      for (final evidence in learningCase.evidence) {
         rows.add(
           LearningRecordExportRow(
-            occurredAt: event.occurredAt,
+            occurredAt: evidence.observedAt,
             studentName: student.name,
             subjectName: student.subject,
             issueTitle: learningCase.title,
-            recordType: event.typeLabel,
-            content: event.text,
+            recordType: '学生表现',
+            content: '${evidence.title}：${evidence.summary}',
             nextStep: nextStep,
-            status: learningCase.status.label,
+            status: status,
+          ),
+        );
+      }
+
+      for (final intervention in learningCase.interventions) {
+        final notes = intervention.notes?.trim();
+        rows.add(
+          LearningRecordExportRow(
+            occurredAt: intervention.occurredAt,
+            studentName: student.name,
+            subjectName: student.subject,
+            issueTitle: learningCase.title,
+            recordType: '教学处理',
+            content: notes == null || notes.isEmpty
+                ? intervention.strategy
+                : '${intervention.strategy}\n$notes',
+            nextStep: nextStep,
+            status: status,
+          ),
+        );
+      }
+
+      for (final assessment in learningCase.assessments) {
+        final result = _assessmentResultLabel(assessment.result);
+        final notes = assessment.notes?.trim();
+        rows.add(
+          LearningRecordExportRow(
+            occurredAt: assessment.assessedAt,
+            studentName: student.name,
+            subjectName: student.subject,
+            issueTitle: learningCase.title,
+            recordType: '检查结果',
+            content: notes == null || notes.isEmpty
+                ? assessment.evidenceSummary
+                : '${assessment.evidenceSummary}\n$notes',
+            assessmentResult: result,
+            nextStep: nextStep,
+            status: status,
           ),
         );
       }
     }
+
     rows.sort((left, right) => left.occurredAt.compareTo(right.occurredAt));
     return List<LearningRecordExportRow>.unmodifiable(rows);
   }
@@ -95,9 +151,10 @@ class LearningRecordExport {
       textWrapping: TextWrapping.WrapText,
     );
     for (var column = 0; column < headers.length; column++) {
-      sheet
-          .cell(CellIndex.indexByColumnRow(columnIndex: column, rowIndex: 0))
-          .cellStyle = headerStyle;
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: column, rowIndex: 0),
+      );
+      cell.cellStyle = headerStyle;
     }
 
     for (final row in rows) {
@@ -158,7 +215,7 @@ class LearningRecordExport {
   static Future<String?> saveAsXlsx({
     required String fileNameWithoutExtension,
     required List<LearningRecordExportRow> rows,
-  }) async {
+  }) {
     final bytes = buildWorkbook(rows: rows);
     return FileSaver.instance.saveAs(
       name: sanitizeFileName(fileNameWithoutExtension),
@@ -192,6 +249,26 @@ class LearningRecordExport {
         .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
         .replaceAll(RegExp(r'\s+'), ' ');
     return normalized.isEmpty ? '学情记录' : normalized;
+  }
+
+  static String _statusLabel(LearningCaseStatus status) {
+    return switch (status) {
+      LearningCaseStatus.newCase => '待整理',
+      LearningCaseStatus.confirmed => '跟进中',
+      LearningCaseStatus.intervening => '跟进中',
+      LearningCaseStatus.pendingVerification => '待验证',
+      LearningCaseStatus.stable => '暂时稳定',
+      LearningCaseStatus.closed => '已结束',
+    };
+  }
+
+  static String _assessmentResultLabel(String result) {
+    return switch (result) {
+      'passed' => '达到预期',
+      'partial' => '部分改善',
+      'not_passed' => '暂未达到预期',
+      _ => '待判断',
+    };
   }
 
   static String _formatDateTime(DateTime value) {
