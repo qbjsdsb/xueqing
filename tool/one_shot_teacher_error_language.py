@@ -32,10 +32,15 @@ replace_exact(
     '当前问题已结束跟进或你已不再负责该学生，无法上传图片。',
 )
 
-# Existing Today retry regression should now assert teacher language, not implementation detail.
+# Existing Today retry regressions should assert teacher language, not implementation detail.
 replace_exact(
     'test/features/teacher_workspace_test.dart',
     "expect(find.textContaining('本次提交内容已锁定'), findsOneWidget);",
+    "expect(find.textContaining('刚才填写的内容已保留'), findsOneWidget);\n    expect(find.textContaining('operation ID'), findsNothing);",
+)
+replace_exact(
+    'test/features/teacher_workspace_test.dart',
+    "expect(find.textContaining('提交内容已锁定'), findsOneWidget);",
     "expect(find.textContaining('刚才填写的内容已保留'), findsOneWidget);\n    expect(find.textContaining('operation ID'), findsNothing);",
 )
 
