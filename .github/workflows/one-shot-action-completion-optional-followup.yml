@@ -28,7 +28,7 @@ jobs:
           cache: true
 
       - name: Apply exact patch
-        run: python .github/scripts/patch_action_completion.py
+        run: python .github/scripts/run_patch_action_completion.py
 
       - name: Format and run focused tests
         run: |
@@ -39,6 +39,7 @@ jobs:
       - name: Remove staging files and commit
         run: |
           rm .github/scripts/patch_action_completion.py
+          rm .github/scripts/run_patch_action_completion.py
           rm .github/workflows/one-shot-action-completion-optional-followup.yml
           git config user.name xueqing-bot
           git config user.email actions@users.noreply.github.com
