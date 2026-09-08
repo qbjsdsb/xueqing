@@ -17,23 +17,24 @@ void main() {
     expect(find.text('今天的工作'), findsOneWidget);
   });
 
-  testWidgets('Case detail exposes progress and close, not legacy state steps', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_host());
-    await tester.pumpAndSettle();
+  testWidgets(
+    'Case detail exposes progress and close, not legacy state steps',
+    (tester) async {
+      await tester.pumpWidget(_host());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('查看问题').first);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('查看问题').first);
+      await tester.pumpAndSettle();
 
-    expect(find.text('继续理解这个问题'), findsOneWidget);
-    expect(find.text('记录进展'), findsOneWidget);
-    expect(find.text('结束跟进'), findsOneWidget);
-    expect(find.text('当前提醒'), findsOneWidget);
-    expect(find.text('记录教学动作'), findsNothing);
-    expect(find.text('整理并确认问题'), findsNothing);
-    expect(find.text('记录验证结果'), findsNothing);
-  });
+      expect(find.text('继续理解这个问题'), findsOneWidget);
+      expect(find.text('记录进展'), findsOneWidget);
+      expect(find.text('结束跟进'), findsOneWidget);
+      expect(find.text('当前提醒'), findsOneWidget);
+      expect(find.text('记录教学动作'), findsNothing);
+      expect(find.text('整理并确认问题'), findsNothing);
+      expect(find.text('记录验证结果'), findsNothing);
+    },
+  );
 }
 
 Widget _host() {
@@ -122,9 +123,7 @@ class _NoopProgressiveRepository implements ProgressiveCaseRepository {
   }
 
   @override
-  Future<ProgressiveCaseReceipt> endFollowUp(
-    EndCaseFollowUpCommand command,
-  ) {
+  Future<ProgressiveCaseReceipt> endFollowUp(EndCaseFollowUpCommand command) {
     throw UnimplementedError();
   }
 }
