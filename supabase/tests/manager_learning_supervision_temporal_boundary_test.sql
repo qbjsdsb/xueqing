@@ -2,7 +2,15 @@ begin;
 
 select plan(3);
 
--- Teacher A is a valid seeded teacher for the seeded math profile.
+-- The development seed intentionally gives Teacher A organization leadership
+-- roles for management scenarios. Strip those roles inside this rollback-only
+-- test so the assertions exercise the pure-teacher boundary rather than the
+-- manager override.
+delete from public.membership_roles
+where membership_id = '61000000-0000-0000-0000-000000000001'
+  and role in ('org_owner', 'org_admin');
+
+-- Teacher A remains a valid teacher for the seeded math profile.
 select is(
   (
     select private.legal_case_responsibility_membership_v2(
@@ -11,7 +19,7 @@ select is(
     )
   ),
   true,
-  'currently effective assignment and scope make the teacher a legal Case owner'
+  'currently effective assignment and scope make the pure teacher a legal Case owner'
 );
 
 -- An assignment may still carry status=active while its business-date window is
