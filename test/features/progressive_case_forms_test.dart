@@ -22,7 +22,7 @@ void main() {
         find.byKey(const Key('progress-summary')),
         '今天能主动说出审题限制词',
       );
-      await tester.tap(find.byKey(const Key('progress-save')));
+      await _tapVisible(tester, find.byKey(const Key('progress-save')));
       await tester.pumpAndSettle();
 
       final command = repository.progressCommands.single;
@@ -53,7 +53,7 @@ void main() {
       find.byKey(const Key('progress-reminder-title')),
       '下周抽查一次同类阅读题',
     );
-    await tester.tap(find.byKey(const Key('progress-save')));
+    await _tapVisible(tester, find.byKey(const Key('progress-save')));
     await tester.pumpAndSettle();
 
     final command = repository.progressCommands.single;
@@ -89,7 +89,7 @@ void main() {
         find.byKey(const Key('progress-summary')),
         '今天已经完成针对性练习',
       );
-      await tester.tap(find.byKey(const Key('progress-save')));
+      await _tapVisible(tester, find.byKey(const Key('progress-save')));
       await tester.pumpAndSettle();
 
       final command = repository.progressCommands.single;
@@ -116,7 +116,7 @@ void main() {
     await tester.tap(find.byKey(const Key('progress-next-close')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('progress-close-reason')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('progress-save')));
+    await _tapVisible(tester, find.byKey(const Key('progress-save')));
     await tester.pumpAndSettle();
 
     final command = repository.progressCommands.single;
@@ -145,6 +145,12 @@ void main() {
     expect(command.expectedCaseVersion, 3);
     expect(command.reason, CaseClosureReason.resolved);
   });
+}
+
+Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
 }
 
 Widget _host(Widget child) {
