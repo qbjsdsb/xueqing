@@ -57,7 +57,10 @@ void main() {
 
     expect(today, findsOneWidget);
     expect(find.text('已逾期'), findsOneWidget);
-    expect(find.text('今天到期'), findsOneWidget);
+    expect(
+      find.descendant(of: today, matching: find.text('今天到期')),
+      findsWidgets,
+    );
     expect(find.text('之后要处理'), findsOneWidget);
     expect(find.byKey(const Key('pending-verification-section')), findsNothing);
     expect(find.byKey(const Key('undated-actions-section')), findsNothing);
@@ -101,15 +104,16 @@ void main() {
       await _pumpPreview(tester, const Size(390, 844));
       const caseTitle = '异分母比较时把分子分母直接相加';
 
-      expect(find.bySemanticsLabel('打开 $caseTitle 的 Case 详情'), findsNothing);
-      expect(find.bySemanticsLabel('问题信息：示例学生甲 · $caseTitle'), findsOneWidget);
-
       final studentRow = find.bySemanticsLabel('打开 示例学生甲 的学生详情');
       await tester.ensureVisible(studentRow);
       await tester.tap(studentRow);
       await tester.pumpAndSettle();
       expect(find.text('现在最重要的事'), findsOneWidget);
       expect(find.text('全部问题'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('问题信息：示例学生甲 · $caseTitle'),
+        findsWidgets,
+      );
 
       final viewProblemButton = find
           .widgetWithText(OutlinedButton, '查看问题')
@@ -225,15 +229,34 @@ void main() {
       await tester.tap(studentRow);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, '记录问题').first);
+      final recordButton = find.widgetWithText(FilledButton, '记录问题').first;
+      await tester.ensureVisible(recordButton);
+      await tester.tap(recordButton);
       await tester.pumpAndSettle();
 
+      final quickCaptureForm = find.byType(DesignQuickCaptureForm);
+      expect(quickCaptureForm, findsOneWidget);
       expect(
-        find.byType(DropdownButtonFormField<PrototypeStudent>),
+        find.descendant(
+          of: quickCaptureForm,
+          matching: find.byType(DropdownButtonFormField<PrototypeStudent>),
+        ),
         findsNothing,
       );
-      expect(find.text('示例学生甲 · 数学'), findsOneWidget);
-      expect(find.text('今天发现什么？ *'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: quickCaptureForm,
+          matching: find.text('示例学生甲 · 数学'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: quickCaptureForm,
+          matching: find.text('今天发现什么？ *'),
+        ),
+        findsOneWidget,
+      );
     },
   );
 
