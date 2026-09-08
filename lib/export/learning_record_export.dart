@@ -57,6 +57,12 @@ class LearningRecordExport {
     for (final learningCase in student.cases) {
       final nextStep = learningCase.primaryAction?.title;
       final status = _statusLabel(learningCase.status);
+      final initialEvidence = _initialQuickCaptureEvidence(learningCase);
+      final description = learningCase.description?.trim();
+      final initialContent = <String>[
+        if (description != null && description.isNotEmpty) description,
+        if (initialEvidence != null) '具体表现：${initialEvidence.summary}',
+      ].join('\n');
 
       rows.add(
         LearningRecordExportRow(
@@ -65,15 +71,16 @@ class LearningRecordExport {
           subjectName: student.subject,
           issueTitle: learningCase.title,
           recordType: '发现问题',
-          content: learningCase.description?.trim().isNotEmpty == true
-              ? learningCase.description!.trim()
-              : learningCase.title,
+          content: initialContent.isEmpty ? learningCase.title : initialContent,
           nextStep: nextStep,
           status: status,
         ),
       );
 
       for (final evidence in learningCase.evidence) {
+        if (evidence.id == initialEvidence?.id) {
+          continue;
+        }
         rows.add(
           LearningRecordExportRow(
             occurredAt: evidence.observedAt,
@@ -129,6 +136,18 @@ class LearningRecordExport {
 
     rows.sort((left, right) => left.occurredAt.compareTo(right.occurredAt));
     return List<LearningRecordExportRow>.unmodifiable(rows);
+  }
+
+  static WorkspaceEvidence? _initialQuickCaptureEvidence(
+    WorkspaceCase learningCase,
+  ) {
+    for (final evidence in learningCase.evidence) {
+      if (evidence.title == learningCase.title &&
+          evidence.observedAt.isAtSameMomentAs(learningCase.firstObservedAt)) {
+        return evidence;
+      }
+    }
+    return null;
   }
 
   static Uint8List buildWorkbook({
