@@ -1,0 +1,377 @@
+name: Publish Xueqing v0.2.0 RC1
+
+on:
+  push:
+    branches:
+      - release/stable-version-integrity-20260908
+    paths:
+      - ".github/release-requests/v0.2.0-rc.1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-xueqing-v0.2.0-rc.1
+  cancel-in-progress: false
+
+env:
+  RC_TAG: v0.2.0-rc.1
+  RC_VERSION: 0.2.0-rc.1+4
+  RC_VERSION_NAME: 0.2.0-rc.1
+  RC_BUILD_NUMBER: "4"
+  SOURCE_SHA: 705ce6a450853c6c9772243d60d3e2b08c56c771
+  XUEQING_ENV: production
+  XUEQING_ALLOW_DEVELOPMENT_RELEASE: "false"
+  XUEQING_SHOW_DEV_TOOLS: "false"
+  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '' }}
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '' }}
+  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '' }}
+  XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+
+jobs:
+  validate:
+    name: Validate RC release configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Validate production configuration and permanent Android signing
+        shell: bash
+        env:
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          required=(
+            XUEQING_SUPABASE_URL
+            XUEQING_SUPABASE_PUBLISHABLE_KEY
+            XUEQING_SUPABASE_ALLOWED_HOSTS
+            XUEQING_ANDROID_CERT_SHA256
+            XUEQING_ANDROID_KEYSTORE_BASE64
+            XUEQING_ANDROID_KEYSTORE_PASSWORD
+            XUEQING_ANDROID_KEY_ALIAS
+            XUEQING_ANDROID_KEY_PASSWORD
+          )
+          missing=()
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required RC release configuration: %s\n' "${missing[*]}"
+            exit 1
+          fi
+          if [[ "$XUEQING_SUPABASE_URL" != https://*.supabase.co ]]; then
+            echo "XUEQING_SUPABASE_URL must be an https://*.supabase.co endpoint."
+            exit 1
+          fi
+          cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "XUEQING_ANDROID_CERT_SHA256 must be a 64-hex SHA-256 fingerprint."
+            exit 1
+          fi
+          echo "RC production config and permanent signing material are configured."
+
+      - name: Verify frozen source commit is current main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          if [[ "$main_sha" != "$SOURCE_SHA" ]]; then
+            echo "main moved after RC source was frozen: $main_sha != $SOURCE_SHA"
+            exit 1
+          fi
+
+  android:
+    name: Signed Android RC APK
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout frozen product source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Configure permanent Android release signing
+        shell: bash
+        env:
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$XUEQING_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
+          {
+            printf 'storeFile=release-keystore.jks\n'
+            printf 'storePassword=%s\n' "$XUEQING_ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$XUEQING_ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$XUEQING_ANDROID_KEY_PASSWORD"
+          } > android/key.properties
+          chmod 600 android/release-keystore.jks android/key.properties
+
+      - name: Build production-channel signed RC APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release \
+            --build-name="$RC_VERSION_NAME" \
+            --build-number="$RC_BUILD_NUMBER" \
+            --dart-define="XUEQING_ENV=$XUEQING_ENV" \
+            --dart-define="XUEQING_APP_VERSION=$RC_VERSION" \
+            --dart-define="XUEQING_SUPABASE_URL=$XUEQING_SUPABASE_URL" \
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="XUEQING_SUPABASE_ALLOWED_HOSTS=$XUEQING_SUPABASE_ALLOWED_HOSTS" \
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$XUEQING_ALLOW_DEVELOPMENT_RELEASE" \
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$XUEQING_SHOW_DEV_TOOLS"
+
+      - name: Verify permanent Android signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          verify_output="$("$apksigner" verify --verbose --print-certs "$apk")"
+          printf '%s\n' "$verify_output"
+          actual="$(printf '%s\n' "$verify_output" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          expected="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "RC APK signer does not match the permanent release certificate."
+            exit 1
+          fi
+
+      - name: Stage Android asset
+        shell: bash
+        run: |
+          mkdir -p release-android
+          cp build/app/outputs/flutter-apk/app-release.apk "release-android/xueqing-${RC_TAG}-android.apk"
+
+      - name: Upload Android asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc1-android
+          path: release-android/xueqing-${{ env.RC_TAG }}-android.apk
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f android/key.properties android/release-keystore.jks
+
+  windows:
+    name: Windows RC bundle and Setup
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout frozen product source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build production-channel Windows RC
+        shell: pwsh
+        run: |
+          flutter build windows --release `
+            --dart-define="XUEQING_ENV=$env:XUEQING_ENV" `
+            --dart-define="XUEQING_APP_VERSION=$env:RC_VERSION" `
+            --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `
+            --dart-define="XUEQING_SUPABASE_ALLOWED_HOSTS=$env:XUEQING_SUPABASE_ALLOWED_HOSTS" `
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$env:XUEQING_ALLOW_DEVELOPMENT_RELEASE" `
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$env:XUEQING_SHOW_DEV_TOOLS"
+          if ($LASTEXITCODE -ne 0) { throw "Flutter Windows RC build failed." }
+
+      - name: Bundle Visual C++ release runtime
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          $vsPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if ([string]::IsNullOrWhiteSpace($vsPath)) { throw "Visual C++ toolset installation was not found." }
+          $releaseDir = Join-Path $pwd "build/windows/x64/runner/Release"
+          $redistRoot = Join-Path $vsPath "VC/Redist/MSVC"
+          $runtimeDir = Get-ChildItem -Path $redistRoot -Directory -Recurse | Where-Object {
+            $_.Name -eq "Microsoft.VC143.CRT" -and
+            (Test-Path (Join-Path $_.FullName "msvcp140.dll")) -and
+            (Test-Path (Join-Path $_.FullName "vcruntime140.dll")) -and
+            (Test-Path (Join-Path $_.FullName "vcruntime140_1.dll"))
+          } | Select-Object -First 1
+          if ($null -eq $runtimeDir) { throw "Visual C++ release runtime was not found." }
+          foreach ($name in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            Copy-Item (Join-Path $runtimeDir.FullName $name) $releaseDir -Force
+          }
+
+      - name: Build Windows updater helpers
+        shell: pwsh
+        working-directory: tools/windows_updater
+        run: |
+          dart pub get
+          dart analyze
+          if ($LASTEXITCODE -ne 0) { throw "Updater analyze failed." }
+          dart test
+          if ($LASTEXITCODE -ne 0) { throw "Updater tests failed." }
+          $releaseDir = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release"
+          dart compile exe bin/xueqing_updater.dart -o (Join-Path $releaseDir "xueqing_updater.exe")
+          dart compile exe bin/xueqing_updater.dart -o (Join-Path $releaseDir "xueqing_updater_bootstrap.exe")
+
+      - name: Build Windows RC Setup
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/tools/windows_installer/build_installer.ps1" -AppVersion "$env:RC_VERSION_NAME"
+
+      - name: Package Windows update ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-windows | Out-Null
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "release-windows/xueqing-$env:RC_TAG-windows.zip" -Force
+          Copy-Item "build/windows/installer/xueqing-setup-$env:RC_VERSION_NAME.exe" "release-windows/xueqing-$env:RC_TAG-windows-setup.exe"
+
+      - name: Smoke install and uninstall RC Setup
+        shell: pwsh
+        run: |
+          $installer = Resolve-Path "release-windows/xueqing-$env:RC_TAG-windows-setup.exe"
+          $installDir = Join-Path $env:RUNNER_TEMP "xueqing-rc1-install"
+          $process = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$installDir" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "RC installer smoke install failed: $($process.ExitCode)" }
+          if (-not (Test-Path (Join-Path $installDir 'xueqing.exe'))) { throw "RC installer did not install xueqing.exe" }
+          $uninstaller = Join-Path $installDir 'unins000.exe'
+          if (Test-Path $uninstaller) {
+            $uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+            if ($uninstall.ExitCode -ne 0) { throw "RC installer smoke uninstall failed: $($uninstall.ExitCode)" }
+          }
+
+      - name: Upload Windows assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc1-windows
+          path: release-windows/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish RC1 GitHub Pre-release
+    needs: [validate, android, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download Android asset
+        uses: actions/download-artifact@v4
+        with:
+          name: rc1-android
+          path: release-assets
+
+      - name: Download Windows assets
+        uses: actions/download-artifact@v4
+        with:
+          name: rc1-windows
+          path: release-assets
+
+      - name: Generate candidate metadata and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          info = {
+              "tag": os.environ["RC_TAG"],
+              "app_version": os.environ["RC_VERSION"],
+              "source_sha": os.environ["SOURCE_SHA"],
+              "environment": "production",
+              "update_channel": "stable",
+              "android_build_number": int(os.environ["RC_BUILD_NUMBER"]),
+              "upgrade_target": "v0.2.0 Stable with a higher Android build number",
+          }
+          Path("release-assets/candidate-info.json").write_text(json.dumps(info, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          PY
+          (cd release-assets && sha256sum *.apk *.zip *.exe candidate-info.json | sort) > release-assets/SHA256SUMS.txt
+          cat release-assets/candidate-info.json
+          cat release-assets/SHA256SUMS.txt
+
+      - name: Create or verify RC Pre-release and upload assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RC_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            json="$(gh release view "$RC_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,targetCommitish)"
+            JSON="$json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('Existing RC tag is not a published Pre-release.')
+          PY
+          else
+            gh release create "$RC_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_SHA" \
+              --prerelease \
+              --title "Xueqing v0.2.0 RC1" \
+              --notes $'实机测试候选版。\n\n- 基于当前全绿 main 构建。\n- 使用 Production 配置和 Stable 更新通道。\n- Android 使用与未来 Stable 相同的永久 release keystore；RC build number 为 4。\n- 后续 Stable 将使用更高 build number，可从本 RC 直接软件内覆盖更新。\n- 包含负责人/管理员机构级学情监督权限修复、教师工作台与管理端 UX 优化、Evidence 图片附件、Windows Setup 与应用内更新链。\n\n这是 Pre-release，用于当前实机验收，不标记为 Stable/latest。'
+          fi
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RC_TAG" --jq '.sha')"
+          if [[ "$actual" != "$SOURCE_SHA" ]]; then
+            echo "RC tag does not point to frozen source SHA."
+            exit 1
+          fi
+          gh release upload "$RC_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Verify published RC assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          json="$(gh release view "$RC_TAG" --repo "$GITHUB_REPOSITORY" --json url,isDraft,isPrerelease,assets)"
+          printf '%s\n' "$json"
+          JSON="$json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('RC release state is invalid')
+          names = {a['name'] for a in release['assets']}
+          tag = os.environ['RC_TAG']
+          required = {
+              f'xueqing-{tag}-android.apk',
+              f'xueqing-{tag}-windows.zip',
+              f'xueqing-{tag}-windows-setup.exe',
+              'candidate-info.json',
+              'SHA256SUMS.txt',
+          }
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit(f'Missing RC assets: {missing}')
+          PY
