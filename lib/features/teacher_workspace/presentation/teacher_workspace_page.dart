@@ -525,7 +525,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   static const int _todayPreviewLimit = 3;
   static const int _studentPendingPreviewLimit = 2;
   static const int _caseTimelinePreviewLimit = 3;
-  bool _showAllPendingVerification = false;
   bool _showAllFutureActions = false;
   bool _showAllUndatedActions = false;
   bool _showAllStudentCases = false;
@@ -1530,12 +1529,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final undated = _actionsInBucket(actions, WorkspaceActionBucket.undated);
     final recentStudents = _studentsByRecentActivity(workspace.students);
     final hasScheduledWork = overdue.isNotEmpty || today.isNotEmpty;
-    final hasImmediateWork =
-        hasScheduledWork ||
-        pendingVerification.isNotEmpty ||
-        undated.isNotEmpty;
-    final hasBlockBeforeFuture =
-        hasScheduledWork || !hasImmediateWork || pendingVerification.isNotEmpty;
+    final hasImmediateWork = hasScheduledWork || undated.isNotEmpty;
+    final hasBlockBeforeFuture = hasScheduledWork || !hasImmediateWork;
     final hasBlockBeforeUndated = hasBlockBeforeFuture || future.isNotEmpty;
 
     return Column(
