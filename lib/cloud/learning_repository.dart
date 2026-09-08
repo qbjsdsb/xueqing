@@ -24,7 +24,7 @@ extension LearningCaseStatusPresentation on LearningCaseStatus {
   };
 
   String get label => switch (this) {
-    LearningCaseStatus.newCase => '待整理',
+    LearningCaseStatus.newCase => '新记录',
     LearningCaseStatus.confirmed => '已确认',
     LearningCaseStatus.intervening => '干预中',
     LearningCaseStatus.pendingVerification => '待验证',
@@ -1696,6 +1696,8 @@ class SupabaseLearningRepository implements LearningRepository {
             ? null
             : evidenceById[initialEvidenceId];
         final problemTitle = _requiredString(row['title'], 'case_title');
+        final problemDescription = _stringValue(row['description'])?.trim();
+        final initialSummary = initialEvidence?.summary.trim();
         timeline.add(
           WorkspaceTimelineEvent(
             id: _requiredString(eventRow['id'], 'event_id'),
@@ -1706,7 +1708,11 @@ class SupabaseLearningRepository implements LearningRepository {
             typeLabel: '发现问题',
             text: initialEvidence == null
                 ? problemTitle
-                : '$problemTitle\n具体表现：${initialEvidence.summary}',
+                : problemDescription != null &&
+                      problemDescription.isNotEmpty &&
+                      initialSummary == problemDescription
+                ? problemDescription
+                : '$problemTitle\n学生表现：$initialSummary',
           ),
         );
         continue;
