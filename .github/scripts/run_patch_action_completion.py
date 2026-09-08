@@ -3,6 +3,12 @@ from pathlib import Path
 script_path = Path('.github/scripts/patch_action_completion.py')
 source = script_path.read_text()
 
+old_sub = "updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)"
+new_sub = "updated, count = re.subn(pattern, lambda _: replacement, text, count=1, flags=re.S)"
+if source.count(old_sub) != 1:
+    raise SystemExit(f'sub_once implementation marker count={source.count(old_sub)}')
+source = source.replace(old_sub, new_sub, 1)
+
 old_pattern = r'''r"class _WorkspaceCompleteActionFormState\n    extends State<_WorkspaceCompleteActionForm> \{.*?\n\}\n\nenum _CaseCommandMode"'''
 new_pattern = r'''r"class _WorkspaceCompleteActionFormState\n    extends State<_WorkspaceCompleteActionForm> \{.*?(?=\n(?:class|enum|String|CaseActionType) )"'''
 if source.count(old_pattern) != 1:
