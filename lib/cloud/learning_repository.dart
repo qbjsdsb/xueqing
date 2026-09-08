@@ -759,9 +759,9 @@ class CompleteCaseActionCommand {
     required this.caseId,
     required this.expectedCaseVersion,
     required this.expectedActionVersion,
-    required this.nextActionType,
-    required this.nextActionTitle,
-    required this.nextActionDueOn,
+    this.nextActionType,
+    this.nextActionTitle,
+    this.nextActionDueOn,
   });
 
   final String operationId;
@@ -769,8 +769,8 @@ class CompleteCaseActionCommand {
   final String caseId;
   final int expectedCaseVersion;
   final int expectedActionVersion;
-  final CaseActionType nextActionType;
-  final String nextActionTitle;
+  final CaseActionType? nextActionType;
+  final String? nextActionTitle;
   final DateTime? nextActionDueOn;
 
   void validate() {
@@ -781,7 +781,18 @@ class CompleteCaseActionCommand {
       expectedCaseVersion: expectedCaseVersion,
       expectedActionVersion: expectedActionVersion,
     );
-    _validateNextActionTitle(nextActionTitle);
+    final normalizedTitle = nextActionTitle?.trim();
+    if (normalizedTitle != null && normalizedTitle.isEmpty) {
+      throw ArgumentError('nextActionTitle cannot be blank.');
+    }
+    if ((nextActionType == null) != (normalizedTitle == null)) {
+      throw ArgumentError(
+        'nextActionType and nextActionTitle must be supplied together.',
+      );
+    }
+    if (nextActionType == null && nextActionDueOn != null) {
+      throw ArgumentError('nextActionDueOn requires an explicit next action.');
+    }
   }
 }
 
@@ -1471,8 +1482,8 @@ class SupabaseLearningRepository implements LearningRepository {
         'p_case_id': command.caseId,
         'p_expected_case_version': command.expectedCaseVersion,
         'p_expected_action_version': command.expectedActionVersion,
-        'p_next_action_type': command.nextActionType.wireValue,
-        'p_next_action_title': command.nextActionTitle.trim(),
+        'p_next_action_type': command.nextActionType?.wireValue,
+        'p_next_action_title': command.nextActionTitle?.trim(),
         'p_next_action_due_on': _dateOnlyString(command.nextActionDueOn),
       },
     );
