@@ -34,6 +34,8 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
   final _passwordController = TextEditingController();
   final _confirmationController = TextEditingController();
   bool _busy = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmation = true;
   String? _errorMessage;
 
   @override
@@ -123,17 +125,20 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayName = widget.displayName;
+    final displayName = widget.displayName?.trim();
     return Scaffold(
       appBar: AppBar(title: const Text('首次接管账号')),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.lg,
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
             child: Card(
               child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
+                padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -151,25 +156,76 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                             : '$displayName，请完成账号接管',
                         style: theme.textTheme.headlineSmall,
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.xs),
                       Text(
-                        '登录邮箱：${widget.email}\n接管有效期至：${_formatExpiry(widget.expiresAt)}',
-                        style: theme.textTheme.bodyMedium,
+                        '这是第一次使用这个机构账号。设置自己的新密码后，临时密码会失效。',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerLow,
+                          border: Border.all(
+                            color: theme.colorScheme.outlineVariant,
+                          ),
+                          borderRadius: BorderRadius.circular(AppRadii.medium),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _OnboardingInfoLine(
+                              icon: Icons.alternate_email,
+                              label: '登录邮箱',
+                              value: widget.email,
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            _OnboardingInfoLine(
+                              icon: Icons.schedule_outlined,
+                              label: '接管有效期',
+                              value: _formatExpiry(widget.expiresAt),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        '设置新密码后，系统会退出临时会话并要求你用新密码重新登录。完成前不能进入学生业务工作台。',
+                        '完成后系统会退出临时会话。请回到登录页，用这个邮箱和新密码重新登录。',
                         style: theme.textTheme.bodyMedium,
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       TextFormField(
+                        key: const Key('onboarding-new-password'),
                         controller: _passwordController,
                         enabled: !_busy,
-                        obscureText: true,
+                        obscureText: _obscurePassword,
+                        enableSuggestions: false,
+                        autocorrect: false,
+                        autofillHints: const [AutofillHints.newPassword],
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: '新密码',
-                          helperText: '至少 12 位，建议包含大小写字母、数字和符号。',
+                        decoration: InputDecoration(
+                          labelText: '新密码 *',
+                          helperText: '至少 12 位，并包含大写字母、小写字母和数字。',
+                          suffixIcon: IconButton(
+                            key: const Key(
+                              'onboarding-new-password-visibility',
+                            ),
+                            tooltip: _obscurePassword ? '显示新密码' : '隐藏新密码',
+                            onPressed: _busy
+                                ? null
+                                : () => setState(
+                                    () => _obscurePassword =
+                                        !_obscurePassword,
+                                  ),
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                          ),
                         ),
                         validator: (value) {
                           final password = value ?? '';
@@ -186,12 +242,36 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
+                        key: const Key('onboarding-confirm-password'),
                         controller: _confirmationController,
                         enabled: !_busy,
-                        obscureText: true,
+                        obscureText: _obscureConfirmation,
+                        enableSuggestions: false,
+                        autocorrect: false,
+                        autofillHints: const [AutofillHints.newPassword],
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _submit(),
-                        decoration: const InputDecoration(labelText: '确认新密码'),
+                        decoration: InputDecoration(
+                          labelText: '再次输入新密码 *',
+                          suffixIcon: IconButton(
+                            key: const Key(
+                              'onboarding-confirm-password-visibility',
+                            ),
+                            tooltip:
+                                _obscureConfirmation ? '显示确认密码' : '隐藏确认密码',
+                            onPressed: _busy
+                                ? null
+                                : () => setState(
+                                    () => _obscureConfirmation =
+                                        !_obscureConfirmation,
+                                  ),
+                            icon: Icon(
+                              _obscureConfirmation
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                          ),
+                        ),
                         validator: (value) => value != _passwordController.text
                             ? '两次输入的密码不一致。'
                             : null,
@@ -207,6 +287,7 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
+                          key: const Key('onboarding-submit'),
                           onPressed: _busy ? null : _submit,
                           icon: _busy
                               ? const SizedBox.square(
@@ -227,6 +308,50 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _OnboardingInfoLine extends StatelessWidget {
+  const _OnboardingInfoLine({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        SizedBox(
+          width: 76,
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: Text(
+            value,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      ],
     );
   }
 }
