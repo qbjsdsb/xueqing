@@ -1,0 +1,134 @@
+name: One-shot neutral follow-up closure UX
+
+on:
+  push:
+    branches:
+      - ux/neutral-follow-up-closure
+    paths:
+      - .github/workflows/one-shot-neutral-follow-up-closure.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/neutral-follow-up-closure
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Make follow-up closure neutral by default
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
+              return text.replace(old, new, 1)
+
+          repo_path = Path('lib/cloud/progressive_case_repository.dart')
+          repo = repo_path.read_text(encoding='utf-8')
+          repo = replace_once(
+              repo,
+              "CaseClosureReason.other => '其他',",
+              "CaseClosureReason.other => '结束当前跟进',",
+              'neutral closure label',
+          )
+          repo_path.write_text(repo, encoding='utf-8')
+
+          forms_path = Path('lib/features/teacher_workspace/presentation/progressive_case_forms.dart')
+          forms = forms_path.read_text(encoding='utf-8')
+          forms = replace_once(
+              forms,
+              'CaseClosureReason _closureReason = CaseClosureReason.resolved;',
+              'CaseClosureReason _closureReason = CaseClosureReason.other;',
+              'progress close default',
+          )
+          forms = replace_once(
+              forms,
+              '_closureReason != CaseClosureReason.resolved ||',
+              '_closureReason != CaseClosureReason.other ||',
+              'progress dirty baseline',
+          )
+          forms = replace_once(
+              forms,
+              'CaseClosureReason _reason = CaseClosureReason.resolved;',
+              'CaseClosureReason _reason = CaseClosureReason.other;',
+              'direct close default',
+          )
+          forms_path.write_text(forms, encoding='utf-8')
+
+          test_path = Path('test/features/progressive_case_forms_test.dart')
+          test = test_path.read_text(encoding='utf-8')
+          test = replace_once(
+              test,
+              'expect(command.closeReason, CaseClosureReason.resolved);',
+              'expect(command.closeReason, CaseClosureReason.other);',
+              'progress close expectation',
+          )
+          test = replace_once(
+              test,
+              "expect(find.text('问题已解决'), findsOneWidget);",
+              "expect(find.text('结束当前跟进'), findsOneWidget);",
+              'direct close default label expectation',
+          )
+          test = replace_once(
+              test,
+              'expect(command.reason, CaseClosureReason.resolved);',
+              'expect(command.reason, CaseClosureReason.other);',
+              'direct close default reason expectation',
+          )
+          marker = "\n}\n\nFuture<void> _tapVisible"
+          if test.count(marker) != 1:
+              raise SystemExit(f'explicit resolved test insertion marker: expected one match, got {test.count(marker)}')
+          addition = r'''
+
+  testWidgets('teacher can explicitly mark a follow-up as resolved', (
+    tester,
+  ) async {
+    final repository = _FakeProgressiveCaseRepository();
+    await tester.pumpWidget(
+      _host(
+        EndCaseFollowUpForm(
+          repository: repository,
+          learningCase: _case(status: LearningCaseStatus.newCase),
+        ),
+      ),
+    );
+
+    final reasonField = find.byKey(const Key('end-follow-up-reason'));
+    await _tapVisible(tester, reasonField);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('问题已解决').last);
+    await tester.pumpAndSettle();
+    await _tapVisible(tester, find.byKey(const Key('end-follow-up-save')));
+    await tester.pumpAndSettle();
+
+    expect(repository.endCommands.single.reason, CaseClosureReason.resolved);
+  });
+'''
+          test = test.replace(marker, addition + marker, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+      - name: Format and run focused tests
+        run: |
+          dart format \
+            lib/cloud/progressive_case_repository.dart \
+            lib/features/teacher_workspace/presentation/progressive_case_forms.dart \
+            test/features/progressive_case_forms_test.dart
+          flutter test test/features/progressive_case_forms_test.dart
+      - name: Remove one-shot workflow and commit
+        run: |
+          rm .github/workflows/one-shot-neutral-follow-up-closure.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "UX: make follow-up closure neutral by default"
+          git push origin HEAD:ux/neutral-follow-up-closure
