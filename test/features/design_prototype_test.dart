@@ -110,10 +110,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('现在最重要的事'), findsOneWidget);
       expect(find.text('全部问题'), findsOneWidget);
-      expect(
-        find.bySemanticsLabel('问题信息：示例学生甲 · $caseTitle'),
-        findsWidgets,
-      );
+      expect(find.bySemanticsLabel('问题信息：示例学生甲 · $caseTitle'), findsWidgets);
 
       final viewProblemButton = find
           .widgetWithText(OutlinedButton, '查看问题')
@@ -251,10 +248,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(
-          of: quickCaptureForm,
-          matching: find.text('今天发现什么？ *'),
-        ),
+        find.descendant(of: quickCaptureForm, matching: find.text('今天发现什么？ *')),
         findsOneWidget,
       );
     },
