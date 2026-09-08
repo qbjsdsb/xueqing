@@ -118,8 +118,8 @@ class RecordCaseProgressCommand {
       );
     }
     if (nextStep == CaseProgressNextStep.remind) {
-      if (nextActionTitle == null || nextActionTitle!.trim().isEmpty) {
-        throw ArgumentError('nextActionTitle is required for reminder.');
+      if (nextActionTitle != null && nextActionTitle!.trim().isEmpty) {
+        throw ArgumentError('nextActionTitle cannot be blank.');
       }
       if (closeReason != null || closeNote != null) {
         throw ArgumentError('closure fields are not valid for reminder.');

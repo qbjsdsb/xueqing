@@ -230,10 +230,6 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
       _assessmentError = '请选择这次检查结果';
       valid = false;
     }
-    if (_nextStep == CaseProgressNextStep.remind && reminder.isEmpty) {
-      _reminderError = '请写下需要提醒自己做什么';
-      valid = false;
-    }
     if (!valid) {
       setState(() {});
       return null;
@@ -257,7 +253,8 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
       currentActionId: _completeCurrentAction ? action?.id : null,
       expectedActionVersion: _completeCurrentAction ? action?.version : null,
       nextStep: _nextStep,
-      nextActionTitle: _nextStep == CaseProgressNextStep.remind
+      nextActionTitle:
+          _nextStep == CaseProgressNextStep.remind && reminder.isNotEmpty
           ? reminder
           : null,
       nextActionDueOn: _nextStep == CaseProgressNextStep.remind
@@ -579,11 +576,15 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
                       key: const Key('progress-reminder-title'),
                       controller: _reminderController,
                       enabled: !_inputsLocked,
-                      decoration: InputDecoration(
-                        labelText: '提醒自己做什么？ *',
+                      decoration: const InputDecoration(
+                        labelText: '提醒内容（可选）',
                         hintText: '例如：下周抽查一次同类阅读题',
-                        errorText: _reminderError,
                       ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '不写也可以，系统会生成一条中性提醒。',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Row(
