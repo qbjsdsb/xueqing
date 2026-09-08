@@ -55,6 +55,11 @@ class _FakeLifecycleRepository
   }
 }
 
+bool _isObscured(WidgetTester tester, Finder field) {
+  final editable = find.descendant(of: field, matching: find.byType(EditableText));
+  return tester.widget<EditableText>(editable).obscureText;
+}
+
 void main() {
   testWidgets('lets the member reveal each password field independently', (
     tester,
@@ -82,24 +87,21 @@ void main() {
       const Key('onboarding-confirm-password'),
     );
 
-    expect(tester.widget<TextFormField>(passwordField).obscureText, isTrue);
-    expect(tester.widget<TextFormField>(confirmationField).obscureText, isTrue);
+    expect(_isObscured(tester, passwordField), isTrue);
+    expect(_isObscured(tester, confirmationField), isTrue);
 
     await tester.tap(
       find.byKey(const Key('onboarding-new-password-visibility')),
     );
     await tester.pump();
-    expect(tester.widget<TextFormField>(passwordField).obscureText, isFalse);
-    expect(tester.widget<TextFormField>(confirmationField).obscureText, isTrue);
+    expect(_isObscured(tester, passwordField), isFalse);
+    expect(_isObscured(tester, confirmationField), isTrue);
 
     await tester.tap(
       find.byKey(const Key('onboarding-confirm-password-visibility')),
     );
     await tester.pump();
-    expect(
-      tester.widget<TextFormField>(confirmationField).obscureText,
-      isFalse,
-    );
+    expect(_isObscured(tester, confirmationField), isFalse);
   });
 
   testWidgets(
