@@ -1,4 +1,4 @@
-name: Apply Quick Capture student-first v0.2.1
+name: Diagnose Quick Capture student-first v0.2.1
 
 on:
   push:
@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   diagnose-tests:
-    if: ${{ !contains(github.event.head_commit.message, 'diag: capture Quick Capture test failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -46,7 +45,7 @@ jobs:
           flutter test --reporter expanded > /tmp/flutter-test.log 2>&1
           status=$?
           if [[ $status -eq 0 ]]; then
-            echo "Full Flutter tests unexpectedly passed; no diagnostic needed."
+            echo "Full Flutter tests passed."
             exit 0
           fi
 
@@ -74,5 +73,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add tool/quick_capture_test_failure.txt
           git commit -m "diag: capture Quick Capture test failure"
-          git push origin HEAD:ux/quick-capture-student-first-v021
+          git push --force origin HEAD:refs/heads/diag/quick-capture-test-failure-v021
           exit $status
