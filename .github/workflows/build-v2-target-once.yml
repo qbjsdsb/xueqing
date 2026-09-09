@@ -1,0 +1,50 @@
+name: Build V2 preview targets once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build-v2-target-once.yml'
+
+jobs:
+  android-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-prototype-foundation
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - run: flutter pub get
+      - name: Build actual V2 Android target
+        run: flutter build apk --debug -t lib/main_v2.dart
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xueqing-v2-preview-android
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-v2:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-prototype-foundation
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+      - name: Build actual V2 Windows target
+        run: flutter build windows --release -t lib/main_v2.dart
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xueqing-v2-preview-windows
+          path: build/windows/x64/runner/Release/**
+          if-no-files-found: error
+          retention-days: 7
