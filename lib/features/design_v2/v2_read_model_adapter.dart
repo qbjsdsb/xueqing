@@ -25,9 +25,8 @@ class V2ReadModelSnapshot {
       .where((item) => item.studentId == studentId)
       .toList(growable: false);
 
-  List<V2TimelineEntry> timelineForCase(String caseId) => timeline
-      .where((entry) => entry.caseId == caseId)
-      .toList(growable: false);
+  List<V2TimelineEntry> timelineForCase(String caseId) =>
+      timeline.where((entry) => entry.caseId == caseId).toList(growable: false);
 
   V2CaseBinding? bindingForCase(String caseId) {
     for (final binding in caseBindings) {
@@ -66,9 +65,9 @@ class V2ReadModelAdapter {
   static V2ReadModelSnapshot fromWorkspace(TeacherWorkspace workspace) {
     final profilesByStudent = <String, List<WorkspaceStudent>>{};
     for (final profile in workspace.students) {
-      profilesByStudent.putIfAbsent(profile.id, () => <WorkspaceStudent>[]).add(
-        profile,
-      );
+      profilesByStudent
+          .putIfAbsent(profile.id, () => <WorkspaceStudent>[])
+          .add(profile);
     }
 
     final students = <V2Student>[];
