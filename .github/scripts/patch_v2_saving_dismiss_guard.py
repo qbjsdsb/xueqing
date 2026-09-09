@@ -73,6 +73,7 @@ new_test = r'''
         find.byKey(const Key('v2-quick-capture-body')),
         '保存期间不能误关。',
       );
+      await tester.pump();
       await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
       await tester.pump();
 
