@@ -1059,7 +1059,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+        content: Text('已保存，当前状态：${_caseStatusLabelFromWire(result.status)}。'),
       ),
     );
   }
@@ -1086,7 +1086,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+        content: Text('已保存，当前状态：${_caseStatusLabelFromWire(result.status)}。'),
       ),
     );
   }
@@ -1117,7 +1117,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+        content: Text('已保存，当前状态：${_caseStatusLabelFromWire(result.status)}。'),
       ),
     );
   }
@@ -1168,7 +1168,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '已保存，Case 进入${_caseStatusLabelFromWire(receipt.status)}。',
+            '已保存，当前状态：${_caseStatusLabelFromWire(receipt.status)}。',
           ),
         ),
       );
@@ -5518,7 +5518,7 @@ class _WorkspaceCompleteActionFormState
       setState(() {
         _saving = false;
         _saveError =
-            '${_describeCaseCommandError(error)}\n本次提交内容已锁定；重试会沿用同一 operation ID。';
+            '${_describeCaseCommandError(error)}\n刚才填写的内容已保留；可以直接重试，不会重复保存。';
       });
     }
   }
@@ -5531,8 +5531,8 @@ class _WorkspaceCompleteActionFormState
       final retry = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('提交结果未确认'),
-          content: const Text('上一次提交可能已经到达服务器。建议重试原提交。'),
+          title: const Text('刚才是否保存成功还不能确认'),
+          content: const Text('刚才的记录可能已经保存成功。请点“重新保存”继续，系统不会重复保存。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -5540,7 +5540,7 @@ class _WorkspaceCompleteActionFormState
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('重试原提交'),
+              child: const Text('重新保存'),
             ),
           ],
         ),
@@ -5630,7 +5630,7 @@ class _WorkspaceCompleteActionFormState
                         _saving
                             ? '保存中…'
                             : _submissionAttempted
-                            ? '重试原提交'
+                            ? '重新保存'
                             : '完成待办',
                       ),
                     ),
@@ -6650,12 +6650,12 @@ bool _canStabilizeCase(WorkspaceCase learningCase) {
 
 String _caseStatusLabelFromWire(String value) {
   return switch (value) {
-    'new' => '待整理',
-    'confirmed' => '已确认',
-    'intervening' => '干预中',
-    'pending_verification' => '待验证',
-    'stable' => '稳定',
-    'closed' => '已关闭',
+    'new' => '新记录',
+    'confirmed' => '跟进中',
+    'intervening' => '跟进中',
+    'pending_verification' => '继续关注',
+    'stable' => '暂时稳定',
+    'closed' => '已结束',
     _ => value,
   };
 }

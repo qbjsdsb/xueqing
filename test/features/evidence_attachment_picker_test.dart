@@ -20,6 +20,16 @@ void main() {
     },
   );
 
+  test('uses teacher language when the problem no longer accepts images', () {
+    expect(
+      describeEvidenceAttachmentError(
+        StateError('attachment_target_not_writable: learning_case_closed'),
+        duringUpload: true,
+      ),
+      '当前问题已结束跟进或你已不再负责该学生，无法上传图片。',
+    );
+  });
+
   test('keeps a picked image retryable when the network is unavailable', () {
     expect(
       describeEvidenceAttachmentError(

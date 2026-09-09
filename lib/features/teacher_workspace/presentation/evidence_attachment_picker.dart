@@ -113,7 +113,7 @@ String describeEvidenceAttachmentError(
       detail.contains('learning_case_closed') ||
       detail.contains('not assigned') ||
       detail.contains('assignment')) {
-    return '当前 Case 已关闭或你已不再负责该学生，无法上传图片。';
+    return '当前问题已结束跟进或你已不再负责该学生，无法上传图片。';
   }
   if (detail.contains('network') ||
       detail.contains('socket') ||
