@@ -1,5 +1,8 @@
 from pathlib import Path
 
+# Keep the static workflow contract aligned with the student-first UI:
+# a person is unique at the student picker, while the chosen subject still
+# resolves to one concrete profile before anything is saved.
 path = Path('test/features/workflow_clarity_contract_test.dart')
 text = path.read_text(encoding='utf-8')
 
