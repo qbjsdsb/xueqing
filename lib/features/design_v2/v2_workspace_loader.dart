@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
+import '../teacher_workspace/workspace_runtime.dart';
 import 'v2_read_model_adapter.dart';
 import 'v2_workflow_controller.dart';
 import 'v2_workspace_preview.dart';
@@ -12,6 +13,7 @@ typedef V2WorkspaceLoad = Future<TeacherWorkspace> Function();
 class V2WorkspaceLoader extends StatefulWidget {
   const V2WorkspaceLoader({
     required this.loadWorkspace,
+    this.runtime,
     this.learningRepository,
     this.progressiveCaseRepository,
     this.evidenceAttachmentRepository,
@@ -19,6 +21,7 @@ class V2WorkspaceLoader extends StatefulWidget {
   });
 
   final V2WorkspaceLoad loadWorkspace;
+  final AuthenticatedWorkspaceRuntime? runtime;
   final LearningRepository? learningRepository;
   final ProgressiveCaseRepository? progressiveCaseRepository;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
@@ -87,22 +90,27 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         }
 
         final snapshotData = V2ReadModelAdapter.fromWorkspace(workspace);
-        final learningRepository = widget.learningRepository;
-        final progressiveCaseRepository = widget.progressiveCaseRepository;
+        final learningRepository =
+            widget.runtime?.learningRepository ?? widget.learningRepository;
+        final progressiveCaseRepository =
+            widget.runtime?.progressiveCaseRepository ??
+            widget.progressiveCaseRepository;
+        final evidenceAttachmentRepository =
+            widget.runtime?.evidenceAttachmentRepository ??
+            widget.evidenceAttachmentRepository;
         final workflowController =
             learningRepository != null && progressiveCaseRepository != null
             ? V2WorkflowController(
                 workspace: workspace,
                 learningRepository: learningRepository,
                 progressiveCaseRepository: progressiveCaseRepository,
-                evidenceAttachmentRepository:
-                    widget.evidenceAttachmentRepository,
+                evidenceAttachmentRepository: evidenceAttachmentRepository,
               )
             : null;
         return V2WorkspacePreview(
           data: snapshotData.workspaceData,
           workflowController: workflowController,
-          evidenceAttachmentRepository: widget.evidenceAttachmentRepository,
+          evidenceAttachmentRepository: evidenceAttachmentRepository,
           onWorkspaceChanged: workflowController == null ? null : _retry,
         );
       },

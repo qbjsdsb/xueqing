@@ -22,6 +22,7 @@ import '../../../cloud/student_learning_record_repository.dart';
 import '../../../config/app_config.dart';
 import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
 import '../../organization_management/presentation/organization_management_page.dart';
+import '../workspace_runtime.dart';
 import 'member_onboarding_page.dart';
 import 'evidence_attachment_picker.dart';
 import 'progressive_case_forms.dart';
@@ -30,14 +31,6 @@ import '../../../export/learning_record_export.dart';
 import '../../../update/update_dialog.dart';
 import '../../../update/update_installer.dart';
 import '../../../update/update_service.dart';
-
-typedef AuthenticatedWorkspaceBuilder = Widget Function(
-  BuildContext context,
-  LearningRepository repository,
-  ProgressiveCaseRepository? progressiveCaseRepository,
-  EvidenceAttachmentRepository? evidenceAttachmentRepository,
-  VoidCallback? onSignOut,
-);
 
 class TeacherWorkspaceEntryPage extends StatefulWidget {
   const TeacherWorkspaceEntryPage({
@@ -436,15 +429,26 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
         final authenticatedWorkspaceBuilder =
             widget.authenticatedWorkspaceBuilder;
         if (authenticatedWorkspaceBuilder != null) {
+          final runtime = AuthenticatedWorkspaceRuntime(
+            learningRepository: _learningRepository!,
+            progressiveCaseRepository: _progressiveCaseRepository,
+            evidenceAttachmentRepository: _evidenceAttachmentRepository,
+            organizationManagementRepository: _organizationManagementRepository,
+            invitationAcceptanceRepository: _invitationAcceptanceRepository,
+            memberProvisioningRepository:
+                _organizationMemberProvisioningRepository,
+            teacherLearningRecordRepository: _teacherLearningRecordRepository,
+            studentLearningRecordRepository: _studentLearningRecordRepository,
+            updateService: _updateService,
+            updateInstaller: _updateInstaller,
+            caseReopenDraftStore: _caseReopenDraftStore,
+            appVersion: widget.config.appVersion,
+            sessionUserId: _activeUserId,
+            onSignOut: _busy ? null : _signOut,
+          );
           return KeyedSubtree(
             key: ValueKey('authenticated-workspace-$_activeUserId'),
-            child: authenticatedWorkspaceBuilder(
-              context,
-              _learningRepository!,
-              _progressiveCaseRepository,
-              _evidenceAttachmentRepository,
-              _busy ? null : _signOut,
-            ),
+            child: authenticatedWorkspaceBuilder(context, runtime),
           );
         }
         return TeacherWorkspacePage(
