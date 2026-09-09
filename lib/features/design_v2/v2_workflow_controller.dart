@@ -128,6 +128,9 @@ class V2WorkflowController {
     return List<String>.unmodifiable(result);
   }
 
+  bool hasPendingPrimaryAction(String caseId) =>
+      _caseFor(caseId).primaryAction != null;
+
   List<V2CaseTypeChoice> get caseTypeChoices {
     final result = <V2CaseTypeChoice>[
       const V2CaseTypeChoice(

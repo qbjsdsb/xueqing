@@ -49,6 +49,7 @@ class V2TimelineEntry {
     required this.teacher,
     required this.time,
     this.photoCount = 0,
+    this.evidenceId,
   });
 
   final String caseId;
@@ -58,6 +59,7 @@ class V2TimelineEntry {
   final String teacher;
   final String time;
   final int photoCount;
+  final String? evidenceId;
 }
 
 const v2Students = <V2Student>[

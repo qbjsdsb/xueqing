@@ -1,8 +1,154 @@
 import 'package:flutter/material.dart';
 
+import '../../cloud/evidence_attachment_repository.dart';
+import '../../cloud/learning_repository.dart';
+import '../../cloud/progressive_case_repository.dart';
 import 'v2_composers.dart';
 import 'v2_fixture.dart';
+import 'v2_workflow_controller.dart';
 import 'v2_workspace_data.dart';
+
+class _V2RuntimeScope extends InheritedWidget {
+  const _V2RuntimeScope({
+    required this.workflowController,
+    required this.evidenceAttachmentRepository,
+    required this.onWorkspaceChanged,
+    required super.child,
+  });
+
+  final V2WorkflowController? workflowController;
+  final EvidenceAttachmentRepository? evidenceAttachmentRepository;
+  final VoidCallback? onWorkspaceChanged;
+
+  static _V2RuntimeScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_V2RuntimeScope>();
+
+  @override
+  bool updateShouldNotify(_V2RuntimeScope oldWidget) =>
+      workflowController != oldWidget.workflowController ||
+      evidenceAttachmentRepository != oldWidget.evidenceAttachmentRepository ||
+      onWorkspaceChanged != oldWidget.onWorkspaceChanged;
+}
+
+Future<void> _showV2QuickCaptureForStudent(
+  BuildContext context,
+  V2Student student,
+) async {
+  final runtime = _V2RuntimeScope.maybeOf(context);
+  final controller = runtime?.workflowController;
+  final operationId = controller == null ? null : createOperationId();
+  final problemTypes = controller == null
+      ? v2PreviewProblemTypeOptions
+      : controller.caseTypeChoices
+            .map(
+              (choice) =>
+                  V2ProblemTypeOption(key: choice.key, label: choice.label),
+            )
+            .toList(growable: false);
+
+  final saved = await showV2QuickCapture(
+    context,
+    studentName: student.name,
+    subjects: student.subjects,
+    problemTypes: problemTypes,
+    onSave: controller == null
+        ? null
+        : (draft) async {
+            await controller.quickCapture(
+              V2QuickCaptureWrite(
+                operationId: operationId!,
+                studentId: student.id,
+                subject: draft.subject,
+                caseTypeKey: draft.caseTypeKey,
+                body: draft.body,
+                attachments: draft.attachments,
+              ),
+            );
+          },
+  );
+  if (saved && context.mounted) {
+    runtime?.onWorkspaceChanged?.call();
+  }
+}
+
+Future<void> _showV2ProgressForCase(
+  BuildContext context,
+  V2Student student,
+  V2FocusItem item,
+) async {
+  final runtime = _V2RuntimeScope.maybeOf(context);
+  final controller = runtime?.workflowController;
+  final operationId = controller == null ? null : createOperationId();
+  final photoEvidenceOperationId = controller == null
+      ? null
+      : createOperationId();
+  final saved = await showV2ProgressComposer(
+    context,
+    studentName: student.name,
+    subject: item.subject,
+    caseTitle: item.title,
+    canCompleteCurrentAction:
+        controller?.hasPendingPrimaryAction(item.id) ?? false,
+    onSave: controller == null
+        ? null
+        : (draft) async {
+            await controller.recordProgress(
+              V2ProgressWrite(
+                operationId: operationId!,
+                photoEvidenceOperationId: photoEvidenceOperationId!,
+                caseId: item.id,
+                progressKind: _domainProgressKind(draft.kind),
+                summary: draft.body,
+                assessmentResult: draft.kind == V2ProgressKind.assessment
+                    ? _domainAssessmentResult(draft.assessmentResult)
+                    : null,
+                completeCurrentAction: draft.completeCurrentAction,
+                nextStep: _domainNextStep(draft.nextStep),
+                nextActionTitle: draft.nextStep == V2NextStep.remind
+                    ? draft.reminderTitle
+                    : null,
+                nextActionDueOn: draft.nextStep == V2NextStep.remind
+                    ? draft.reminderDate
+                    : null,
+                closeReason: draft.nextStep == V2NextStep.close
+                    ? _domainCloseReason(draft.closeReason)
+                    : null,
+                attachments: draft.attachments,
+              ),
+            );
+          },
+  );
+  if (saved && context.mounted) {
+    runtime?.onWorkspaceChanged?.call();
+  }
+}
+
+CaseProgressKind _domainProgressKind(V2ProgressKind kind) => switch (kind) {
+  V2ProgressKind.observation => CaseProgressKind.observation,
+  V2ProgressKind.intervention => CaseProgressKind.intervention,
+  V2ProgressKind.assessment => CaseProgressKind.assessment,
+};
+
+CaseAssessmentResult? _domainAssessmentResult(V2AssessmentResult? result) =>
+    switch (result) {
+      null => null,
+      V2AssessmentResult.passed => CaseAssessmentResult.passed,
+      V2AssessmentResult.partial => CaseAssessmentResult.partial,
+      V2AssessmentResult.notPassed => CaseAssessmentResult.notPassed,
+    };
+
+CaseProgressNextStep _domainNextStep(V2NextStep step) => switch (step) {
+  V2NextStep.continueTracking => CaseProgressNextStep.continueTracking,
+  V2NextStep.remind => CaseProgressNextStep.remind,
+  V2NextStep.close => CaseProgressNextStep.close,
+};
+
+CaseClosureReason _domainCloseReason(V2CloseReason reason) => switch (reason) {
+  V2CloseReason.resolved => CaseClosureReason.resolved,
+  V2CloseReason.pauseTracking => CaseClosureReason.pauseTracking,
+  V2CloseReason.notIssue => CaseClosureReason.notIssue,
+  V2CloseReason.other => CaseClosureReason.other,
+};
 
 Future<void> _showV2ProgressCasePicker(
   BuildContext context,
@@ -62,18 +208,22 @@ Future<void> _showV2ProgressCasePicker(
   if (selected == null || !context.mounted) {
     return;
   }
-  await showV2ProgressComposer(
-    context,
-    studentName: student.name,
-    subject: selected.subject,
-    caseTitle: selected.title,
-  );
+  await _showV2ProgressForCase(context, student, selected);
 }
 
 class V2WorkspacePreview extends StatefulWidget {
-  const V2WorkspacePreview({super.key, this.data = v2FixtureWorkspaceData});
+  const V2WorkspacePreview({
+    super.key,
+    this.data = v2FixtureWorkspaceData,
+    this.workflowController,
+    this.evidenceAttachmentRepository,
+    this.onWorkspaceChanged,
+  });
 
   final V2WorkspaceData data;
+  final V2WorkflowController? workflowController;
+  final EvidenceAttachmentRepository? evidenceAttachmentRepository;
+  final VoidCallback? onWorkspaceChanged;
 
   @override
   State<V2WorkspacePreview> createState() => _V2WorkspacePreviewState();
@@ -162,19 +312,34 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
 
   @override
   Widget build(BuildContext context) {
-    return V2WorkspaceDataScope(
-      data: widget.data,
-      child: Builder(
-        builder: (context) {
-          if (widget.data.students.isEmpty) {
-            return const _EmptyWorkspacePreview();
-          }
-          final selectedStudent =
-              _selectedStudent ?? widget.data.students.first;
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 720) {
-                return _CompactWorkspace(
+    return _V2RuntimeScope(
+      workflowController: widget.workflowController,
+      evidenceAttachmentRepository: widget.evidenceAttachmentRepository,
+      onWorkspaceChanged: widget.onWorkspaceChanged,
+      child: V2WorkspaceDataScope(
+        data: widget.data,
+        child: Builder(
+          builder: (context) {
+            if (widget.data.students.isEmpty) {
+              return const _EmptyWorkspacePreview();
+            }
+            final selectedStudent =
+                _selectedStudent ?? widget.data.students.first;
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 720) {
+                  return _CompactWorkspace(
+                    destination: _destination,
+                    selectedStudent: selectedStudent,
+                    selectedCase: _selectedCase,
+                    showCase: _showCase,
+                    onDestinationChanged: _changeDestination,
+                    onStudentSelected: _openStudent,
+                    onOpenCase: _openCase,
+                    onBackFromCase: _closeCase,
+                  );
+                }
+                return _DesktopWorkspace(
                   destination: _destination,
                   selectedStudent: selectedStudent,
                   selectedCase: _selectedCase,
@@ -184,20 +349,10 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                   onOpenCase: _openCase,
                   onBackFromCase: _closeCase,
                 );
-              }
-              return _DesktopWorkspace(
-                destination: _destination,
-                selectedStudent: selectedStudent,
-                selectedCase: _selectedCase,
-                showCase: _showCase,
-                onDestinationChanged: _changeDestination,
-                onStudentSelected: _openStudent,
-                onOpenCase: _openCase,
-                onBackFromCase: _closeCase,
-              );
-            },
-          );
-        },
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -787,11 +942,7 @@ class _StudentHeader extends StatelessWidget {
       runSpacing: 8,
       children: [
         OutlinedButton.icon(
-          onPressed: () => showV2QuickCapture(
-            context,
-            studentName: student.name,
-            subjects: student.subjects,
-          ),
+          onPressed: () => _showV2QuickCaptureForStudent(context, student),
           icon: const Icon(Icons.note_add_outlined, size: 18),
           label: const Text('记录问题'),
         ),
@@ -955,9 +1106,10 @@ class _FocusRow extends StatelessWidget {
 }
 
 class _Timeline extends StatelessWidget {
-  const _Timeline({required this.entries});
+  const _Timeline({required this.entries, this.resolveEvidencePhotos = false});
 
   final List<V2TimelineEntry> entries;
+  final bool resolveEvidencePhotos;
 
   @override
   Widget build(BuildContext context) {
@@ -967,21 +1119,36 @@ class _Timeline extends StatelessWidget {
     return Column(
       children: [
         for (var i = 0; i < entries.length; i++)
-          _TimelineRow(entry: entries[i], last: i == entries.length - 1),
+          _TimelineRow(
+            entry: entries[i],
+            last: i == entries.length - 1,
+            resolveEvidencePhotos: resolveEvidencePhotos,
+          ),
       ],
     );
   }
 }
 
 class _TimelineRow extends StatelessWidget {
-  const _TimelineRow({required this.entry, required this.last});
+  const _TimelineRow({
+    required this.entry,
+    required this.last,
+    required this.resolveEvidencePhotos,
+  });
 
   final V2TimelineEntry entry;
   final bool last;
+  final bool resolveEvidencePhotos;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final attachmentRepository = _V2RuntimeScope.maybeOf(context)
+        ?.evidenceAttachmentRepository;
+    final canResolveRealPhotos =
+        resolveEvidencePhotos &&
+        entry.evidenceId != null &&
+        attachmentRepository != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1011,7 +1178,9 @@ class _TimelineRow extends StatelessWidget {
               if (!last)
                 Container(
                   width: 1,
-                  height: entry.photoCount > 0 ? 144 : 96,
+                  height: entry.photoCount > 0 || canResolveRealPhotos
+                      ? 144
+                      : 96,
                   color: scheme.outlineVariant,
                 ),
             ],
@@ -1030,7 +1199,13 @@ class _TimelineRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(entry.body, style: Theme.of(context).textTheme.bodyMedium),
-                if (entry.photoCount > 0) ...[
+                if (canResolveRealPhotos) ...[
+                  const SizedBox(height: 12),
+                  _EvidencePhotoStrip(
+                    evidenceId: entry.evidenceId!,
+                    repository: attachmentRepository,
+                  ),
+                ] else if (entry.photoCount > 0) ...[
                   const SizedBox(height: 12),
                   _PhotoStrip(count: entry.photoCount),
                 ],
@@ -1046,6 +1221,111 @@ class _TimelineRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EvidencePhotoStrip extends StatefulWidget {
+  const _EvidencePhotoStrip({
+    required this.evidenceId,
+    required this.repository,
+  });
+
+  final String evidenceId;
+  final EvidenceAttachmentRepository repository;
+
+  @override
+  State<_EvidencePhotoStrip> createState() => _EvidencePhotoStripState();
+}
+
+class _EvidencePhotoStripState extends State<_EvidencePhotoStrip> {
+  late Future<List<String>> _signedUrls;
+
+  @override
+  void initState() {
+    super.initState();
+    _signedUrls = _loadSignedUrls();
+  }
+
+  @override
+  void didUpdateWidget(covariant _EvidencePhotoStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.evidenceId != widget.evidenceId ||
+        oldWidget.repository != widget.repository) {
+      _signedUrls = _loadSignedUrls();
+    }
+  }
+
+  Future<List<String>> _loadSignedUrls() async {
+    final attachments = await widget.repository.listForEvidence(
+      widget.evidenceId,
+    );
+    final result = <String>[];
+    for (final attachment in attachments.take(3)) {
+      result.add(
+        await widget.repository.createSignedUrl(attachment.storagePath),
+      );
+    }
+    return List<String>.unmodifiable(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return FutureBuilder<List<String>>(
+      future: _signedUrls,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
+              ),
+              const SizedBox(width: 8),
+              Text('正在加载图片…', style: Theme.of(context).textTheme.bodySmall),
+            ],
+          );
+        }
+        if (snapshot.hasError) {
+          return Text(
+            '图片暂时无法加载',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          );
+        }
+        final urls = snapshot.data ?? const <String>[];
+        if (urls.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final url in urls)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(7),
+                child: SizedBox(
+                  width: 96,
+                  height: 72,
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => ColoredBox(
+                      color: scheme.surfaceContainer,
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1137,12 +1417,8 @@ class _CaseDetailPane extends StatelessWidget {
                       ),
                       const SizedBox(width: 16),
                       FilledButton.icon(
-                        onPressed: () => showV2ProgressComposer(
-                          context,
-                          studentName: student.name,
-                          subject: item.subject,
-                          caseTitle: item.title,
-                        ),
+                        onPressed: () =>
+                            _showV2ProgressForCase(context, student, item),
                         icon: const Icon(Icons.edit_note_outlined, size: 18),
                         label: const Text('记进展'),
                       ),
@@ -1181,7 +1457,10 @@ class _CaseDetailPane extends StatelessWidget {
                   const SizedBox(height: 28),
                   const _SectionTitle(title: '成长过程'),
                   const SizedBox(height: 16),
-                  _Timeline(entries: timelineEntries),
+                  _Timeline(
+                    entries: timelineEntries,
+                    resolveEvidencePhotos: true,
+                  ),
                 ],
               ),
             ),

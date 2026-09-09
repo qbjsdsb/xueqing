@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 
+import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
+import '../../cloud/progressive_case_repository.dart';
 import 'v2_read_model_adapter.dart';
+import 'v2_workflow_controller.dart';
 import 'v2_workspace_preview.dart';
 
 typedef V2WorkspaceLoad = Future<TeacherWorkspace> Function();
 
-/// Loads the already-authorized production read model and hands only mapped,
-/// presentation-safe data to the V2 workspace.
-///
-/// This widget intentionally accepts a read callback instead of the full
-/// [LearningRepository], so the V2 loading boundary cannot call write methods.
 class V2WorkspaceLoader extends StatefulWidget {
-  const V2WorkspaceLoader({required this.loadWorkspace, super.key});
+  const V2WorkspaceLoader({
+    required this.loadWorkspace,
+    this.learningRepository,
+    this.progressiveCaseRepository,
+    this.evidenceAttachmentRepository,
+    super.key,
+  });
 
   final V2WorkspaceLoad loadWorkspace;
+  final LearningRepository? learningRepository;
+  final ProgressiveCaseRepository? progressiveCaseRepository;
+  final EvidenceAttachmentRepository? evidenceAttachmentRepository;
 
   @override
   State<V2WorkspaceLoader> createState() => _V2WorkspaceLoaderState();
@@ -80,7 +87,24 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         }
 
         final snapshotData = V2ReadModelAdapter.fromWorkspace(workspace);
-        return V2WorkspacePreview(data: snapshotData.workspaceData);
+        final learningRepository = widget.learningRepository;
+        final progressiveCaseRepository = widget.progressiveCaseRepository;
+        final workflowController =
+            learningRepository != null && progressiveCaseRepository != null
+            ? V2WorkflowController(
+                workspace: workspace,
+                learningRepository: learningRepository,
+                progressiveCaseRepository: progressiveCaseRepository,
+                evidenceAttachmentRepository:
+                    widget.evidenceAttachmentRepository,
+              )
+            : null;
+        return V2WorkspacePreview(
+          data: snapshotData.workspaceData,
+          workflowController: workflowController,
+          evidenceAttachmentRepository: widget.evidenceAttachmentRepository,
+          onWorkspaceChanged: workflowController == null ? null : _retry,
+        );
       },
     );
   }
@@ -101,7 +125,6 @@ class _V2LoaderStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -112,7 +135,11 @@ class _V2LoaderStatus extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 34, color: scheme.onSurfaceVariant),
+                  Icon(
+                    icon,
+                    size: 34,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     title,

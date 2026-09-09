@@ -34,6 +34,8 @@ import '../../../update/update_service.dart';
 typedef AuthenticatedWorkspaceBuilder = Widget Function(
   BuildContext context,
   LearningRepository repository,
+  ProgressiveCaseRepository? progressiveCaseRepository,
+  EvidenceAttachmentRepository? evidenceAttachmentRepository,
   VoidCallback? onSignOut,
 );
 
@@ -439,6 +441,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
             child: authenticatedWorkspaceBuilder(
               context,
               _learningRepository!,
+              _progressiveCaseRepository,
+              _evidenceAttachmentRepository,
               _busy ? null : _signOut,
             ),
           );
