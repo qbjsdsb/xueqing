@@ -1,0 +1,54 @@
+name: One-off V2 writable composer contract
+
+on:
+  push:
+    branches:
+      - ui/v2-writable-composers
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-writable-composers
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+
+      - name: Apply composer contract patch
+        run: python3 .github/scripts/patch_v2_composer_contract.py
+
+      - name: Format changed Dart
+        run: flutter format lib/features/design_v2/v2_composers.dart lib/features/design_v2/v2_workflow_controller.dart test/features/design_v2_composers_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused V2 tests
+        run: |
+          flutter test test/features/design_v2_composers_test.dart
+          flutter test test/features/design_v2_workflow_controller_test.dart
+          flutter test test/features/design_v2_workspace_test.dart
+          flutter test test/features/design_v2_workspace_loader_test.dart
+
+      - name: Commit validated product changes
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/features/design_v2/v2_composers.dart \
+                  lib/features/design_v2/v2_workflow_controller.dart \
+                  test/features/design_v2_composers_test.dart
+          git commit -m "UI V2: make composers retry-safe for real writes"
+          git push origin HEAD:ui/v2-writable-composers
