@@ -1599,7 +1599,7 @@ void main() {
     expect(repository.confirmCommands.single.caseId, 'case-1');
     expect(repository.confirmCommands.single.expectedCaseVersion, 1);
     expect(repository.confirmCommands.single.nextActionTitle, '安排一次针对性练习');
-    expect(find.textContaining('Case 进入已确认'), findsOneWidget);
+    expect(find.textContaining('当前状态：跟进中'), findsOneWidget);
   });
 
   testWidgets('records an intervention from a confirmed Case', (tester) async {
@@ -1631,7 +1631,7 @@ void main() {
     expect(repository.interventionCount, 1);
     expect(repository.interventionCommands.single.strategy, '用图示带学生重新完成通分步骤。');
     expect(repository.interventionCommands.single.expectedCaseVersion, 1);
-    expect(find.textContaining('Case 进入干预中'), findsOneWidget);
+    expect(find.textContaining('当前状态：跟进中'), findsOneWidget);
   });
 
   testWidgets('records verification from an intervening Case', (tester) async {
@@ -1668,7 +1668,7 @@ void main() {
       repository.assessmentCommands.single.result,
       CaseAssessmentResult.partial,
     );
-    expect(find.textContaining('Case 进入待验证'), findsOneWidget);
+    expect(find.textContaining('当前状态：继续关注'), findsOneWidget);
   });
 
   testWidgets('records a verification result without auto-closing the Case', (
@@ -1708,7 +1708,7 @@ void main() {
       repository.assessmentCommands.single.evidenceSummary,
       '学生能独立完成，但仍有一次漏写通分步骤。',
     );
-    expect(find.textContaining('Case 进入待验证'), findsOneWidget);
+    expect(find.textContaining('当前状态：继续关注'), findsOneWidget);
   });
 
   test('validates Case commands and parses command receipts', () {
@@ -1852,7 +1852,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.stabilizeCount, 1);
-    expect(find.textContaining('Case 进入稳定'), findsOneWidget);
+    expect(find.textContaining('当前状态：暂时稳定'), findsOneWidget);
   });
 
   testWidgets('closes a stable Case after confirmation', (tester) async {
@@ -1880,7 +1880,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.closeCount, 1);
-    expect(find.textContaining('Case 进入已关闭'), findsOneWidget);
+    expect(find.textContaining('当前状态：已结束'), findsOneWidget);
   });
 
   testWidgets('reuses operation id after closing response is lost', (
@@ -1971,7 +1971,7 @@ void main() {
       repository.reopenCommands.single.expectedEvidenceVersions,
       <String, int>{'evidence-recurrence': 1},
     );
-    expect(find.textContaining('Case 进入已确认'), findsOneWidget);
+    expect(find.textContaining('当前状态：跟进中'), findsOneWidget);
   });
 
   testWidgets('restores an unfinished reopen after the page is recreated', (
@@ -2065,7 +2065,7 @@ void main() {
     expect(repository.reopenCount, 2);
     expect(repository.reopenCommands[1].operationId, firstReopenOperationId);
     expect(await store.load(scope), isNull);
-    expect(find.textContaining('Case 进入已确认'), findsOneWidget);
+    expect(find.textContaining('当前状态：跟进中'), findsOneWidget);
   });
 
   testWidgets('unlocks a reopen form after a deterministic Evidence failure', (
