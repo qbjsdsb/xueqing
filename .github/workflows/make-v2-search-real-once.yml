@@ -1,0 +1,372 @@
+name: Make V2 search real once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/make-v2-search-real-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-prototype-foundation
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Replace decorative searches with real filtering
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/features/design_v2/v2_workspace_preview.dart')
+          text = path.read_text()
+
+          def replace_block(source, start_marker, end_marker, replacement):
+              start = source.index(start_marker)
+              end = source.index(end_marker, start)
+              return source[:start] + replacement.rstrip() + '\n\n' + source[end:]
+
+          text = replace_block(
+              text,
+              'class _StudentListPane',
+              'class _StudentRow',
+              r'''class _StudentListPane extends StatefulWidget {
+            const _StudentListPane({
+              required this.selectedStudent,
+              required this.onSelected,
+              this.compact = false,
+            });
+
+            final V2Student selectedStudent;
+            final ValueChanged<V2Student> onSelected;
+            final bool compact;
+
+            @override
+            State<_StudentListPane> createState() => _StudentListPaneState();
+          }
+
+          class _StudentListPaneState extends State<_StudentListPane> {
+            final _searchController = TextEditingController();
+            String _query = '';
+
+            @override
+            void dispose() {
+              _searchController.dispose();
+              super.dispose();
+            }
+
+            List<V2Student> get _visibleStudents {
+              final query = _query.trim().toLowerCase();
+              if (query.isEmpty) {
+                return v2Students;
+              }
+              return v2Students.where((student) {
+                final haystack = [
+                  student.name,
+                  student.grade,
+                  ...student.subjects,
+                  student.teacherSummary,
+                ].join(' ').toLowerCase();
+                return haystack.contains(query);
+              }).toList(growable: false);
+            }
+
+            void _clearSearch() {
+              _searchController.clear();
+              setState(() => _query = '');
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              final visibleStudents = _visibleStudents;
+              return ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        widget.compact ? 18 : 24,
+                        24,
+                        widget.compact ? 18 : 20,
+                        12,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '学生',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const SizedBox(height: 18),
+                          TextField(
+                            key: const Key('v2-student-search'),
+                            controller: _searchController,
+                            onChanged: (value) => setState(() => _query = value),
+                            decoration: InputDecoration(
+                              hintText: '搜索姓名、年级、学科或老师…',
+                              prefixIcon: const Icon(Icons.search, size: 19),
+                              suffixIcon: _query.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: '清除搜索',
+                                      onPressed: _clearSearch,
+                                      icon: const Icon(Icons.close, size: 18),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            _query.trim().isEmpty
+                                ? '全部 ${v2Students.length}'
+                                : '找到 ${visibleStudents.length} 位',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                    Expanded(
+                      child: visibleStudents.isEmpty
+                          ? Center(
+                              child: Text(
+                                '没有找到匹配的学生',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              itemCount: visibleStudents.length,
+                              itemBuilder: (context, index) {
+                                final student = visibleStudents[index];
+                                return _StudentRow(
+                                  student: student,
+                                  selected:
+                                      student.id == widget.selectedStudent.id,
+                                  onTap: () => widget.onSelected(student),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }''',
+          )
+
+          text = replace_block(
+              text,
+              'class _CaseIndexPane',
+              'class _QuietPlaceholder',
+              r'''class _CaseIndexPane extends StatefulWidget {
+            const _CaseIndexPane({required this.onOpenCase, this.compact = false});
+
+            final ValueChanged<V2FocusItem> onOpenCase;
+            final bool compact;
+
+            @override
+            State<_CaseIndexPane> createState() => _CaseIndexPaneState();
+          }
+
+          class _CaseIndexPaneState extends State<_CaseIndexPane> {
+            final _searchController = TextEditingController();
+            String _query = '';
+
+            @override
+            void dispose() {
+              _searchController.dispose();
+              super.dispose();
+            }
+
+            List<V2FocusItem> get _visibleItems {
+              final query = _query.trim().toLowerCase();
+              if (query.isEmpty) {
+                return v2FocusItems;
+              }
+              return v2FocusItems.where((item) {
+                final student = v2StudentForFocusItem(item);
+                final haystack = [
+                  student.name,
+                  student.grade,
+                  item.subject,
+                  item.title,
+                  item.summary,
+                  item.nextStep,
+                  student.teacherSummary,
+                ].join(' ').toLowerCase();
+                return haystack.contains(query);
+              }).toList(growable: false);
+            }
+
+            void _clearSearch() {
+              _searchController.clear();
+              setState(() => _query = '');
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              final visibleItems = _visibleItems;
+              return SingleChildScrollView(
+                padding: EdgeInsets.all(widget.compact ? 18 : 32),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '学情',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '找到仍需要复盘的问题',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 22),
+                        TextField(
+                          key: const Key('v2-case-search'),
+                          controller: _searchController,
+                          onChanged: (value) => setState(() => _query = value),
+                          decoration: InputDecoration(
+                            hintText: '搜索学生、学科或问题…',
+                            prefixIcon: const Icon(Icons.search, size: 19),
+                            suffixIcon: _query.isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: '清除搜索',
+                                    onPressed: _clearSearch,
+                                    icon: const Icon(Icons.close, size: 18),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _query.trim().isEmpty
+                              ? '进行中 ${v2FocusItems.length}'
+                              : '找到 ${visibleItems.length} 个问题',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 6),
+                        if (visibleItems.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 30),
+                            child: Center(
+                              child: Text(
+                                '没有找到匹配的问题',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                          )
+                        else
+                          for (final item in visibleItems)
+                            _FocusRow(
+                              item: item,
+                              studentName: v2StudentForFocusItem(item).name,
+                              onTap: () => widget.onOpenCase(item),
+                            ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+          }''',
+          )
+
+          path.write_text(text)
+
+          test = Path('test/features/design_v2_workspace_test.dart')
+          t = test.read_text()
+          insertion = r'''
+
+            testWidgets('student search filters real people without changing identity', (
+              tester,
+            ) async {
+              await tester.binding.setSurfaceSize(const Size(1440, 900));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              await tester.pumpWidget(app());
+              await tester.pumpAndSettle();
+
+              await tester.enterText(
+                find.byKey(const Key('v2-student-search')),
+                '陈老师',
+              );
+              await tester.pump();
+
+              expect(find.text('王同学'), findsOneWidget);
+              expect(find.text('吴同学'), findsOneWidget);
+              expect(find.text('林同学'), findsNothing);
+              expect(find.text('找到 2 位'), findsOneWidget);
+            });
+
+            testWidgets('case search filters and opens the exact matching Case', (
+              tester,
+            ) async {
+              await tester.binding.setSurfaceSize(const Size(1440, 900));
+              addTearDown(() => tester.binding.setSurfaceSize(null));
+
+              await tester.pumpWidget(app());
+              await tester.pumpAndSettle();
+
+              await tester.tap(find.byTooltip('学情'));
+              await tester.pumpAndSettle();
+
+              await tester.enterText(
+                find.byKey(const Key('v2-case-search')),
+                '配平',
+              );
+              await tester.pump();
+
+              expect(find.text('化学方程式配平不稳'), findsOneWidget);
+              expect(find.text('阅读概括不完整'), findsNothing);
+              expect(find.text('找到 1 个问题'), findsOneWidget);
+
+              await tester.tap(find.text('化学方程式配平不稳'));
+              await tester.pumpAndSettle();
+
+              expect(find.text('周同学 · 化学'), findsOneWidget);
+              expect(find.text('集中练 5 组配平'), findsOneWidget);
+            });
+          '''
+          marker = '\n          }\n'
+          pos = t.rfind(marker)
+          assert pos >= 0
+          t = t[:pos] + insertion + t[pos:]
+          test.write_text(t)
+          PY
+      - name: Format, analyze, and test real search
+        run: |
+          dart format \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/design_v2_workspace_test.dart
+          flutter analyze \
+            lib/main_v2.dart \
+            lib/features/design_v2/v2_theme.dart \
+            lib/features/design_v2/v2_fixture.dart \
+            lib/features/design_v2/v2_composers.dart \
+            lib/features/design_v2/v2_workspace_preview.dart
+          flutter test \
+            test/features/design_v2_workspace_test.dart \
+            test/features/design_v2_composers_test.dart
+      - name: Commit validated search behavior
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/design_v2_workspace_test.dart
+          git commit -m 'ui(v2): make student and Case search functional'
+          git push origin HEAD:ui/v2-prototype-foundation
