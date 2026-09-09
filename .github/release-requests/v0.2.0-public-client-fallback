@@ -1,4 +1,4 @@
 release_tag=v0.2.0
-app_version=0.2.0+2
-release_commit=0051afa56f1229f5cac83221648ef2546cf277ac
-reason=repository_variables_missing_public_client_config
+app_version=0.2.0+6
+release_commit=b040397f4488436037b0987b95f29ba90f1badc6
+reason=repository_variables_unwritable_use_existing_verified_public_client_fallback_for_release_only
