@@ -7,6 +7,7 @@ import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
 import 'v2_action_composers.dart';
+import 'v2_reopen_composer.dart';
 import 'v2_composers.dart';
 import 'v2_fixture.dart';
 import 'v2_update_flow.dart';
@@ -122,6 +123,52 @@ Future<void> _showV2RescheduleCurrentAction(
       operationId: operationId,
       caseId: item.id,
       dueOn: dueOn,
+    ),
+  );
+  if (saved && context.mounted) {
+    runtime?.onWorkspaceChanged?.call();
+  }
+}
+
+Future<void> _showV2ReopenClosedCase(
+  BuildContext context,
+  V2Student student,
+  V2FocusItem item,
+) async {
+  final runtime = _V2RuntimeScope.maybeOf(context);
+  final controller = runtime?.workflowController;
+  if (controller == null || !controller.canReopenClosedCase(item.id)) {
+    return;
+  }
+
+  V2ReopenDraftSnapshot? pendingDraft;
+  try {
+    pendingDraft = await controller.loadPendingReopen(item.id);
+  } catch (error) {
+    if (!context.mounted) return;
+    final message = error is V2WorkflowSaveException
+        ? error.userMessage
+        : '上次未完成的重新跟进暂时无法恢复，请重试。';
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+    return;
+  }
+  if (!context.mounted) return;
+
+  final saved = await showV2ReopenCaseComposer(
+    context,
+    studentName: student.name,
+    subject: item.subject,
+    caseTitle: item.title,
+    businessDate: controller.businessDate,
+    pendingDraft: pendingDraft,
+    onSave: (draft) => controller.reopenClosedCase(
+      V2ReopenWrite(
+        caseId: item.id,
+        recurrenceSummary: draft.recurrenceSummary,
+        nextActionTitle: draft.nextActionTitle,
+        nextActionDueOn: draft.nextActionDueOn,
+      ),
     ),
   );
   if (saved && context.mounted) {
@@ -1572,6 +1619,8 @@ class _CaseDetailPane extends StatelessWidget {
     final pendingAction = item.closed
         ? null
         : controller?.pendingActionFor(item.id);
+    final canReopen =
+        item.closed && (controller?.canReopenClosedCase(item.id) ?? false);
     return ColoredBox(
       color: scheme.surface,
       child: SingleChildScrollView(
@@ -1650,6 +1699,16 @@ class _CaseDetailPane extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (canReopen) ...[
+                    const SizedBox(height: 16),
+                    FilledButton.tonalIcon(
+                      key: ValueKey<String>('v2-reopen-${item.id}'),
+                      onPressed: () =>
+                          _showV2ReopenClosedCase(context, student, item),
+                      icon: const Icon(Icons.restart_alt, size: 18),
+                      label: const Text('再次出现，重新跟进'),
+                    ),
+                  ],
                   if (pendingAction != null) ...[
                     const SizedBox(height: 12),
                     Wrap(

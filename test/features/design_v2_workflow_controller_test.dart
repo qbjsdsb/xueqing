@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xueqing/cloud/case_reopen_draft_store.dart';
 import 'package:xueqing/cloud/evidence_attachment_repository.dart';
 import 'package:xueqing/cloud/learning_repository.dart';
 import 'package:xueqing/cloud/progressive_case_repository.dart';
@@ -315,6 +316,182 @@ void main() {
       expect(learning.completeActionCalls, isEmpty);
     });
 
+    test('safe reopen writes recurrence evidence before reopening', () async {
+      final log = <String>[];
+      final learning = _FakeLearningRepository(log: log)
+        ..addEvidenceReceipt = const CaseCommandReceipt(
+          operationId: 'evidence-op-receipt',
+          caseId: 'case-existing',
+          eventId: 'event-recurrence',
+          status: 'closed',
+          caseVersion: 4,
+          recordId: 'evidence-recurrence',
+        );
+      final store = InMemoryCaseReopenDraftStore();
+      final controller = V2WorkflowController(
+        workspace: _workspaceWithCase(_case(status: LearningCaseStatus.closed)),
+        learningRepository: learning,
+        progressiveCaseRepository: _FakeProgressiveCaseRepository(),
+        caseReopenDraftStore: store,
+        sessionUserId: 'user-1',
+        now: () => DateTime(2026, 9, 10, 18, 30),
+      );
+
+      final result = await controller.reopenClosedCase(
+        V2ReopenWrite(
+          caseId: 'case-existing',
+          recurrenceSummary: '今天又出现漏掉结果信息的情况。',
+          nextActionTitle: '周五再检查一次概括题',
+          nextActionDueOn: DateTime(2026, 9, 11),
+        ),
+      );
+
+      expect(result.caseVersion, 5);
+      expect(log, <String>['add-evidence', 'reopen']);
+      final evidence = learning.addEvidenceCalls.single;
+      expect(evidence.expectedCaseVersion, 3);
+      expect(evidence.sourceType, 'observation');
+      expect(evidence.title, '问题再次出现');
+      expect(evidence.summary, '今天又出现漏掉结果信息的情况。');
+      final reopen = learning.reopenCalls.single;
+      expect(reopen.expectedCaseVersion, 4);
+      expect(reopen.recurrenceEvidenceIds, <String>['evidence-recurrence']);
+      expect(reopen.expectedEvidenceVersions, <String, int>{
+        'evidence-recurrence': 1,
+      });
+      expect(reopen.nextActionType, CaseActionType.verify);
+      expect(reopen.nextActionTitle, '周五再检查一次概括题');
+      expect(reopen.nextActionDueOn, DateTime(2026, 9, 11));
+      expect(
+        await store.load('user:user-1|organization:org-1|case:case-existing'),
+        isNull,
+      );
+    });
+
+    test(
+      'failed reopen resumes same stored evidence and operation id',
+      () async {
+        final learning = _FakeLearningRepository()
+          ..failFirstReopen = true
+          ..addEvidenceReceipt = const CaseCommandReceipt(
+            operationId: 'evidence-op-receipt',
+            caseId: 'case-existing',
+            eventId: 'event-recurrence',
+            status: 'closed',
+            caseVersion: 4,
+            recordId: 'evidence-recurrence',
+          );
+        final store = InMemoryCaseReopenDraftStore();
+        final controller = V2WorkflowController(
+          workspace: _workspaceWithCase(
+            _case(status: LearningCaseStatus.closed),
+          ),
+          learningRepository: learning,
+          progressiveCaseRepository: _FakeProgressiveCaseRepository(),
+          caseReopenDraftStore: store,
+          sessionUserId: 'user-1',
+        );
+        const scope = 'user:user-1|organization:org-1|case:case-existing';
+
+        await expectLater(
+          controller.reopenClosedCase(
+            const V2ReopenWrite(
+              caseId: 'case-existing',
+              recurrenceSummary: '第一次保存的复发描述。',
+              nextActionTitle: '第一次保存的下一步',
+            ),
+          ),
+          throwsA(
+            isA<V2WorkflowSaveException>().having(
+              (error) => error.recordMayBeSaved,
+              'recordMayBeSaved',
+              isTrue,
+            ),
+          ),
+        );
+
+        final stored = await store.load(scope);
+        expect(stored, isNotNull);
+        expect(stored!.evidenceId, 'evidence-recurrence');
+        final evidenceOperationId =
+            learning.addEvidenceCalls.single.operationId;
+        final reopenOperationId = learning.reopenCalls.single.operationId;
+
+        await controller.reopenClosedCase(
+          const V2ReopenWrite(
+            caseId: 'case-existing',
+            recurrenceSummary: '这次重试不应该覆盖原描述。',
+            nextActionTitle: '这次重试也不应该覆盖原下一步',
+          ),
+        );
+
+        expect(learning.addEvidenceCalls, hasLength(1));
+        expect(learning.reopenCalls, hasLength(2));
+        expect(
+          learning.addEvidenceCalls.single.operationId,
+          evidenceOperationId,
+        );
+        expect(learning.reopenCalls[1].operationId, reopenOperationId);
+        expect(learning.reopenCalls[1].nextActionTitle, '第一次保存的下一步');
+        expect(await store.load(scope), isNull);
+      },
+    );
+
+    test(
+      'failed recurrence evidence retry reuses the original evidence operation',
+      () async {
+        final learning = _FakeLearningRepository()
+          ..failFirstAddEvidence = true
+          ..addEvidenceReceipt = const CaseCommandReceipt(
+            operationId: 'evidence-op-receipt',
+            caseId: 'case-existing',
+            eventId: 'event-recurrence',
+            status: 'closed',
+            caseVersion: 4,
+            recordId: 'evidence-recurrence',
+          );
+        final store = InMemoryCaseReopenDraftStore();
+        final controller = V2WorkflowController(
+          workspace: _workspaceWithCase(
+            _case(status: LearningCaseStatus.closed),
+          ),
+          learningRepository: learning,
+          progressiveCaseRepository: _FakeProgressiveCaseRepository(),
+          caseReopenDraftStore: store,
+          sessionUserId: 'user-1',
+        );
+        const write = V2ReopenWrite(
+          caseId: 'case-existing',
+          recurrenceSummary: '同一个复发证据必须幂等重试。',
+          nextActionTitle: '继续核验',
+        );
+
+        await expectLater(
+          controller.reopenClosedCase(write),
+          throwsA(isA<V2WorkflowSaveException>()),
+        );
+        final firstOperationId = learning.addEvidenceCalls.single.operationId;
+        final pending = await controller.loadPendingReopen('case-existing');
+        expect(pending?.recurrenceSummary, '同一个复发证据必须幂等重试。');
+
+        await controller.reopenClosedCase(write);
+
+        expect(learning.addEvidenceCalls, hasLength(2));
+        expect(learning.addEvidenceCalls[1].operationId, firstOperationId);
+        expect(learning.reopenCalls, hasLength(1));
+      },
+    );
+
+    test('reopen stays hidden without resumable identity capability', () {
+      final controller = V2WorkflowController(
+        workspace: _workspaceWithCase(_case(status: LearningCaseStatus.closed)),
+        learningRepository: _FakeLearningRepository(),
+        progressiveCaseRepository: _FakeProgressiveCaseRepository(),
+      );
+
+      expect(controller.canReopenClosedCase('case-existing'), isFalse);
+    });
+
     test(
       'case type choices use real active types and one unclassified option',
       () {
@@ -490,6 +667,9 @@ class _FakeLearningRepository extends Fake implements LearningRepository {
   final addEvidenceCalls = <AddCaseEvidenceCommand>[];
   final completeActionCalls = <CompleteCaseActionCommand>[];
   final rescheduleActionCalls = <RescheduleCaseActionCommand>[];
+  final reopenCalls = <ReopenCaseCommand>[];
+  bool failFirstAddEvidence = false;
+  bool failFirstReopen = false;
   CaseCommandReceipt addEvidenceReceipt = const CaseCommandReceipt(
     operationId: 'operation-photo',
     caseId: 'case-existing',
@@ -548,7 +728,27 @@ class _FakeLearningRepository extends Fake implements LearningRepository {
   ) async {
     addEvidenceCalls.add(command);
     log?.add('add-evidence');
+    if (failFirstAddEvidence && addEvidenceCalls.length == 1) {
+      throw Exception('network timeout while saving recurrence evidence');
+    }
     return addEvidenceReceipt;
+  }
+
+  @override
+  Future<CaseCommandReceipt> reopenCase(ReopenCaseCommand command) async {
+    reopenCalls.add(command);
+    log?.add('reopen');
+    if (failFirstReopen && reopenCalls.length == 1) {
+      throw Exception('network timeout while reopening case');
+    }
+    return CaseCommandReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      actionId: 'action-reopened',
+      eventId: 'event-reopened',
+      status: 'confirmed',
+      caseVersion: command.expectedCaseVersion + 1,
+    );
   }
 }
 

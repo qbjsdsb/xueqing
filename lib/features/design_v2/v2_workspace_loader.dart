@@ -127,6 +127,8 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
                 learningRepository: learningRepository,
                 progressiveCaseRepository: progressiveCaseRepository,
                 evidenceAttachmentRepository: evidenceAttachmentRepository,
+                caseReopenDraftStore: widget.runtime?.caseReopenDraftStore,
+                sessionUserId: widget.runtime?.sessionUserId,
               )
             : null;
         return V2WorkspacePreview(

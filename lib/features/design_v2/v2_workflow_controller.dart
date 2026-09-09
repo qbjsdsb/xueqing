@@ -1,3 +1,4 @@
+import '../../cloud/case_reopen_draft_store.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
@@ -71,6 +72,36 @@ class V2ProgressWrite {
   final List<PickedEvidenceAttachment> attachments;
 }
 
+class V2ReopenWrite {
+  const V2ReopenWrite({
+    required this.caseId,
+    required this.recurrenceSummary,
+    required this.nextActionTitle,
+    this.nextActionDueOn,
+    this.observedAt,
+  });
+
+  final String caseId;
+  final String recurrenceSummary;
+  final String nextActionTitle;
+  final DateTime? nextActionDueOn;
+  final DateTime? observedAt;
+}
+
+class V2ReopenDraftSnapshot {
+  const V2ReopenDraftSnapshot({
+    required this.caseId,
+    required this.recurrenceSummary,
+    required this.nextActionTitle,
+    required this.nextActionDueOn,
+  });
+
+  final String caseId;
+  final String recurrenceSummary;
+  final String nextActionTitle;
+  final DateTime? nextActionDueOn;
+}
+
 class V2PendingActionSnapshot {
   const V2PendingActionSnapshot({
     required this.caseId,
@@ -124,6 +155,8 @@ class V2WorkflowController {
     required this.learningRepository,
     required this.progressiveCaseRepository,
     this.evidenceAttachmentRepository,
+    this.caseReopenDraftStore,
+    this.sessionUserId,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -131,6 +164,8 @@ class V2WorkflowController {
   final LearningRepository learningRepository;
   final ProgressiveCaseRepository progressiveCaseRepository;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
+  final CaseReopenDraftStore? caseReopenDraftStore;
+  final String? sessionUserId;
   final DateTime Function() _now;
 
   List<String> subjectsForStudent(String studentId) {
@@ -219,6 +254,232 @@ class V2WorkflowController {
         expectedActionVersion: action.actionVersion,
         dueOn: dueOn,
       ),
+    );
+  }
+
+  bool canReopenClosedCase(String caseId) {
+    if (caseReopenDraftStore == null || _reopenDraftScopeKey(caseId) == null) {
+      return false;
+    }
+    try {
+      return _caseFor(caseId).status == LearningCaseStatus.closed;
+    } on StateError {
+      return false;
+    }
+  }
+
+  Future<V2ReopenDraftSnapshot?> loadPendingReopen(String caseId) async {
+    if (!canReopenClosedCase(caseId)) {
+      return null;
+    }
+    final scopeKey = _reopenDraftScopeKey(caseId)!;
+    try {
+      final draft = await caseReopenDraftStore!.load(scopeKey);
+      if (draft == null) {
+        return null;
+      }
+      if (draft.caseId != caseId) {
+        throw const FormatException('Case reopen draft identity mismatch.');
+      }
+      return V2ReopenDraftSnapshot(
+        caseId: draft.caseId,
+        recurrenceSummary: draft.evidenceSummary,
+        nextActionTitle: draft.nextActionTitle,
+        nextActionDueOn: draft.nextActionDueOn,
+      );
+    } catch (error) {
+      throw V2WorkflowSaveException(
+        '上次未完成的重新跟进暂时无法恢复，请重试。',
+        recordMayBeSaved: false,
+        cause: error,
+      );
+    }
+  }
+
+  Future<V2WorkflowResult> reopenClosedCase(V2ReopenWrite write) async {
+    final learningCase = _caseFor(write.caseId);
+    if (learningCase.status != LearningCaseStatus.closed) {
+      throw const V2WorkflowSaveException(
+        '这个问题已经不是已结束状态，请刷新后再处理。',
+        recordMayBeSaved: false,
+      );
+    }
+    final store = caseReopenDraftStore;
+    final scopeKey = _reopenDraftScopeKey(write.caseId);
+    if (store == null || scopeKey == null) {
+      throw const V2WorkflowSaveException(
+        '当前登录状态无法安全恢复重新跟进，请刷新或重新登录后再试。',
+        recordMayBeSaved: false,
+      );
+    }
+
+    CaseReopenDraft? draft;
+    try {
+      draft = await store.load(scopeKey);
+    } catch (error) {
+      throw V2WorkflowSaveException(
+        '上次未完成的重新跟进暂时无法恢复，请重试。',
+        recordMayBeSaved: false,
+        cause: error,
+      );
+    }
+
+    if (draft == null) {
+      final summary = write.recurrenceSummary.trim();
+      final nextActionTitle = write.nextActionTitle.trim();
+      if (summary.isEmpty) {
+        throw const V2WorkflowSaveException(
+          '请先写清楚这次为什么需要重新跟进。',
+          recordMayBeSaved: false,
+        );
+      }
+      if (nextActionTitle.isEmpty) {
+        throw const V2WorkflowSaveException(
+          '请写清楚下一步准备做什么。',
+          recordMayBeSaved: false,
+        );
+      }
+      final dueOn = write.nextActionDueOn;
+      if (dueOn != null) {
+        final dueDay = DateTime(dueOn.year, dueOn.month, dueOn.day);
+        final currentBusinessDate = businessDate;
+        final businessDay = DateTime(
+          currentBusinessDate.year,
+          currentBusinessDate.month,
+          currentBusinessDate.day,
+        );
+        if (dueDay.isBefore(businessDay)) {
+          throw const V2WorkflowSaveException(
+            '下一次跟进日期不能早于机构业务日。',
+            recordMayBeSaved: false,
+          );
+        }
+      }
+      draft = CaseReopenDraft(
+        schemaVersion: CaseReopenDraft.currentSchemaVersion,
+        caseId: learningCase.id,
+        expectedCaseVersion: learningCase.version,
+        evidenceOperationId: createOperationId(),
+        reopenOperationId: createOperationId(),
+        sourceType: 'observation',
+        evidenceTitle: '问题再次出现',
+        evidenceSummary: summary,
+        observedAt: write.observedAt ?? _now(),
+        evidenceVersion: 1,
+        nextActionTypeWire: CaseActionType.verify.wireValue,
+        nextActionTitle: nextActionTitle,
+        nextActionDueOn: dueOn,
+      );
+      try {
+        await store.save(scopeKey, draft);
+      } catch (error) {
+        throw V2WorkflowSaveException(
+          '重新跟进还没有开始保存，请检查本机存储后重试。',
+          recordMayBeSaved: false,
+          cause: error,
+        );
+      }
+    } else if (draft.caseId != learningCase.id) {
+      throw const V2WorkflowSaveException(
+        '恢复的重新跟进与当前问题不一致，请刷新后再试。',
+        recordMayBeSaved: false,
+      );
+    }
+
+    var currentDraft = draft;
+    var evidenceId = currentDraft.evidenceId;
+    if (evidenceId == null) {
+      late final CaseCommandReceipt evidenceReceipt;
+      try {
+        evidenceReceipt = await learningRepository.addCaseEvidence(
+          AddCaseEvidenceCommand(
+            operationId: currentDraft.evidenceOperationId,
+            caseId: currentDraft.caseId,
+            expectedCaseVersion: currentDraft.expectedCaseVersion,
+            sourceType: currentDraft.sourceType,
+            title: currentDraft.evidenceTitle,
+            observedAt: currentDraft.observedAt,
+            summary: currentDraft.evidenceSummary,
+          ),
+        );
+      } catch (error) {
+        throw V2WorkflowSaveException(
+          '“再次出现”的证据尚未确认保存完整。原操作已经保留，请直接重试。',
+          recordMayBeSaved: true,
+          cause: error,
+        );
+      }
+      evidenceId = evidenceReceipt.recordId;
+      if (evidenceId == null || evidenceId.trim().isEmpty) {
+        throw const V2WorkflowSaveException(
+          '“再次出现”的证据可能已保存，但没有拿到关联信息。请直接重试。',
+          recordMayBeSaved: true,
+        );
+      }
+      currentDraft = CaseReopenDraft(
+        schemaVersion: currentDraft.schemaVersion,
+        caseId: currentDraft.caseId,
+        expectedCaseVersion: evidenceReceipt.caseVersion,
+        evidenceOperationId: currentDraft.evidenceOperationId,
+        reopenOperationId: currentDraft.reopenOperationId,
+        sourceType: currentDraft.sourceType,
+        evidenceTitle: currentDraft.evidenceTitle,
+        evidenceSummary: currentDraft.evidenceSummary,
+        observedAt: currentDraft.observedAt,
+        evidenceId: evidenceId,
+        evidenceVersion: currentDraft.evidenceVersion,
+        nextActionTypeWire: currentDraft.nextActionTypeWire,
+        nextActionTitle: currentDraft.nextActionTitle,
+        nextActionDueOn: currentDraft.nextActionDueOn,
+      );
+      try {
+        await store.save(scopeKey, currentDraft);
+      } catch (error) {
+        throw V2WorkflowSaveException(
+          '“再次出现”的证据已处理，但恢复信息还没保存完整。请直接重试。',
+          recordMayBeSaved: true,
+          cause: error,
+        );
+      }
+    }
+
+    late final CaseCommandReceipt reopenReceipt;
+    try {
+      reopenReceipt = await learningRepository.reopenCase(
+        ReopenCaseCommand(
+          operationId: currentDraft.reopenOperationId,
+          caseId: currentDraft.caseId,
+          expectedCaseVersion: currentDraft.expectedCaseVersion,
+          recurrenceEvidenceIds: <String>[evidenceId],
+          expectedEvidenceVersions: <String, int>{
+            evidenceId: currentDraft.evidenceVersion,
+          },
+          nextActionType: _caseActionTypeFromWire(
+            currentDraft.nextActionTypeWire,
+          ),
+          nextActionTitle: currentDraft.nextActionTitle,
+          nextActionDueOn: currentDraft.nextActionDueOn,
+        ),
+      );
+    } catch (error) {
+      throw V2WorkflowSaveException(
+        '重新跟进尚未完整完成。证据和操作编号已经保留，请直接重试。',
+        recordMayBeSaved: true,
+        cause: error,
+      );
+    }
+
+    try {
+      await store.clear(scopeKey);
+    } catch (_) {
+      // Keep the committed draft rather than hiding a successful server result.
+      // Reusing the same operation id is idempotent and therefore safe.
+    }
+
+    return V2WorkflowResult(
+      caseId: reopenReceipt.caseId,
+      caseVersion: reopenReceipt.caseVersion,
+      attachmentCount: 0,
     );
   }
 
@@ -470,6 +731,30 @@ class V2WorkflowController {
       );
     }
   }
+
+  String? _reopenDraftScopeKey(String caseId) {
+    final userId = sessionUserId?.trim();
+    final organizationId = workspace.organizationId?.trim();
+    final normalizedCaseId = caseId.trim();
+    if (userId == null ||
+        userId.isEmpty ||
+        organizationId == null ||
+        organizationId.isEmpty ||
+        normalizedCaseId.isEmpty) {
+      return null;
+    }
+    return 'user:$userId|organization:$organizationId|case:$normalizedCaseId';
+  }
+
+  CaseActionType _caseActionTypeFromWire(String wire) => switch (wire) {
+    'reteach' => CaseActionType.reteach,
+    'practice' => CaseActionType.practice,
+    'verify' => CaseActionType.verify,
+    'communicate' => CaseActionType.communicate,
+    'review' => CaseActionType.review,
+    'other' => CaseActionType.other,
+    _ => throw StateError('Unsupported reopen next action type: $wire'),
+  };
 
   String _headline(String body) {
     final firstLine = body
