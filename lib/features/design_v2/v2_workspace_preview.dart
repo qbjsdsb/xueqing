@@ -406,7 +406,9 @@ class _StudentRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       child: Material(
-        color: selected ? scheme.primary.withOpacity(0.07) : Colors.transparent,
+        color: selected
+            ? scheme.primary.withValues(alpha: 0.07)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(7),
         child: InkWell(
           onTap: onTap,
@@ -447,7 +449,7 @@ class _StudentRow extends StatelessWidget {
                     Text(
                       student.updatedLabel,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant.withOpacity(0.72),
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
                       ),
                     ),
                   ],
@@ -566,7 +568,7 @@ class _StudentHeader extends StatelessWidget {
       children: [
         OutlinedButton.icon(
           onPressed: () {},
-          icon: const Icon(Icons.add_note_outlined, size: 18),
+          icon: const Icon(Icons.note_add_outlined, size: 18),
           label: const Text('记录问题'),
         ),
         FilledButton.icon(
@@ -675,7 +677,7 @@ class _FocusRow extends StatelessWidget {
             Container(
               width: 2,
               height: 58,
-              color: scheme.primary.withOpacity(0.5),
+              color: scheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -835,7 +837,7 @@ class _PhotoStrip extends StatelessWidget {
             ),
             child: Icon(
               Icons.description_outlined,
-              color: scheme.onSurfaceVariant.withOpacity(0.7),
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
             ),
           ),
       ],
