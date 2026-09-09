@@ -141,6 +141,30 @@ void main() {
     expect(progressButton.onPressed, isNull);
   });
 
+  testWidgets('closed history is visible but stays read-only', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app(_dataWithClosedHistory));
+    await tester.pumpAndSettle();
+
+    expect(find.text('历史问题'), findsOneWidget);
+    expect(find.text('曾经的问题'), findsOneWidget);
+    await tester.tap(find.text('曾经的问题'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('跟进已结束'), findsOneWidget);
+    expect(find.text('历史时间线内容。'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '记进展'), findsNothing);
+
+    await tester.tap(find.byTooltip('学情'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('历史'));
+    await tester.pumpAndSettle();
+    expect(find.text('历史 1'), findsOneWidget);
+    expect(find.text('曾经的问题'), findsOneWidget);
+  });
+
   testWidgets('unknown historical author renders time without fake separator', (
     tester,
   ) async {
@@ -191,6 +215,54 @@ const _injectedData = V2WorkspaceData(
       body: '真实时间线内容。',
       teacher: '',
       time: '18:31',
+    ),
+  ],
+);
+
+const _dataWithClosedHistory = V2WorkspaceData(
+  students: [
+    V2Student(
+      id: 'history-student',
+      name: '历史学生',
+      grade: '初三',
+      subjects: ['语文'],
+      openCaseCount: 1,
+      updatedLabel: '已有更新',
+      teacherSummary: '当前工作区 · 语文',
+    ),
+  ],
+  focusItems: [
+    V2FocusItem(
+      id: 'active-case',
+      studentId: 'history-student',
+      title: '当前问题',
+      summary: '还在跟进。',
+      nextStep: '下次检查',
+      dueLabel: '9 月 12 日',
+      subject: '语文',
+      actionTiming: V2ActionTiming.today,
+    ),
+  ],
+  closedItems: [
+    V2FocusItem(
+      id: 'closed-case',
+      studentId: 'history-student',
+      title: '曾经的问题',
+      summary: '已经结束跟进。',
+      nextStep: '跟进已结束',
+      dueLabel: '已结束',
+      subject: '语文',
+      closed: true,
+    ),
+  ],
+  timeline: [
+    V2TimelineEntry(
+      caseId: 'closed-case',
+      date: '8 月 28 日',
+      kind: '结束跟进',
+      body: '历史时间线内容。',
+      teacher: '',
+      time: '17:20',
     ),
   ],
 );

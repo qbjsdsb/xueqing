@@ -31,6 +31,7 @@ class V2FocusItem {
     required this.subject,
     this.actionTiming,
     this.pendingVerification = false,
+    this.closed = false,
   });
 
   final String id;
@@ -42,6 +43,7 @@ class V2FocusItem {
   final String subject;
   final V2ActionTiming? actionTiming;
   final bool pendingVerification;
+  final bool closed;
 }
 
 class V2TimelineEntry {
