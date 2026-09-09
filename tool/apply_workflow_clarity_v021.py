@@ -142,11 +142,11 @@ void main() {
 
     expect(
       source,
-      contains("'quick-capture-student-option-${student.profileId}'"),
+      contains("'quick-capture-student-option-\\${student.profileId}'"),
     );
     expect(
       source,
-      isNot(contains("'quick-capture-student-option-${student.id}'")),
+      isNot(contains("'quick-capture-student-option-\\${student.id}'")),
     );
     expect(
       source,
