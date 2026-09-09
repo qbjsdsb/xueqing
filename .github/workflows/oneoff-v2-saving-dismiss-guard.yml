@@ -1,0 +1,53 @@
+name: One-off V2 saving-dismiss guard
+
+on:
+  push:
+    branches:
+      - ui/v2-writable-composers
+
+permissions:
+  contents: write
+
+jobs:
+  patch-validate-and-clean:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-writable-composers
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+
+      - name: Apply save-dismiss guard
+        run: python3 .github/scripts/patch_v2_saving_dismiss_guard.py
+
+      - name: Format
+        run: dart format lib/features/design_v2/v2_composers.dart test/features/design_v2_composers_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused composer tests
+        run: flutter test test/features/design_v2_composers_test.dart
+
+      - name: Full Flutter tests
+        run: flutter test
+
+      - name: Commit validated product change and remove helpers
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/features/design_v2/v2_composers.dart test/features/design_v2_composers_test.dart
+          git rm .github/scripts/patch_v2_saving_dismiss_guard.py
+          git rm .github/workflows/oneoff-v2-saving-dismiss-guard.yml
+          git commit -m "UI V2: prevent dismissal while saving"
+          git push origin HEAD:ui/v2-writable-composers
