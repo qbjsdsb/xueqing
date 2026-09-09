@@ -27,10 +27,10 @@ void main() {
     test('preserves exact profile and case identity across subjects', () {
       final snapshot = V2ReadModelAdapter.fromWorkspace(_workspace());
 
-      expect(
-        snapshot.focusItems.map((item) => item.id).toSet(),
-        {'case-cn', 'case-math'},
-      );
+      expect(snapshot.focusItems.map((item) => item.id).toSet(), {
+        'case-cn',
+        'case-math',
+      });
       expect(
         snapshot.focusItems.any((item) => item.id == 'case-cn-stable'),
         isFalse,
@@ -70,22 +70,27 @@ void main() {
       expect(math.nextStep, '待安排下一步');
       expect(math.dueLabel, '待安排');
       expect(
-        snapshot.focusItemsForStudent('student-lin').map((item) => item.subject),
+        snapshot
+            .focusItemsForStudent('student-lin')
+            .map((item) => item.subject),
         containsAll(<String>['语文', '数学']),
       );
     });
 
-    test('never invents a historical teacher when workspace lacks provenance', () {
-      final snapshot = V2ReadModelAdapter.fromWorkspace(_workspace());
-      final timeline = snapshot.timelineForCase('case-cn');
+    test(
+      'never invents a historical teacher when workspace lacks provenance',
+      () {
+        final snapshot = V2ReadModelAdapter.fromWorkspace(_workspace());
+        final timeline = snapshot.timelineForCase('case-cn');
 
-      expect(timeline, hasLength(2));
-      expect(timeline.first.body, '第二次检查仍漏结果。');
-      expect(timeline.last.body, '第一次发现概括遗漏。');
-      expect(timeline.every((entry) => entry.teacher.isEmpty), isTrue);
-      expect(snapshot.viewerName, '乔老师');
-      expect(snapshot.organizationName, '测试机构');
-    });
+        expect(timeline, hasLength(2));
+        expect(timeline.first.body, '第二次检查仍漏结果。');
+        expect(timeline.last.body, '第一次发现概括遗漏。');
+        expect(timeline.every((entry) => entry.teacher.isEmpty), isTrue);
+        expect(snapshot.viewerName, '乔老师');
+        expect(snapshot.organizationName, '测试机构');
+      },
+    );
   });
 }
 
