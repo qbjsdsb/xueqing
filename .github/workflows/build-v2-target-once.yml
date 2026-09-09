@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/build-v2-target-once.yml'
 
+# One-time verification for the current clean V2 prototype head.
 jobs:
   android-v2:
     runs-on: ubuntu-latest
