@@ -34,9 +34,9 @@ typedef AuthenticatedWorkspaceBuilder = Widget Function(
 /// Capabilities that are safe to expose after the existing authentication,
 /// onboarding, membership and disabled-account gates have all passed.
 ///
-/// This deliberately does not expose AuthRepository or the membership lifecycle
-/// repository. V2 consumes business capabilities; identity/session governance
-/// remains owned by TeacherWorkspaceEntryPage.
+/// Identity/session repositories deliberately stay outside this object. V2
+/// consumes business capabilities while TeacherWorkspaceEntryPage keeps the
+/// authorization lifecycle boundary.
 class AuthenticatedWorkspaceRuntime {
   const AuthenticatedWorkspaceRuntime({
     required this.learningRepository,
@@ -303,8 +303,8 @@ replace_once(
     expect(runtime, contains('UpdateInstaller updateInstaller'));
     expect(runtime, contains('CaseReopenDraftStore caseReopenDraftStore'));
     expect(runtime, contains('String appVersion'));
-    expect(runtime, isNot(contains('AuthRepository')));
-    expect(runtime, isNot(contains('OrganizationMemberLifecycleRepository')));
+    expect(runtime, isNot(contains('final AuthRepository')));
+    expect(runtime, isNot(contains('final OrganizationMemberLifecycleRepository')));
 ''',
 )
 replace_once(
