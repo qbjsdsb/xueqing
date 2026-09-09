@@ -10,18 +10,26 @@ void main() {
     tester,
   ) async {
     final repository = _WorkspaceRepository(_workspace());
-    await tester.pumpWidget(_host(repository: repository));
+    final progressiveRepository = _NoopProgressiveRepository();
+    await tester.pumpWidget(
+      _host(
+        repository: repository,
+        progressiveRepository: progressiveRepository,
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('完成'), findsOneWidget);
-    expect(find.text('处理'), findsNothing);
+    expect(find.text('处理'), findsOneWidget);
     expect(find.text('今天的工作'), findsOneWidget);
 
-    await tester.tap(find.text('完成'));
+    await tester.tap(find.text('处理'));
     await tester.pumpAndSettle();
 
-    expect(find.text('完成待办'), findsWidgets);
-    expect(find.textContaining('不会自动写入学生表现'), findsOneWidget);
+    expect(find.text('处理提醒'), findsOneWidget);
+    expect(find.textContaining('直接完成提醒即可'), findsOneWidget);
+    await tester.ensureVisible(
+      find.byKey(const Key('workspace-complete-action-save')),
+    );
     await tester.tap(find.byKey(const Key('workspace-complete-action-save')));
     await tester.pumpAndSettle();
 
@@ -31,7 +39,44 @@ void main() {
     expect(command.nextActionType, isNull);
     expect(command.nextActionTitle, isNull);
     expect(command.nextActionDueOn, isNull);
+    expect(progressiveRepository.progressCommands, isEmpty);
   });
+
+  testWidgets(
+    'Today can record progress and complete the reminder in one action',
+    (tester) async {
+      final repository = _WorkspaceRepository(_workspace());
+      final progressiveRepository = _NoopProgressiveRepository();
+      await tester.pumpWidget(
+        _host(
+          repository: repository,
+          progressiveRepository: progressiveRepository,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('处理'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('workspace-complete-action-progress')),
+        '这次能主动圈出限制词，但独立作答时还漏了一处。',
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('workspace-complete-action-save')),
+      );
+      await tester.tap(find.byKey(const Key('workspace-complete-action-save')));
+      await tester.pumpAndSettle();
+
+      expect(repository.completeCommands, isEmpty);
+      expect(progressiveRepository.progressCommands, hasLength(1));
+      final command = progressiveRepository.progressCommands.single;
+      expect(command.summary, '这次能主动圈出限制词，但独立作答时还漏了一处。');
+      expect(command.completeCurrentAction, isTrue);
+      expect(command.currentActionId, 'action-1');
+      expect(command.expectedActionVersion, 2);
+      expect(command.nextStep, CaseProgressNextStep.continueTracking);
+    },
+  );
 
   test(
     'complete command accepts no successor and rejects a partial successor',

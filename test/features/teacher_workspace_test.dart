@@ -976,8 +976,8 @@ void main() {
     await tester.tap(completeButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('完成待办'), findsWidgets);
-    expect(find.textContaining('不会自动写入学生表现'), findsOneWidget);
+    expect(find.text('处理提醒'), findsOneWidget);
+    expect(find.textContaining('不会自动生成新的提醒'), findsOneWidget);
     expect(
       find.byKey(const Key('complete-action-type-dropdown')),
       findsNothing,
@@ -994,7 +994,7 @@ void main() {
     expect(command.nextActionType, isNull);
     expect(command.nextActionTitle, isNull);
     expect(command.nextActionDueOn, isNull);
-    expect(find.text('已完成待办。'), findsOneWidget);
+    expect(find.text('已完成提醒。'), findsOneWidget);
   });
 
   testWidgets('keeps an ambiguous completion open until it is reconciled', (
@@ -1007,7 +1007,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, '完成行动'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '完成待办'));
+    await tester.tap(find.widgetWithText(FilledButton, '完成这次提醒'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('刚才填写的内容已保留'), findsOneWidget);
@@ -1044,7 +1044,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, '完成行动'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '完成待办'));
+    await tester.tap(find.widgetWithText(FilledButton, '完成这次提醒'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('网络暂时不可用'), findsOneWidget);
