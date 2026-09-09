@@ -44,7 +44,9 @@ void main() {
   testWidgets('does not expose student UI without teaching access', (
     tester,
   ) async {
-    await tester.pumpWidget(app(() async => _workspace(hasTeachingAccess: false)));
+    await tester.pumpWidget(
+      app(() async => _workspace(hasTeachingAccess: false)),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('暂时没有任课学情'), findsOneWidget);
@@ -82,11 +84,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      app(
-        () async => _workspace(
-          students: const <WorkspaceStudent>[],
-        ),
-      ),
+      app(() async => _workspace(students: const <WorkspaceStudent>[])),
     );
     await tester.pumpAndSettle();
 
