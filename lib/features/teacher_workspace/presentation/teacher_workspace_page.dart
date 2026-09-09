@@ -5532,7 +5532,7 @@ class _WorkspaceCompleteActionFormState
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('提交结果未确认'),
-          content: const Text('上一次提交可能已经到达服务器。建议重试原提交。'),
+          content: const Text('上一次提交可能已经到达服务器。建议重新保存。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -5540,7 +5540,7 @@ class _WorkspaceCompleteActionFormState
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('重试原提交'),
+              child: const Text('重新保存'),
             ),
           ],
         ),
@@ -5630,7 +5630,7 @@ class _WorkspaceCompleteActionFormState
                         _saving
                             ? '保存中…'
                             : _submissionAttempted
-                            ? '重试原提交'
+                            ? '重新保存'
                             : '完成待办',
                       ),
                     ),

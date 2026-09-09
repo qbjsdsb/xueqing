@@ -1026,7 +1026,7 @@ void main() {
       findsOneWidget,
     );
 
-    final retryButton = find.widgetWithText(FilledButton, '重试原提交');
+    final retryButton = find.widgetWithText(FilledButton, '重新保存');
     await tester.ensureVisible(retryButton);
     await tester.tap(retryButton);
     await tester.pumpAndSettle();
@@ -1053,7 +1053,7 @@ void main() {
     expect(repository.completeCount, 1);
     final firstOperationId = repository.completeCommands.single.operationId;
 
-    final retryButton = find.widgetWithText(FilledButton, '重试原提交');
+    final retryButton = find.widgetWithText(FilledButton, '重新保存');
     await tester.ensureVisible(retryButton);
     await tester.tap(retryButton);
     await tester.pumpAndSettle();
