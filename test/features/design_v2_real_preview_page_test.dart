@@ -4,36 +4,37 @@ import 'package:xueqing/cloud/learning_repository.dart';
 import 'package:xueqing/features/design_v2/v2_real_preview_page.dart';
 
 void main() {
-  testWidgets('real preview uses the read loader and exposes explicit sign out', (
-    tester,
-  ) async {
-    var loadCount = 0;
-    var signOutCount = 0;
+  testWidgets(
+    'real preview uses the read loader and exposes explicit sign out',
+    (tester) async {
+      var loadCount = 0;
+      var signOutCount = 0;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: V2RealPreviewPage(
-          loadWorkspace: () async {
-            loadCount++;
-            return _emptyWorkspace();
-          },
-          onSignOut: () => signOutCount++,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: V2RealPreviewPage(
+            loadWorkspace: () async {
+              loadCount++;
+              return _emptyWorkspace();
+            },
+            onSignOut: () => signOutCount++,
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(loadCount, 1);
-    expect(find.text('真实数据只读预览'), findsOneWidget);
-    expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
-    expect(find.byKey(const Key('v2-real-preview-sign-out')), findsOneWidget);
+      expect(loadCount, 1);
+      expect(find.text('真实数据只读预览'), findsOneWidget);
+      expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+      expect(find.byKey(const Key('v2-real-preview-sign-out')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('v2-real-preview-sign-out')));
-    await tester.pump();
+      await tester.tap(find.byKey(const Key('v2-real-preview-sign-out')));
+      await tester.pump();
 
-    expect(signOutCount, 1);
-    expect(tester.takeException(), isNull);
-  });
+      expect(signOutCount, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 TeacherWorkspace _emptyWorkspace() {
