@@ -28,15 +28,15 @@ jobs:
           flutter-version: 3.47.1
           cache: true
 
-      - name: Apply previous guarded patch with CaseDetail scope
+      - name: Apply previous guarded patch with exact CaseDetail scope
         shell: bash
         run: |
-          git show HEAD^:.github/workflows/oneoff-v2-safe-reopen-retry.yml > /tmp/previous-safe-reopen.yml
+          git show cd98630527b1d5f17a1f150afbb778e1643b3b6c:.github/workflows/oneoff-v2-safe-reopen-retry.yml > /tmp/validated-anchors.yml
           python3 - <<'PY'
           from pathlib import Path
           import textwrap
 
-          workflow = Path('/tmp/previous-safe-reopen.yml').read_text()
+          workflow = Path('/tmp/validated-anchors.yml').read_text()
           start_marker = "          python3 - <<'PY'\n"
           end_marker = "\n          PY\n\n      - name: Format"
           start = workflow.index(start_marker) + len(start_marker)
@@ -66,13 +66,13 @@ jobs:
           new = """insert_before_in_range(
               preview,
               'class _CaseDetailPane extends StatelessWidget {\\n',
-              'class _CaseIndexPane extends StatefulWidget {\\n',
+              'class _TodayPane extends StatelessWidget {\\n',
               '                  if (pendingAction != null) ...[\\n',
           """
           if script.count(old) != 1:
               raise SystemExit(f'expected one CaseDetail insertion call, found {script.count(old)}')
           script = helper + script.replace(old, new, 1)
-          exec(compile(script, '<safe-reopen-scoped-patch>', 'exec'))
+          exec(compile(script, '<safe-reopen-exact-case-detail-patch>', 'exec'))
           PY
 
       - name: Format
