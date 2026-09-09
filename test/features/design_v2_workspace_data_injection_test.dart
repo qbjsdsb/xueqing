@@ -1,0 +1,159 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:xueqing/features/design_v2/v2_fixture.dart';
+import 'package:xueqing/features/design_v2/v2_theme.dart';
+import 'package:xueqing/features/design_v2/v2_workspace_data.dart';
+import 'package:xueqing/features/design_v2/v2_workspace_preview.dart';
+
+void main() {
+  Widget app(V2WorkspaceData data) => MaterialApp(
+    theme: V2Theme.light(),
+    home: V2WorkspacePreview(data: data),
+  );
+
+  testWidgets('workspace renders injected data instead of global fixture', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app(_injectedData));
+    await tester.pumpAndSettle();
+
+    expect(find.text('真实学生'), findsWidgets);
+    expect(find.text('真实问题'), findsOneWidget);
+    expect(find.text('林同学'), findsNothing);
+    expect(find.text('全部 1'), findsOneWidget);
+  });
+
+  testWidgets('Today uses pending verification semantics from injected data', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app(_injectedData));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('今日'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('需要处理'), findsNothing);
+    expect(find.text('待验证'), findsWidgets);
+    expect(find.text('真实学生 · 语文'), findsOneWidget);
+
+    await tester.tap(find.text('真实学生 · 语文'));
+    await tester.pumpAndSettle();
+    expect(find.text('成长过程'), findsOneWidget);
+    expect(find.text('真实问题'), findsOneWidget);
+  });
+
+  testWidgets('empty workspace is a first-class state on desktop', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app(_emptyData));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty workspace is safe on compact layout', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app(_emptyData));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('student without active Case keeps progress action disabled', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app(_studentWithoutCases));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂无进行中的问题'), findsOneWidget);
+    final progressButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '记进展'),
+    );
+    expect(progressButton.onPressed, isNull);
+  });
+
+  testWidgets('unknown historical author renders time without fake separator', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app(_injectedData));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('真实问题'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('18:31'), findsOneWidget);
+    expect(find.text(' · 18:31'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+const _injectedData = V2WorkspaceData(
+  students: [
+    V2Student(
+      id: 'real-student',
+      name: '真实学生',
+      grade: '初三',
+      subjects: ['语文'],
+      openCaseCount: 1,
+      updatedLabel: '已有更新',
+      teacherSummary: '当前工作区 · 语文',
+    ),
+  ],
+  focusItems: [
+    V2FocusItem(
+      id: 'real-case',
+      studentId: 'real-student',
+      title: '真实问题',
+      summary: '这是由注入数据提供的问题摘要。',
+      nextStep: '下次课验证',
+      dueLabel: '9 月 12 日',
+      subject: '语文',
+      pendingVerification: true,
+    ),
+  ],
+  timeline: [
+    V2TimelineEntry(
+      caseId: 'real-case',
+      date: '今天',
+      kind: '检查结果',
+      body: '真实时间线内容。',
+      teacher: '',
+      time: '18:31',
+    ),
+  ],
+);
+
+const _emptyData = V2WorkspaceData(students: [], focusItems: [], timeline: []);
+
+const _studentWithoutCases = V2WorkspaceData(
+  students: [
+    V2Student(
+      id: 'quiet-student',
+      name: '暂无问题学生',
+      grade: '初一',
+      subjects: ['数学'],
+      openCaseCount: 0,
+      updatedLabel: '暂无记录',
+      teacherSummary: '当前工作区 · 数学',
+    ),
+  ],
+  focusItems: [],
+  timeline: [],
+);

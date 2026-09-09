@@ -27,6 +27,7 @@ class V2FocusItem {
     required this.nextStep,
     required this.dueLabel,
     required this.subject,
+    this.pendingVerification = false,
   });
 
   final String id;
@@ -36,6 +37,7 @@ class V2FocusItem {
   final String nextStep;
   final String dueLabel;
   final String subject;
+  final bool pendingVerification;
 }
 
 class V2TimelineEntry {
@@ -160,6 +162,7 @@ const v2FocusItems = <V2FocusItem>[
     nextStep: '先画受力图再列式',
     dueLabel: '9 月 12 日',
     subject: '物理',
+    pendingVerification: true,
   ),
   V2FocusItem(
     id: 'case-zhou-equation',

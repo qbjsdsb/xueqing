@@ -69,6 +69,7 @@ void main() {
       expect(math.summary, '最近一次仍不会从题意建立关系。');
       expect(math.nextStep, '待安排下一步');
       expect(math.dueLabel, '待安排');
+      expect(math.pendingVerification, isTrue);
       expect(
         snapshot
             .focusItemsForStudent('student-lin')
@@ -177,7 +178,7 @@ TeacherWorkspace _workspace() {
             id: 'case-math',
             profileId: 'profile-math',
             title: '函数应用题思路不清',
-            status: LearningCaseStatus.confirmed,
+            status: LearningCaseStatus.pendingVerification,
             version: 2,
             evidence: [
               WorkspaceEvidence(

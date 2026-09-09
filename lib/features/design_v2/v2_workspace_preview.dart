@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'v2_composers.dart';
 import 'v2_fixture.dart';
+import 'v2_workspace_data.dart';
 
 Future<void> _showV2ProgressCasePicker(
   BuildContext context,
   V2Student student,
 ) async {
-  final items = v2FocusItemsForStudent(student);
+  final items = V2WorkspaceDataScope.of(context).focusItemsForStudent(student);
   if (items.isEmpty) {
     return;
   }
@@ -70,7 +71,9 @@ Future<void> _showV2ProgressCasePicker(
 }
 
 class V2WorkspacePreview extends StatefulWidget {
-  const V2WorkspacePreview({super.key});
+  const V2WorkspacePreview({super.key, this.data = v2FixtureWorkspaceData});
+
+  final V2WorkspaceData data;
 
   @override
   State<V2WorkspacePreview> createState() => _V2WorkspacePreviewState();
@@ -78,21 +81,71 @@ class V2WorkspacePreview extends StatefulWidget {
 
 class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   int _destination = 1;
-  V2Student _selectedStudent = v2Students.first;
-  V2FocusItem _selectedCase = v2FocusItems.first;
+  V2Student? _selectedStudent;
+  V2FocusItem? _selectedCase;
   bool _showCase = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _reconcileSelection();
+  }
+
+  @override
+  void didUpdateWidget(covariant V2WorkspacePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.data, widget.data)) {
+      _reconcileSelection();
+    }
+  }
+
+  void _reconcileSelection() {
+    final students = widget.data.students;
+    if (students.isEmpty) {
+      _selectedStudent = null;
+      _selectedCase = null;
+      _showCase = false;
+      return;
+    }
+
+    final currentStudentId = _selectedStudent?.id;
+    _selectedStudent = students.firstWhere(
+      (student) => student.id == currentStudentId,
+      orElse: () => students.first,
+    );
+
+    final currentCaseId = _selectedCase?.id;
+    if (currentCaseId == null) {
+      return;
+    }
+    final matchingCases = widget.data.focusItems
+        .where((item) => item.id == currentCaseId)
+        .toList(growable: false);
+    if (matchingCases.isEmpty ||
+        matchingCases.first.studentId != _selectedStudent!.id) {
+      _selectedCase = null;
+      _showCase = false;
+    } else {
+      _selectedCase = matchingCases.first;
+    }
+  }
 
   void _openStudent(V2Student student) {
     setState(() {
       _selectedStudent = student;
+      _selectedCase = null;
       _showCase = false;
     });
   }
 
   void _openCase(V2FocusItem item) {
+    final student = widget.data.studentForFocusItemOrNull(item);
+    if (student == null) {
+      return;
+    }
     setState(() {
       _destination = 1;
-      _selectedStudent = v2StudentForFocusItem(item);
+      _selectedStudent = student;
       _selectedCase = item;
       _showCase = true;
     });
@@ -109,31 +162,43 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 720) {
-          return _CompactWorkspace(
-            destination: _destination,
-            selectedStudent: _selectedStudent,
-            selectedCase: _selectedCase,
-            showCase: _showCase,
-            onDestinationChanged: _changeDestination,
-            onStudentSelected: _openStudent,
-            onOpenCase: _openCase,
-            onBackFromCase: _closeCase,
+    return V2WorkspaceDataScope(
+      data: widget.data,
+      child: Builder(
+        builder: (context) {
+          if (widget.data.students.isEmpty) {
+            return const _EmptyWorkspacePreview();
+          }
+          final selectedStudent =
+              _selectedStudent ?? widget.data.students.first;
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 720) {
+                return _CompactWorkspace(
+                  destination: _destination,
+                  selectedStudent: selectedStudent,
+                  selectedCase: _selectedCase,
+                  showCase: _showCase,
+                  onDestinationChanged: _changeDestination,
+                  onStudentSelected: _openStudent,
+                  onOpenCase: _openCase,
+                  onBackFromCase: _closeCase,
+                );
+              }
+              return _DesktopWorkspace(
+                destination: _destination,
+                selectedStudent: selectedStudent,
+                selectedCase: _selectedCase,
+                showCase: _showCase,
+                onDestinationChanged: _changeDestination,
+                onStudentSelected: _openStudent,
+                onOpenCase: _openCase,
+                onBackFromCase: _closeCase,
+              );
+            },
           );
-        }
-        return _DesktopWorkspace(
-          destination: _destination,
-          selectedStudent: _selectedStudent,
-          selectedCase: _selectedCase,
-          showCase: _showCase,
-          onDestinationChanged: _changeDestination,
-          onStudentSelected: _openStudent,
-          onOpenCase: _openCase,
-          onBackFromCase: _closeCase,
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -152,7 +217,7 @@ class _DesktopWorkspace extends StatelessWidget {
 
   final int destination;
   final V2Student selectedStudent;
-  final V2FocusItem selectedCase;
+  final V2FocusItem? selectedCase;
   final bool showCase;
   final ValueChanged<int> onDestinationChanged;
   final ValueChanged<V2Student> onStudentSelected;
@@ -184,10 +249,10 @@ class _DesktopWorkspace extends StatelessWidget {
               ),
               VerticalDivider(width: 1, color: border),
               Expanded(
-                child: showCase
+                child: showCase && selectedCase != null
                     ? _CaseDetailPane(
                         student: selectedStudent,
-                        item: selectedCase,
+                        item: selectedCase!,
                         onBack: onBackFromCase,
                       )
                     : _StudentDetailPane(
@@ -228,7 +293,7 @@ class _CompactWorkspace extends StatefulWidget {
 
   final int destination;
   final V2Student selectedStudent;
-  final V2FocusItem selectedCase;
+  final V2FocusItem? selectedCase;
   final bool showCase;
   final ValueChanged<int> onDestinationChanged;
   final ValueChanged<V2Student> onStudentSelected;
@@ -245,10 +310,10 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
   @override
   Widget build(BuildContext context) {
     Widget body;
-    if (widget.showCase) {
+    if (widget.showCase && widget.selectedCase != null) {
       body = _CaseDetailPane(
         student: widget.selectedStudent,
-        item: widget.selectedCase,
+        item: widget.selectedCase!,
         onBack: widget.onBackFromCase,
         compact: true,
       );
@@ -426,12 +491,12 @@ class _StudentListPaneState extends State<_StudentListPane> {
     super.dispose();
   }
 
-  List<V2Student> get _visibleStudents {
+  List<V2Student> _visibleStudents(V2WorkspaceData data) {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) {
-      return v2Students;
+      return data.students;
     }
-    return v2Students
+    return data.students
         .where((student) {
           final haystack = [
             student.name,
@@ -451,7 +516,8 @@ class _StudentListPaneState extends State<_StudentListPane> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleStudents = _visibleStudents;
+    final data = V2WorkspaceDataScope.of(context);
+    final visibleStudents = _visibleStudents(data);
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerLowest,
       child: Column(
@@ -488,7 +554,7 @@ class _StudentListPaneState extends State<_StudentListPane> {
                 const SizedBox(height: 14),
                 Text(
                   _query.trim().isEmpty
-                      ? '全部 ${v2Students.length}'
+                      ? '全部 ${data.students.length}'
                       : '找到 ${visibleStudents.length} 位',
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
@@ -640,8 +706,9 @@ class _StudentDetailPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final focusItems = v2FocusItemsForStudent(student);
-    final timelineEntries = v2TimelineForStudent(student);
+    final data = V2WorkspaceDataScope.of(context);
+    final focusItems = data.focusItemsForStudent(student);
+    final timelineEntries = data.timelineForStudent(student);
     return ColoredBox(
       color: scheme.surface,
       child: CustomScrollView(
@@ -713,7 +780,8 @@ class _StudentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final focusItems = v2FocusItemsForStudent(student);
+    final data = V2WorkspaceDataScope.of(context);
+    final focusItems = data.focusItemsForStudent(student);
     final buttons = Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -968,7 +1036,9 @@ class _TimelineRow extends StatelessWidget {
                 ],
                 const SizedBox(height: 9),
                 Text(
-                  '${entry.teacher} · ${entry.time}',
+                  entry.teacher.trim().isEmpty
+                      ? entry.time
+                      : '${entry.teacher} · ${entry.time}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -1027,7 +1097,8 @@ class _CaseDetailPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final timelineEntries = v2TimelineForCase(item);
+    final timelineEntries = V2WorkspaceDataScope.of(context)
+        .timelineForCase(item);
     return ColoredBox(
       color: scheme.surface,
       child: SingleChildScrollView(
@@ -1129,6 +1200,19 @@ class _TodayPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final data = V2WorkspaceDataScope.of(context);
+    final validItems = data.focusItems
+        .where((item) => data.studentForFocusItemOrNull(item) != null)
+        .toList(growable: false);
+    final actionItems = validItems
+        .where((item) => !item.pendingVerification)
+        .take(4)
+        .toList(growable: false);
+    final verificationItems = validItems
+        .where((item) => item.pendingVerification)
+        .take(4)
+        .toList(growable: false);
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(compact ? 18 : 32),
       child: Center(
@@ -1139,29 +1223,43 @@ class _TodayPane extends StatelessWidget {
             children: [
               Text('今日', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 5),
-              Text(
-                '9 月 9 日 · 周三',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text(_todayLabel(), style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 28),
-              const _SectionTitle(title: '需要处理'),
-              const SizedBox(height: 8),
-              for (final item in v2FocusItems.take(4))
-                _TodayAction(item: item, onOpenCase: onOpenCase),
-              const SizedBox(height: 28),
-              const _SectionTitle(title: '待验证'),
-              const SizedBox(height: 10),
-              _TodayAction(
-                item: v2FocusItems[4],
-                onOpenCase: onOpenCase,
-                verification: true,
-              ),
+              if (actionItems.isEmpty && verificationItems.isEmpty)
+                Text(
+                  '今天没有需要处理的学情事项',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              if (actionItems.isNotEmpty) ...[
+                const _SectionTitle(title: '需要处理'),
+                const SizedBox(height: 8),
+                for (final item in actionItems)
+                  _TodayAction(item: item, onOpenCase: onOpenCase),
+              ],
+              if (actionItems.isNotEmpty && verificationItems.isNotEmpty)
+                const SizedBox(height: 28),
+              if (verificationItems.isNotEmpty) ...[
+                const _SectionTitle(title: '待验证'),
+                const SizedBox(height: 10),
+                for (final item in verificationItems)
+                  _TodayAction(
+                    item: item,
+                    onOpenCase: onOpenCase,
+                    verification: true,
+                  ),
+              ],
             ],
           ),
         ),
       ),
     );
   }
+}
+
+String _todayLabel() {
+  const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  final now = DateTime.now();
+  return '${now.month} 月 ${now.day} 日 · ${weekdays[now.weekday - 1]}';
 }
 
 class _TodayAction extends StatelessWidget {
@@ -1178,7 +1276,11 @@ class _TodayAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final student = v2StudentForFocusItem(item);
+    final student = V2WorkspaceDataScope.of(context)
+        .studentForFocusItemOrNull(item);
+    if (student == null) {
+      return const SizedBox.shrink();
+    }
     return InkWell(
       onTap: () => onOpenCase(item),
       child: Padding(
@@ -1246,14 +1348,17 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
     super.dispose();
   }
 
-  List<V2FocusItem> get _visibleItems {
+  List<V2FocusItem> _visibleItems(V2WorkspaceData data) {
     final query = _query.trim().toLowerCase();
+    final validItems = data.focusItems
+        .where((item) => data.studentForFocusItemOrNull(item) != null)
+        .toList(growable: false);
     if (query.isEmpty) {
-      return v2FocusItems;
+      return validItems;
     }
-    return v2FocusItems
+    return validItems
         .where((item) {
-          final student = v2StudentForFocusItem(item);
+          final student = data.studentForFocusItem(item);
           final haystack = [
             student.name,
             student.grade,
@@ -1275,7 +1380,8 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleItems = _visibleItems;
+    final data = V2WorkspaceDataScope.of(context);
+    final visibleItems = _visibleItems(data);
     return SingleChildScrollView(
       padding: EdgeInsets.all(widget.compact ? 18 : 32),
       child: Center(
@@ -1307,7 +1413,7 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
               const SizedBox(height: 12),
               Text(
                 _query.trim().isEmpty
-                    ? '进行中 ${v2FocusItems.length}'
+                    ? '进行中 ${visibleItems.length}'
                     : '找到 ${visibleItems.length} 个问题',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -1326,10 +1432,51 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
                 for (final item in visibleItems)
                   _FocusRow(
                     item: item,
-                    studentName: v2StudentForFocusItem(item).name,
+                    studentName: data.studentForFocusItem(item).name,
                     onTap: () => widget.onOpenCase(item),
                   ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyWorkspacePreview extends StatelessWidget {
+  const _EmptyWorkspacePreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 34,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '暂时还没有可查看的学生',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '当你获得任课学生后，这里会自动出现。',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
