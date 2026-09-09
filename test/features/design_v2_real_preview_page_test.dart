@@ -26,6 +26,7 @@ void main() {
       expect(loadCount, 1);
       expect(find.text('真实数据只读预览'), findsOneWidget);
       expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+      expect(find.byType(Scaffold), findsOneWidget);
       expect(find.byKey(const Key('v2-real-preview-sign-out')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('v2-real-preview-sign-out')));
