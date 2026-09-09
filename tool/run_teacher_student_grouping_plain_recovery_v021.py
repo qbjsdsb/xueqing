@@ -23,3 +23,54 @@ source = source.replace(old_escape, new_escape, 1)
 
 script_path.write_text(source)
 runpy.run_path(str(script_path), run_name='__main__')
+
+# The product list is now genuinely grouped by student id. The old contract
+# asserted the pre-fix implementation detail, so make the regression guard
+# assert that the old flat rendering path is gone instead.
+contract_path = Path('test/features/workflow_clarity_contract_test.dart')
+contract = contract_path.read_text()
+old_contract = """    expect(
+      source,
+      contains(\"students.map((student) => student.id).toSet().length\"),
+    );
+"""
+new_contract = """    expect(
+      source,
+      isNot(contains(\"students.map((student) => student.id).toSet().length\")),
+    );
+"""
+if contract.count(old_contract) != 1:
+    raise SystemExit('grouping contract: old flat-list expectation changed')
+contract = contract.replace(old_contract, new_contract, 1)
+contract_path.write_text(contract)
+
+# After typing a subject into the search field, find.text() also sees the
+# EditableText. Verify the subject row by its stable profile key instead of
+# counting duplicate visible strings from the search control.
+test_path = Path('test/features/teacher_workspace_test.dart')
+test = test_path.read_text()
+old_search_assertion = """      await tester.enterText(searchField, '语文');
+      await tester.pumpAndSettle();
+      expect(find.text('林同学'), findsOneWidget);
+      expect(find.text('数学'), findsOneWidget);
+      expect(find.text('语文'), findsOneWidget);
+
+      final chinese = find.byKey(
+"""
+new_search_assertion = """      await tester.enterText(searchField, '语文');
+      await tester.pumpAndSettle();
+      expect(find.text('林同学'), findsOneWidget);
+      expect(find.text('数学'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>('workspace-student-subject-profile-chinese'),
+        ),
+        findsOneWidget,
+      );
+
+      final chinese = find.byKey(
+"""
+if test.count(old_search_assertion) != 1:
+    raise SystemExit('grouping widget test: subject search assertion changed')
+test = test.replace(old_search_assertion, new_search_assertion, 1)
+test_path.write_text(test)
