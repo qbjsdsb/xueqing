@@ -1059,7 +1059,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+        content: Text('已保存，当前状态：${_caseStatusLabelFromWire(result.status)}。'),
       ),
     );
   }
@@ -1086,7 +1086,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+        content: Text('已保存，当前状态：${_caseStatusLabelFromWire(result.status)}。'),
       ),
     );
   }
@@ -1117,7 +1117,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。'),
+        content: Text('已保存，当前状态：${_caseStatusLabelFromWire(result.status)}。'),
       ),
     );
   }
@@ -1168,7 +1168,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '已保存，Case 进入${_caseStatusLabelFromWire(receipt.status)}。',
+            '已保存，当前状态：${_caseStatusLabelFromWire(receipt.status)}。',
           ),
         ),
       );
@@ -6650,12 +6650,12 @@ bool _canStabilizeCase(WorkspaceCase learningCase) {
 
 String _caseStatusLabelFromWire(String value) {
   return switch (value) {
-    'new' => '待整理',
-    'confirmed' => '已确认',
-    'intervening' => '干预中',
-    'pending_verification' => '待验证',
-    'stable' => '稳定',
-    'closed' => '已关闭',
+    'new' => '新记录',
+    'confirmed' => '跟进中',
+    'intervening' => '跟进中',
+    'pending_verification' => '继续关注',
+    'stable' => '暂时稳定',
+    'closed' => '已结束',
     _ => value,
   };
 }
