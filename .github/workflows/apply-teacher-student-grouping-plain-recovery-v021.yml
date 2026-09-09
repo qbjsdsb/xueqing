@@ -38,7 +38,21 @@ jobs:
         run: flutter analyze
 
       - name: Full Flutter tests
-        run: flutter test
+        shell: bash
+        run: |
+          set +e
+          flutter test --reporter expanded > /tmp/xueqing_flutter_test.log 2>&1
+          status=$?
+          cat /tmp/xueqing_flutter_test.log
+          if [ "$status" -ne 0 ]; then
+            cp /tmp/xueqing_flutter_test.log tool/last_teacher_flow_test_failure.txt
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add tool/last_teacher_flow_test_failure.txt
+            git commit -m 'test: capture teacher flow failure diagnostics'
+            git push origin HEAD:ux/teacher-student-grouping-plain-recovery-v021
+          fi
+          exit "$status"
 
       - name: Verify diff
         run: git diff --check
@@ -49,9 +63,10 @@ jobs:
           set -euo pipefail
           rm tool/apply_teacher_student_grouping_plain_recovery_v021.py
           rm tool/run_teacher_student_grouping_plain_recovery_v021.py
+          rm -f tool/last_teacher_flow_test_failure.txt
           rm .github/workflows/apply-teacher-student-grouping-plain-recovery-v021.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart test/features/workflow_clarity_contract_test.dart tool/apply_teacher_student_grouping_plain_recovery_v021.py tool/run_teacher_student_grouping_plain_recovery_v021.py .github/workflows/apply-teacher-student-grouping-plain-recovery-v021.yml
+          git add -A lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart test/features/workflow_clarity_contract_test.dart tool/apply_teacher_student_grouping_plain_recovery_v021.py tool/run_teacher_student_grouping_plain_recovery_v021.py tool/last_teacher_flow_test_failure.txt .github/workflows/apply-teacher-student-grouping-plain-recovery-v021.yml
           git commit -m 'UX: group students and simplify recovery copy'
           git push origin HEAD:ux/teacher-student-grouping-plain-recovery-v021
