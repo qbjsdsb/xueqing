@@ -26,7 +26,9 @@ jobs:
           cache: true
 
       - name: Apply V2 runtime patch
-        run: python3 .github/scripts/patch_v2_runtime_and_photo_readback.py
+        run: |
+          python3 .github/scripts/patch_v2_runtime_and_photo_readback.py
+          python3 .github/scripts/fix_v2_runtime_preview_compat.py
 
       - name: Format changed Dart
         run: |
@@ -40,7 +42,8 @@ jobs:
             lib/features/design_v2/v2_workspace_preview.dart \
             lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
             test/features/design_v2_read_model_adapter_test.dart \
-            test/features/design_v2_real_preview_contract_test.dart
+            test/features/design_v2_real_preview_contract_test.dart \
+            test/features/design_v2_real_preview_page_test.dart
 
       - name: Analyze
         run: flutter analyze
@@ -53,6 +56,7 @@ jobs:
           flutter test test/features/design_v2_workspace_test.dart
           flutter test test/features/design_v2_workspace_loader_test.dart
           flutter test test/features/design_v2_real_preview_contract_test.dart
+          flutter test test/features/design_v2_real_preview_page_test.dart
 
       - name: Full Flutter tests
         run: flutter test
@@ -73,6 +77,7 @@ jobs:
             lib/features/design_v2/v2_workspace_preview.dart \
             lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
             test/features/design_v2_read_model_adapter_test.dart \
-            test/features/design_v2_real_preview_contract_test.dart
+            test/features/design_v2_real_preview_contract_test.dart \
+            test/features/design_v2_real_preview_page_test.dart
           git commit -m "UI V2: connect real writes and lazy photo readback"
           git push origin HEAD:ui/v2-writable-composers
