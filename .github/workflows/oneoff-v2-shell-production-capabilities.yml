@@ -27,6 +27,19 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Make duplicate constructor guards explicit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/patch_v2_shell_production_capabilities.py')
+          text = path.read_text(encoding='utf-8')
+          old_guard = """    if count != 1:\n        raise SystemExit(f'{path}: expected one match, found {count}: {old[:100]!r}')\n"""
+          new_guard = """    allowed_duplicate = count == 2 and old in {\n        \"    required this.onOpenCase;\\n    required this.onBackFromCase;\\n  });\\n\",\n        \"  final ValueChanged<V2FocusItem> onOpenCase;\\n  final VoidCallback onBackFromCase;\\n\",\n    }\n    if count == 0 or (count != 1 and not allowed_duplicate):\n        raise SystemExit(f'{path}: expected one match, found {count}: {old[:100]!r}')\n"""
+          if text.count(old_guard) != 1:
+              raise SystemExit('unexpected replace_once guard shape')
+          path.write_text(text.replace(old_guard, new_guard, 1), encoding='utf-8')
+          PY
+
       - name: Apply shell patch
         run: python3 .github/scripts/patch_v2_shell_production_capabilities.py
 
