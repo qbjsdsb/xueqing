@@ -1262,7 +1262,7 @@ class _FocusRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '下一步  ${item.nextStep}',
+                    item.closed ? item.nextStep : '下一步  ${item.nextStep}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -1569,7 +1569,9 @@ class _CaseDetailPane extends StatelessWidget {
     final timelineEntries = V2WorkspaceDataScope.of(context)
         .timelineForCase(item);
     final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
-    final pendingAction = controller?.pendingActionFor(item.id);
+    final pendingAction = item.closed
+        ? null
+        : controller?.pendingActionFor(item.id);
     return ColoredBox(
       color: scheme.surface,
       child: SingleChildScrollView(
@@ -1623,7 +1625,10 @@ class _CaseDetailPane extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 28),
-                  Text('下一步', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    item.closed ? '状态' : '下一步',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
