@@ -1,0 +1,70 @@
+name: Restore Xueqing v0.2.1 release variables
+
+on:
+  push:
+    branches:
+      - release/v0.2.1-device-candidate
+    paths:
+      - ".github/release-requests/v0.2.1-restore-vars"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: restore-v0.2.1-release-vars
+  cancel-in-progress: false
+
+env:
+  PUBLIC_SUPABASE_URL: https://czuctoulgnfytcfonkhc.supabase.co
+  PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI
+  PUBLIC_SUPABASE_ALLOWED_HOSTS: czuctoulgnfytcfonkhc.supabase.co
+
+jobs:
+  restore:
+    name: Restore and verify public release variables
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Restore repository variables
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          upsert_variable() {
+            local name="$1"
+            local value="$2"
+            if gh api "repos/$GITHUB_REPOSITORY/actions/variables/$name" >/dev/null 2>&1; then
+              gh api --silent --method PATCH \
+                "repos/$GITHUB_REPOSITORY/actions/variables/$name" \
+                -f name="$name" \
+                -f value="$value"
+            else
+              gh api --silent --method POST \
+                "repos/$GITHUB_REPOSITORY/actions/variables" \
+                -f name="$name" \
+                -f value="$value"
+            fi
+          }
+
+          upsert_variable XUEQING_SUPABASE_URL "$PUBLIC_SUPABASE_URL"
+          upsert_variable XUEQING_SUPABASE_PUBLISHABLE_KEY "$PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          upsert_variable XUEQING_SUPABASE_ALLOWED_HOSTS "$PUBLIC_SUPABASE_ALLOWED_HOSTS"
+
+          verify_variable() {
+            local name="$1"
+            local expected="$2"
+            local actual
+            actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/variables/$name" --jq '.value')"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "Repository variable verification failed for $name."
+              exit 1
+            fi
+            echo "$name configured and verified."
+          }
+
+          verify_variable XUEQING_SUPABASE_URL "$PUBLIC_SUPABASE_URL"
+          verify_variable XUEQING_SUPABASE_PUBLISHABLE_KEY "$PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          verify_variable XUEQING_SUPABASE_ALLOWED_HOSTS "$PUBLIC_SUPABASE_ALLOWED_HOSTS"
