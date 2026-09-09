@@ -89,7 +89,7 @@ class _ManagementAreaSwitcher extends StatelessWidget {
               _ManagementAreaChoiceChip(
                 area: _ManagementArea.settings,
                 icon: Icons.tune_outlined,
-                label: '学科设置',
+                label: '设置',
                 labelKey: const Key('management-area-settings'),
                 selectedArea: selectedArea,
                 onChanged: onChanged,
@@ -112,7 +112,7 @@ class _ManagementAreaSwitcher extends StatelessWidget {
             ButtonSegment<_ManagementArea>(
               value: _ManagementArea.settings,
               icon: Icon(Icons.tune_outlined),
-              label: Text('学科设置', key: Key('management-area-settings')),
+              label: Text('设置', key: Key('management-area-settings')),
             ),
           ],
           selected: <_ManagementArea>{selectedArea},
