@@ -1414,6 +1414,70 @@ void main() {
     expect(tester.widget<TextField>(titleField).focusNode?.hasFocus, isTrue);
   });
 
+  testWidgets(
+    'new problem flow quietly shows current problems after student selection',
+    (tester) async {
+      final repository = _FakeLearningRepository(_fixtureWorkspace());
+      await _pumpWorkspace(tester, repository);
+
+      await tester.tap(find.text('记录新问题').first);
+      await tester.pumpAndSettle();
+
+      final studentPicker = find.byType(
+        DropdownButtonFormField<WorkspaceStudent>,
+      );
+      await tester.ensureVisible(studentPicker);
+      await tester.tap(studentPicker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('示例学生甲 · 数学').last);
+      await tester.pumpAndSettle();
+
+      final hint = find.byKey(const Key('quick-capture-existing-cases-hint'));
+      expect(hint, findsOneWidget);
+      expect(
+        find.descendant(of: hint, matching: find.text('这个学生已有正在跟进的问题')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: hint, matching: find.textContaining('分数步骤需要继续观察')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: hint, matching: find.textContaining('请用“记进展”')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('workspace-quick-capture-save')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('new problem flow does not warn about already closed problems', (
+    tester,
+  ) async {
+    final repository = _FakeLearningRepository(
+      _fixtureWorkspace(status: LearningCaseStatus.closed),
+    );
+    await _pumpWorkspace(tester, repository);
+
+    await tester.tap(find.text('记录新问题').first);
+    await tester.pumpAndSettle();
+    final studentPicker = find.byType(
+      DropdownButtonFormField<WorkspaceStudent>,
+    );
+    await tester.ensureVisible(studentPicker);
+    await tester.tap(studentPicker);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('示例学生甲 · 数学').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('quick-capture-existing-cases-hint')),
+      findsNothing,
+    );
+  });
+
   testWidgets('keeps optional Quick Capture classification behind disclosure', (
     tester,
   ) async {

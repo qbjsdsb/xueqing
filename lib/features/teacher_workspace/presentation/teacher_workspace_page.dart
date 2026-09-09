@@ -3517,6 +3517,25 @@ class _WorkspaceQuickCaptureFormState
     return WorkspaceCaseType.builtInTypes.last;
   }
 
+  List<WorkspaceCase> get _currentCasesForSelectedStudent {
+    final student = _selectedStudent;
+    if (student == null) {
+      return const <WorkspaceCase>[];
+    }
+    final cases =
+        student.cases
+            .where(
+              (learningCase) =>
+                  learningCase.status != LearningCaseStatus.closed,
+            )
+            .toList()
+          ..sort(
+            (left, right) =>
+                right.firstObservedAt.compareTo(left.firstObservedAt),
+          );
+    return List<WorkspaceCase>.unmodifiable(cases);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -3874,6 +3893,7 @@ class _WorkspaceQuickCaptureFormState
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final currentCases = _currentCasesForSelectedStudent;
     return PopScope<void>(
       canPop: !_isDirty && !_saving,
       onPopInvokedWithResult: (didPop, _) {
@@ -3926,6 +3946,70 @@ class _WorkspaceQuickCaptureFormState
                     )
                   else
                     _buildStudentField(context),
+                  if (currentCases.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      key: const Key('quick-capture-existing-cases-hint'),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.46),
+                        borderRadius: BorderRadius.circular(AppRadii.compact),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.history_outlined,
+                            size: 19,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '这个学生已有正在跟进的问题',
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                                const SizedBox(height: AppSpacing.xxs),
+                                Text(
+                                  [
+                                    ...currentCases
+                                        .take(3)
+                                        .map(
+                                          (learningCase) => learningCase.title,
+                                        ),
+                                    if (currentCases.length > 3)
+                                      '另外 ${currentCases.length - 3} 个',
+                                  ].join(' · '),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: AppSpacing.xxs),
+                                Text(
+                                  '如果今天看到的是这些问题的新变化，请用“记进展”；确实是新的问题，可以继续记录。',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.md),
                   TextField(
                     key: const Key('quick-capture-title-field'),
