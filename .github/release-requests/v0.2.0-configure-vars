@@ -1,4 +1,5 @@
 release_tag=v0.2.0
-app_version=0.2.0+2
-release_commit=0051afa56f1229f5cac83221648ef2546cf277ac
-action=configure_public_repository_variables_then_publish
+app_version=0.2.0+6
+release_commit=b040397f4488436037b0987b95f29ba90f1badc6
+action=configure_existing_public_repository_variables_only
+note=legacy_helper_env_is_older_and_should_stop_before_dispatch_if_tag_mismatch
