@@ -1043,6 +1043,7 @@ class _StudentDetailPane extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final data = V2WorkspaceDataScope.of(context);
     final focusItems = data.focusItemsForStudent(student);
+    final closedItems = data.closedItemsForStudent(student);
     final timelineEntries = data.timelineForStudent(student);
     return ColoredBox(
       color: scheme.surface,
@@ -1091,6 +1092,19 @@ class _StudentDetailPane extends StatelessWidget {
                           if (i < focusItems.length - 1)
                             Divider(height: 1, color: scheme.outlineVariant),
                         ],
+                      if (closedItems.isNotEmpty) ...[
+                        const SizedBox(height: 34),
+                        _SectionTitle(title: '历史问题', count: closedItems.length),
+                        const SizedBox(height: 8),
+                        for (var i = 0; i < closedItems.length; i++) ...[
+                          _FocusRow(
+                            item: closedItems[i],
+                            onTap: () => onOpenCase(closedItems[i]),
+                          ),
+                          if (i < closedItems.length - 1)
+                            Divider(height: 1, color: scheme.outlineVariant),
+                        ],
+                      ],
                       const SizedBox(height: 34),
                       const _SectionTitle(title: '最近成长'),
                       const SizedBox(height: 14),
@@ -1592,13 +1606,15 @@ class _CaseDetailPane extends StatelessWidget {
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      FilledButton.icon(
-                        onPressed: () =>
-                            _showV2ProgressForCase(context, student, item),
-                        icon: const Icon(Icons.edit_note_outlined, size: 18),
-                        label: const Text('记进展'),
-                      ),
+                      if (!item.closed) ...[
+                        const SizedBox(width: 16),
+                        FilledButton.icon(
+                          onPressed: () =>
+                              _showV2ProgressForCase(context, student, item),
+                          icon: const Icon(Icons.edit_note_outlined, size: 18),
+                          label: const Text('记进展'),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -1887,6 +1903,7 @@ class _CaseIndexPane extends StatefulWidget {
 class _CaseIndexPaneState extends State<_CaseIndexPane> {
   final _searchController = TextEditingController();
   String _query = '';
+  bool _showClosed = false;
 
   @override
   void dispose() {
@@ -1896,7 +1913,8 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
 
   List<V2FocusItem> _visibleItems(V2WorkspaceData data) {
     final query = _query.trim().toLowerCase();
-    final validItems = data.focusItems
+    final sourceItems = _showClosed ? data.closedItems : data.focusItems;
+    final validItems = sourceItems
         .where((item) => data.studentForFocusItemOrNull(item) != null)
         .toList(growable: false);
     if (query.isEmpty) {
@@ -1938,8 +1956,27 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
             children: [
               Text('学情', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 5),
-              Text('找到仍需要复盘的问题', style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 22),
+              Text(
+                _showClosed ? '回看已经结束的跟进记录' : '找到仍需要复盘的问题',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              SegmentedButton<bool>(
+                key: const Key('v2-case-history-toggle'),
+                segments: const <ButtonSegment<bool>>[
+                  ButtonSegment<bool>(value: false, label: Text('跟进中')),
+                  ButtonSegment<bool>(value: true, label: Text('历史')),
+                ],
+                selected: <bool>{_showClosed},
+                onSelectionChanged: (selection) {
+                  setState(() {
+                    _showClosed = selection.first;
+                    _query = '';
+                    _searchController.clear();
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
               TextField(
                 key: const Key('v2-case-search'),
                 controller: _searchController,
@@ -1959,7 +1996,9 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
               const SizedBox(height: 12),
               Text(
                 _query.trim().isEmpty
-                    ? '进行中 ${visibleItems.length}'
+                    ? (_showClosed
+                          ? '历史 ${visibleItems.length}'
+                          : '进行中 ${visibleItems.length}')
                     : '找到 ${visibleItems.length} 个问题',
                 style: Theme.of(context).textTheme.bodySmall,
               ),

@@ -59,6 +59,14 @@ void main() {
       expect(mathBinding!.profileId, 'profile-math');
       expect(mathBinding.profileVersion, 5);
       expect(mathBinding.caseVersion, 2);
+
+      expect(snapshot.closedItems.map((item) => item.id), ['case-cn-closed']);
+      final closedBinding = snapshot.bindingForCase('case-cn-closed');
+      expect(closedBinding, isNotNull);
+      expect(closedBinding!.profileId, 'profile-cn');
+      expect(closedBinding.caseVersion, 9);
+      expect(snapshot.closedItems.single.closed, isTrue);
+      expect(snapshot.closedItems.single.nextStep, '跟进已结束');
     });
 
     test('falls back to latest evidence without merging subject histories', () {
@@ -93,6 +101,32 @@ void main() {
         expect(timeline.every((entry) => entry.teacher.isEmpty), isTrue);
         expect(snapshot.viewerName, '乔老师');
         expect(snapshot.organizationName, '测试机构');
+      },
+    );
+
+    test(
+      'closed history stays out of active work but remains longitudinal',
+      () {
+        final snapshot = V2ReadModelAdapter.fromWorkspace(_workspace());
+        final student = snapshot.students.firstWhere(
+          (item) => item.id == 'student-lin',
+        );
+
+        expect(student.openCaseCount, 3);
+        expect(
+          snapshot.focusItems.any((item) => item.id == 'case-cn-closed'),
+          isFalse,
+        );
+        expect(snapshot.closedItemsForStudent('student-lin'), hasLength(1));
+        expect(
+          snapshot.timelineForCase('case-cn-closed').single.body,
+          '结束前已经稳定完成。',
+        );
+        final allCaseIds = snapshot.workspaceData
+            .timelineForStudent(student)
+            .map((entry) => entry.caseId)
+            .toSet();
+        expect(allCaseIds, contains('case-cn-closed'));
       },
     );
   });
@@ -153,6 +187,22 @@ TeacherWorkspace _workspace() {
                 typeLabel: '新表现',
                 text: '第二次检查仍漏结果。',
                 evidenceId: 'evidence-timeline',
+              ),
+            ],
+          ),
+          _case(
+            id: 'case-cn-closed',
+            profileId: 'profile-cn',
+            title: '曾经的概括问题',
+            status: LearningCaseStatus.closed,
+            version: 9,
+            description: '这条问题已经结束跟进。',
+            timeline: [
+              WorkspaceTimelineEvent(
+                id: 'event-closed',
+                occurredAt: DateTime(2026, 8, 28, 17, 20),
+                typeLabel: '结束跟进',
+                text: '结束前已经稳定完成。',
               ),
             ],
           ),

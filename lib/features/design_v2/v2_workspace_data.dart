@@ -11,15 +11,21 @@ class V2WorkspaceData {
     required this.students,
     required this.focusItems,
     required this.timeline,
+    this.closedItems = const <V2FocusItem>[],
     this.businessDate,
   });
 
   final List<V2Student> students;
   final List<V2FocusItem> focusItems;
+  final List<V2FocusItem> closedItems;
   final List<V2TimelineEntry> timeline;
   final DateTime? businessDate;
 
   List<V2FocusItem> focusItemsForStudent(V2Student student) => focusItems
+      .where((item) => item.studentId == student.id)
+      .toList(growable: false);
+
+  List<V2FocusItem> closedItemsForStudent(V2Student student) => closedItems
       .where((item) => item.studentId == student.id)
       .toList(growable: false);
 
@@ -45,9 +51,10 @@ class V2WorkspaceData {
       .toList(growable: false);
 
   List<V2TimelineEntry> timelineForStudent(V2Student student) {
-    final caseIds = focusItemsForStudent(student)
-        .map((item) => item.id)
-        .toSet();
+    final caseIds = <String>{
+      ...focusItemsForStudent(student).map((item) => item.id),
+      ...closedItemsForStudent(student).map((item) => item.id),
+    };
     return timeline
         .where((entry) => caseIds.contains(entry.caseId))
         .toList(growable: false);

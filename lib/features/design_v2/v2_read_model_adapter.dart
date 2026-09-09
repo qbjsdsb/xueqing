@@ -11,6 +11,7 @@ class V2ReadModelSnapshot {
     required this.organizationName,
     required this.students,
     required this.focusItems,
+    required this.closedItems,
     required this.timeline,
     required this.caseBindings,
     required this.businessDate,
@@ -20,6 +21,7 @@ class V2ReadModelSnapshot {
   final String organizationName;
   final List<V2Student> students;
   final List<V2FocusItem> focusItems;
+  final List<V2FocusItem> closedItems;
   final List<V2TimelineEntry> timeline;
   final List<V2CaseBinding> caseBindings;
   final DateTime? businessDate;
@@ -27,11 +29,16 @@ class V2ReadModelSnapshot {
   V2WorkspaceData get workspaceData => V2WorkspaceData(
     students: students,
     focusItems: focusItems,
+    closedItems: closedItems,
     timeline: timeline,
     businessDate: businessDate,
   );
 
   List<V2FocusItem> focusItemsForStudent(String studentId) => focusItems
+      .where((item) => item.studentId == studentId)
+      .toList(growable: false);
+
+  List<V2FocusItem> closedItemsForStudent(String studentId) => closedItems
       .where((item) => item.studentId == studentId)
       .toList(growable: false);
 
@@ -116,30 +123,33 @@ class V2ReadModelAdapter {
     }
 
     final focusItems = <V2FocusItem>[];
+    final closedItems = <V2FocusItem>[];
     final timeline = <V2TimelineEntry>[];
     final bindings = <V2CaseBinding>[];
 
     for (final profile in workspace.students) {
       for (final learningCase in profile.cases) {
-        if (!_isActiveCase(learningCase)) {
-          continue;
-        }
-
-        final primaryAction = learningCase.primaryAction;
-        focusItems.add(
-          V2FocusItem(
-            id: learningCase.id,
-            studentId: profile.id,
-            title: learningCase.title,
-            summary: _caseSummary(learningCase),
-            nextStep: _nextStep(primaryAction),
-            dueLabel: _dueLabel(primaryAction),
-            subject: profile.subject,
-            actionTiming: _actionTiming(primaryAction),
-            pendingVerification:
-                learningCase.status == LearningCaseStatus.pendingVerification,
-          ),
+        final closed = learningCase.status == LearningCaseStatus.closed;
+        final primaryAction = closed ? null : learningCase.primaryAction;
+        final item = V2FocusItem(
+          id: learningCase.id,
+          studentId: profile.id,
+          title: learningCase.title,
+          summary: _caseSummary(learningCase),
+          nextStep: closed ? '跟进已结束' : _nextStep(primaryAction),
+          dueLabel: closed ? '已结束' : _dueLabel(primaryAction),
+          subject: profile.subject,
+          actionTiming: closed ? null : _actionTiming(primaryAction),
+          pendingVerification:
+              !closed &&
+              learningCase.status == LearningCaseStatus.pendingVerification,
+          closed: closed,
         );
+        if (closed) {
+          closedItems.add(item);
+        } else {
+          focusItems.add(item);
+        }
         bindings.add(
           V2CaseBinding(
             studentId: profile.id,
@@ -177,6 +187,7 @@ class V2ReadModelAdapter {
       organizationName: workspace.organizationName,
       students: List<V2Student>.unmodifiable(students),
       focusItems: List<V2FocusItem>.unmodifiable(focusItems),
+      closedItems: List<V2FocusItem>.unmodifiable(closedItems),
       timeline: List<V2TimelineEntry>.unmodifiable(timeline),
       caseBindings: List<V2CaseBinding>.unmodifiable(bindings),
       businessDate: workspace.businessDate,
