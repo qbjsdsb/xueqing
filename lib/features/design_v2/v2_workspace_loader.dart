@@ -4,6 +4,7 @@ import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
 import '../teacher_workspace/workspace_runtime.dart';
+import 'v2_management_page.dart';
 import 'v2_read_model_adapter.dart';
 import 'v2_workflow_controller.dart';
 import 'v2_workspace_preview.dart';
@@ -81,7 +82,28 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         }
 
         final workspace = snapshot.requireData;
+        final runtime = widget.runtime;
+        final canOpenManagement =
+            workspace.canManageOrganization &&
+            workspace.organizationId != null &&
+            runtime?.organizationManagementRepository != null;
+        final WidgetBuilder? managementPageBuilder = canOpenManagement
+            ? (_) => V2ManagementPage(
+                workspace: workspace,
+                runtime: runtime!,
+                onChanged: _retry,
+              )
+            : null;
+
         if (!workspace.hasTeachingAccess) {
+          if (canOpenManagement) {
+            return V2ManagementPage(
+              workspace: workspace,
+              runtime: runtime!,
+              rootMode: true,
+              onChanged: _retry,
+            );
+          }
           return const _V2LoaderStatus(
             icon: Icons.person_off_outlined,
             title: '暂时没有任课学情',
@@ -111,6 +133,11 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           data: snapshotData.workspaceData,
           workflowController: workflowController,
           evidenceAttachmentRepository: evidenceAttachmentRepository,
+          managementPageBuilder: managementPageBuilder,
+          updateService: runtime?.updateService,
+          updateInstaller: runtime?.updateInstaller,
+          appVersion: runtime?.appVersion,
+          onSignOut: runtime?.onSignOut,
           onWorkspaceChanged: workflowController == null ? null : _retry,
         );
       },
