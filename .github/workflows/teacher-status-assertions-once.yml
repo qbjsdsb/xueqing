@@ -1,0 +1,67 @@
+name: One-shot teacher status assertion updates
+
+on:
+  push:
+    branches:
+      - ux/teacher-error-language
+    paths:
+      - .github/workflows/teacher-status-assertions-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/teacher-error-language
+          fetch-depth: 0
+
+      - name: Update only stale teacher-facing status assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('test/features/teacher_workspace_test.dart')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = {
+              'Case 进入已确认': ('当前状态：跟进中', 3),
+              'Case 进入干预中': ('当前状态：跟进中', 1),
+              'Case 进入待验证': ('当前状态：继续关注', 2),
+              'Case 进入稳定': ('当前状态：暂时稳定', 1),
+              'Case 进入已关闭': ('当前状态：已结束', 1),
+          }
+
+          total = 0
+          for old, (new, expected) in replacements.items():
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'expected {expected}, found {count}: {old!r}')
+              text = text.replace(old, new)
+              total += count
+
+          if total != 8:
+              raise SystemExit(f'expected 8 stale assertions, found {total}')
+          if 'Case 进入' in text:
+              raise SystemExit('stale teacher-facing Case transition assertion remains')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify exact scope
+        run: |
+          git diff --check
+          test "$(git diff --name-only)" = "test/features/teacher_workspace_test.dart"
+
+      - name: Commit test alignment and remove one-shot workflow
+        run: |
+          rm .github/workflows/teacher-status-assertions-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test: align teacher status assertions with UI copy"
+          git push origin HEAD:ux/teacher-error-language
