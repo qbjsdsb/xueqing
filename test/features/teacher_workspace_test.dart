@@ -1665,6 +1665,78 @@ void main() {
     expect(repository.commands.single.caseType, LearningCaseType.examStrategy);
   });
 
+  testWidgets(
+    'Quick Capture chooses a unique student before choosing the subject',
+    (tester) async {
+      final repository = _FakeLearningRepository(
+        _workspaceWithStudents([
+          _studentFixture(
+            id: 'shared-math',
+            name: '林同学',
+            studentId: 'student-shared',
+            profileId: 'profile-math',
+            subject: '数学',
+            context: '函数基础',
+          ),
+          _studentFixture(
+            id: 'shared-chinese',
+            name: '林同学',
+            studentId: 'student-shared',
+            profileId: 'profile-chinese',
+            subject: '语文',
+            context: '现代文阅读',
+          ),
+          _studentFixture(
+            id: 'other',
+            name: '陈同学',
+            studentId: 'student-other',
+            profileId: 'profile-english',
+            subject: '英语',
+          ),
+        ]),
+      );
+      await _pumpWorkspace(tester, repository);
+
+      await tester.tap(find.text('记录新问题').first);
+      await tester.pumpAndSettle();
+
+      final studentPicker = find.byKey(
+        const Key('quick-capture-student-picker'),
+      );
+      expect(studentPicker, findsOneWidget);
+      expect(
+        find.byKey(const Key('quick-capture-subject-picker')),
+        findsNothing,
+      );
+
+      await tester.tap(studentPicker);
+      await tester.pumpAndSettle();
+      expect(find.text('林同学 · 数学'), findsNothing);
+      expect(find.text('林同学 · 语文'), findsNothing);
+      await tester.tap(find.text('林同学').last);
+      await tester.pumpAndSettle();
+
+      final subjectPicker = find.byKey(
+        const Key('quick-capture-subject-picker'),
+      );
+      expect(subjectPicker, findsOneWidget);
+      await tester.tap(subjectPicker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('语文').last);
+      await tester.pumpAndSettle();
+
+      final noteField = find.byKey(const Key('quick-capture-title-field'));
+      expect(tester.widget<TextField>(noteField).focusNode?.hasFocus, isTrue);
+      await tester.enterText(noteField, '现代文阅读概括时遗漏限制词。');
+      final saveButton = find.byKey(const Key('workspace-quick-capture-save'));
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      expect(repository.commands.single.profileId, 'profile-chinese');
+    },
+  );
+
   testWidgets('uses bottom sheets for compact Quick Capture selectors', (
     tester,
   ) async {
@@ -1705,7 +1777,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('选择学生'), findsOneWidget);
     await tester.tap(
-      find.byKey(const Key('quick-capture-student-option-profile-1')),
+      find.byKey(const Key('quick-capture-student-option-student-1')),
     );
     await tester.pumpAndSettle();
     expect(

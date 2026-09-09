@@ -3545,9 +3545,11 @@ class _WorkspaceQuickCaptureFormState
   late final TextEditingController _titleController;
   late final FocusNode _titleFocusNode;
   late final String _operationId;
+  WorkspaceStudent? _selectedStudentPerson;
   WorkspaceStudent? _selectedStudent;
   String _selectedCaseTypeKey = WorkspaceCaseType.builtInTypes.last.key;
   String? _studentError;
+  String? _subjectError;
   String? _titleError;
   String? _attachmentError;
   String? _saveError;
@@ -3579,6 +3581,45 @@ class _WorkspaceQuickCaptureFormState
     return WorkspaceCaseType.builtInTypes.last;
   }
 
+  List<List<WorkspaceStudent>> get _quickCaptureStudentGroups =>
+      _groupStudentsById(widget.students);
+
+  List<WorkspaceStudent> _profilesForStudentId(String studentId) {
+    for (final group in _quickCaptureStudentGroups) {
+      if (group.isNotEmpty && group.first.id == studentId) {
+        final profiles = List<WorkspaceStudent>.of(group)
+          ..sort((left, right) => left.subject.compareTo(right.subject));
+        return profiles;
+      }
+    }
+    return const <WorkspaceStudent>[];
+  }
+
+  List<WorkspaceStudent> get _selectedStudentProfiles {
+    final student = _selectedStudentPerson;
+    if (student == null) {
+      return const <WorkspaceStudent>[];
+    }
+    return _profilesForStudentId(student.id);
+  }
+
+  bool get _needsSubjectSelection => _selectedStudentProfiles.length > 1;
+
+  String _studentPersonLabel(List<WorkspaceStudent> profiles) {
+    final student = profiles.first;
+    if (profiles.length == 1) {
+      return [student.name, student.subject].join(' · ');
+    }
+    return student.name;
+  }
+
+  String? _studentPersonSubtitle(List<WorkspaceStudent> profiles) {
+    if (profiles.length <= 1) {
+      return null;
+    }
+    return profiles.map((student) => student.subject).join(' · ');
+  }
+
   List<WorkspaceCase> get _currentCasesForSelectedStudent {
     final student = _selectedStudent;
     if (student == null) {
@@ -3601,9 +3642,18 @@ class _WorkspaceQuickCaptureFormState
   @override
   void initState() {
     super.initState();
-    _selectedStudent =
-        widget.initialStudent ??
-        (widget.students.length == 1 ? widget.students.first : null);
+    if (widget.initialStudent != null) {
+      _selectedStudentPerson = widget.initialStudent;
+      _selectedStudent = widget.initialStudent;
+    } else {
+      final groups = _quickCaptureStudentGroups;
+      if (groups.length == 1) {
+        final profiles = List<WorkspaceStudent>.of(groups.single)
+          ..sort((left, right) => left.subject.compareTo(right.subject));
+        _selectedStudentPerson = profiles.first;
+        _selectedStudent = profiles.length == 1 ? profiles.single : null;
+      }
+    }
     _operationId = createOperationId();
     _titleController = TextEditingController();
     _titleFocusNode = FocusNode();
@@ -3693,8 +3743,11 @@ class _WorkspaceQuickCaptureFormState
 
   Future<void> _save() async {
     var valid = true;
-    if (_selectedStudent == null) {
+    if (_selectedStudentPerson == null) {
       _studentError = '请选择学生';
+      valid = false;
+    } else if (_selectedStudent == null) {
+      _subjectError = '请选择学科';
       valid = false;
     }
     final note = _titleController.text.trim();
@@ -3812,14 +3865,7 @@ class _WorkspaceQuickCaptureFormState
     return '保存失败。输入仍保留在这里，请重试；未确认成功前不会生成重复问题。';
   }
 
-  void _selectStudent(WorkspaceStudent? student) {
-    setState(() {
-      _selectedStudent = student;
-      _studentError = null;
-    });
-    if (student == null) {
-      return;
-    }
+  void _focusQuickCaptureNote() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_saving) {
         _titleFocusNode.requestFocus();
@@ -3827,39 +3873,109 @@ class _WorkspaceQuickCaptureFormState
     });
   }
 
+  void _selectStudentPerson(WorkspaceStudent? student) {
+    if (student == null) {
+      setState(() {
+        _selectedStudentPerson = null;
+        _selectedStudent = null;
+        _studentError = null;
+        _subjectError = null;
+      });
+      _titleFocusNode.unfocus();
+      return;
+    }
+    final profiles = _profilesForStudentId(student.id);
+    final selectedProfile = profiles.length == 1 ? profiles.single : null;
+    setState(() {
+      _selectedStudentPerson = student;
+      _selectedStudent = selectedProfile;
+      _studentError = null;
+      _subjectError = null;
+    });
+    if (selectedProfile == null) {
+      _titleFocusNode.unfocus();
+    } else {
+      _focusQuickCaptureNote();
+    }
+  }
+
+  void _selectSubject(WorkspaceStudent? student) {
+    setState(() {
+      _selectedStudent = student;
+      _subjectError = null;
+    });
+    if (student != null) {
+      _focusQuickCaptureNote();
+    }
+  }
+
   bool _isCompact(BuildContext context) =>
       ResponsiveBreakpoints.classify(MediaQuery.sizeOf(context).width) ==
       WindowSizeClass.compact;
 
   Widget _buildStudentField(BuildContext context) {
+    final groups = _quickCaptureStudentGroups;
     if (!_isCompact(context)) {
       return DropdownButtonFormField<WorkspaceStudent>(
-        initialValue: _selectedStudent,
+        key: const Key('quick-capture-student-picker'),
+        initialValue: _selectedStudentPerson,
         decoration: InputDecoration(
           labelText: '学生 *',
           errorText: _studentError,
         ),
         hint: const Text('选择学生后开始'),
         items: [
-          for (final student in widget.students)
+          for (final group in groups)
             DropdownMenuItem<WorkspaceStudent>(
-              value: student,
-              child: Text([student.name, student.subject].join(' · ')),
+              value: group.first,
+              child: Text(_studentPersonLabel(group)),
             ),
         ],
-        onChanged: _saving ? null : _selectStudent,
+        onChanged: _saving ? null : _selectStudentPerson,
       );
     }
 
-    final student = _selectedStudent;
+    final student = _selectedStudentPerson;
+    final profiles = student == null
+        ? const <WorkspaceStudent>[]
+        : _profilesForStudentId(student.id);
     return _WorkspaceChoiceField(
       fieldKey: const Key('quick-capture-student-picker'),
       label: '学生 *',
-      value: student == null
-          ? '请选择学生'
-          : [student.name, student.subject].join(' · '),
+      value: student == null ? '请选择学生' : _studentPersonLabel(profiles),
       errorText: _studentError,
       onTap: _saving ? null : _openStudentPicker,
+    );
+  }
+
+  Widget _buildSubjectField(BuildContext context) {
+    final profiles = _selectedStudentProfiles;
+    if (!_isCompact(context)) {
+      return DropdownButtonFormField<WorkspaceStudent>(
+        key: const Key('quick-capture-subject-picker'),
+        initialValue: _selectedStudent,
+        decoration: InputDecoration(
+          labelText: '学科 *',
+          errorText: _subjectError,
+        ),
+        hint: const Text('选择这次记录属于哪个学科'),
+        items: [
+          for (final profile in profiles)
+            DropdownMenuItem<WorkspaceStudent>(
+              value: profile,
+              child: Text(profile.subject),
+            ),
+        ],
+        onChanged: _saving ? null : _selectSubject,
+      );
+    }
+
+    return _WorkspaceChoiceField(
+      fieldKey: const Key('quick-capture-subject-picker'),
+      label: '学科 *',
+      value: _selectedStudent?.subject ?? '请选择学科',
+      errorText: _subjectError,
+      onTap: _saving ? null : _openSubjectPicker,
     );
   }
 
@@ -3892,7 +4008,8 @@ class _WorkspaceQuickCaptureFormState
   }
 
   Future<void> _openStudentPicker() async {
-    if (_saving || widget.students.isEmpty) {
+    final groups = _quickCaptureStudentGroups;
+    if (_saving || groups.isEmpty) {
       return;
     }
     final selectedStudent = await showModalBottomSheet<WorkspaceStudent>(
@@ -3901,15 +4018,16 @@ class _WorkspaceQuickCaptureFormState
       useSafeArea: true,
       builder: (context) => _WorkspaceChoiceSheet<WorkspaceStudent>(
         title: '选择学生',
-        selectedValue: _selectedStudent,
+        selectedValue: _selectedStudentPerson,
         options: [
-          for (final student in widget.students)
+          for (final group in groups)
             _WorkspaceChoiceOption<WorkspaceStudent>(
               key: ValueKey<String>(
-                'quick-capture-student-option-${student.profileId}',
+                'quick-capture-student-option-${group.first.id}',
               ),
-              value: student,
-              title: [student.name, student.subject].join(' · '),
+              value: group.first,
+              title: _studentPersonLabel(group),
+              subtitle: _studentPersonSubtitle(group),
             ),
         ],
       ),
@@ -3917,7 +4035,38 @@ class _WorkspaceQuickCaptureFormState
     if (!mounted || selectedStudent == null) {
       return;
     }
-    _selectStudent(selectedStudent);
+    _selectStudentPerson(selectedStudent);
+  }
+
+  Future<void> _openSubjectPicker() async {
+    final profiles = _selectedStudentProfiles;
+    if (_saving || profiles.length <= 1) {
+      return;
+    }
+    final selectedSubject = await showModalBottomSheet<WorkspaceStudent>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _WorkspaceChoiceSheet<WorkspaceStudent>(
+        title: '选择学科',
+        selectedValue: _selectedStudent,
+        options: [
+          for (final profile in profiles)
+            _WorkspaceChoiceOption<WorkspaceStudent>(
+              key: ValueKey<String>(
+                'quick-capture-subject-option-${profile.profileId}',
+              ),
+              value: profile,
+              title: profile.subject,
+              subtitle: profile.context.trim().isEmpty ? null : profile.context,
+            ),
+        ],
+      ),
+    );
+    if (!mounted || selectedSubject == null) {
+      return;
+    }
+    _selectSubject(selectedSubject);
   }
 
   Future<void> _openCaseTypePicker() async {
@@ -4005,9 +4154,14 @@ class _WorkspaceQuickCaptureFormState
                         widget.initialStudent!.name,
                         widget.initialStudent!.subject,
                       ].join(' · '),
-                    )
-                  else
+                    ),
+                  if (widget.initialStudent == null)
                     _buildStudentField(context),
+                  if (widget.initialStudent == null &&
+                      _needsSubjectSelection) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _buildSubjectField(context),
+                  ],
                   if (currentCases.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.sm),
                     Container(
