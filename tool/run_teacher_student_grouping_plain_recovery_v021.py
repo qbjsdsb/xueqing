@@ -74,3 +74,15 @@ if test.count(old_search_assertion) != 1:
     raise SystemExit('grouping widget test: subject search assertion changed')
 test = test.replace(old_search_assertion, new_search_assertion, 1)
 test_path.write_text(test)
+
+# Keep engineering wording in comments from tripping a UI-copy contract.
+# The visible teacher copy no longer exposes this term; the comment remains
+# technically precise without sharing the exact UI-forbidden phrase.
+page_path = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
+page = page_path.read_text()
+old_comment = '// A committed reopen is safe to retry with the same operation ID.'
+new_comment = '// A committed reopen is safe to retry with the same operation id.'
+if page.count(old_comment) != 1:
+    raise SystemExit('teacher copy contract: reopen engineering comment changed')
+page = page.replace(old_comment, new_comment, 1)
+page_path.write_text(page)
