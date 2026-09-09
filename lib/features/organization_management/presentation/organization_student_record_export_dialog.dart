@@ -213,9 +213,7 @@ class _OrganizationStudentRecordExportDialogState
                         onPressed: visibleStudents.isEmpty
                             ? null
                             : _selectVisible,
-                        child: Text(
-                          _query.trim().isEmpty ? '全选' : '全选当前结果',
-                        ),
+                        child: Text(_query.trim().isEmpty ? '全选' : '全选当前结果'),
                       ),
                       TextButton(
                         key: const Key('student-record-export-clear'),
