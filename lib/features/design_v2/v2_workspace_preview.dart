@@ -181,10 +181,7 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
     } else if (widget.destination == 3) {
       body = _CaseIndexPane(onOpenCase: widget.onOpenCase, compact: true);
     } else {
-      body = const _QuietPlaceholder(
-        title: '课程',
-        message: '课程入口将在下一阶段接入 V2。',
-      );
+      body = const _QuietPlaceholder(title: '课程', message: '课程入口将在下一阶段接入 V2。');
     }
 
     return Scaffold(
@@ -225,7 +222,10 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
 }
 
 class _NavigationRail extends StatelessWidget {
-  const _NavigationRail({required this.selectedIndex, required this.onSelected});
+  const _NavigationRail({
+    required this.selectedIndex,
+    required this.onSelected,
+  });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
@@ -253,7 +253,10 @@ class _NavigationRail extends StatelessWidget {
               onTap: () => onSelected(item.$1),
             ),
           const Spacer(),
-          const _RailItem(icon: Icons.admin_panel_settings_outlined, tooltip: '管理'),
+          const _RailItem(
+            icon: Icons.admin_panel_settings_outlined,
+            tooltip: '管理',
+          ),
           const _RailItem(icon: Icons.settings_outlined, tooltip: '设置'),
           const SizedBox(height: 12),
         ],
@@ -294,7 +297,9 @@ class _RailItem extends StatelessWidget {
               child: Icon(
                 icon,
                 size: 20,
-                color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+                color: selected
+                    ? scheme.onPrimaryContainer
+                    : scheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -323,7 +328,12 @@ class _StudentListPane extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(compact ? 18 : 24, 24, compact ? 18 : 20, 12),
+            padding: EdgeInsets.fromLTRB(
+              compact ? 18 : 24,
+              24,
+              compact ? 18 : 20,
+              12,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -338,7 +348,10 @@ class _StudentListPane extends StatelessWidget {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    Text('全部 ${v2Students.length}', style: Theme.of(context).textTheme.labelLarge),
+                    Text(
+                      '全部 ${v2Students.length}',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
                     const SizedBox(width: 18),
                     Text('我负责 4', style: Theme.of(context).textTheme.bodySmall),
                     const Spacer(),
@@ -352,7 +365,10 @@ class _StudentListPane extends StatelessWidget {
               ],
             ),
           ),
-          Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+          Divider(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -374,7 +390,11 @@ class _StudentListPane extends StatelessWidget {
 }
 
 class _StudentRow extends StatelessWidget {
-  const _StudentRow({required this.student, required this.selected, required this.onTap});
+  const _StudentRow({
+    required this.student,
+    required this.selected,
+    required this.onTap,
+  });
 
   final V2Student student;
   final bool selected;
@@ -401,9 +421,15 @@ class _StudentRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(student.name, style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        student.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 2),
-                      Text('${student.grade} · ${student.subjects.join(' / ')}', style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        '${student.grade} · ${student.subjects.join(' / ')}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 ),
@@ -411,9 +437,19 @@ class _StudentRow extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(student.openCaseCount == 0 ? '暂无进行中' : '${student.openCaseCount} 个问题', style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      student.openCaseCount == 0
+                          ? '暂无进行中'
+                          : '${student.openCaseCount} 个问题',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     const SizedBox(height: 3),
-                    Text(student.updatedLabel, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant.withOpacity(0.72))),
+                    Text(
+                      student.updatedLabel,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant.withOpacity(0.72),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -441,7 +477,10 @@ class _InitialMark extends StatelessWidget {
         color: scheme.surfaceContainer,
         shape: BoxShape.circle,
       ),
-      child: Text(name.characters.first, style: Theme.of(context).textTheme.labelLarge),
+      child: Text(
+        name.characters.first,
+        style: Theme.of(context).textTheme.labelLarge,
+      ),
     );
   }
 }
@@ -471,7 +510,12 @@ class _StudentDetailPane extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 900),
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(compact ? 18 : 32, 22, compact ? 18 : 32, 48),
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 18 : 32,
+                    22,
+                    compact ? 18 : 32,
+                    48,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -489,7 +533,8 @@ class _StudentDetailPane extends StatelessWidget {
                       const SizedBox(height: 8),
                       for (var i = 0; i < v2FocusItems.length; i++) ...[
                         _FocusRow(item: v2FocusItems[i], onTap: onOpenCase),
-                        if (i < v2FocusItems.length - 1) Divider(height: 1, color: scheme.outlineVariant),
+                        if (i < v2FocusItems.length - 1)
+                          Divider(height: 1, color: scheme.outlineVariant),
                       ],
                       const SizedBox(height: 34),
                       const _SectionTitle(title: '最近成长'),
@@ -529,20 +574,33 @@ class _StudentHeader extends StatelessWidget {
           icon: const Icon(Icons.edit_note_outlined, size: 18),
           label: const Text('记进展'),
         ),
-        IconButton(onPressed: () {}, tooltip: '更多', icon: const Icon(Icons.more_horiz)),
+        IconButton(
+          onPressed: () {},
+          tooltip: '更多',
+          icon: const Icon(Icons.more_horiz),
+        ),
       ],
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('学生  /  ${student.name}', style: Theme.of(context).textTheme.bodySmall),
+        Text(
+          '学生  /  ${student.name}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         const SizedBox(height: 18),
         if (compact) ...[
           Text(student.name, style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 5),
-          Text('${student.grade} · ${student.subjects.join(' / ')}', style: Theme.of(context).textTheme.bodyLarge),
+          Text(
+            '${student.grade} · ${student.subjects.join(' / ')}',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
           const SizedBox(height: 5),
-          Text('王老师负责语文 · 李老师负责数学', style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            '王老师负责语文 · 李老师负责数学',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: 16),
           buttons,
         ] else
@@ -553,11 +611,20 @@ class _StudentHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(student.name, style: Theme.of(context).textTheme.headlineSmall),
+                    Text(
+                      student.name,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
                     const SizedBox(height: 5),
-                    Text('${student.grade} · ${student.subjects.join(' / ')}', style: Theme.of(context).textTheme.bodyLarge),
+                    Text(
+                      '${student.grade} · ${student.subjects.join(' / ')}',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
                     const SizedBox(height: 5),
-                    Text('王老师负责语文 · 李老师负责数学', style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      '王老师负责语文 · 李老师负责数学',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),
@@ -605,17 +672,30 @@ class _FocusRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(width: 2, height: 58, color: scheme.primary.withOpacity(0.5)),
+            Container(
+              width: 2,
+              height: 58,
+              color: scheme.primary.withOpacity(0.5),
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.title, style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    item.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 4),
-                  Text(item.summary, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    item.summary,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                   const SizedBox(height: 8),
-                  Text('下一步  ${item.nextStep}', style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    '下一步  ${item.nextStep}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),
@@ -623,9 +703,15 @@ class _FocusRow extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(item.subject, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  item.subject,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 17),
-                Text(item.dueLabel, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  item.dueLabel,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ),
             const SizedBox(width: 4),
@@ -667,7 +753,10 @@ class _TimelineRow extends StatelessWidget {
           width: 74,
           child: Padding(
             padding: const EdgeInsets.only(top: 1),
-            child: Text(entry.date, style: Theme.of(context).textTheme.bodySmall),
+            child: Text(
+              entry.date,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
         ),
         SizedBox(
@@ -684,7 +773,11 @@ class _TimelineRow extends StatelessWidget {
                 ),
               ),
               if (!last)
-                Container(width: 1, height: entry.photoCount > 0 ? 144 : 96, color: scheme.outlineVariant),
+                Container(
+                  width: 1,
+                  height: entry.photoCount > 0 ? 144 : 96,
+                  color: scheme.outlineVariant,
+                ),
             ],
           ),
         ),
@@ -695,7 +788,10 @@ class _TimelineRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(entry.kind, style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  entry.kind,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 5),
                 Text(entry.body, style: Theme.of(context).textTheme.bodyMedium),
                 if (entry.photoCount > 0) ...[
@@ -703,7 +799,10 @@ class _TimelineRow extends StatelessWidget {
                   _PhotoStrip(count: entry.photoCount),
                 ],
                 const SizedBox(height: 9),
-                Text('${entry.teacher} · ${entry.time}', style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  '${entry.teacher} · ${entry.time}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ),
           ),
@@ -734,7 +833,10 @@ class _PhotoStrip extends StatelessWidget {
               border: Border.all(color: scheme.outlineVariant),
               borderRadius: BorderRadius.circular(7),
             ),
-            child: Icon(Icons.description_outlined, color: scheme.onSurfaceVariant.withOpacity(0.7)),
+            child: Icon(
+              Icons.description_outlined,
+              color: scheme.onSurfaceVariant.withOpacity(0.7),
+            ),
           ),
       ],
     );
@@ -757,33 +859,69 @@ class _CaseDetailPane extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 860),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(compact ? 18 : 32, 20, compact ? 18 : 32, 48),
+              padding: EdgeInsets.fromLTRB(
+                compact ? 18 : 32,
+                20,
+                compact ? 18 : 32,
+                48,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(tooltip: '返回', onPressed: onBack, icon: const Icon(Icons.arrow_back)),
+                  IconButton(
+                    tooltip: '返回',
+                    onPressed: onBack,
+                    icon: const Icon(Icons.arrow_back),
+                  ),
                   const SizedBox(height: 8),
-                  Text('林同学 · 语文', style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    '林同学 · 语文',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: Text('阅读概括不完整', style: Theme.of(context).textTheme.headlineSmall)),
+                      Expanded(
+                        child: Text(
+                          '阅读概括不完整',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                      ),
                       const SizedBox(width: 16),
-                      FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.edit_note_outlined, size: 18), label: const Text('记进展')),
+                      FilledButton.icon(
+                        onPressed: () {},
+                        icon: const Icon(Icons.edit_note_outlined, size: 18),
+                        label: const Text('记进展'),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('能够定位关键词，但概括仍容易遗漏结果。', style: Theme.of(context).textTheme.bodyLarge),
+                  Text(
+                    '能够定位关键词，但概括仍容易遗漏结果。',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
                   const SizedBox(height: 28),
                   Text('下一步', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.arrow_forward, size: 17, color: scheme.primary),
+                      Icon(
+                        Icons.arrow_forward,
+                        size: 17,
+                        color: scheme.primary,
+                      ),
                       const SizedBox(width: 8),
-                      Expanded(child: Text('周四再检查同类概括题', style: Theme.of(context).textTheme.bodyMedium)),
-                      Text('9 月 12 日', style: Theme.of(context).textTheme.bodySmall),
+                      Expanded(
+                        child: Text(
+                          '周四再检查同类概括题',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      Text(
+                        '9 月 12 日',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 30),
@@ -820,15 +958,23 @@ class _TodayPane extends StatelessWidget {
             children: [
               Text('今日', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 5),
-              Text('9 月 9 日 · 周三', style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                '9 月 9 日 · 周三',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 28),
               const _SectionTitle(title: '需要处理'),
               const SizedBox(height: 8),
-              for (final item in v2FocusItems) _TodayAction(item: item, onOpenCase: onOpenCase),
+              for (final item in v2FocusItems)
+                _TodayAction(item: item, onOpenCase: onOpenCase),
               const SizedBox(height: 28),
               const _SectionTitle(title: '待验证'),
               const SizedBox(height: 10),
-              _TodayAction(item: v2FocusItems.first, onOpenCase: onOpenCase, verification: true),
+              _TodayAction(
+                item: v2FocusItems.first,
+                onOpenCase: onOpenCase,
+                verification: true,
+              ),
             ],
           ),
         ),
@@ -838,7 +984,11 @@ class _TodayPane extends StatelessWidget {
 }
 
 class _TodayAction extends StatelessWidget {
-  const _TodayAction({required this.item, required this.onOpenCase, this.verification = false});
+  const _TodayAction({
+    required this.item,
+    required this.onOpenCase,
+    this.verification = false,
+  });
 
   final V2FocusItem item;
   final VoidCallback onOpenCase;
@@ -854,21 +1004,37 @@ class _TodayAction extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(width: 2, height: 56, color: verification ? scheme.primary : const Color(0xFFB77728)),
+            Container(
+              width: 2,
+              height: 56,
+              color: verification ? scheme.primary : const Color(0xFFB77728),
+            ),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('林同学 · ${item.subject}', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    '林同学 · ${item.subject}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 3),
-                  Text(item.title, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    item.title,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                   const SizedBox(height: 4),
-                  Text(verification ? '等待确认是否已经稳定' : '下一步 · ${item.nextStep}', style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    verification ? '等待确认是否已经稳定' : '下一步 · ${item.nextStep}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),
-            Text(verification ? '待验证' : item.dueLabel, style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              verification ? '待验证' : item.dueLabel,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 20),
           ],
@@ -898,9 +1064,15 @@ class _CaseIndexPane extends StatelessWidget {
               const SizedBox(height: 5),
               Text('找到仍需要复盘的问题', style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 22),
-              const TextField(decoration: InputDecoration(hintText: '搜索学生或问题…', prefixIcon: Icon(Icons.search, size: 19))),
+              const TextField(
+                decoration: InputDecoration(
+                  hintText: '搜索学生或问题…',
+                  prefixIcon: Icon(Icons.search, size: 19),
+                ),
+              ),
               const SizedBox(height: 18),
-              for (final item in v2FocusItems) _FocusRow(item: item, onTap: onOpenCase),
+              for (final item in v2FocusItems)
+                _FocusRow(item: item, onTap: onOpenCase),
             ],
           ),
         ),
@@ -927,7 +1099,11 @@ class _QuietPlaceholder extends StatelessWidget {
             children: [
               Text(title, style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 10),
-              Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
             ],
           ),
         ),

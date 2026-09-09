@@ -18,34 +18,41 @@ abstract final class V2Theme {
 
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
-    final scheme = ColorScheme.fromSeed(
-      seedColor: V2Palette.accent,
-      brightness: brightness,
-    ).copyWith(
-      surface: isDark ? const Color(0xFF111312) : V2Palette.canvas,
-      surfaceContainerLowest:
-          isDark ? const Color(0xFF151816) : V2Palette.surface,
-      surfaceContainerLow:
-          isDark ? const Color(0xFF181B19) : V2Palette.surface,
-      surfaceContainer:
-          isDark ? const Color(0xFF1D211F) : const Color(0xFFF2F4F1),
-      surfaceContainerHigh:
-          isDark ? const Color(0xFF242925) : const Color(0xFFEEF1EE),
-      onSurface: isDark ? const Color(0xFFE7E9E6) : V2Palette.text,
-      onSurfaceVariant:
-          isDark ? const Color(0xFFAEB6B1) : V2Palette.textMuted,
-      outline: isDark ? const Color(0xFF4A514D) : const Color(0xFFC4CBC6),
-      outlineVariant:
-          isDark ? const Color(0xFF303632) : V2Palette.border,
-      primary: isDark ? const Color(0xFF8CCFB9) : V2Palette.accent,
-      onPrimary: isDark ? const Color(0xFF12372D) : Colors.white,
-      primaryContainer:
-          isDark ? const Color(0xFF214B3F) : V2Palette.accentSoft,
-      onPrimaryContainer:
-          isDark ? const Color(0xFFC9F0E2) : const Color(0xFF1E5F4D),
-      error: isDark ? const Color(0xFFFFB4AB) : V2Palette.danger,
-      surfaceTint: Colors.transparent,
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: V2Palette.accent,
+          brightness: brightness,
+        ).copyWith(
+          surface: isDark ? const Color(0xFF111312) : V2Palette.canvas,
+          surfaceContainerLowest: isDark
+              ? const Color(0xFF151816)
+              : V2Palette.surface,
+          surfaceContainerLow: isDark
+              ? const Color(0xFF181B19)
+              : V2Palette.surface,
+          surfaceContainer: isDark
+              ? const Color(0xFF1D211F)
+              : const Color(0xFFF2F4F1),
+          surfaceContainerHigh: isDark
+              ? const Color(0xFF242925)
+              : const Color(0xFFEEF1EE),
+          onSurface: isDark ? const Color(0xFFE7E9E6) : V2Palette.text,
+          onSurfaceVariant: isDark
+              ? const Color(0xFFAEB6B1)
+              : V2Palette.textMuted,
+          outline: isDark ? const Color(0xFF4A514D) : const Color(0xFFC4CBC6),
+          outlineVariant: isDark ? const Color(0xFF303632) : V2Palette.border,
+          primary: isDark ? const Color(0xFF8CCFB9) : V2Palette.accent,
+          onPrimary: isDark ? const Color(0xFF12372D) : Colors.white,
+          primaryContainer: isDark
+              ? const Color(0xFF214B3F)
+              : V2Palette.accentSoft,
+          onPrimaryContainer: isDark
+              ? const Color(0xFFC9F0E2)
+              : const Color(0xFF1E5F4D),
+          error: isDark ? const Color(0xFFFFB4AB) : V2Palette.danger,
+          surfaceTint: Colors.transparent,
+        );
 
     final base = ThemeData(
       useMaterial3: true,
@@ -74,10 +81,7 @@ abstract final class V2Theme {
         height: 1.45,
         fontWeight: FontWeight.w600,
       ),
-      bodyLarge: base.textTheme.bodyLarge?.copyWith(
-        fontSize: 16,
-        height: 1.6,
-      ),
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: 16, height: 1.6),
       bodyMedium: base.textTheme.bodyMedium?.copyWith(
         fontSize: 15,
         height: 1.6,
@@ -106,7 +110,10 @@ abstract final class V2Theme {
         isDense: true,
         filled: true,
         fillColor: scheme.surfaceContainerLowest,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(7),
           borderSide: BorderSide(color: scheme.outlineVariant),

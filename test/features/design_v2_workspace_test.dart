@@ -4,12 +4,12 @@ import 'package:xueqing/features/design_v2/v2_theme.dart';
 import 'package:xueqing/features/design_v2/v2_workspace_preview.dart';
 
 void main() {
-  Widget app() => MaterialApp(
-    theme: V2Theme.light(),
-    home: const V2WorkspacePreview(),
-  );
+  Widget app() =>
+      MaterialApp(theme: V2Theme.light(), home: const V2WorkspacePreview());
 
-  testWidgets('desktop starts with student master-detail workspace', (tester) async {
+  testWidgets('desktop starts with student master-detail workspace', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -23,7 +23,9 @@ void main() {
     expect(find.text('阅读概括不完整'), findsWidgets);
   });
 
-  testWidgets('desktop can open a Case without leaving the shell', (tester) async {
+  testWidgets('desktop can open a Case without leaving the shell', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -38,7 +40,9 @@ void main() {
     expect(find.text('记进展'), findsOneWidget);
   });
 
-  testWidgets('compact uses bottom navigation and opens student detail', (tester) async {
+  testWidgets('compact uses bottom navigation and opens student detail', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
