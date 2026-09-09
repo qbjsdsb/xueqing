@@ -85,18 +85,31 @@ replace_once(
     "  static bool _isActiveCase(WorkspaceCase learningCase) =>\n      learningCase.status != LearningCaseStatus.closed;\n\n  static V2ActionTiming? _actionTiming(WorkspaceAction? action) =>\n      switch (action?.bucket) {\n        WorkspaceActionBucket.overdue => V2ActionTiming.overdue,\n        WorkspaceActionBucket.today => V2ActionTiming.today,\n        WorkspaceActionBucket.future => V2ActionTiming.future,\n        WorkspaceActionBucket.undated => V2ActionTiming.undated,\n        null => null,\n      };\n\n  static String _caseSummary",
 )
 
-# UI: Today only contains actionable non-future work, uses organization business date,
-# and removes a visible no-op student action.
+# UI: remove a visible no-op student action.
 replace_once(
     "lib/features/design_v2/v2_workspace_preview.dart",
     "        IconButton(\n          onPressed: () {},\n          tooltip: '更多',\n          icon: const Icon(Icons.more_horiz),\n        ),\n",
     "",
 )
-replace_once(
-    "lib/features/design_v2/v2_workspace_preview.dart",
-    "    final validItems = data.focusItems\n        .where((item) => data.studentForFocusItemOrNull(item) != null)\n        .toList(growable: false);\n",
-    "    final validItems = data.focusItems\n        .where(\n          (item) =>\n              data.studentForFocusItemOrNull(item) != null &&\n              item.actionTiming != null &&\n              item.actionTiming != V2ActionTiming.future,\n        )\n        .toList(growable: false);\n",
+
+# Scope the Today filter replacement so the similar CaseIndex query is untouched.
+preview_path = Path("lib/features/design_v2/v2_workspace_preview.dart")
+preview = preview_path.read_text(encoding="utf-8")
+today_start = preview.index("class _TodayPane extends StatelessWidget")
+today_end = preview.index("String _todayLabel", today_start)
+today_block = preview[today_start:today_end]
+old_today_filter = "    final validItems = data.focusItems\n        .where((item) => data.studentForFocusItemOrNull(item) != null)\n        .toList(growable: false);\n"
+new_today_filter = "    final validItems = data.focusItems\n        .where(\n          (item) =>\n              data.studentForFocusItemOrNull(item) != null &&\n              item.actionTiming != null &&\n              item.actionTiming != V2ActionTiming.future,\n        )\n        .toList(growable: false);\n"
+if today_block.count(old_today_filter) != 1:
+    raise SystemExit(
+        "v2_workspace_preview.dart: expected one Today validItems block, "
+        f"found {today_block.count(old_today_filter)}"
+    )
+today_block = today_block.replace(old_today_filter, new_today_filter, 1)
+preview_path.write_text(
+    preview[:today_start] + today_block + preview[today_end:], encoding="utf-8"
 )
+
 replace_once(
     "lib/features/design_v2/v2_workspace_preview.dart",
     "              Text(_todayLabel(), style: Theme.of(context).textTheme.bodySmall),\n",
