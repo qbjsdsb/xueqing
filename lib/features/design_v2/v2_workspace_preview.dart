@@ -1,6 +1,68 @@
 import 'package:flutter/material.dart';
 
+import 'v2_composers.dart';
 import 'v2_fixture.dart';
+
+Future<void> _showV2ProgressCasePicker(
+  BuildContext context,
+  V2Student student,
+) async {
+  Widget choices(BuildContext sheetContext) => ListView.separated(
+    shrinkWrap: true,
+    itemCount: v2FocusItems.length,
+    separatorBuilder: (_, _) => Divider(
+      height: 1,
+      color: Theme.of(sheetContext).colorScheme.outlineVariant,
+    ),
+    itemBuilder: (_, index) {
+      final item = v2FocusItems[index];
+      return ListTile(
+        title: Text(item.title),
+        subtitle: Text(item.subject),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(sheetContext).pop(item),
+      );
+    },
+  );
+
+  final compact = MediaQuery.sizeOf(context).width < 720;
+  final selected = compact
+      ? await showModalBottomSheet<V2FocusItem>(
+          context: context,
+          useSafeArea: true,
+          builder: (sheetContext) => Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '选择要记录进展的问题',
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                choices(sheetContext),
+              ],
+            ),
+          ),
+        )
+      : await showDialog<V2FocusItem>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('选择要记录进展的问题'),
+            content: SizedBox(width: 420, child: choices(dialogContext)),
+          ),
+        );
+  if (selected == null || !context.mounted) {
+    return;
+  }
+  await showV2ProgressComposer(
+    context,
+    studentName: student.name,
+    subject: selected.subject,
+    caseTitle: selected.title,
+  );
+}
 
 class V2WorkspacePreview extends StatefulWidget {
   const V2WorkspacePreview({super.key});
@@ -567,12 +629,16 @@ class _StudentHeader extends StatelessWidget {
       runSpacing: 8,
       children: [
         OutlinedButton.icon(
-          onPressed: () {},
+          onPressed: () => showV2QuickCapture(
+            context,
+            studentName: student.name,
+            subjects: student.subjects,
+          ),
           icon: const Icon(Icons.note_add_outlined, size: 18),
           label: const Text('记录问题'),
         ),
         FilledButton.icon(
-          onPressed: () {},
+          onPressed: () => _showV2ProgressCasePicker(context, student),
           icon: const Icon(Icons.edit_note_outlined, size: 18),
           label: const Text('记进展'),
         ),
@@ -892,7 +958,12 @@ class _CaseDetailPane extends StatelessWidget {
                       ),
                       const SizedBox(width: 16),
                       FilledButton.icon(
-                        onPressed: () {},
+                        onPressed: () => showV2ProgressComposer(
+                          context,
+                          studentName: '林同学',
+                          subject: '语文',
+                          caseTitle: '阅读概括不完整',
+                        ),
                         icon: const Icon(Icons.edit_note_outlined, size: 18),
                         label: const Text('记进展'),
                       ),

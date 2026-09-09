@@ -29,21 +29,21 @@ extension V2NextStepLabel on V2NextStep {
 Future<void> showV2QuickCapture(
   BuildContext context, {
   required String studentName,
-  required String subject,
+  required List<String> subjects,
   V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,
 }) async {
+  assert(subjects.isNotEmpty);
   final saved = await _showAdaptiveComposer<bool>(
     context,
     child: V2QuickCaptureComposer(
       studentName: studentName,
-      subject: subject,
+      subjects: subjects,
       attachmentPicker: attachmentPicker,
     ),
   );
   if (saved == true && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('V2 预览：记录已完成，但没有写入正式学情。')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('V2 预览：记录已完成，但没有写入正式学情。')));
   }
 }
 
@@ -64,9 +64,8 @@ Future<void> showV2ProgressComposer(
     ),
   );
   if (saved == true && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('V2 预览：进展已完成，但没有写入正式学情。')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('V2 预览：进展已完成，但没有写入正式学情。')));
   }
 }
 
@@ -100,13 +99,13 @@ Future<T?> _showAdaptiveComposer<T>(
 class V2QuickCaptureComposer extends StatefulWidget {
   const V2QuickCaptureComposer({
     required this.studentName,
-    required this.subject,
+    required this.subjects,
     required this.attachmentPicker,
     super.key,
   });
 
   final String studentName;
-  final String subject;
+  final List<String> subjects;
   final V2AttachmentPicker attachmentPicker;
 
   @override
@@ -116,9 +115,18 @@ class V2QuickCaptureComposer extends StatefulWidget {
 class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
   final _controller = TextEditingController();
   final _attachments = <PickedEvidenceAttachment>[];
+  String? _selectedSubject;
   bool _showMore = false;
   String _problemType = '暂不分类';
   String? _mediaError;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.subjects.length == 1) {
+      _selectedSubject = widget.subjects.single;
+    }
+  }
 
   @override
   void dispose() {
@@ -147,26 +155,42 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     }
   }
 
+  bool get _canSave =>
+      _selectedSubject != null && _controller.text.trim().isNotEmpty;
+
   void _save() {
-    if (_controller.text.trim().isEmpty) {
-      return;
+    if (_canSave) {
+      Navigator.of(context).pop(true);
     }
-    Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
     return _ComposerScaffold(
       title: '记录新问题',
-      contextLine: '${widget.studentName} · ${widget.subject}',
+      contextLine: _selectedSubject == null
+          ? widget.studentName
+          : '${widget.studentName} · $_selectedSubject',
       onClose: () => Navigator.of(context).pop(false),
       footer: _ComposerFooter(
         primaryLabel: '记录问题',
-        onPrimary: _controller.text.trim().isEmpty ? null : _save,
+        onPrimary: _canSave ? _save : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (widget.subjects.length > 1) ...[
+            Text('选择学科', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 4),
+            _InlineSelector<String>(
+              key: const Key('v2-quick-capture-subject-selector'),
+              value: _selectedSubject,
+              values: widget.subjects,
+              label: (value) => value,
+              onChanged: (value) => setState(() => _selectedSubject = value),
+            ),
+            const SizedBox(height: 22),
+          ],
           Text('今天发现什么？', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 10),
           TextField(
@@ -191,9 +215,8 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
             const SizedBox(height: 8),
             Text(
               _mediaError!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: Theme.of(context).colorScheme.error),
             ),
           ],
           const SizedBox(height: 8),
@@ -212,14 +235,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
                     child: DropdownButtonFormField<String>(
                       initialValue: _problemType,
                       decoration: const InputDecoration(labelText: '问题类型'),
-                      items: const [
-                        '暂不分类',
-                        '基础知识',
-                        '阅读理解',
-                        '写作',
-                        '学习习惯',
-                        '其他',
-                      ]
+                      items: const ['暂不分类', '基础知识', '阅读理解', '写作', '学习习惯', '其他']
                           .map(
                             (value) => DropdownMenuItem(
                               value: value,
@@ -335,7 +351,8 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   Widget build(BuildContext context) {
     return _ComposerScaffold(
       title: '记录进展',
-      contextLine: '${widget.studentName} · ${widget.subject}\n${widget.caseTitle}',
+      contextLine:
+          '${widget.studentName} · ${widget.subject}\n${widget.caseTitle}',
       onClose: () => Navigator.of(context).pop(false),
       footer: _ComposerFooter(
         primaryLabel: '保存进展',
@@ -368,9 +385,8 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
             const SizedBox(height: 8),
             Text(
               _mediaError!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: Theme.of(context).colorScheme.error),
             ),
           ],
           const SizedBox(height: 22),
@@ -398,7 +414,8 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                       value: _assessmentResult,
                       values: const ['通过', '部分通过', '未通过'],
                       label: (value) => value,
-                      onChanged: (value) => setState(() => _assessmentResult = value),
+                      onChanged: (value) =>
+                          setState(() => _assessmentResult = value),
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -419,59 +436,55 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
             child: switch (_nextStep) {
               V2NextStep.continueTracking => const SizedBox.shrink(),
               V2NextStep.remind => Padding(
-                  padding: const EdgeInsets.only(top: 14),
-                  child: Column(
-                    children: [
-                      TextField(
-                        key: const Key('v2-reminder-title'),
-                        controller: _reminderController,
-                        decoration: const InputDecoration(
-                          labelText: '提醒内容（可选）',
-                          hintText: '例如：再检查一次同类题',
+                padding: const EdgeInsets.only(top: 14),
+                child: Column(
+                  children: [
+                    TextField(
+                      key: const Key('v2-reminder-title'),
+                      controller: _reminderController,
+                      decoration: const InputDecoration(
+                        labelText: '提醒内容（可选）',
+                        hintText: '例如：再检查一次同类题',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        key: const Key('v2-reminder-date'),
+                        onPressed: _chooseReminderDate,
+                        icon: const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 17,
+                        ),
+                        label: Text(
+                          _reminderDate == null
+                              ? '选择日期'
+                              : '${_reminderDate!.month} 月 ${_reminderDate!.day} 日',
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          key: const Key('v2-reminder-date'),
-                          onPressed: _chooseReminderDate,
-                          icon: const Icon(Icons.calendar_today_outlined, size: 17),
-                          label: Text(
-                            _reminderDate == null
-                                ? '选择日期'
-                                : '${_reminderDate!.month} 月 ${_reminderDate!.day} 日',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
               V2NextStep.close => Padding(
-                  padding: const EdgeInsets.only(top: 14),
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _closeReason,
-                    decoration: const InputDecoration(labelText: '结束原因'),
-                    items: const [
-                      '问题已解决',
-                      '暂不继续跟进',
-                      '确认不是问题',
-                      '其他',
-                    ]
-                        .map(
-                          (value) => DropdownMenuItem(
-                            value: value,
-                            child: Text(value),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _closeReason = value);
-                      }
-                    },
-                  ),
+                padding: const EdgeInsets.only(top: 14),
+                child: DropdownButtonFormField<String>(
+                  initialValue: _closeReason,
+                  decoration: const InputDecoration(labelText: '结束原因'),
+                  items: const ['问题已解决', '暂不继续跟进', '确认不是问题', '其他']
+                      .map(
+                        (value) =>
+                            DropdownMenuItem(value: value, child: Text(value)),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _closeReason = value);
+                    }
+                  },
                 ),
+              ),
             },
           ),
         ],
@@ -507,7 +520,10 @@ class V2MediaDraftStrip extends StatelessWidget {
               label: Text(attachments.isEmpty ? '拍照 / 相册' : '继续添加'),
             ),
             const SizedBox(width: 6),
-            Text('${attachments.length}/3', style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              '${attachments.length}/3',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ],
         ),
         if (attachments.isNotEmpty) ...[
@@ -599,9 +615,15 @@ class _ComposerScaffold extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: Theme.of(context).textTheme.titleLarge),
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                         const SizedBox(height: 5),
-                        Text(contextLine, style: Theme.of(context).textTheme.bodySmall),
+                        Text(
+                          contextLine,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ],
                     ),
                   ),
@@ -613,14 +635,20 @@ class _ComposerScaffold extends StatelessWidget {
                 ],
               ),
             ),
-            Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+            Divider(
+              height: 1,
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
                 child: child,
               ),
             ),
-            Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+            Divider(
+              height: 1,
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
             footer,
           ],
         ),
@@ -639,12 +667,25 @@ class _ComposerFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-      child: Row(
-        children: [
-          Text('V2 预览 · 不写入正式学情', style: Theme.of(context).textTheme.bodySmall),
-          const Spacer(),
-          FilledButton(onPressed: onPrimary, child: Text(primaryLabel)),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 360;
+          final note = Text(
+            'V2 预览 · 不写入正式学情',
+            style: Theme.of(context).textTheme.bodySmall,
+          );
+          final action = FilledButton(
+            onPressed: onPrimary,
+            child: Text(primaryLabel),
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [note, const SizedBox(height: 8), action],
+            );
+          }
+          return Row(children: [note, const Spacer(), action]);
+        },
       ),
     );
   }
@@ -683,14 +724,18 @@ class _InlineSelector<T> extends StatelessWidget {
                   border: Border(
                     bottom: BorderSide(
                       width: 2,
-                      color: option == value ? scheme.primary : Colors.transparent,
+                      color: option == value
+                          ? scheme.primary
+                          : Colors.transparent,
                     ),
                   ),
                 ),
                 child: Text(
                   label(option),
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: option == value ? scheme.primary : scheme.onSurfaceVariant,
+                    color: option == value
+                        ? scheme.primary
+                        : scheme.onSurfaceVariant,
                   ),
                 ),
               ),
