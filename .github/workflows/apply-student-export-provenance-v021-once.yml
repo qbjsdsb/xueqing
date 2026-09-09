@@ -1,0 +1,48 @@
+name: Apply student export provenance once
+
+on:
+  push:
+    branches:
+      - fix/student-export-provenance-v021
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply focused patch
+        run: python tool/student_export_provenance_patch_v021.py
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Format
+        run: dart format lib/cloud/student_learning_record_repository.dart lib/export/learning_record_export.dart lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/cloud/student_learning_record_repository_test.dart test/cloud/student_learning_record_export_sql_contract_test.dart test/export/student_learning_record_export_test.dart
+      - name: Analyze
+        run: flutter analyze
+      - name: Test
+        run: flutter test
+      - name: Commit verified patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/apply-student-export-provenance-v021-once.yml
+          git rm -f tool/student_export_provenance_patch_v021.py
+          git add supabase/migrations/20260909063000_student_subject_learning_record_export.sql
+          git add supabase/tests/student_subject_learning_record_export_test.sql
+          git add lib/cloud/student_learning_record_repository.dart
+          git add lib/export/learning_record_export.dart
+          git add lib/features/teacher_workspace/presentation/teacher_workspace_page.dart
+          git add test/cloud/student_learning_record_repository_test.dart
+          git add test/cloud/student_learning_record_export_sql_contract_test.dart
+          git add test/export/student_learning_record_export_test.dart
+          git commit -m "Export: preserve historical record person for student records"
+          git push origin HEAD:fix/student-export-provenance-v021
