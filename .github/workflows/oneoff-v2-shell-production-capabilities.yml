@@ -43,6 +43,18 @@ jobs:
       - name: Apply shell patch
         run: python3 .github/scripts/patch_v2_shell_production_capabilities.py
 
+      - name: Remove obsolete course placeholder widget
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lib/features/design_v2/v2_workspace_preview.dart')
+          text = path.read_text(encoding='utf-8')
+          old = """class _QuietPlaceholder extends StatelessWidget {\n  const _QuietPlaceholder({required this.title, required this.message});\n\n  final String title;\n  final String message;\n\n  @override\n  Widget build(BuildContext context) {\n    return Center(\n      child: ConstrainedBox(\n        constraints: const BoxConstraints(maxWidth: 420),\n        child: Padding(\n          padding: const EdgeInsets.all(28),\n          child: Column(\n            mainAxisSize: MainAxisSize.min,\n            children: [\n              Text(title, style: Theme.of(context).textTheme.headlineSmall),\n              const SizedBox(height: 10),\n              Text(\n                message,\n                textAlign: TextAlign.center,\n                style: Theme.of(context).textTheme.bodyMedium,\n              ),\n            ],\n          ),\n        ),\n      ),\n    );\n  }\n}\n"""
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one obsolete placeholder, found {text.count(old)}')
+          path.write_text(text.replace(old, '', 1), encoding='utf-8')
+          PY
+
       - name: Format
         run: |
           dart format \
