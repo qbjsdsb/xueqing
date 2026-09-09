@@ -181,13 +181,26 @@ new_tests = insert_after + """
     await tester.tap(find.text('示例学生甲 · 数学').last);
     await tester.pumpAndSettle();
 
+    final hint = find.byKey(const Key('quick-capture-existing-cases-hint'));
+    expect(hint, findsOneWidget);
     expect(
-      find.byKey(const Key('quick-capture-existing-cases-hint')),
+      find.descendant(
+        of: hint,
+        matching: find.text('这个学生已有正在跟进的问题'),
+      ),
       findsOneWidget,
     );
-    expect(find.text('这个学生已有正在跟进的问题'), findsOneWidget);
-    expect(find.textContaining('分数步骤需要继续观察'), findsOneWidget);
-    expect(find.textContaining('请用“记进展”'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: hint,
+        matching: find.textContaining('分数步骤需要继续观察'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: hint, matching: find.textContaining('请用“记进展”')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('workspace-quick-capture-save')), findsOneWidget);
   });
 
