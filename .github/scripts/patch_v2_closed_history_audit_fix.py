@@ -17,29 +17,41 @@ replacements = [
 """,
     ),
     (
-        """    final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
+        """    final scheme = Theme.of(context).colorScheme;
+    final timelineEntries = V2WorkspaceDataScope.of(context)
+        .timelineForCase(item);
+    final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
     final pendingAction = controller?.pendingActionFor(item.id);
+    return ColoredBox(
 """,
-        """    final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
+        """    final scheme = Theme.of(context).colorScheme;
+    final timelineEntries = V2WorkspaceDataScope.of(context)
+        .timelineForCase(item);
+    final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
     final pendingAction = item.closed
         ? null
         : controller?.pendingActionFor(item.id);
+    return ColoredBox(
 """,
     ),
     (
-        """                  Text('下一步', style: Theme.of(context).textTheme.titleMedium),
+        """                  const SizedBox(height: 28),
+                  Text('下一步', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 6),
 """,
-        """                  Text(
+        """                  const SizedBox(height: 28),
+                  Text(
                     item.closed ? '状态' : '下一步',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
+                  const SizedBox(height: 6),
 """,
     ),
 ]
 for old, new in replacements:
     count = text.count(old)
     if count != 1:
-        raise SystemExit(f'expected one match, found {count}: {old[:100]!r}')
+        raise SystemExit(f'expected one match, found {count}: {old[:140]!r}')
     text = text.replace(old, new, 1)
 
 path.write_text(text, encoding='utf-8')
