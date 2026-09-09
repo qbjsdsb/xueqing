@@ -1,0 +1,263 @@
+name: Promote verified Xueqing v0.2.1 RC to Stable
+
+on:
+  push:
+    branches:
+      - release/v0.2.1-device-candidate
+    paths:
+      - ".github/release-requests/v0.2.1-stable"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: promote-v0.2.1-stable
+  cancel-in-progress: false
+
+env:
+  RC_TAG: v0.2.1-rc.1
+  RELEASE_TAG: v0.2.1
+  RELEASE_VERSION: 0.2.1+7
+  RELEASE_COMMIT: 7777fdd44f70cc4c9d6a729e49c6e6b8f3885b03
+
+jobs:
+  promote:
+    name: Verify RC bytes and promote Stable
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Verify frozen main, RC, and current Stable baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          if [[ "$current_main" != "$RELEASE_COMMIT" ]]; then
+            echo "main moved after the v0.2.1 freeze; refusing Stable promotion."
+            exit 1
+          fi
+
+          latest_tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
+          if [[ "$latest_tag" != "v0.2.0" ]]; then
+            echo "Expected current latest Stable to be v0.2.0, got: $latest_tag"
+            exit 1
+          fi
+
+          rc_json="$(gh release view "$RC_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName)"
+          RC_JSON="$rc_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RC_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('RC must be a published Pre-release before Stable promotion')
+          PY
+
+          rc_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RC_TAG" --jq '.sha')"
+          if [[ "$rc_commit" != "$RELEASE_COMMIT" ]]; then
+            echo "RC tag does not point to the frozen main commit."
+            exit 1
+          fi
+
+      - name: Download exact verified RC assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p rc-assets
+          gh release download "$RC_TAG" --repo "$GITHUB_REPOSITORY" --dir rc-assets
+          for name in \
+            "xueqing-${RC_TAG}-android.apk" \
+            "xueqing-${RC_TAG}-windows.zip" \
+            "xueqing-${RC_TAG}-windows-setup.exe" \
+            candidate-info.json \
+            SHA256SUMS.txt; do
+            test -s "rc-assets/$name" || { echo "Missing or empty RC asset: $name"; exit 1; }
+          done
+
+      - name: Verify RC provenance and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          info = json.loads(Path('rc-assets/candidate-info.json').read_text(encoding='utf-8'))
+          expected = {
+              'channel': 'stable-device-candidate',
+              'app_version': '0.2.1+7',
+              'release_tag': 'v0.2.1-rc.1',
+              'source_commit': '7777fdd44f70cc4c9d6a729e49c6e6b8f3885b03',
+              'environment': 'production',
+              'android_signing': 'permanent-release-certificate-verified',
+              'stable_latest': False,
+          }
+          for key, value in expected.items():
+              if info.get(key) != value:
+                  raise SystemExit(f'RC provenance mismatch for {key}: {info.get(key)!r}')
+          PY
+          (cd rc-assets && sha256sum -c SHA256SUMS.txt)
+
+      - name: Prepare exact-byte Stable assets and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p stable-assets
+          android_asset="xueqing-${RELEASE_TAG}-android.apk"
+          windows_asset="xueqing-${RELEASE_TAG}-windows.zip"
+          setup_asset="xueqing-${RELEASE_TAG}-windows-setup.exe"
+          cp "rc-assets/xueqing-${RC_TAG}-android.apk" "stable-assets/$android_asset"
+          cp "rc-assets/xueqing-${RC_TAG}-windows.zip" "stable-assets/$windows_asset"
+          cp "rc-assets/xueqing-${RC_TAG}-windows-setup.exe" "stable-assets/$setup_asset"
+          export ANDROID_ASSET="$android_asset"
+          export WINDOWS_ASSET="$windows_asset"
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('stable-assets')
+          repository = os.environ['GITHUB_REPOSITORY']
+          tag = os.environ['RELEASE_TAG']
+          version = os.environ['RELEASE_VERSION']
+
+          def artifact(name, format_name):
+              path = root / name
+              return {
+                  'url': f'https://github.com/{repository}/releases/download/{tag}/{name}',
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                  'size_bytes': path.stat().st_size,
+                  'format': format_name,
+                  'file_name': name,
+              }
+
+          manifest = {
+              'schema': 1,
+              'channel': 'stable',
+              'version': version,
+              'notes': [
+                  '教师记录与跟进流程进一步简化',
+                  '学生、学科与任课关系展示更清晰，减少重复与混乱',
+                  '成长时间线按真实发生顺序更直观展示',
+                  '学生/学科与教师记录导出能力完善',
+                  '管理端与低频操作进一步收拢，界面更简洁',
+                  '继续支持 Android APK 与 Windows Setup，并可通过应用内检查更新',
+              ],
+              'platforms': {
+                  'android': artifact(os.environ['ANDROID_ASSET'], 'apk'),
+                  'windows': artifact(os.environ['WINDOWS_ASSET'], 'zip'),
+              },
+          }
+          (root / 'update-manifest.json').write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          (cd stable-assets && sha256sum *.apk *.zip *.exe update-manifest.json | sort) > stable-assets/SHA256SUMS.txt
+
+      - name: Verify exact-byte promotion and manifest integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp -s "rc-assets/xueqing-${RC_TAG}-android.apk" "stable-assets/xueqing-${RELEASE_TAG}-android.apk"
+          cmp -s "rc-assets/xueqing-${RC_TAG}-windows.zip" "stable-assets/xueqing-${RELEASE_TAG}-windows.zip"
+          cmp -s "rc-assets/xueqing-${RC_TAG}-windows-setup.exe" "stable-assets/xueqing-${RELEASE_TAG}-windows-setup.exe"
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('stable-assets')
+          manifest = json.loads((root / 'update-manifest.json').read_text(encoding='utf-8'))
+          if manifest.get('channel') != 'stable' or manifest.get('version') != '0.2.1+7':
+              raise SystemExit('Stable manifest identity mismatch')
+          for item in manifest['platforms'].values():
+              path = root / item['file_name']
+              if path.stat().st_size != item['size_bytes']:
+                  raise SystemExit(f'Size mismatch: {path}')
+              if hashlib.sha256(path.read_bytes()).hexdigest() != item['sha256']:
+                  raise SystemExit(f'SHA mismatch: {path}')
+          setup = root / 'xueqing-v0.2.1-windows-setup.exe'
+          if not setup.is_file() or setup.stat().st_size <= 0:
+              raise SystemExit('Stable Windows Setup is missing or empty')
+          PY
+
+      - name: Create or verify v0.2.1 staging Pre-release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
+            RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('Existing v0.2.1 must still be a staging Pre-release')
+          PY
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_COMMIT" \
+              --prerelease \
+              --title "Xueqing v0.2.1" \
+              --notes $'Xueqing v0.2.1 正式版\n\n本版本继续围绕教师真实工作流做减法和收口：学生/学科关系展示更清晰，记录问题与跟进更顺手，成长时间线与导出能力更直观，管理端低频操作进一步收拢。\n\nAndroid 提供正式签名 APK；Windows 提供 ZIP 与 Setup EXE；应用内更新继续使用 Stable manifest。'
+          fi
+          actual_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          if [[ "$actual_commit" != "$RELEASE_COMMIT" ]]; then
+            echo "v0.2.1 tag does not point to frozen main."
+            exit 1
+          fi
+
+      - name: Upload Stable assets to staged Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" stable-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Verify staged Stable assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('v0.2.1 left staging state before final verification')
+          assets = {item['name']: item for item in release['assets']}
+          expected = {
+              'xueqing-v0.2.1-android.apk',
+              'xueqing-v0.2.1-windows.zip',
+              'xueqing-v0.2.1-windows-setup.exe',
+              'update-manifest.json',
+              'SHA256SUMS.txt',
+          }
+          missing = sorted(expected - set(assets))
+          if missing:
+              raise SystemExit(f'Missing Stable assets: {missing}')
+          empty = sorted(name for name in expected if int(assets[name].get('size', 0)) <= 0)
+          if empty:
+              raise SystemExit(f'Empty Stable assets: {empty}')
+          PY
+
+      - name: Promote v0.2.1 to Stable/latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+
+      - name: Verify final Stable/latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,url,isDraft,isPrerelease,assets)"
+          printf '%s\n' "$release_json"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['tagName'] != 'v0.2.1' or release['isDraft'] or release['isPrerelease']:
+              raise SystemExit('Final v0.2.1 Stable verification failed')
+          PY
+          latest_tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
+          if [[ "$latest_tag" != "$RELEASE_TAG" ]]; then
+            echo "v0.2.1 is not releases/latest after promotion."
+            exit 1
+          fi
