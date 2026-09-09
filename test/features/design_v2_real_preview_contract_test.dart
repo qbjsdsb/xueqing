@@ -22,6 +22,7 @@ void main() {
     );
     expect(router, contains('loadWorkspace: repository.loadWorkspace'));
     expect(preview, contains('final V2WorkspaceLoad loadWorkspace;'));
+    expect(preview, isNot(contains('Scaffold(')));
     expect(preview, isNot(contains('quickCapture(')));
     expect(preview, isNot(contains('recordProgress(')));
   });
