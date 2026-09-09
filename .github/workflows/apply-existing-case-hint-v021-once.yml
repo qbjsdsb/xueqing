@@ -22,6 +22,23 @@ jobs:
           cache: true
       - name: Apply focused patch
         run: python tool/existing_case_hint_patch_v021.py
+      - name: Align test with auto-selected single student
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('test/features/teacher_workspace_test.dart')
+          text = path.read_text(encoding='utf-8')
+          block = """    expect(
+              find.byKey(const Key('quick-capture-existing-cases-hint')),
+              findsNothing,
+            );
+
+          """
+          if text.count(block) != 1:
+              raise SystemExit(f'expected one pre-selection assertion, found {text.count(block)}')
+          text = text.replace(block, '', 1)
+          path.write_text(text, encoding='utf-8')
+          PY
       - name: Format
         run: dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart
       - name: Get dependencies
