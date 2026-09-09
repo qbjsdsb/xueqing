@@ -1,0 +1,43 @@
+name: Apply existing-case hint once
+
+on:
+  push:
+    branches:
+      - ux/new-problem-existing-case-hint-v021
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply focused patch
+        run: python tool/existing_case_hint_patch_v021.py
+      - name: Format
+        run: dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Test
+        run: flutter test
+      - name: Commit verified patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/apply-existing-case-hint-v021-once.yml
+          git rm -f tool/existing_case_hint_patch_v021.py
+          git add lib/features/teacher_workspace/presentation/teacher_workspace_page.dart
+          git add test/features/teacher_workspace_test.dart
+          git add docs/design/SCREEN_SPECS.md
+          git commit -m "UX: warn about current problems before creating another"
+          git push origin HEAD:ux/new-problem-existing-case-hint-v021
