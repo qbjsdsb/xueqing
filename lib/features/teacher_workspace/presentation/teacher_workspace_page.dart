@@ -4023,7 +4023,7 @@ class _WorkspaceQuickCaptureFormState
           for (final group in groups)
             _WorkspaceChoiceOption<WorkspaceStudent>(
               key: ValueKey<String>(
-                'quick-capture-student-option-${group.first.profileId}',
+                'quick-capture-student-option-${group.first.id}',
               ),
               value: group.first,
               title: _studentPersonLabel(group),

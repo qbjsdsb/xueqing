@@ -1777,7 +1777,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('选择学生'), findsOneWidget);
     await tester.tap(
-      find.byKey(const Key('quick-capture-student-option-profile-1')),
+      find.byKey(const Key('quick-capture-student-option-student-1')),
     );
     await tester.pumpAndSettle();
     expect(
