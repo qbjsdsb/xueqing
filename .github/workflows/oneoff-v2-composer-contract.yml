@@ -26,7 +26,9 @@ jobs:
           cache: true
 
       - name: Apply composer contract patch
-        run: python3 .github/scripts/patch_v2_composer_contract.py
+        run: |
+          python3 .github/scripts/patch_v2_composer_contract.py
+          python3 .github/scripts/fix_v2_composer_test_image.py
 
       - name: Format changed Dart
         run: dart format lib/features/design_v2/v2_composers.dart lib/features/design_v2/v2_workflow_controller.dart test/features/design_v2_composers_test.dart
