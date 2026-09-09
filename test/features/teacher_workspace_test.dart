@@ -402,6 +402,10 @@ TeacherWorkspace _fixtureWorkspace({
 WorkspaceStudent _studentFixture({
   required String id,
   required String name,
+  String? studentId,
+  String? profileId,
+  String subject = '数学',
+  String context = '课堂学习',
   DateTime? recentActivityAt,
   DateTime? actionDueAt,
   WorkspaceActionBucket actionBucket = WorkspaceActionBucket.overdue,
@@ -440,13 +444,13 @@ WorkspaceStudent _studentFixture({
           timeline: const <WorkspaceTimelineEvent>[],
         );
   return WorkspaceStudent(
-    id: 'student-$id',
-    profileId: 'profile-$id',
+    id: studentId ?? 'student-$id',
+    profileId: profileId ?? 'profile-$id',
     profileVersion: 1,
     name: name,
     grade: '初二',
-    subject: '数学',
-    context: '课堂学习',
+    subject: subject,
+    context: context,
     positioning: null,
     strengths: null,
     cadenceNote: null,
@@ -1317,6 +1321,76 @@ void main() {
     expect(find.text('未来再处理的问题'), findsOneWidget);
   });
 
+  testWidgets(
+    'groups a multi-subject student once and keeps every subject reachable',
+    (tester) async {
+      final repository = _FakeLearningRepository(
+        _workspaceWithStudents([
+          _studentFixture(
+            id: 'shared-math',
+            name: '林同学',
+            studentId: 'student-shared',
+            profileId: 'profile-math',
+            subject: '数学',
+            context: '函数基础',
+          ),
+          _studentFixture(
+            id: 'shared-chinese',
+            name: '林同学',
+            studentId: 'student-shared',
+            profileId: 'profile-chinese',
+            subject: '语文',
+            context: '现代文阅读',
+          ),
+        ]),
+      );
+      await _pumpWorkspace(tester, repository);
+
+      await tester.tap(find.byIcon(Icons.people_outline).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 人'), findsOneWidget);
+      expect(find.text('林同学'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>('workspace-student-subject-profile-math'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('workspace-student-subject-profile-chinese'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('数学'), findsOneWidget);
+      expect(find.text('语文'), findsOneWidget);
+
+      final searchField = find.byKey(const Key('workspace-student-search'));
+      await tester.enterText(searchField, '语文');
+      await tester.pumpAndSettle();
+      expect(find.text('林同学'), findsOneWidget);
+      expect(find.text('数学'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>('workspace-student-subject-profile-chinese'),
+        ),
+        findsOneWidget,
+      );
+
+      final chinese = find.byKey(
+        const ValueKey<String>('workspace-student-subject-profile-chinese'),
+      );
+      await tester.ensureVisible(chinese);
+      await tester.tap(chinese);
+      await tester.pumpAndSettle();
+
+      expect(find.text('林同学'), findsOneWidget);
+      expect(find.textContaining('语文'), findsOneWidget);
+      expect(find.textContaining('现代文阅读'), findsOneWidget);
+    },
+  );
+
   testWidgets('clears student search in one tap and restores the list', (
     tester,
   ) async {
@@ -2031,6 +2105,13 @@ void main() {
     await tester.tap(reopenButton);
     await tester.pumpAndSettle();
 
+    expect(find.text('记录来源 *'), findsOneWidget);
+    expect(find.text('简要标题 *'), findsOneWidget);
+    expect(find.text('具体表现 *'), findsOneWidget);
+    expect(find.textContaining('operation ID'), findsNothing);
+    expect(find.textContaining('服务器'), findsNothing);
+    expect(find.textContaining('未完成的内容会自动保留'), findsOneWidget);
+
     await tester.enterText(
       find.byKey(const Key('reopen-evidence-title')),
       '关闭后再次出现同类表现',
@@ -2043,7 +2124,7 @@ void main() {
       find.byKey(const Key('reopen-next-action')),
       '复核复发原因并安排验证',
     );
-    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存证据');
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存并继续');
     await tester.ensureVisible(saveEvidenceButton);
     await tester.tap(saveEvidenceButton);
     await tester.pumpAndSettle();
@@ -2102,7 +2183,7 @@ void main() {
       find.byKey(const Key('reopen-next-action')),
       '复核复发原因并安排验证',
     );
-    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存证据');
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存并继续');
     await tester.ensureVisible(saveEvidenceButton);
     await tester.tap(saveEvidenceButton);
     await tester.pumpAndSettle();
@@ -2185,12 +2266,12 @@ void main() {
       find.byKey(const Key('reopen-evidence-summary')),
       '学生再次跳过通分步骤，需要重新安排验证。',
     );
-    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存证据');
+    final saveEvidenceButton = find.widgetWithText(FilledButton, '保存并继续');
     await tester.ensureVisible(saveEvidenceButton);
     await tester.tap(saveEvidenceButton);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('观察时间必须晚于最近一次关闭时间'), findsOneWidget);
+    expect(find.textContaining('观察时间需要晚于最近一次结束跟进时间'), findsOneWidget);
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('reopen-evidence-title')))

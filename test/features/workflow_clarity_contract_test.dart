@@ -18,9 +18,12 @@ void main() {
     );
     expect(
       source,
-      contains("students.map((student) => student.id).toSet().length"),
+      isNot(contains("students.map((student) => student.id).toSet().length")),
     );
     expect(source, contains('_dedupeStudentsById('));
+    expect(source, contains('_groupStudentsById('));
+    expect(source, contains('_WorkspaceMultiSubjectStudentRow'));
+    expect(source, contains("count: '\${studentGroups.length} 人'"));
   });
 
   test('teacher surfaces do not expose management-only or domain wording', () {
@@ -31,6 +34,12 @@ void main() {
     expect(source, isNot(contains("title: const Text('关闭 Case？')")));
     expect(source, contains("title: const Text('结束跟进？')"));
     expect(source, contains("child: const Text('结束跟进')"));
+    expect(source, isNot(contains('operation ID')));
+    expect(source, isNot(contains('未提交到服务器')));
+    expect(source, contains("labelText: '记录来源 *'"));
+    expect(source, contains("labelText: '简要标题 *'"));
+    expect(source, contains("labelText: '具体表现 *'"));
+    expect(source, contains("? '保存并继续'"));
 
     final studentPageStart = source.indexOf('Widget _buildStudents(');
     final studentPageEnd = source.indexOf(
