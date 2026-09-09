@@ -11,11 +11,13 @@ class V2WorkspaceData {
     required this.students,
     required this.focusItems,
     required this.timeline,
+    this.businessDate,
   });
 
   final List<V2Student> students;
   final List<V2FocusItem> focusItems;
   final List<V2TimelineEntry> timeline;
+  final DateTime? businessDate;
 
   List<V2FocusItem> focusItemsForStudent(V2Student student) => focusItems
       .where((item) => item.studentId == student.id)

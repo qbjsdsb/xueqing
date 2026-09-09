@@ -13,6 +13,7 @@ class V2ReadModelSnapshot {
     required this.focusItems,
     required this.timeline,
     required this.caseBindings,
+    required this.businessDate,
   });
 
   final String viewerName;
@@ -21,11 +22,13 @@ class V2ReadModelSnapshot {
   final List<V2FocusItem> focusItems;
   final List<V2TimelineEntry> timeline;
   final List<V2CaseBinding> caseBindings;
+  final DateTime? businessDate;
 
   V2WorkspaceData get workspaceData => V2WorkspaceData(
     students: students,
     focusItems: focusItems,
     timeline: timeline,
+    businessDate: businessDate,
   );
 
   List<V2FocusItem> focusItemsForStudent(String studentId) => focusItems
@@ -132,6 +135,7 @@ class V2ReadModelAdapter {
             nextStep: _nextStep(primaryAction),
             dueLabel: _dueLabel(primaryAction),
             subject: profile.subject,
+            actionTiming: _actionTiming(primaryAction),
             pendingVerification:
                 learningCase.status == LearningCaseStatus.pendingVerification,
           ),
@@ -175,12 +179,21 @@ class V2ReadModelAdapter {
       focusItems: List<V2FocusItem>.unmodifiable(focusItems),
       timeline: List<V2TimelineEntry>.unmodifiable(timeline),
       caseBindings: List<V2CaseBinding>.unmodifiable(bindings),
+      businessDate: workspace.businessDate,
     );
   }
 
   static bool _isActiveCase(WorkspaceCase learningCase) =>
-      learningCase.status != LearningCaseStatus.stable &&
       learningCase.status != LearningCaseStatus.closed;
+
+  static V2ActionTiming? _actionTiming(WorkspaceAction? action) =>
+      switch (action?.bucket) {
+        WorkspaceActionBucket.overdue => V2ActionTiming.overdue,
+        WorkspaceActionBucket.today => V2ActionTiming.today,
+        WorkspaceActionBucket.future => V2ActionTiming.future,
+        WorkspaceActionBucket.undated => V2ActionTiming.undated,
+        null => null,
+      };
 
   static String _caseSummary(WorkspaceCase learningCase) {
     final description = learningCase.description?.trim();

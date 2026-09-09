@@ -953,11 +953,6 @@ class _StudentHeader extends StatelessWidget {
           icon: const Icon(Icons.edit_note_outlined, size: 18),
           label: const Text('记进展'),
         ),
-        IconButton(
-          onPressed: () {},
-          tooltip: '更多',
-          icon: const Icon(Icons.more_horiz),
-        ),
       ],
     );
     return Column(
@@ -1481,7 +1476,12 @@ class _TodayPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = V2WorkspaceDataScope.of(context);
     final validItems = data.focusItems
-        .where((item) => data.studentForFocusItemOrNull(item) != null)
+        .where(
+          (item) =>
+              data.studentForFocusItemOrNull(item) != null &&
+              item.actionTiming != null &&
+              item.actionTiming != V2ActionTiming.future,
+        )
         .toList(growable: false);
     final actionItems = validItems
         .where((item) => !item.pendingVerification)
@@ -1502,7 +1502,10 @@ class _TodayPane extends StatelessWidget {
             children: [
               Text('今日', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 5),
-              Text(_todayLabel(), style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                _todayLabel(data.businessDate),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 28),
               if (actionItems.isEmpty && verificationItems.isEmpty)
                 Text(
@@ -1535,9 +1538,9 @@ class _TodayPane extends StatelessWidget {
   }
 }
 
-String _todayLabel() {
+String _todayLabel(DateTime? businessDate) {
   const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-  final now = DateTime.now();
+  final now = businessDate ?? DateTime.now();
   return '${now.month} 月 ${now.day} 日 · ${weekdays[now.weekday - 1]}';
 }
 

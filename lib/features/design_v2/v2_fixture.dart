@@ -18,6 +18,8 @@ class V2Student {
   final String teacherSummary;
 }
 
+enum V2ActionTiming { overdue, today, future, undated }
+
 class V2FocusItem {
   const V2FocusItem({
     required this.id,
@@ -27,6 +29,7 @@ class V2FocusItem {
     required this.nextStep,
     required this.dueLabel,
     required this.subject,
+    this.actionTiming,
     this.pendingVerification = false,
   });
 
@@ -37,6 +40,7 @@ class V2FocusItem {
   final String nextStep;
   final String dueLabel;
   final String subject;
+  final V2ActionTiming? actionTiming;
   final bool pendingVerification;
 }
 
@@ -128,6 +132,7 @@ const v2FocusItems = <V2FocusItem>[
     nextStep: '周四再检查同类题',
     dueLabel: '9 月 12 日',
     subject: '语文',
+    actionTiming: V2ActionTiming.today,
   ),
   V2FocusItem(
     id: 'case-lin-function',
@@ -137,6 +142,7 @@ const v2FocusItems = <V2FocusItem>[
     nextStep: '再练 2 道同类题',
     dueLabel: '9 月 14 日',
     subject: '数学',
+    actionTiming: V2ActionTiming.today,
   ),
   V2FocusItem(
     id: 'case-wang-tense',
@@ -146,6 +152,7 @@ const v2FocusItems = <V2FocusItem>[
     nextStep: '用一篇完形再检查',
     dueLabel: '9 月 13 日',
     subject: '英语',
+    actionTiming: V2ActionTiming.today,
   ),
   V2FocusItem(
     id: 'case-chen-geometry',
@@ -155,6 +162,7 @@ const v2FocusItems = <V2FocusItem>[
     nextStep: '口述 2 道证明题思路',
     dueLabel: '9 月 15 日',
     subject: '数学',
+    actionTiming: V2ActionTiming.today,
   ),
   V2FocusItem(
     id: 'case-zhou-force',
@@ -164,6 +172,7 @@ const v2FocusItems = <V2FocusItem>[
     nextStep: '先画受力图再列式',
     dueLabel: '9 月 12 日',
     subject: '物理',
+    actionTiming: V2ActionTiming.today,
     pendingVerification: true,
   ),
   V2FocusItem(
@@ -174,6 +183,7 @@ const v2FocusItems = <V2FocusItem>[
     nextStep: '集中练 5 组配平',
     dueLabel: '9 月 16 日',
     subject: '化学',
+    actionTiming: V2ActionTiming.today,
   ),
   V2FocusItem(
     id: 'case-wu-reading',
@@ -183,6 +193,7 @@ const v2FocusItems = <V2FocusItem>[
     nextStep: '拆 3 个阅读长句',
     dueLabel: '9 月 14 日',
     subject: '英语',
+    actionTiming: V2ActionTiming.today,
   ),
 ];
 
