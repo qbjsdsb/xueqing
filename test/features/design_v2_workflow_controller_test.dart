@@ -235,6 +235,87 @@ void main() {
     );
 
     test(
+      'direct action completion keeps exact optimistic-lock identity',
+      () async {
+        final learning = _FakeLearningRepository();
+        final controller = V2WorkflowController(
+          workspace: _workspace(),
+          learningRepository: learning,
+          progressiveCaseRepository: _FakeProgressiveCaseRepository(),
+        );
+
+        final action = controller.pendingActionFor('case-existing');
+        expect(action, isNotNull);
+        expect(action!.actionId, 'action-current');
+        expect(action.actionVersion, 2);
+        expect(action.caseVersion, 3);
+        expect(action.canComplete, isTrue);
+
+        await controller.completeCurrentAction(
+          operationId: 'operation-complete-1',
+          caseId: 'case-existing',
+        );
+
+        final command = learning.completeActionCalls.single;
+        expect(command.operationId, 'operation-complete-1');
+        expect(command.actionId, 'action-current');
+        expect(command.caseId, 'case-existing');
+        expect(command.expectedCaseVersion, 3);
+        expect(command.expectedActionVersion, 2);
+        expect(command.nextActionTitle, isNull);
+      },
+    );
+
+    test(
+      'direct action reschedule keeps identity and accepts undated',
+      () async {
+        final learning = _FakeLearningRepository();
+        final controller = V2WorkflowController(
+          workspace: _workspace(),
+          learningRepository: learning,
+          progressiveCaseRepository: _FakeProgressiveCaseRepository(),
+        );
+
+        await controller.rescheduleCurrentAction(
+          operationId: 'operation-reschedule-1',
+          caseId: 'case-existing',
+          dueOn: null,
+        );
+
+        final command = learning.rescheduleActionCalls.single;
+        expect(command.operationId, 'operation-reschedule-1');
+        expect(command.actionId, 'action-current');
+        expect(command.expectedCaseVersion, 3);
+        expect(command.expectedActionVersion, 2);
+        expect(command.dueOn, isNull);
+      },
+    );
+
+    test('new case action cannot be completed before confirmation', () async {
+      final learning = _FakeLearningRepository();
+      final controller = V2WorkflowController(
+        workspace: _workspaceWithCase(
+          _case(status: LearningCaseStatus.newCase),
+        ),
+        learningRepository: learning,
+        progressiveCaseRepository: _FakeProgressiveCaseRepository(),
+      );
+
+      expect(
+        controller.pendingActionFor('case-existing')!.canComplete,
+        isFalse,
+      );
+      await expectLater(
+        controller.completeCurrentAction(
+          operationId: 'operation-blocked',
+          caseId: 'case-existing',
+        ),
+        throwsA(isA<V2WorkflowSaveException>()),
+      );
+      expect(learning.completeActionCalls, isEmpty);
+    });
+
+    test(
       'case type choices use real active types and one unclassified option',
       () {
         final controller = V2WorkflowController(
@@ -266,6 +347,26 @@ void main() {
     );
   });
 }
+
+TeacherWorkspace _workspaceWithCase(WorkspaceCase learningCase) =>
+    TeacherWorkspace(
+      organizationId: 'org-1',
+      viewerName: '王老师',
+      organizationName: '测试机构',
+      organizationTimeZone: 'Asia/Shanghai',
+      hasTeachingAccess: true,
+      students: [
+        _profile(
+          studentId: 'student-1',
+          profileId: 'profile-chinese',
+          profileVersion: 2,
+          name: '林同学',
+          subject: '语文',
+          cases: [learningCase],
+        ),
+      ],
+      loadedAt: DateTime(2026, 9, 9),
+    );
 
 TeacherWorkspace _workspace() => TeacherWorkspace(
   organizationId: 'org-1',
@@ -341,12 +442,14 @@ WorkspaceStudent _profile({
   recentFacts: const [],
 );
 
-WorkspaceCase _case() => WorkspaceCase(
+WorkspaceCase _case({
+  LearningCaseStatus status = LearningCaseStatus.confirmed,
+}) => WorkspaceCase(
   id: 'case-existing',
   profileId: 'profile-chinese',
   title: '阅读概括不完整',
   type: LearningCaseType.knowledge,
-  status: LearningCaseStatus.confirmed,
+  status: status,
   priority: 'normal',
   description: '概括题容易漏掉结果。',
   firstObservedAt: DateTime(2026, 9, 1),
@@ -385,6 +488,8 @@ class _FakeLearningRepository extends Fake implements LearningRepository {
   final List<String>? log;
   final quickCaptureCalls = <QuickCaptureCommand>[];
   final addEvidenceCalls = <AddCaseEvidenceCommand>[];
+  final completeActionCalls = <CompleteCaseActionCommand>[];
+  final rescheduleActionCalls = <RescheduleCaseActionCommand>[];
   CaseCommandReceipt addEvidenceReceipt = const CaseCommandReceipt(
     operationId: 'operation-photo',
     caseId: 'case-existing',
@@ -404,6 +509,36 @@ class _FakeLearningRepository extends Fake implements LearningRepository {
       evidenceId: 'evidence-created',
       status: 'new',
       caseVersion: 1,
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> completeCaseAction(
+    CompleteCaseActionCommand command,
+  ) async {
+    completeActionCalls.add(command);
+    return CaseCommandReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      eventId: 'event-complete',
+      status: 'confirmed',
+      caseVersion: command.expectedCaseVersion + 1,
+      recordId: command.actionId,
+    );
+  }
+
+  @override
+  Future<CaseCommandReceipt> rescheduleCaseAction(
+    RescheduleCaseActionCommand command,
+  ) async {
+    rescheduleActionCalls.add(command);
+    return CaseCommandReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      eventId: 'event-reschedule',
+      status: 'confirmed',
+      caseVersion: command.expectedCaseVersion + 1,
+      recordId: command.actionId,
     );
   }
 

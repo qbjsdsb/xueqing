@@ -6,6 +6,7 @@ import '../../update/update_service.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
+import 'v2_action_composers.dart';
 import 'v2_composers.dart';
 import 'v2_fixture.dart';
 import 'v2_update_flow.dart';
@@ -69,6 +70,59 @@ Future<void> _showV2QuickCaptureForStudent(
               ),
             );
           },
+  );
+  if (saved && context.mounted) {
+    runtime?.onWorkspaceChanged?.call();
+  }
+}
+
+Future<void> _showV2CompleteCurrentAction(
+  BuildContext context,
+  V2Student student,
+  V2FocusItem item,
+) async {
+  final runtime = _V2RuntimeScope.maybeOf(context);
+  final controller = runtime?.workflowController;
+  final action = controller?.pendingActionFor(item.id);
+  if (controller == null || action == null || !action.canComplete) {
+    return;
+  }
+  final operationId = createOperationId();
+  final saved = await showV2CompleteActionComposer(
+    context,
+    actionTitle: action.title,
+    onSave: () => controller.completeCurrentAction(
+      operationId: operationId,
+      caseId: item.id,
+    ),
+  );
+  if (saved && context.mounted) {
+    runtime?.onWorkspaceChanged?.call();
+  }
+}
+
+Future<void> _showV2RescheduleCurrentAction(
+  BuildContext context,
+  V2Student student,
+  V2FocusItem item,
+) async {
+  final runtime = _V2RuntimeScope.maybeOf(context);
+  final controller = runtime?.workflowController;
+  final action = controller?.pendingActionFor(item.id);
+  if (controller == null || action == null) {
+    return;
+  }
+  final operationId = createOperationId();
+  final saved = await showV2RescheduleActionComposer(
+    context,
+    actionTitle: action.title,
+    businessDate: controller.businessDate,
+    initialDueOn: action.dueOn,
+    onSave: (dueOn) => controller.rescheduleCurrentAction(
+      operationId: operationId,
+      caseId: item.id,
+      dueOn: dueOn,
+    ),
   );
   if (saved && context.mounted) {
     runtime?.onWorkspaceChanged?.call();
@@ -1500,6 +1554,8 @@ class _CaseDetailPane extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final timelineEntries = V2WorkspaceDataScope.of(context)
         .timelineForCase(item);
+    final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
+    final pendingAction = controller?.pendingActionFor(item.id);
     return ColoredBox(
       color: scheme.surface,
       child: SingleChildScrollView(
@@ -1573,6 +1629,44 @@ class _CaseDetailPane extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (pendingAction != null) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (pendingAction.canComplete)
+                          FilledButton.tonalIcon(
+                            key: ValueKey<String>('v2-complete-${item.id}'),
+                            onPressed: () => _showV2CompleteCurrentAction(
+                              context,
+                              student,
+                              item,
+                            ),
+                            icon: const Icon(
+                              Icons.check_circle_outline,
+                              size: 18,
+                            ),
+                            label: const Text('完成提醒'),
+                          ),
+                        OutlinedButton.icon(
+                          key: ValueKey<String>('v2-reschedule-${item.id}'),
+                          onPressed: () => _showV2RescheduleCurrentAction(
+                            context,
+                            student,
+                            item,
+                          ),
+                          icon: const Icon(
+                            Icons.event_repeat_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            pendingAction.dueOn == null ? '安排日期' : '改期',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 30),
                   Divider(color: scheme.outlineVariant),
                   const SizedBox(height: 28),
@@ -1689,6 +1783,8 @@ class _TodayAction extends StatelessWidget {
     if (student == null) {
       return const SizedBox.shrink();
     }
+    final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
+    final pendingAction = controller?.pendingActionFor(item.id);
     return InkWell(
       onTap: () => onOpenCase(item),
       child: Padding(
@@ -1720,6 +1816,48 @@ class _TodayAction extends StatelessWidget {
                     verification ? '等待确认是否已经稳定' : '下一步 · ${item.nextStep}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  if (pendingAction != null) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        if (pendingAction.canComplete)
+                          TextButton.icon(
+                            key: ValueKey<String>(
+                              'v2-today-complete-${item.id}',
+                            ),
+                            onPressed: () => _showV2CompleteCurrentAction(
+                              context,
+                              student,
+                              item,
+                            ),
+                            icon: const Icon(
+                              Icons.check_circle_outline,
+                              size: 17,
+                            ),
+                            label: const Text('完成'),
+                          ),
+                        TextButton.icon(
+                          key: ValueKey<String>(
+                            'v2-today-reschedule-${item.id}',
+                          ),
+                          onPressed: () => _showV2RescheduleCurrentAction(
+                            context,
+                            student,
+                            item,
+                          ),
+                          icon: const Icon(
+                            Icons.event_repeat_outlined,
+                            size: 17,
+                          ),
+                          label: Text(
+                            pendingAction.dueOn == null ? '安排日期' : '改期',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

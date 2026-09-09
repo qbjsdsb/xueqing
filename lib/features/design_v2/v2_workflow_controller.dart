@@ -71,6 +71,26 @@ class V2ProgressWrite {
   final List<PickedEvidenceAttachment> attachments;
 }
 
+class V2PendingActionSnapshot {
+  const V2PendingActionSnapshot({
+    required this.caseId,
+    required this.caseVersion,
+    required this.actionId,
+    required this.actionVersion,
+    required this.title,
+    required this.dueOn,
+    required this.canComplete,
+  });
+
+  final String caseId;
+  final int caseVersion;
+  final String actionId;
+  final int actionVersion;
+  final String title;
+  final DateTime? dueOn;
+  final bool canComplete;
+}
+
 class V2WorkflowResult {
   const V2WorkflowResult({
     required this.caseId,
@@ -130,6 +150,77 @@ class V2WorkflowController {
 
   bool hasPendingPrimaryAction(String caseId) =>
       _caseFor(caseId).primaryAction != null;
+
+  DateTime get businessDate => workspace.businessDate ?? _now();
+
+  V2PendingActionSnapshot? pendingActionFor(String caseId) {
+    final learningCase = _caseFor(caseId);
+    final action = learningCase.primaryAction;
+    if (action == null) {
+      return null;
+    }
+    return V2PendingActionSnapshot(
+      caseId: learningCase.id,
+      caseVersion: learningCase.version,
+      actionId: action.id,
+      actionVersion: action.version,
+      title: action.title,
+      dueOn: action.businessDueDate ?? action.dueAt,
+      canComplete: learningCase.status != LearningCaseStatus.newCase,
+    );
+  }
+
+  Future<void> completeCurrentAction({
+    required String operationId,
+    required String caseId,
+  }) async {
+    final action = pendingActionFor(caseId);
+    if (action == null) {
+      throw const V2WorkflowSaveException(
+        '当前提醒已经变化，请刷新后再试。',
+        recordMayBeSaved: false,
+      );
+    }
+    if (!action.canComplete) {
+      throw const V2WorkflowSaveException(
+        '这个新问题还需要先确认，再完成后续提醒。',
+        recordMayBeSaved: false,
+      );
+    }
+    await learningRepository.completeCaseAction(
+      CompleteCaseActionCommand(
+        operationId: operationId,
+        actionId: action.actionId,
+        caseId: action.caseId,
+        expectedCaseVersion: action.caseVersion,
+        expectedActionVersion: action.actionVersion,
+      ),
+    );
+  }
+
+  Future<void> rescheduleCurrentAction({
+    required String operationId,
+    required String caseId,
+    required DateTime? dueOn,
+  }) async {
+    final action = pendingActionFor(caseId);
+    if (action == null) {
+      throw const V2WorkflowSaveException(
+        '当前提醒已经变化，请刷新后再试。',
+        recordMayBeSaved: false,
+      );
+    }
+    await learningRepository.rescheduleCaseAction(
+      RescheduleCaseActionCommand(
+        operationId: operationId,
+        actionId: action.actionId,
+        caseId: action.caseId,
+        expectedCaseVersion: action.caseVersion,
+        expectedActionVersion: action.actionVersion,
+        dueOn: dueOn,
+      ),
+    );
+  }
 
   List<V2CaseTypeChoice> get caseTypeChoices {
     final result = <V2CaseTypeChoice>[
