@@ -61,44 +61,44 @@ void main() {
     expect(selection!.profiles.single.subjectName, '语文');
   });
 
-  testWidgets('search keeps earlier selections and selects only visible results', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: OrganizationStudentRecordExportDialog(
-            students: [
-              _studentFixture(),
-              _secondStudentFixture(),
-            ],
+  testWidgets(
+    'search keeps earlier selections and selects only visible results',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OrganizationStudentRecordExportDialog(
+              students: [_studentFixture(), _secondStudentFixture()],
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const Key('student-record-export-student-student-1')),
-    );
-    await tester.pump();
-    expect(find.text('已选 1 名学生 · 2 个学科'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const Key('student-record-export-student-student-1')),
+      );
+      await tester.pump();
+      expect(find.text('已选 1 名学生 · 2 个学科'), findsOneWidget);
 
-    await tester.enterText(
-      find.byKey(const Key('student-record-export-search')),
-      'S002',
-    );
-    await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('student-record-export-search')),
+        'S002',
+      );
+      await tester.pump();
 
-    expect(find.text('林同学'), findsNothing);
-    expect(find.text('张同学'), findsOneWidget);
-    expect(find.text('全选当前结果'), findsOneWidget);
+      expect(find.text('林同学'), findsNothing);
+      expect(find.text('张同学'), findsOneWidget);
+      expect(find.text('全选当前结果'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('student-record-export-select-all')));
-    await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('student-record-export-select-all')),
+      );
+      await tester.pump();
 
-    expect(find.text('已选 2 名学生 · 4 个学科'), findsOneWidget);
-  });
+      expect(find.text('已选 2 名学生 · 4 个学科'), findsOneWidget);
+    },
+  );
 
   testWidgets('chooser stays usable on a narrow Android-sized window', (
     tester,
