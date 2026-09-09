@@ -8,9 +8,8 @@ void main() {
       'lib/features/teacher_workspace/presentation/teacher_workspace_page.dart',
     ).readAsStringSync();
     final router = File('lib/app/router/app_router.dart').readAsStringSync();
-    final preview = File(
-      'lib/features/design_v2/v2_real_preview_page.dart',
-    ).readAsStringSync();
+    final preview = File('lib/features/design_v2/v2_real_preview_page.dart')
+        .readAsStringSync();
 
     expect(entry, contains('AuthenticatedWorkspaceBuilder'));
     expect(
