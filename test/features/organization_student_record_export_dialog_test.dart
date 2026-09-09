@@ -8,42 +8,7 @@ void main() {
     tester,
   ) async {
     OrganizationStudentRecordExportSelection? selection;
-    final student = OrganizationStudentRecord(
-      studentId: 'student-1',
-      studentName: '林同学',
-      studentCode: 'S001',
-      status: 'active',
-      version: 1,
-      grade: '初三',
-      className: null,
-      campus: null,
-      startsOn: null,
-      endsOn: null,
-      subjectNames: const ['语文', '数学'],
-      subjectServices: const [
-        OrganizationStudentSubjectService(
-          profileId: 'profile-chinese',
-          organizationSubjectId: 'subject-chinese',
-          subjectName: '语文',
-          status: 'active',
-          version: 1,
-        ),
-        OrganizationStudentSubjectService(
-          profileId: 'profile-math',
-          organizationSubjectId: 'subject-math',
-          subjectName: '数学',
-          status: 'active',
-          version: 1,
-        ),
-        OrganizationStudentSubjectService(
-          profileId: 'profile-history',
-          organizationSubjectId: 'subject-history',
-          subjectName: '历史学科',
-          status: 'inactive',
-          version: 2,
-        ),
-      ],
-    );
+    final student = _studentFixture();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -95,4 +60,68 @@ void main() {
     expect(selection!.profiles.single.profileId, 'profile-chinese');
     expect(selection!.profiles.single.subjectName, '语文');
   });
+
+  testWidgets('chooser stays usable on a narrow Android-sized window', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 640);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OrganizationStudentRecordExportDialog(
+            students: [_studentFixture()],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('导出学生记录'), findsOneWidget);
+    expect(find.byKey(const Key('student-record-export-select-all')), findsOneWidget);
+    expect(find.byKey(const Key('student-record-export-clear')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+OrganizationStudentRecord _studentFixture() {
+  return OrganizationStudentRecord(
+    studentId: 'student-1',
+    studentName: '林同学',
+    studentCode: 'S001',
+    status: 'active',
+    version: 1,
+    grade: '初三',
+    className: null,
+    campus: null,
+    startsOn: null,
+    endsOn: null,
+    subjectNames: const ['语文', '数学'],
+    subjectServices: const [
+      OrganizationStudentSubjectService(
+        profileId: 'profile-chinese',
+        organizationSubjectId: 'subject-chinese',
+        subjectName: '语文',
+        status: 'active',
+        version: 1,
+      ),
+      OrganizationStudentSubjectService(
+        profileId: 'profile-math',
+        organizationSubjectId: 'subject-math',
+        subjectName: '数学',
+        status: 'active',
+        version: 1,
+      ),
+      OrganizationStudentSubjectService(
+        profileId: 'profile-history',
+        organizationSubjectId: 'subject-history',
+        subjectName: '历史学科',
+        status: 'inactive',
+        version: 2,
+      ),
+    ],
+  );
 }
