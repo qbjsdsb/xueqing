@@ -51,8 +51,8 @@ class XueqingRouter {
           settings: settings,
           builder: (_) => TeacherWorkspaceEntryPage(
             config: config,
-            authenticatedWorkspaceBuilder:
-                (context, repository, onSignOut) => V2RealPreviewPage(
+            authenticatedWorkspaceBuilder: (context, repository, onSignOut) =>
+                V2RealPreviewPage(
                   loadWorkspace: repository.loadWorkspace,
                   onSignOut: onSignOut,
                 ),
