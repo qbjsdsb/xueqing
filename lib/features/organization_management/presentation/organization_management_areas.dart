@@ -26,6 +26,7 @@ class _ManagementOverview extends StatefulWidget {
     required this.canManageCaseTypes,
     this.onProvisionInvitation,
     this.onExportTeacherRecords,
+    this.onExportStudentRecords,
     this.onEditMemberName,
     this.onReissueMemberCredential,
     this.onOpenCaseTypes,
@@ -50,6 +51,7 @@ class _ManagementOverview extends StatefulWidget {
   onToggleStudentArchive;
   final VoidCallback onInviteMember;
   final Future<void> Function()? onExportTeacherRecords;
+  final Future<void> Function()? onExportStudentRecords;
   final Future<void> Function(OrganizationInvitation invitation) onApprove;
   final Future<void> Function(OrganizationInvitation invitation) onRevoke;
   final Future<void> Function(OrganizationInvitation invitation)?
@@ -420,10 +422,25 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
             count: normalizedQuery.isEmpty
                 ? '${widget.snapshot.students.length} 人'
                 : '${filteredStudents.length} 个结果',
-            action: FilledButton.icon(
-              onPressed: widget.busy ? null : widget.onAddStudent,
-              icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-              label: const Text('添加学生'),
+            action: Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                if (widget.onExportStudentRecords != null)
+                  OutlinedButton.icon(
+                    key: const Key('management-export-student-records'),
+                    onPressed: widget.busy
+                        ? null
+                        : widget.onExportStudentRecords,
+                    icon: const Icon(Icons.download_outlined, size: 18),
+                    label: const Text('导出学生记录'),
+                  ),
+                FilledButton.icon(
+                  onPressed: widget.busy ? null : widget.onAddStudent,
+                  icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                  label: const Text('添加学生'),
+                ),
+              ],
             ),
             child: visibleStudents.isEmpty
                 ? _ManagementEmptyState(
