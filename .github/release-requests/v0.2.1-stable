@@ -1,0 +1,5 @@
+rc_tag=v0.2.1-rc.1
+stable_tag=v0.2.1
+app_version=0.2.1+7
+frozen_main=7777fdd44f70cc4c9d6a729e49c6e6b8f3885b03
+promotion=exact-byte
