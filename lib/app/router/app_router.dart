@@ -60,7 +60,8 @@ class XueqingRouter {
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => _workspaceEntry(
-            useV2: config.environment.isProduction || !config.showDeveloperTools,
+            useV2:
+                config.environment.isProduction || !config.showDeveloperTools,
           ),
         );
       case AppRoutes.routeCheck:
