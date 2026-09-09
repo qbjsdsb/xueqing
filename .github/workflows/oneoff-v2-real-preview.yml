@@ -1,0 +1,306 @@
+name: One-off V2 real preview assembly
+
+on:
+  push:
+    branches:
+      - ui/v2-real-readonly-preview
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out target branch
+        uses: actions/checkout@v6
+        with:
+          ref: ui/v2-real-readonly-preview
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply focused V2 real-preview changes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, found {count}')
+              return text.replace(old, new, 1)
+
+          teacher_path = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
+          teacher = teacher_path.read_text()
+          teacher = replace_once(
+              teacher,
+              "import '../../../update/update_service.dart';\n\nclass TeacherWorkspaceEntryPage extends StatefulWidget {",
+              "import '../../../update/update_service.dart';\n\ntypedef AuthenticatedWorkspaceBuilder = Widget Function(\n  BuildContext context,\n  LearningRepository repository,\n  VoidCallback? onSignOut,\n);\n\nclass TeacherWorkspaceEntryPage extends StatefulWidget {",
+              'teacher typedef',
+          )
+          teacher = replace_once(
+              teacher,
+              "    this.caseReopenDraftStore,\n    super.key,",
+              "    this.caseReopenDraftStore,\n    this.authenticatedWorkspaceBuilder,\n    super.key,",
+              'teacher constructor',
+          )
+          teacher = replace_once(
+              teacher,
+              "  final CaseReopenDraftStore? caseReopenDraftStore;\n\n  @override",
+              "  final CaseReopenDraftStore? caseReopenDraftStore;\n  final AuthenticatedWorkspaceBuilder? authenticatedWorkspaceBuilder;\n\n  @override",
+              'teacher field',
+          )
+          teacher = replace_once(
+              teacher,
+              "        return TeacherWorkspacePage(\n",
+              "        final authenticatedWorkspaceBuilder =\n            widget.authenticatedWorkspaceBuilder;\n        if (authenticatedWorkspaceBuilder != null) {\n          return KeyedSubtree(\n            key: ValueKey('authenticated-workspace-$_activeUserId'),\n            child: authenticatedWorkspaceBuilder(\n              context,\n              _learningRepository!,\n              _busy ? null : _signOut,\n            ),\n          );\n        }\n        return TeacherWorkspacePage(\n",
+              'teacher authenticated builder branch',
+          )
+          teacher_path.write_text(teacher)
+
+          Path('lib/features/design_v2/v2_real_preview_page.dart').write_text(r'''import 'package:flutter/material.dart';
+
+import 'v2_theme.dart';
+import 'v2_workspace_loader.dart';
+
+/// Development-only host for evaluating the V2 workspace with the existing
+/// authenticated production read boundary.
+///
+/// It accepts only [V2WorkspaceLoad], so this surface cannot issue learning
+/// writes even though authentication and membership checks are reused from the
+/// normal teacher workspace entry.
+class V2RealPreviewPage extends StatelessWidget {
+  const V2RealPreviewPage({
+    required this.loadWorkspace,
+    this.onSignOut,
+    super.key,
+  });
+
+  final V2WorkspaceLoad loadWorkspace;
+  final VoidCallback? onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final previewTheme = Theme.of(context).brightness == Brightness.dark
+        ? V2Theme.dark()
+        : V2Theme.light();
+
+    return Theme(
+      data: previewTheme,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            key: const Key('v2-real-preview-back'),
+            tooltip: '返回开发工具',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back),
+          ),
+          title: const Text('真实数据只读预览'),
+          actions: [
+            if (onSignOut != null)
+              TextButton.icon(
+                key: const Key('v2-real-preview-sign-out'),
+                onPressed: onSignOut,
+                icon: const Icon(Icons.logout, size: 18),
+                label: const Text('退出登录'),
+              ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: V2WorkspaceLoader(loadWorkspace: loadWorkspace),
+      ),
+    );
+  }
+}
+''')
+
+          router_path = Path('lib/app/router/app_router.dart')
+          router = router_path.read_text()
+          router = replace_once(
+              router,
+              "import '../../features/design_prototype/presentation/design_prototype_page.dart';\n",
+              "import '../../features/design_prototype/presentation/design_prototype_page.dart';\nimport '../../features/design_v2/v2_real_preview_page.dart';\n",
+              'router import',
+          )
+          router = replace_once(
+              router,
+              "  static const designPreview = '/design-preview';\n  static const teacherWorkspace = '/teacher-workspace';",
+              "  static const designPreview = '/design-preview';\n  static const v2RealPreview = '/v2-real-preview';\n  static const teacherWorkspace = '/teacher-workspace';",
+              'router route constant',
+          )
+          router = replace_once(
+              router,
+              "      case AppRoutes.teacherWorkspace:\n",
+              "      case AppRoutes.v2RealPreview:\n        return MaterialPageRoute<void>(\n          settings: settings,\n          builder: (_) => TeacherWorkspaceEntryPage(\n            config: config,\n            authenticatedWorkspaceBuilder:\n                (context, repository, onSignOut) => V2RealPreviewPage(\n                  loadWorkspace: repository.loadWorkspace,\n                  onSignOut: onSignOut,\n                ),\n          ),\n        );\n      case AppRoutes.teacherWorkspace:\n",
+              'router V2 route',
+          )
+          router = replace_once(
+              router,
+              "      case AppRoutes.designPreview:\n      case AppRoutes.routeCheck:",
+              "      case AppRoutes.designPreview:\n      case AppRoutes.v2RealPreview:\n      case AppRoutes.routeCheck:",
+              'router development gate',
+          )
+          router_path.write_text(router)
+
+          bootstrap_path = Path('lib/features/bootstrap/presentation/bootstrap_page.dart')
+          bootstrap = bootstrap_path.read_text()
+          bootstrap = replace_once(
+              bootstrap,
+              "                        label: const Text('打开虚构数据预览'),\n                      ),\n                      const SizedBox(height: AppSpacing.sm),\n                      OutlinedButton.icon(\n                        onPressed: () {\n                          Navigator.of(context).pushNamed(AppRoutes.cloudSpike);",
+              "                        label: const Text('打开虚构数据预览'),\n                      ),\n                      const SizedBox(height: AppSpacing.sm),\n                      OutlinedButton.icon(\n                        onPressed: () {\n                          Navigator.of(context).pushNamed(\n                            AppRoutes.v2RealPreview,\n                          );\n                        },\n                        icon: const Icon(Icons.visibility_outlined),\n                        label: const Text('打开新版真实数据预览（只读）'),\n                      ),\n                      const SizedBox(height: AppSpacing.sm),\n                      OutlinedButton.icon(\n                        onPressed: () {\n                          Navigator.of(context).pushNamed(AppRoutes.cloudSpike);",
+              'bootstrap V2 button',
+          )
+          bootstrap = bootstrap.replace('0B.0-D 数据接入验证', 'V2 只读接入验证')
+          bootstrap = replace_once(
+              bootstrap,
+              "                          : '当前只连接开发环境虚构资料；正式 provider、真实学生数据和生产配置尚未启用。',",
+              "                          : '当前为开发验证环境；新版真实数据预览只读取当前账号已有授权数据，不会启用 V2 写入。',",
+              'bootstrap development copy',
+          )
+          bootstrap_path.write_text(bootstrap)
+
+          test_path = Path('test/app/bootstrap_test.dart')
+          test = test_path.read_text()
+          test = test.replace("expect(find.text('0B.0-D 数据接入验证'), findsOneWidget);", "expect(find.text('V2 只读接入验证'), findsOneWidget);\n    expect(find.text('打开新版真实数据预览（只读）'), findsOneWidget);")
+          test = test.replace("    expect(find.text('打开虚构数据预览'), findsNothing);\n    expect(find.text('打开云端连接测试'), findsNothing);", "    expect(find.text('打开虚构数据预览'), findsNothing);\n    expect(find.text('打开新版真实数据预览（只读）'), findsNothing);\n    expect(find.text('打开云端连接测试'), findsNothing);")
+          test = replace_once(
+              test,
+              "    expect(find.text('页面不存在'), findsOneWidget);\n  });\n\n  testWidgets('normal builds skip the developer bootstrap'",
+              "    expect(find.text('页面不存在'), findsOneWidget);\n\n    await tester.pumpWidget(\n      MaterialApp(\n        initialRoute: AppRoutes.v2RealPreview,\n        onGenerateRoute: XueqingRouter(config: productionConfig)\n            .onGenerateRoute,\n      ),\n    );\n    await tester.pumpAndSettle();\n\n    expect(find.text('页面不存在'), findsOneWidget);\n  });\n\n  testWidgets('normal builds skip the developer bootstrap'",
+              'production V2 route assertion',
+          )
+          test = test.replace("    expect(find.text('打开虚构数据预览'), findsNothing);\n    expect(find.byType(BackButton), findsNothing);", "    expect(find.text('打开虚构数据预览'), findsNothing);\n    expect(find.text('打开新版真实数据预览（只读）'), findsNothing);\n    expect(find.byType(BackButton), findsNothing);")
+          test = replace_once(
+              test,
+              "    expect(find.text('页面不存在'), findsOneWidget);\n  });\n\n  testWidgets('shows a safe fallback when bootstrap fails'",
+              "    expect(find.text('页面不存在'), findsOneWidget);\n\n    await tester.pumpWidget(\n      MaterialApp(\n        initialRoute: AppRoutes.v2RealPreview,\n        onGenerateRoute: XueqingRouter(config: normalTestConfig)\n            .onGenerateRoute,\n      ),\n    );\n    await tester.pumpAndSettle();\n\n    expect(find.text('页面不存在'), findsOneWidget);\n  });\n\n  testWidgets('development real V2 route reuses the workspace entry', (\n    tester,\n  ) async {\n    await tester.pumpWidget(AppBootstrap(loader: () async => config));\n    await tester.pumpAndSettle();\n\n    final previewButton = find.text('打开新版真实数据预览（只读）');\n    await tester.ensureVisible(previewButton);\n    await tester.tap(previewButton);\n    await tester.pumpAndSettle();\n\n    expect(find.text('开发云端尚未配置'), findsOneWidget);\n    expect(find.text('页面不存在'), findsNothing);\n  });\n\n  testWidgets('shows a safe fallback when bootstrap fails'",
+              'normal gate plus development navigation test',
+          )
+          test_path.write_text(test)
+
+          Path('test/features/design_v2_real_preview_page_test.dart').write_text(r'''import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:xueqing/cloud/learning_repository.dart';
+import 'package:xueqing/features/design_v2/v2_real_preview_page.dart';
+
+void main() {
+  testWidgets('real preview uses the read loader and exposes explicit sign out', (
+    tester,
+  ) async {
+    var loadCount = 0;
+    var signOutCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: V2RealPreviewPage(
+          loadWorkspace: () async {
+            loadCount++;
+            return _emptyWorkspace();
+          },
+          onSignOut: () => signOutCount++,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(loadCount, 1);
+    expect(find.text('真实数据只读预览'), findsOneWidget);
+    expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+    expect(find.byKey(const Key('v2-real-preview-sign-out')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('v2-real-preview-sign-out')));
+    await tester.pump();
+
+    expect(signOutCount, 1);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+TeacherWorkspace _emptyWorkspace() {
+  return TeacherWorkspace(
+    viewerName: '乔老师',
+    organizationName: '测试机构',
+    organizationTimeZone: 'Asia/Shanghai',
+    hasTeachingAccess: true,
+    loadedAt: DateTime(2026, 9, 9, 21),
+    businessDate: DateTime(2026, 9, 9),
+    students: const <WorkspaceStudent>[],
+  );
+}
+''')
+
+          Path('test/features/design_v2_real_preview_contract_test.dart').write_text(r'''import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('real V2 preview stays development-only and read-only by contract', () {
+    final entry = File(
+      'lib/features/teacher_workspace/presentation/teacher_workspace_page.dart',
+    ).readAsStringSync();
+    final router = File('lib/app/router/app_router.dart').readAsStringSync();
+    final preview = File(
+      'lib/features/design_v2/v2_real_preview_page.dart',
+    ).readAsStringSync();
+
+    expect(entry, contains('AuthenticatedWorkspaceBuilder'));
+    expect(
+      entry,
+      contains(r"ValueKey('authenticated-workspace-$_activeUserId')"),
+    );
+    expect(
+      RegExp(r'case AppRoutes\.v2RealPreview:').allMatches(router).length,
+      2,
+    );
+    expect(router, contains('loadWorkspace: repository.loadWorkspace'));
+    expect(preview, contains('final V2WorkspaceLoad loadWorkspace;'));
+    expect(preview, isNot(contains('quickCapture(')));
+    expect(preview, isNot(contains('recordProgress(')));
+  });
+}
+''')
+          PY
+
+      - name: Resolve packages
+        run: flutter pub get
+
+      - name: Format changed Dart files
+        run: |
+          dart format \
+            lib/app/router/app_router.dart \
+            lib/features/bootstrap/presentation/bootstrap_page.dart \
+            lib/features/design_v2/v2_real_preview_page.dart \
+            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
+            test/app/bootstrap_test.dart \
+            test/features/design_v2_real_preview_page_test.dart \
+            test/features/design_v2_real_preview_contract_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run focused tests
+        run: |
+          flutter test \
+            test/app/bootstrap_test.dart \
+            test/features/design_v2_workspace_loader_test.dart \
+            test/features/design_v2_real_preview_page_test.dart \
+            test/features/design_v2_real_preview_contract_test.dart
+
+      - name: Commit validated result and remove helper
+        shell: bash
+        run: |
+          rm .github/workflows/oneoff-v2-real-preview.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "feat(v2): add real read-only preview entry"
+          git push origin HEAD:ui/v2-real-readonly-preview
