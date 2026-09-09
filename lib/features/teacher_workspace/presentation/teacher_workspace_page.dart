@@ -31,6 +31,12 @@ import '../../../update/update_dialog.dart';
 import '../../../update/update_installer.dart';
 import '../../../update/update_service.dart';
 
+typedef AuthenticatedWorkspaceBuilder = Widget Function(
+  BuildContext context,
+  LearningRepository repository,
+  VoidCallback? onSignOut,
+);
+
 class TeacherWorkspaceEntryPage extends StatefulWidget {
   const TeacherWorkspaceEntryPage({
     required this.config,
@@ -45,6 +51,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     this.teacherLearningRecordRepository,
     this.studentLearningRecordRepository,
     this.caseReopenDraftStore,
+    this.authenticatedWorkspaceBuilder,
     super.key,
   });
 
@@ -63,6 +70,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
   final TeacherLearningRecordRepository? teacherLearningRecordRepository;
   final StudentLearningRecordRepository? studentLearningRecordRepository;
   final CaseReopenDraftStore? caseReopenDraftStore;
+  final AuthenticatedWorkspaceBuilder? authenticatedWorkspaceBuilder;
 
   @override
   State<TeacherWorkspaceEntryPage> createState() =>
@@ -420,6 +428,18 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
               title: '暂时无法进入工作台',
               message: '当前账号已被机构负责人停用，请联系负责人处理。',
               onRetry: () => unawaited(_signOut()),
+            ),
+          );
+        }
+        final authenticatedWorkspaceBuilder =
+            widget.authenticatedWorkspaceBuilder;
+        if (authenticatedWorkspaceBuilder != null) {
+          return KeyedSubtree(
+            key: ValueKey('authenticated-workspace-$_activeUserId'),
+            child: authenticatedWorkspaceBuilder(
+              context,
+              _learningRepository!,
+              _busy ? null : _signOut,
             ),
           );
         }
