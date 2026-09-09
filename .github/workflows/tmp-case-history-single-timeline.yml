@@ -1,0 +1,56 @@
+name: Verify case history single timeline
+
+on:
+  push:
+    branches:
+      - ux/case-history-single-timeline
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/case-history-single-timeline
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.1
+          channel: stable
+          cache: true
+
+      - name: Apply focused UX patch
+        run: python3 tools/tmp_case_history_single_timeline_patch.py
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Format
+        run: dart format .
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run full tests
+        run: flutter test
+
+      - name: Commit verified product changes
+        shell: bash
+        run: |
+          rm -f tools/tmp_case_history_single_timeline_patch.py
+          rm -f .github/workflows/tmp-case-history-single-timeline.yml
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No verified product changes to commit."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "UX: make growth history the primary case timeline"
+          git push origin HEAD:ux/case-history-single-timeline
