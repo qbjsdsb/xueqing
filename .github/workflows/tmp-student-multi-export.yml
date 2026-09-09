@@ -27,6 +27,20 @@ jobs:
       - name: Apply focused patch
         run: python3 tools/tmp_student_multi_export_patch.py
 
+      - name: Fix verified filename interpolation lint
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lib/export/learning_record_export.dart')
+          text = path.read_text(encoding='utf-8')
+          old = "'学生学情记录_${studentCount}人_${profileCount}科_${_formatDate(now)}'"
+          new = "'学生学情记录_$studentCount人_$profileCount科_${_formatDate(now)}'"
+          if old not in text:
+              raise SystemExit('expected batch filename interpolation not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Get dependencies
         run: flutter pub get
 
