@@ -159,15 +159,6 @@ class V2ReadModelAdapter {
       }
     }
 
-    timeline.sort((a, b) {
-      final aIndex = focusItems.indexWhere((item) => item.id == a.caseId);
-      final bIndex = focusItems.indexWhere((item) => item.id == b.caseId);
-      if (aIndex != bIndex) {
-        return aIndex.compareTo(bIndex);
-      }
-      return 0;
-    });
-
     return V2ReadModelSnapshot(
       viewerName: workspace.viewerName,
       organizationName: workspace.organizationName,
