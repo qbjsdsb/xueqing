@@ -27,17 +27,32 @@ jobs:
           path = Path('.github/workflows/phase0b0a-platform-smoke.yml')
           text = path.read_text()
 
+          input_old = '''      app_version:\n        description: "Optional app version including build number; defaults to pubspec.yaml"\n        required: false\n        type: string\n\npermissions:'''
+          input_new = '''      app_version:\n        description: "Optional app version including build number; defaults to pubspec.yaml"\n        required: false\n        type: string\n      show_developer_tools:\n        description: "Expose development-only tools in a manually dispatched preview artifact"\n        required: false\n        default: false\n        type: boolean\n\npermissions:'''
+          if text.count(input_old) != 1:
+              raise SystemExit(
+                  f'workflow_dispatch input: expected 1 match, found {text.count(input_old)}'
+              )
+          text = text.replace(input_old, input_new, 1)
+
+          lines = text.splitlines(keepends=True)
+          key_indexes = [
+              index
+              for index, line in enumerate(lines)
+              if line.startswith('  XUEQING_SUPABASE_PUBLISHABLE_KEY:')
+          ]
+          if len(key_indexes) != 1:
+              raise SystemExit(
+                  f'environment gate: expected 1 key line, found {len(key_indexes)}'
+              )
+          expression = '$' + "{{ github.event_name == 'workflow_dispatch' && inputs.show_developer_tools && 'true' || 'false' }}"
+          lines.insert(
+              key_indexes[0] + 1,
+              f'  XUEQING_SHOW_DEV_TOOLS: {expression}\n',
+          )
+          text = ''.join(lines)
+
           replacements = [
-              (
-                  '''      app_version:\n        description: "Optional app version including build number; defaults to pubspec.yaml"\n        required: false\n        type: string\n\npermissions:''',
-                  '''      app_version:\n        description: "Optional app version including build number; defaults to pubspec.yaml"\n        required: false\n        type: string\n      show_developer_tools:\n        description: "Expose development-only tools in a manually dispatched preview artifact"\n        required: false\n        default: false\n        type: boolean\n\npermissions:''',
-                  'workflow_dispatch input',
-              ),
-              (
-                  '''  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}\n''',
-                  '''  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}\n  XUEQING_SHOW_DEV_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.show_developer_tools && 'true' || 'false' }}\n''',
-                  'environment gate',
-              ),
               (
                   '''            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=${XUEQING_SUPABASE_PUBLISHABLE_KEY}"\n''',
                   '''            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=${XUEQING_SUPABASE_PUBLISHABLE_KEY}" \\\n            --dart-define="XUEQING_SHOW_DEV_TOOLS=${XUEQING_SHOW_DEV_TOOLS}"\n''',
