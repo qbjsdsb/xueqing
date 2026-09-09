@@ -1,4 +1,4 @@
-name: Publish Xueqing v0.2.0 Stable once
+name: Retry Xueqing v0.2.0 Stable publisher once
 
 on:
   push:
@@ -8,42 +8,38 @@ on:
       - .github/workflows/publish-stable-v020-once.yml
 
 permissions:
-  contents: write
+  contents: read
   actions: write
 
 jobs:
-  stage-and-dispatch:
+  dispatch:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      FROZEN_MAIN_SHA: b040397f4488436037b0987b95f29ba90f1badc6
+      FROZEN_RELEASE_SHA: b040397f4488436037b0987b95f29ba90f1badc6
       RELEASE_TAG: v0.2.0
       APP_VERSION: 0.2.0+6
     steps:
-      - name: Verify frozen main, stage Release, and dispatch signed Stable publisher
+      - name: Verify staged tag and dispatch current Stable publisher
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
-          if [[ "$current_main" != "$FROZEN_MAIN_SHA" ]]; then
-            echo "main moved after the Stable source was frozen; refusing to publish."
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          if [[ "$tag_sha" != "$FROZEN_RELEASE_SHA" ]]; then
+            echo "v0.2.0 tag no longer points at the frozen product source."
             exit 1
           fi
 
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "$RELEASE_TAG already exists; refusing to overwrite an existing Release."
-            exit 1
-          fi
-
-          gh release create "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$FROZEN_MAIN_SHA" \
-            --title "Xueqing v0.2.0" \
-            --notes $'Xueqing 首个正式稳定版。\n\n- 教师记录与跟进流程进一步简化\n- 教师可读的中文成长记录与状态词统一\n- 学生学科记录与单独老师记录支持 XLSX 导出\n- Android 提供正式签名 APK，Windows 提供 Setup 安装包\n- 正式版启用 Stable 应用内更新链' \
-            --prerelease
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release.get('draft') or not release.get('prerelease'):
+              raise SystemExit('v0.2.0 must still be the staged Pre-release before promotion')
+          PY
 
           python3 - <<'PY' > dispatch.json
           import json
@@ -57,9 +53,8 @@ jobs:
           }, ensure_ascii=False))
           PY
 
-          gh api \
-            --method POST \
+          gh api --method POST \
             "repos/$GITHUB_REPOSITORY/actions/workflows/publish-release-assets.yml/dispatches" \
             --input dispatch.json
 
-          echo "Stable publisher dispatched for $RELEASE_TAG / $APP_VERSION at $FROZEN_MAIN_SHA"
+          echo "Stable publisher redispatched for $RELEASE_TAG / $APP_VERSION."
