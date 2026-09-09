@@ -1017,10 +1017,10 @@ void main() {
     await tester.tap(cancelButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('提交结果未确认'), findsOneWidget);
+    expect(find.text('刚才是否保存成功还不能确认'), findsOneWidget);
     await tester.tap(find.widgetWithText(TextButton, '继续查看'));
     await tester.pumpAndSettle();
-    expect(find.text('提交结果未确认'), findsNothing);
+    expect(find.text('刚才是否保存成功还不能确认'), findsNothing);
     expect(
       find.byKey(const Key('workspace-complete-action-save')),
       findsOneWidget,

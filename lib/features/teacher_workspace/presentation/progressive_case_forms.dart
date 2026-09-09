@@ -318,8 +318,8 @@ class _CaseProgressFormState extends State<CaseProgressForm> {
       final retry = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('提交结果还没确认'),
-          content: const Text('上一次提交可能已经到达服务器。建议重新保存，不要重新填写另一份。'),
+          title: const Text('刚才是否保存成功还不能确认'),
+          content: const Text('刚才的记录可能已经保存成功。请点“重新保存”继续，不要重新填写另一份。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -805,8 +805,8 @@ class _EndCaseFollowUpFormState extends State<EndCaseFollowUpForm> {
       final retry = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('提交结果还没确认'),
-          content: const Text('上一次提交可能已经到达服务器。建议重新保存。'),
+          title: const Text('刚才是否保存成功还不能确认'),
+          content: const Text('刚才的记录可能已经保存成功。请点“重新保存”继续，系统不会重复保存。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -1038,7 +1038,7 @@ String describeProgressiveCaseError(Object error) {
     return '这个问题已经被更新，请刷新后确认最新情况。';
   }
   if (_isUnknownResultFailure(error)) {
-    return '网络暂时不可用，服务器结果还不能确认。输入已经锁定，请直接重新保存。';
+    return '网络暂时不可用，刚才是否保存成功还不能确认。内容还在，请直接重新保存，系统不会重复保存。';
   }
   return '保存失败。请重试；未确认成功前不会重复记录。';
 }
