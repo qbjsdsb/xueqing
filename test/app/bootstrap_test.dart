@@ -44,7 +44,8 @@ void main() {
 
     expect(find.text('教师工作台'), findsOneWidget);
     expect(find.text('Android / Windows'), findsOneWidget);
-    expect(find.text('0B.0-D 数据接入验证'), findsOneWidget);
+    expect(find.text('V2 只读接入验证'), findsOneWidget);
+    expect(find.text('打开新版真实数据预览（只读）'), findsOneWidget);
   });
 
   testWidgets('hides development-only controls and routes in production', (
@@ -56,12 +57,24 @@ void main() {
     expect(find.text('生产配置'), findsOneWidget);
     expect(find.text('生产发布前置检查'), findsOneWidget);
     expect(find.text('打开虚构数据预览'), findsNothing);
+    expect(find.text('打开新版真实数据预览（只读）'), findsNothing);
     expect(find.text('打开云端连接测试'), findsNothing);
     expect(find.text('路由自检'), findsNothing);
 
     await tester.pumpWidget(
       MaterialApp(
         initialRoute: AppRoutes.designPreview,
+        onGenerateRoute: XueqingRouter(config: productionConfig)
+            .onGenerateRoute,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('页面不存在'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        initialRoute: AppRoutes.v2RealPreview,
         onGenerateRoute: XueqingRouter(config: productionConfig)
             .onGenerateRoute,
       ),
@@ -84,6 +97,7 @@ void main() {
     expect(find.text('教师工作台'), findsOneWidget);
     expect(find.text('开发云端尚未配置'), findsOneWidget);
     expect(find.text('打开虚构数据预览'), findsNothing);
+    expect(find.text('打开新版真实数据预览（只读）'), findsNothing);
     expect(find.byType(BackButton), findsNothing);
 
     await tester.pumpWidget(
@@ -96,6 +110,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('页面不存在'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        initialRoute: AppRoutes.v2RealPreview,
+        onGenerateRoute: XueqingRouter(config: normalTestConfig)
+            .onGenerateRoute,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('页面不存在'), findsOneWidget);
+  });
+
+  testWidgets('development real V2 route reuses the workspace entry', (
+    tester,
+  ) async {
+    await tester.pumpWidget(AppBootstrap(loader: () async => config));
+    await tester.pumpAndSettle();
+
+    final previewButton = find.text('打开新版真实数据预览（只读）');
+    await tester.ensureVisible(previewButton);
+    await tester.tap(previewButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('开发云端尚未配置'), findsOneWidget);
+    expect(find.text('页面不存在'), findsNothing);
   });
 
   testWidgets('shows a safe fallback when bootstrap fails', (tester) async {
