@@ -5,6 +5,7 @@ import '../../features/bootstrap/presentation/bootstrap_page.dart';
 import '../../features/cloud/presentation/cloud_connection_page.dart';
 import '../../features/design_prototype/presentation/design_prototype_page.dart';
 import '../../features/design_v2/v2_real_preview_page.dart';
+import '../../features/design_v2/v2_workspace_page.dart';
 import '../../features/teacher_workspace/presentation/teacher_workspace_page.dart';
 
 abstract final class AppRoutes {
@@ -34,7 +35,7 @@ class XueqingRouter {
           settings: settings,
           builder: (_) => config.showDeveloperTools
               ? BootstrapPage(config: config)
-              : TeacherWorkspaceEntryPage(config: config),
+              : _workspaceEntry(useV2: true),
         );
       case AppRoutes.cloudSpike:
         return MaterialPageRoute<void>(
@@ -58,7 +59,9 @@ class XueqingRouter {
       case AppRoutes.teacherWorkspace:
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => TeacherWorkspaceEntryPage(config: config),
+          builder: (_) => _workspaceEntry(
+            useV2: config.environment.isProduction || !config.showDeveloperTools,
+          ),
         );
       case AppRoutes.routeCheck:
         return MaterialPageRoute<void>(
@@ -68,6 +71,17 @@ class XueqingRouter {
       default:
         return _notFoundRoute(settings);
     }
+  }
+
+  Widget _workspaceEntry({required bool useV2}) {
+    if (!useV2) {
+      return TeacherWorkspaceEntryPage(config: config);
+    }
+    return TeacherWorkspaceEntryPage(
+      config: config,
+      authenticatedWorkspaceBuilder: (context, runtime) =>
+          V2WorkspacePage(runtime: runtime),
+    );
   }
 
   bool _isDevelopmentOnlyRoute(String? routeName) {
