@@ -1,0 +1,45 @@
+name: Format V2 prototype once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/format-v2-prototype.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-prototype-foundation
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Format V2 files
+        run: |
+          dart format \
+            lib/features/design_v2/v2_theme.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/design_v2_workspace_test.dart
+      - name: Commit formatting if needed
+        run: |
+          if git diff --quiet -- \
+            lib/features/design_v2/v2_theme.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/design_v2_workspace_test.dart; then
+            echo 'Already formatted.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/features/design_v2/v2_theme.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/design_v2_workspace_test.dart
+          git commit -m 'style(v2): apply dart format'
+          git push origin HEAD:ui/v2-prototype-foundation
