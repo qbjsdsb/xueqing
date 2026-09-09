@@ -648,7 +648,17 @@ void main() {
     expect(find.text('分数步骤需要继续观察'), findsOneWidget);
     expect(find.text('新记录'), findsWidgets);
     expect(find.text('待整理问题'), findsNothing);
+    expect(find.text('成长记录'), findsOneWidget);
+    expect(find.text('尚未记录教学处理。'), findsNothing);
+    final categoryToggle = find.byKey(
+      const Key('workspace-case-category-toggle'),
+    );
+    await tester.ensureVisible(categoryToggle);
+    await tester.tap(categoryToggle);
+    await tester.pumpAndSettle();
+    expect(find.text('学生表现'), findsOneWidget);
     expect(find.text('尚未记录教学处理。'), findsOneWidget);
+    expect(find.text('尚未记录检查结果。'), findsOneWidget);
   });
 
   testWidgets(
@@ -703,6 +713,8 @@ void main() {
       expect(find.text('历史记录 1'), findsOneWidget);
       expect(find.text('历史记录 2'), findsOneWidget);
       expect(find.text('历史记录 3'), findsOneWidget);
+      expect(find.text('9 月 7 日'), findsOneWidget);
+      expect(find.text('9 月 6 日'), findsOneWidget);
       expect(find.text('历史记录 4'), findsNothing);
       expect(find.text('历史记录 5'), findsNothing);
 
@@ -716,6 +728,14 @@ void main() {
       expect(find.text('历史记录 5'), findsOneWidget);
       expect(find.text('收起记录'), findsOneWidget);
 
+      final categoryToggle = find.byKey(
+        const Key('workspace-case-category-toggle'),
+      );
+      await tester.ensureVisible(categoryToggle);
+      await tester.tap(categoryToggle);
+      await tester.pumpAndSettle();
+      expect(find.text('尚未记录教学处理。'), findsOneWidget);
+
       final backButton = find.byTooltip('返回学生详情');
       await tester.ensureVisible(backButton);
       await tester.tap(backButton);
@@ -728,6 +748,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('历史记录 4'), findsNothing);
       expect(find.text('查看更早记录'), findsOneWidget);
+      expect(find.text('尚未记录教学处理。'), findsNothing);
+      expect(find.text('按类别查看与照片'), findsOneWidget);
     },
   );
 
