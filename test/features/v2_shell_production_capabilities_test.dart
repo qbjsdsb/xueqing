@@ -19,12 +19,23 @@ void main() {
       final updateFlow = File('lib/features/design_v2/v2_update_flow.dart')
           .readAsStringSync();
 
-      expect(router, contains("import '../../features/design_v2/v2_workspace_page.dart';"));
+      expect(
+        router,
+        contains("import '../../features/design_v2/v2_workspace_page.dart';"),
+      );
       expect(router, contains('_workspaceEntry(useV2: true)'));
-      expect(router, contains('config.environment.isProduction || !config.showDeveloperTools'));
+      expect(
+        router,
+        contains(
+          'config.environment.isProduction || !config.showDeveloperTools',
+        ),
+      );
       expect(router, contains('V2WorkspacePage(runtime: runtime)'));
       expect(workspacePage, contains('V2WorkspaceLoader('));
-      expect(workspacePage, contains('runtime.learningRepository.loadWorkspace'));
+      expect(
+        workspacePage,
+        contains('runtime.learningRepository.loadWorkspace'),
+      );
       expect(workspacePage, isNot(contains('V2 真实学情预览')));
       expect(workspacePage, isNot(contains('返回开发工具')));
 
