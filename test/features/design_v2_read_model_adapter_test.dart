@@ -14,7 +14,7 @@ void main() {
       );
       expect(grouped.name, '林同学');
       expect(grouped.subjects, ['语文', '数学']);
-      expect(grouped.openCaseCount, 2);
+      expect(grouped.openCaseCount, 3);
       expect(grouped.updatedLabel, '已有更新');
 
       final sameNameOtherPerson = snapshot.students.firstWhere(
@@ -29,12 +29,14 @@ void main() {
 
       expect(snapshot.focusItems.map((item) => item.id).toSet(), {
         'case-cn',
+        'case-cn-stable',
         'case-math',
       });
-      expect(
-        snapshot.focusItems.any((item) => item.id == 'case-cn-stable'),
-        isFalse,
+      final stable = snapshot.focusItems.firstWhere(
+        (item) => item.id == 'case-cn-stable',
       );
+      expect(stable.nextStep, '两周后复查');
+      expect(stable.actionTiming?.name, 'future');
 
       final chinese = snapshot.focusItems.firstWhere(
         (item) => item.id == 'case-cn',
@@ -160,6 +162,20 @@ TeacherWorkspace _workspace() {
             title: '已暂时稳定的问题',
             status: LearningCaseStatus.stable,
             version: 4,
+            actions: [
+              WorkspaceAction(
+                id: 'action-stable',
+                caseId: 'case-cn-stable',
+                title: '两周后复查',
+                actionType: 'review',
+                status: WorkspaceActionStatus.pending,
+                isPrimary: true,
+                bucket: WorkspaceActionBucket.future,
+                version: 1,
+                dueAt: DateTime(2026, 9, 23, 10),
+                businessDueDate: DateTime(2026, 9, 23),
+              ),
+            ],
           ),
         ],
         recentFacts: const [],
