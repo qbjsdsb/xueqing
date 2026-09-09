@@ -28,6 +28,11 @@ on:
         description: "Optional app version including build number; defaults to pubspec.yaml"
         required: false
         type: string
+      show_developer_tools:
+        description: "Expose development-only tools in a manually dispatched preview artifact"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -40,6 +45,7 @@ env:
   XUEQING_ENV: development
   XUEQING_SUPABASE_URL: ${{ github.event.inputs.supabase_url || 'https://czuctoulgnfytcfonkhc.supabase.co' }}
   XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}
+  XUEQING_SHOW_DEV_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.show_developer_tools && 'true' || 'false' }}
 
 jobs:
   android-debug:
@@ -87,7 +93,8 @@ jobs:
             --dart-define="XUEQING_ENV=${XUEQING_ENV}" \
             --dart-define="XUEQING_APP_VERSION=${XUEQING_APP_VERSION}" \
             --dart-define="XUEQING_SUPABASE_URL=${XUEQING_SUPABASE_URL}" \
-            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=${XUEQING_SUPABASE_PUBLISHABLE_KEY}"
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=${XUEQING_SUPABASE_PUBLISHABLE_KEY}" \
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=${XUEQING_SHOW_DEV_TOOLS}"
 
       - name: Upload Android debug APK
         uses: actions/upload-artifact@v4
@@ -147,6 +154,7 @@ jobs:
             --dart-define="XUEQING_APP_VERSION=$env:XUEQING_APP_VERSION" `
             --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
             --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$env:XUEQING_SHOW_DEV_TOOLS" `
             --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=true"
 
       - name: Bundle Visual C++ release runtime
