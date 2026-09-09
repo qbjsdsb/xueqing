@@ -17,6 +17,10 @@ void main() {
     expect(rows, contains('for (final assignment in assignments)'));
     expect(
       rows,
+      contains("final aOrder = a.assignmentRole == 'lead' ? 0 : 1;"),
+    );
+    expect(
+      rows,
       contains("'student-assignment-transfer-\${assignment.assignmentId}'"),
     );
   });
