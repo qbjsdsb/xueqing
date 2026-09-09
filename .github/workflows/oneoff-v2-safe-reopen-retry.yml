@@ -28,7 +28,7 @@ jobs:
           flutter-version: 3.47.1
           cache: true
 
-      - name: Apply previous guarded patch with exact CaseDetail scope
+      - name: Apply validated patch with scoped UI and test fake fix
         shell: bash
         run: |
           git show cd98630527b1d5f17a1f150afbb778e1643b3b6c:.github/workflows/oneoff-v2-safe-reopen-retry.yml > /tmp/validated-anchors.yml
@@ -72,7 +72,21 @@ jobs:
           if script.count(old) != 1:
               raise SystemExit(f'expected one CaseDetail insertion call, found {script.count(old)}')
           script = helper + script.replace(old, new, 1)
-          exec(compile(script, '<safe-reopen-exact-case-detail-patch>', 'exec'))
+          exec(compile(script, '<safe-reopen-patch>', 'exec'))
+
+          test_path = Path('test/features/design_v2_workflow_controller_test.dart')
+          text = test_path.read_text()
+          class_start = text.index('class _FakeLearningRepository extends Fake implements LearningRepository {')
+          method_sig = 'Future<CaseCommandReceipt> reopenCase(ReopenCaseCommand command) async {'
+          method_sig_pos = text.index(method_sig, class_start)
+          method_start = text.rfind('  @override', class_start, method_sig_pos)
+          next_class = text.index('class _FakeProgressiveCaseRepository extends Fake', method_sig_pos)
+          class_close = text.rfind('\n}', class_start, method_start)
+          if min(method_start, next_class, class_close) < 0 or not (class_close < method_start < next_class):
+              raise SystemExit('could not safely relocate fake reopenCase into _FakeLearningRepository')
+          block = text[method_start:next_class].rstrip()
+          text = text[:class_close] + '\n\n' + block + '\n}\n\n' + text[next_class:]
+          test_path.write_text(text)
           PY
 
       - name: Format
