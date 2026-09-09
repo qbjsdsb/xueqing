@@ -42,6 +42,8 @@ class OrganizationStudentRecordExportDialog extends StatefulWidget {
 class _OrganizationStudentRecordExportDialogState
     extends State<OrganizationStudentRecordExportDialog> {
   final Set<String> _selectedProfileIds = <String>{};
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
 
   List<OrganizationStudentRecord> get _students {
     final students = widget.students
@@ -56,6 +58,18 @@ class _OrganizationStudentRecordExportDialogState
       (left, right) => left.studentName.compareTo(right.studentName),
     );
     return students;
+  }
+
+  List<OrganizationStudentRecord> get _visibleStudents {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return _students;
+    return _students
+        .where(
+          (student) =>
+              student.studentName.toLowerCase().contains(query) ||
+              (student.studentCode ?? '').toLowerCase().contains(query),
+        )
+        .toList(growable: false);
   }
 
   List<OrganizationStudentSubjectService> _activeServices(
@@ -92,16 +106,14 @@ class _OrganizationStudentRecordExportDialogState
     });
   }
 
-  void _selectAll() {
+  void _selectVisible() {
     setState(() {
-      _selectedProfileIds
-        ..clear()
-        ..addAll(
-          _students.expand(
-            (student) =>
-                _activeServices(student).map((service) => service.profileId),
-          ),
-        );
+      _selectedProfileIds.addAll(
+        _visibleStudents.expand(
+          (student) =>
+              _activeServices(student).map((service) => service.profileId),
+        ),
+      );
     });
   }
 
@@ -128,8 +140,15 @@ class _OrganizationStudentRecordExportDialogState
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final students = _students;
+    final visibleStudents = _visibleStudents;
     final selectedStudentCount = students
         .where(
           (student) => _activeServices(
@@ -155,6 +174,27 @@ class _OrganizationStudentRecordExportDialogState
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: AppSpacing.sm),
+              TextField(
+                key: const Key('student-record-export-search'),
+                controller: _searchController,
+                onChanged: (value) => setState(() => _query = value),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: '搜索学生姓名或编号',
+                  prefixIcon: const Icon(Icons.search_outlined),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '清除搜索',
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                          icon: const Icon(Icons.close),
+                        ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
               Wrap(
                 alignment: WrapAlignment.spaceBetween,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -170,8 +210,12 @@ class _OrganizationStudentRecordExportDialogState
                     children: [
                       TextButton(
                         key: const Key('student-record-export-select-all'),
-                        onPressed: students.isEmpty ? null : _selectAll,
-                        child: const Text('全选'),
+                        onPressed: visibleStudents.isEmpty
+                            ? null
+                            : _selectVisible,
+                        child: Text(
+                          _query.trim().isEmpty ? '全选' : '全选当前结果',
+                        ),
                       ),
                       TextButton(
                         key: const Key('student-record-export-clear'),
@@ -188,13 +232,15 @@ class _OrganizationStudentRecordExportDialogState
               Flexible(
                 child: students.isEmpty
                     ? const Center(child: Text('当前没有可导出的学生学科记录。'))
+                    : visibleStudents.isEmpty
+                    ? const Center(child: Text('没有找到匹配的学生。'))
                     : ListView.separated(
                         shrinkWrap: true,
-                        itemCount: students.length,
+                        itemCount: visibleStudents.length,
                         separatorBuilder: (_, _) =>
                             const SizedBox(height: AppSpacing.xs),
                         itemBuilder: (context, index) {
-                          final student = students[index];
+                          final student = visibleStudents[index];
                           final services = _activeServices(student);
                           final selectedCount = services
                               .where(
