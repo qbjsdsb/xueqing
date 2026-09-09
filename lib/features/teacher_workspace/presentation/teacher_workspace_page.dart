@@ -6118,9 +6118,9 @@ class _WorkspaceStatusMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (label) {
       '已逾期' => Theme.of(context).colorScheme.error,
-      '待验证' => Theme.of(context).colorScheme.tertiary,
-      '稳定' => Theme.of(context).colorScheme.primary,
-      '已关闭' => Theme.of(context).colorScheme.onSurfaceVariant,
+      '继续关注' => Theme.of(context).colorScheme.tertiary,
+      '暂时稳定' => Theme.of(context).colorScheme.primary,
+      '已结束' => Theme.of(context).colorScheme.onSurfaceVariant,
       _ => Theme.of(context).colorScheme.secondary,
     };
     return Container(

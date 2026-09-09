@@ -50,7 +50,7 @@ void main() {
     expect(rows.map((row) => row.recordType), <String>['发现问题', '教学处理', '检查结果']);
     expect(rows.first.teacherName, '王老师');
     expect(rows.first.attachmentNote, '1 个附件');
-    expect(rows.first.status, '待验证');
+    expect(rows.first.status, '继续关注');
     expect(rows.last.assessmentResult, '部分改善');
     expect(rows.last.status, '已结束');
     expect(rows.every((row) => row.nextStep == null), isTrue);
