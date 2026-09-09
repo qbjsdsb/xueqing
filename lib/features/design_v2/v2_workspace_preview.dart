@@ -91,6 +91,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
 
   void _openCase(V2FocusItem item) {
     setState(() {
+      _destination = 1;
       _selectedStudent = v2StudentForFocusItem(item);
       _selectedCase = item;
       _showCase = true;
@@ -400,7 +401,7 @@ class _RailItem extends StatelessWidget {
   }
 }
 
-class _StudentListPane extends StatelessWidget {
+class _StudentListPane extends StatefulWidget {
   const _StudentListPane({
     required this.selectedStudent,
     required this.onSelected,
@@ -412,7 +413,45 @@ class _StudentListPane extends StatelessWidget {
   final bool compact;
 
   @override
+  State<_StudentListPane> createState() => _StudentListPaneState();
+}
+
+class _StudentListPaneState extends State<_StudentListPane> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<V2Student> get _visibleStudents {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) {
+      return v2Students;
+    }
+    return v2Students
+        .where((student) {
+          final haystack = [
+            student.name,
+            student.grade,
+            ...student.subjects,
+            student.teacherSummary,
+          ].join(' ').toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _query = '');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final visibleStudents = _visibleStudents;
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerLowest,
       child: Column(
@@ -420,9 +459,9 @@ class _StudentListPane extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(
-              compact ? 18 : 24,
+              widget.compact ? 18 : 24,
               24,
-              compact ? 18 : 20,
+              widget.compact ? 18 : 20,
               12,
             ),
             child: Column(
@@ -430,28 +469,28 @@ class _StudentListPane extends StatelessWidget {
               children: [
                 Text('学生', style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 18),
-                const TextField(
+                TextField(
+                  key: const Key('v2-student-search'),
+                  controller: _searchController,
+                  onChanged: (value) => setState(() => _query = value),
                   decoration: InputDecoration(
-                    hintText: '搜索学生姓名、年级或备注…',
-                    prefixIcon: Icon(Icons.search, size: 19),
+                    hintText: '搜索姓名、年级、学科或老师…',
+                    prefixIcon: const Icon(Icons.search, size: 19),
+                    suffixIcon: _query.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: '清除搜索',
+                            onPressed: _clearSearch,
+                            icon: const Icon(Icons.close, size: 18),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Text(
-                      '全部 ${v2Students.length}',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(width: 18),
-                    Text('我负责 4', style: Theme.of(context).textTheme.bodySmall),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: '筛选',
-                      onPressed: () {},
-                      icon: const Icon(Icons.tune, size: 19),
-                    ),
-                  ],
+                Text(
+                  _query.trim().isEmpty
+                      ? '全部 ${v2Students.length}'
+                      : '找到 ${visibleStudents.length} 位',
+                  style: Theme.of(context).textTheme.labelLarge,
                 ),
               ],
             ),
@@ -461,18 +500,25 @@ class _StudentListPane extends StatelessWidget {
             color: Theme.of(context).colorScheme.outlineVariant,
           ),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: v2Students.length,
-              itemBuilder: (context, index) {
-                final student = v2Students[index];
-                return _StudentRow(
-                  student: student,
-                  selected: student.id == selectedStudent.id,
-                  onTap: () => onSelected(student),
-                );
-              },
-            ),
+            child: visibleStudents.isEmpty
+                ? Center(
+                    child: Text(
+                      '没有找到匹配的学生',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: visibleStudents.length,
+                    itemBuilder: (context, index) {
+                      final student = visibleStudents[index];
+                      return _StudentRow(
+                        student: student,
+                        selected: student.id == widget.selectedStudent.id,
+                        onTap: () => widget.onSelected(student),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -1180,16 +1226,58 @@ class _TodayAction extends StatelessWidget {
   }
 }
 
-class _CaseIndexPane extends StatelessWidget {
+class _CaseIndexPane extends StatefulWidget {
   const _CaseIndexPane({required this.onOpenCase, this.compact = false});
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
 
   @override
+  State<_CaseIndexPane> createState() => _CaseIndexPaneState();
+}
+
+class _CaseIndexPaneState extends State<_CaseIndexPane> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<V2FocusItem> get _visibleItems {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) {
+      return v2FocusItems;
+    }
+    return v2FocusItems
+        .where((item) {
+          final student = v2StudentForFocusItem(item);
+          final haystack = [
+            student.name,
+            student.grade,
+            item.subject,
+            item.title,
+            item.summary,
+            item.nextStep,
+            student.teacherSummary,
+          ].join(' ').toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _query = '');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final visibleItems = _visibleItems;
     return SingleChildScrollView(
-      padding: EdgeInsets.all(compact ? 18 : 32),
+      padding: EdgeInsets.all(widget.compact ? 18 : 32),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
@@ -1200,19 +1288,47 @@ class _CaseIndexPane extends StatelessWidget {
               const SizedBox(height: 5),
               Text('找到仍需要复盘的问题', style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 22),
-              const TextField(
+              TextField(
+                key: const Key('v2-case-search'),
+                controller: _searchController,
+                onChanged: (value) => setState(() => _query = value),
                 decoration: InputDecoration(
-                  hintText: '搜索学生或问题…',
-                  prefixIcon: Icon(Icons.search, size: 19),
+                  hintText: '搜索学生、学科或问题…',
+                  prefixIcon: const Icon(Icons.search, size: 19),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '清除搜索',
+                          onPressed: _clearSearch,
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
                 ),
               ),
-              const SizedBox(height: 18),
-              for (final item in v2FocusItems)
-                _FocusRow(
-                  item: item,
-                  studentName: v2StudentForFocusItem(item).name,
-                  onTap: () => onOpenCase(item),
-                ),
+              const SizedBox(height: 12),
+              Text(
+                _query.trim().isEmpty
+                    ? '进行中 ${v2FocusItems.length}'
+                    : '找到 ${visibleItems.length} 个问题',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 6),
+              if (visibleItems.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 30),
+                  child: Center(
+                    child: Text(
+                      '没有找到匹配的问题',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                )
+              else
+                for (final item in visibleItems)
+                  _FocusRow(
+                    item: item,
+                    studentName: v2StudentForFocusItem(item).name,
+                    onTap: () => widget.onOpenCase(item),
+                  ),
             ],
           ),
         ),

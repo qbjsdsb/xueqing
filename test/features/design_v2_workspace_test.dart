@@ -131,4 +131,68 @@ void main() {
     expect(find.text('林同学 · 语文'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('student search filters real people without changing identity', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('v2-student-search')), '陈老师');
+    await tester.pump();
+
+    expect(find.text('王同学'), findsOneWidget);
+    expect(find.text('吴同学'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(ListView), matching: find.text('林同学')),
+      findsNothing,
+    );
+    expect(find.text('找到 2 位'), findsOneWidget);
+  });
+
+  testWidgets('case search filters and opens the exact matching Case', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('学情'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('v2-case-search')), '配平');
+    await tester.pump();
+
+    expect(find.text('化学方程式配平不稳'), findsOneWidget);
+    expect(find.text('阅读概括不完整'), findsNothing);
+    expect(find.text('找到 1 个问题'), findsOneWidget);
+
+    await tester.tap(find.text('化学方程式配平不稳'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('周同学 · 化学'), findsOneWidget);
+    expect(find.text('集中练 5 组配平'), findsOneWidget);
+  });
+
+  testWidgets('Today deep link really enters Case detail', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('今日'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('王同学 · 英语'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('成长过程'), findsOneWidget);
+    expect(find.text('用一篇完形再检查'), findsOneWidget);
+    expect(find.textContaining('语篇中仍会被最近一个时间状语干扰'), findsOneWidget);
+  });
 }
