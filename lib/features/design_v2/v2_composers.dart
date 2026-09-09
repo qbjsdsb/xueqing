@@ -206,6 +206,8 @@ Future<T?> _showAdaptiveComposer<T>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      isDismissible: false,
+      enableDrag: false,
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       builder: (_) => child,
     );
@@ -859,7 +861,7 @@ class _ComposerScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    return AnimatedPadding(
+    final body = AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       padding: EdgeInsets.only(bottom: bottomInset),
       child: SafeArea(
@@ -915,6 +917,7 @@ class _ComposerScaffold extends StatelessWidget {
         ),
       ),
     );
+    return PopScope(canPop: onClose != null, child: body);
   }
 }
 
