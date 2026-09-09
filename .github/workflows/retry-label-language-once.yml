@@ -20,32 +20,58 @@ jobs:
           ref: ux/teacher-error-language
           fetch-depth: 0
 
-      - name: Replace developer-facing retry label
+      - name: Replace developer-facing retry labels everywhere teachers can see them
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          targets = {
-              'lib/features/teacher_workspace/presentation/progressive_case_forms.dart': 2,
-              'lib/features/teacher_workspace/presentation/teacher_workspace_page.dart': 2,
-              'test/features/teacher_workspace_test.dart': 2,
-          }
-          for path, expected in targets.items():
-              p = Path(path)
-              text = p.read_text(encoding='utf-8')
-              count = text.count('重试原提交')
-              if count != expected:
-                  raise SystemExit(f'{path}: expected {expected} retry labels, found {count}')
-              p.write_text(text.replace('重试原提交', '重新保存'), encoding='utf-8')
+          touched = []
+          total = 0
+          for root in ('lib', 'test'):
+              for p in Path(root).rglob('*.dart'):
+                  text = p.read_text(encoding='utf-8')
+                  count = text.count('重试原提交')
+                  if not count:
+                      continue
+                  p.write_text(text.replace('重试原提交', '重新保存'), encoding='utf-8')
+                  touched.append((str(p), count))
+                  total += count
+
+          if total == 0:
+              raise SystemExit('no retry labels found; refusing empty transform')
+
+          for path, count in touched:
+              print(f'{path}: replaced {count}')
+
+          leftovers = []
+          for root in ('lib', 'test'):
+              for p in Path(root).rglob('*.dart'):
+                  if '重试原提交' in p.read_text(encoding='utf-8'):
+                      leftovers.append(str(p))
+          if leftovers:
+              raise SystemExit(f'stale labels remain: {leftovers}')
           PY
 
-      - name: Verify exact scope
+      - name: Verify patch hygiene
         run: |
           git diff --check
-          test "$(git diff --name-only | sort | tr '\n' ' ')" = "$(printf '%s\n' \
-            lib/features/teacher_workspace/presentation/progressive_case_forms.dart \
-            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
-            test/features/teacher_workspace_test.dart | sort | tr '\n' ' ')"
+          git diff --name-only
+          python - <<'PY'
+          import subprocess
+          paths = subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines()
+          allowed_prod = {
+              'lib/features/teacher_workspace/presentation/progressive_case_forms.dart',
+              'lib/features/teacher_workspace/presentation/teacher_workspace_page.dart',
+          }
+          unexpected = [
+              p for p in paths
+              if not (p in allowed_prod or p.startswith('test/'))
+          ]
+          if unexpected:
+              raise SystemExit(f'unexpected changed paths: {unexpected}')
+          if not allowed_prod.issubset(set(paths)):
+              raise SystemExit(f'expected production paths missing: {allowed_prod - set(paths)}')
+          PY
 
       - name: Commit real patch and remove one-shot workflow
         run: |
