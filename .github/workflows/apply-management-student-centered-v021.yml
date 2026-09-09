@@ -27,6 +27,20 @@ jobs:
       - name: Apply focused management patch
         run: python3 tool/apply_management_student_centered_v021.py
 
+      - name: Escape source interpolation in contract test
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('test/features/management_workflow_clarity_contract_test.dart')
+          text = path.read_text()
+          old = "'student-assignment-transfer-${currentAssignment.assignmentId}'"
+          new = r"'student-assignment-transfer-\${currentAssignment.assignmentId}'"
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exactly one interpolation contract, found {count}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Install dependencies
         run: flutter pub get
 
