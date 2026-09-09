@@ -281,6 +281,15 @@ const v2Timeline = <V2TimelineEntry>[
   ),
 ];
 
+List<V2TimelineEntry> v2TimelineForStudent(V2Student student) {
+  final caseIds = v2FocusItemsForStudent(student)
+      .map((item) => item.id)
+      .toSet();
+  return v2Timeline
+      .where((entry) => caseIds.contains(entry.caseId))
+      .toList(growable: false);
+}
+
 List<V2TimelineEntry> v2TimelineForCase(V2FocusItem item) => v2Timeline
     .where((entry) => entry.caseId == item.id)
     .toList(growable: false);

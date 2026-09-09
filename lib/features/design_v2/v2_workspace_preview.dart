@@ -7,15 +7,20 @@ Future<void> _showV2ProgressCasePicker(
   BuildContext context,
   V2Student student,
 ) async {
+  final items = v2FocusItemsForStudent(student);
+  if (items.isEmpty) {
+    return;
+  }
+
   Widget choices(BuildContext sheetContext) => ListView.separated(
     shrinkWrap: true,
-    itemCount: v2FocusItems.length,
+    itemCount: items.length,
     separatorBuilder: (_, _) => Divider(
       height: 1,
       color: Theme.of(sheetContext).colorScheme.outlineVariant,
     ),
     itemBuilder: (_, index) {
-      final item = v2FocusItems[index];
+      final item = items[index];
       return ListTile(
         title: Text(item.title),
         subtitle: Text(item.subject),
@@ -74,6 +79,7 @@ class V2WorkspacePreview extends StatefulWidget {
 class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   int _destination = 1;
   V2Student _selectedStudent = v2Students.first;
+  V2FocusItem _selectedCase = v2FocusItems.first;
   bool _showCase = false;
 
   void _openStudent(V2Student student) {
@@ -83,8 +89,22 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     });
   }
 
-  void _openCase() => setState(() => _showCase = true);
+  void _openCase(V2FocusItem item) {
+    setState(() {
+      _selectedStudent = v2StudentForFocusItem(item);
+      _selectedCase = item;
+      _showCase = true;
+    });
+  }
+
   void _closeCase() => setState(() => _showCase = false);
+
+  void _changeDestination(int value) {
+    setState(() {
+      _destination = value;
+      _showCase = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,11 +114,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
           return _CompactWorkspace(
             destination: _destination,
             selectedStudent: _selectedStudent,
+            selectedCase: _selectedCase,
             showCase: _showCase,
-            onDestinationChanged: (value) => setState(() {
-              _destination = value;
-              _showCase = false;
-            }),
+            onDestinationChanged: _changeDestination,
             onStudentSelected: _openStudent,
             onOpenCase: _openCase,
             onBackFromCase: _closeCase,
@@ -107,11 +125,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
         return _DesktopWorkspace(
           destination: _destination,
           selectedStudent: _selectedStudent,
+          selectedCase: _selectedCase,
           showCase: _showCase,
-          onDestinationChanged: (value) => setState(() {
-            _destination = value;
-            _showCase = false;
-          }),
+          onDestinationChanged: _changeDestination,
           onStudentSelected: _openStudent,
           onOpenCase: _openCase,
           onBackFromCase: _closeCase,
@@ -125,6 +141,7 @@ class _DesktopWorkspace extends StatelessWidget {
   const _DesktopWorkspace({
     required this.destination,
     required this.selectedStudent,
+    required this.selectedCase,
     required this.showCase,
     required this.onDestinationChanged,
     required this.onStudentSelected,
@@ -134,10 +151,11 @@ class _DesktopWorkspace extends StatelessWidget {
 
   final int destination;
   final V2Student selectedStudent;
+  final V2FocusItem selectedCase;
   final bool showCase;
   final ValueChanged<int> onDestinationChanged;
   final ValueChanged<V2Student> onStudentSelected;
-  final VoidCallback onOpenCase;
+  final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
 
   @override
@@ -166,7 +184,11 @@ class _DesktopWorkspace extends StatelessWidget {
               VerticalDivider(width: 1, color: border),
               Expanded(
                 child: showCase
-                    ? _CaseDetailPane(onBack: onBackFromCase)
+                    ? _CaseDetailPane(
+                        student: selectedStudent,
+                        item: selectedCase,
+                        onBack: onBackFromCase,
+                      )
                     : _StudentDetailPane(
                         student: selectedStudent,
                         onOpenCase: onOpenCase,
@@ -195,6 +217,7 @@ class _CompactWorkspace extends StatefulWidget {
   const _CompactWorkspace({
     required this.destination,
     required this.selectedStudent,
+    required this.selectedCase,
     required this.showCase,
     required this.onDestinationChanged,
     required this.onStudentSelected,
@@ -204,10 +227,11 @@ class _CompactWorkspace extends StatefulWidget {
 
   final int destination;
   final V2Student selectedStudent;
+  final V2FocusItem selectedCase;
   final bool showCase;
   final ValueChanged<int> onDestinationChanged;
   final ValueChanged<V2Student> onStudentSelected;
-  final VoidCallback onOpenCase;
+  final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
 
   @override
@@ -221,7 +245,12 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
   Widget build(BuildContext context) {
     Widget body;
     if (widget.showCase) {
-      body = _CaseDetailPane(onBack: widget.onBackFromCase, compact: true);
+      body = _CaseDetailPane(
+        student: widget.selectedStudent,
+        item: widget.selectedCase,
+        onBack: widget.onBackFromCase,
+        compact: true,
+      );
     } else if (widget.destination == 1 && _studentOpen) {
       body = _StudentDetailPane(
         student: widget.selectedStudent,
@@ -558,13 +587,15 @@ class _StudentDetailPane extends StatelessWidget {
   });
 
   final V2Student student;
-  final VoidCallback onOpenCase;
+  final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
   final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final focusItems = v2FocusItemsForStudent(student);
+    final timelineEntries = v2TimelineForStudent(student);
     return ColoredBox(
       color: scheme.surface,
       child: CustomScrollView(
@@ -593,17 +624,29 @@ class _StudentDetailPane extends StatelessWidget {
                       ],
                       _StudentHeader(student: student, compact: compact),
                       const SizedBox(height: 30),
-                      _SectionTitle(title: '现在最重要', count: v2FocusItems.length),
+                      _SectionTitle(title: '现在最重要', count: focusItems.length),
                       const SizedBox(height: 8),
-                      for (var i = 0; i < v2FocusItems.length; i++) ...[
-                        _FocusRow(item: v2FocusItems[i], onTap: onOpenCase),
-                        if (i < v2FocusItems.length - 1)
-                          Divider(height: 1, color: scheme.outlineVariant),
-                      ],
+                      if (focusItems.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          child: Text(
+                            '暂无进行中的问题',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        )
+                      else
+                        for (var i = 0; i < focusItems.length; i++) ...[
+                          _FocusRow(
+                            item: focusItems[i],
+                            onTap: () => onOpenCase(focusItems[i]),
+                          ),
+                          if (i < focusItems.length - 1)
+                            Divider(height: 1, color: scheme.outlineVariant),
+                        ],
                       const SizedBox(height: 34),
                       const _SectionTitle(title: '最近成长'),
                       const SizedBox(height: 14),
-                      const _Timeline(),
+                      _Timeline(entries: timelineEntries),
                     ],
                   ),
                 ),
@@ -624,6 +667,7 @@ class _StudentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final focusItems = v2FocusItemsForStudent(student);
     final buttons = Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -638,7 +682,9 @@ class _StudentHeader extends StatelessWidget {
           label: const Text('记录问题'),
         ),
         FilledButton.icon(
-          onPressed: () => _showV2ProgressCasePicker(context, student),
+          onPressed: focusItems.isEmpty
+              ? null
+              : () => _showV2ProgressCasePicker(context, student),
           icon: const Icon(Icons.edit_note_outlined, size: 18),
           label: const Text('记进展'),
         ),
@@ -666,7 +712,7 @@ class _StudentHeader extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            '王老师负责语文 · 李老师负责数学',
+            student.teacherSummary,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 16),
@@ -690,7 +736,7 @@ class _StudentHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '王老师负责语文 · 李老师负责数学',
+                      student.teacherSummary,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -725,10 +771,11 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _FocusRow extends StatelessWidget {
-  const _FocusRow({required this.item, required this.onTap});
+  const _FocusRow({required this.item, required this.onTap, this.studentName});
 
   final V2FocusItem item;
   final VoidCallback onTap;
+  final String? studentName;
 
   @override
   Widget build(BuildContext context) {
@@ -772,7 +819,9 @@ class _FocusRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  item.subject,
+                  studentName == null
+                      ? item.subject
+                      : '$studentName · ${item.subject}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 17),
@@ -792,14 +841,19 @@ class _FocusRow extends StatelessWidget {
 }
 
 class _Timeline extends StatelessWidget {
-  const _Timeline();
+  const _Timeline({required this.entries});
+
+  final List<V2TimelineEntry> entries;
 
   @override
   Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return Text('暂时还没有成长记录', style: Theme.of(context).textTheme.bodyMedium);
+    }
     return Column(
       children: [
-        for (var i = 0; i < v2Timeline.length; i++)
-          _TimelineRow(entry: v2Timeline[i], last: i == v2Timeline.length - 1),
+        for (var i = 0; i < entries.length; i++)
+          _TimelineRow(entry: entries[i], last: i == entries.length - 1),
       ],
     );
   }
@@ -912,14 +966,22 @@ class _PhotoStrip extends StatelessWidget {
 }
 
 class _CaseDetailPane extends StatelessWidget {
-  const _CaseDetailPane({required this.onBack, this.compact = false});
+  const _CaseDetailPane({
+    required this.student,
+    required this.item,
+    required this.onBack,
+    this.compact = false,
+  });
 
+  final V2Student student;
+  final V2FocusItem item;
   final VoidCallback onBack;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final timelineEntries = v2TimelineForCase(item);
     return ColoredBox(
       color: scheme.surface,
       child: SingleChildScrollView(
@@ -943,7 +1005,7 @@ class _CaseDetailPane extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '林同学 · 语文',
+                    '${student.name} · ${item.subject}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 12),
@@ -952,7 +1014,7 @@ class _CaseDetailPane extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          '阅读概括不完整',
+                          item.title,
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
                       ),
@@ -960,9 +1022,9 @@ class _CaseDetailPane extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: () => showV2ProgressComposer(
                           context,
-                          studentName: '林同学',
-                          subject: '语文',
-                          caseTitle: '阅读概括不完整',
+                          studentName: student.name,
+                          subject: item.subject,
+                          caseTitle: item.title,
                         ),
                         icon: const Icon(Icons.edit_note_outlined, size: 18),
                         label: const Text('记进展'),
@@ -971,7 +1033,7 @@ class _CaseDetailPane extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '能够定位关键词，但概括仍容易遗漏结果。',
+                    item.summary,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 28),
@@ -987,12 +1049,12 @@ class _CaseDetailPane extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '周四再检查同类概括题',
+                          item.nextStep,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ),
                       Text(
-                        '9 月 12 日',
+                        item.dueLabel,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -1002,7 +1064,7 @@ class _CaseDetailPane extends StatelessWidget {
                   const SizedBox(height: 28),
                   const _SectionTitle(title: '成长过程'),
                   const SizedBox(height: 16),
-                  const _Timeline(),
+                  _Timeline(entries: timelineEntries),
                 ],
               ),
             ),
@@ -1016,7 +1078,7 @@ class _CaseDetailPane extends StatelessWidget {
 class _TodayPane extends StatelessWidget {
   const _TodayPane({required this.onOpenCase, this.compact = false});
 
-  final VoidCallback onOpenCase;
+  final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
 
   @override
@@ -1038,13 +1100,13 @@ class _TodayPane extends StatelessWidget {
               const SizedBox(height: 28),
               const _SectionTitle(title: '需要处理'),
               const SizedBox(height: 8),
-              for (final item in v2FocusItems)
+              for (final item in v2FocusItems.take(4))
                 _TodayAction(item: item, onOpenCase: onOpenCase),
               const SizedBox(height: 28),
               const _SectionTitle(title: '待验证'),
               const SizedBox(height: 10),
               _TodayAction(
-                item: v2FocusItems.first,
+                item: v2FocusItems[4],
                 onOpenCase: onOpenCase,
                 verification: true,
               ),
@@ -1064,14 +1126,15 @@ class _TodayAction extends StatelessWidget {
   });
 
   final V2FocusItem item;
-  final VoidCallback onOpenCase;
+  final ValueChanged<V2FocusItem> onOpenCase;
   final bool verification;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final student = v2StudentForFocusItem(item);
     return InkWell(
-      onTap: onOpenCase,
+      onTap: () => onOpenCase(item),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 15),
         child: Row(
@@ -1088,7 +1151,7 @@ class _TodayAction extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '林同学 · ${item.subject}',
+                    '${student.name} · ${item.subject}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 3),
@@ -1120,7 +1183,7 @@ class _TodayAction extends StatelessWidget {
 class _CaseIndexPane extends StatelessWidget {
   const _CaseIndexPane({required this.onOpenCase, this.compact = false});
 
-  final VoidCallback onOpenCase;
+  final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
 
   @override
@@ -1145,7 +1208,11 @@ class _CaseIndexPane extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               for (final item in v2FocusItems)
-                _FocusRow(item: item, onTap: onOpenCase),
+                _FocusRow(
+                  item: item,
+                  studentName: v2StudentForFocusItem(item).name,
+                  onTap: () => onOpenCase(item),
+                ),
             ],
           ),
         ),
