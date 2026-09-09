@@ -1,4 +1,4 @@
-name: Diagnose Quick Capture student-first v0.2.1
+name: Apply Quick Capture student-first v0.2.1
 
 on:
   push:
@@ -9,7 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  diagnose-tests:
+  patch-and-test:
+    if: contains(github.event.head_commit.message, 'fix: update Quick Capture student-first patch')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -29,49 +30,54 @@ jobs:
       - name: Apply focused Quick Capture patch
         run: python tool/apply_quick_capture_student_first_v021.py
 
+      - name: Remove staging helpers
+        run: |
+          rm tool/apply_quick_capture_student_first_v021.py
+          rm .github/workflows/apply-quick-capture-student-first-v021.yml
+
       - name: Install dependencies
         run: flutter pub get
 
       - name: Format changed Dart files
-        run: dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart
+        run: dart format lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart test/features/workflow_clarity_contract_test.dart
 
       - name: Static analysis
         run: flutter analyze
 
-      - name: Capture full Flutter test failure
+      - name: Full Flutter tests
+        run: flutter test
+
+      - name: Verify focused diff
         shell: bash
         run: |
-          set +e
-          flutter test --reporter expanded > /tmp/flutter-test.log 2>&1
-          status=$?
-          if [[ $status -eq 0 ]]; then
-            echo "Full Flutter tests passed."
-            exit 0
-          fi
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only HEAD | sort)
+          printf '%s\n' "${changed[@]}"
+          allowed=(
+            ".github/workflows/apply-quick-capture-student-first-v021.yml"
+            "lib/features/teacher_workspace/presentation/teacher_workspace_page.dart"
+            "test/features/teacher_workspace_test.dart"
+            "test/features/workflow_clarity_contract_test.dart"
+            "tool/apply_quick_capture_student_first_v021.py"
+          )
+          for path in "${changed[@]}"; do
+            ok=false
+            for expected in "${allowed[@]}"; do
+              if [[ "$path" == "$expected" ]]; then ok=true; break; fi
+            done
+            if [[ "$ok" != true ]]; then
+              echo "Unexpected changed path: $path" >&2
+              exit 1
+            fi
+          done
+          test -n "$(git diff -- lib/features/teacher_workspace/presentation/teacher_workspace_page.dart test/features/teacher_workspace_test.dart test/features/workflow_clarity_contract_test.dart)"
 
-          python - <<'PY'
-          from pathlib import Path
-          text = Path('/tmp/flutter-test.log').read_text(errors='replace').splitlines()
-          markers = ('Test failed', 'Expected:', 'Actual:', 'Which:', 'EXCEPTION', 'Some tests failed', '══╡')
-          hits = [i for i, line in enumerate(text) if any(marker in line for marker in markers)]
-          keep = set()
-          for i in hits:
-              keep.update(range(max(0, i - 18), min(len(text), i + 35)))
-          if not keep:
-              keep.update(range(max(0, len(text) - 250), len(text)))
-          out = []
-          last = None
-          for i in sorted(keep):
-              if last is not None and i > last + 1:
-                  out.append('...')
-              out.append(f'{i+1}: {text[i]}')
-              last = i
-          Path('tool/quick_capture_test_failure.txt').write_text('\n'.join(out) + '\n')
-          PY
-
+      - name: Commit validated product changes
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tool/quick_capture_test_failure.txt
-          git commit -m "diag: capture Quick Capture test failure"
-          git push --force origin HEAD:refs/heads/diag/quick-capture-test-failure-v021
-          exit $status
+          git add -A
+          git commit -m "UX: choose student before subject in Quick Capture"
+          git push origin HEAD:ux/quick-capture-student-first-v021
