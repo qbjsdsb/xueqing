@@ -122,10 +122,7 @@ class _V2LoaderStatus extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  if (action != null) ...[
-                    const SizedBox(height: 18),
-                    action!,
-                  ],
+                  if (action != null) ...[const SizedBox(height: 18), action!],
                 ],
               ),
             ),
