@@ -25,7 +25,9 @@ void main() {
       sessionUserId: 'user-1',
     );
 
-    await tester.pumpWidget(MaterialApp(home: V2WorkspacePage(runtime: runtime)));
+    await tester.pumpWidget(
+      MaterialApp(home: V2WorkspacePage(runtime: runtime)),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
