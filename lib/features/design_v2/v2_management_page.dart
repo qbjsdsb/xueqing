@@ -1,0 +1,104 @@
+import 'package:flutter/material.dart';
+
+import '../../cloud/learning_repository.dart';
+import '../organization_management/presentation/organization_management_page.dart';
+import '../teacher_workspace/workspace_runtime.dart';
+import 'v2_update_flow.dart';
+
+class V2ManagementPage extends StatefulWidget {
+  const V2ManagementPage({
+    required this.workspace,
+    required this.runtime,
+    this.rootMode = false,
+    this.onChanged,
+    super.key,
+  });
+
+  final TeacherWorkspace workspace;
+  final AuthenticatedWorkspaceRuntime runtime;
+  final bool rootMode;
+  final VoidCallback? onChanged;
+
+  @override
+  State<V2ManagementPage> createState() => _V2ManagementPageState();
+}
+
+class _V2ManagementPageState extends State<V2ManagementPage> {
+  bool _checkingForUpdates = false;
+
+  Future<void> _checkForUpdates() async {
+    if (_checkingForUpdates) return;
+    setState(() => _checkingForUpdates = true);
+    try {
+      await runV2UpdateFlow(
+        context,
+        service: widget.runtime.updateService,
+        installer: widget.runtime.updateInstaller,
+      );
+    } finally {
+      if (mounted) setState(() => _checkingForUpdates = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final organizationId = widget.workspace.organizationId;
+    final repository = widget.runtime.organizationManagementRepository;
+    if (organizationId == null || repository == null) {
+      return const Scaffold(
+        body: SafeArea(child: Center(child: Text('当前账号没有可用的机构管理权限。'))),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: !widget.rootMode,
+        title: Text('机构管理 · ${widget.workspace.organizationName}'),
+        actions: [
+          if (_checkingForUpdates)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              tooltip: '检查更新',
+              onPressed: _checkForUpdates,
+              icon: const Icon(Icons.system_update_alt_outlined),
+            ),
+          if (widget.rootMode && widget.runtime.onSignOut != null)
+            IconButton(
+              tooltip: '退出登录',
+              onPressed: widget.runtime.onSignOut,
+              icon: const Icon(Icons.logout_outlined),
+            ),
+          const SizedBox(width: 6),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: OrganizationManagementPage(
+            repository: repository,
+            provisioningRepository: widget.runtime.memberProvisioningRepository,
+            teacherLearningRecordRepository:
+                widget.runtime.teacherLearningRecordRepository,
+            studentLearningRecordRepository:
+                widget.runtime.studentLearningRecordRepository,
+            organizationId: organizationId,
+            organizationName: widget.workspace.organizationName,
+            roles: widget.workspace.roles,
+            canManageCaseTypes: false,
+            onChanged: widget.onChanged,
+          ),
+        ),
+      ),
+    );
+  }
+}

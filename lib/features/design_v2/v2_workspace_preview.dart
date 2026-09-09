@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../update/update_installer.dart';
+import '../../update/update_service.dart';
+
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
 import 'v2_composers.dart';
 import 'v2_fixture.dart';
+import 'v2_update_flow.dart';
 import 'v2_workflow_controller.dart';
 import 'v2_workspace_data.dart';
 
@@ -217,12 +221,22 @@ class V2WorkspacePreview extends StatefulWidget {
     this.data = v2FixtureWorkspaceData,
     this.workflowController,
     this.evidenceAttachmentRepository,
+    this.managementPageBuilder,
+    this.updateService,
+    this.updateInstaller,
+    this.appVersion,
+    this.onSignOut,
     this.onWorkspaceChanged,
   });
 
   final V2WorkspaceData data;
   final V2WorkflowController? workflowController;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
+  final WidgetBuilder? managementPageBuilder;
+  final UpdateService? updateService;
+  final UpdateInstaller? updateInstaller;
+  final String? appVersion;
+  final VoidCallback? onSignOut;
   final VoidCallback? onWorkspaceChanged;
 
   @override
@@ -234,6 +248,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   V2Student? _selectedStudent;
   V2FocusItem? _selectedCase;
   bool _showCase = false;
+  bool _checkingForUpdates = false;
 
   @override
   void initState() {
@@ -310,6 +325,101 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     });
   }
 
+  Future<void> _openManagement(BuildContext context) async {
+    final builder = widget.managementPageBuilder;
+    if (builder == null) return;
+    await Navigator.of(context)
+        .push<void>(MaterialPageRoute<void>(builder: builder));
+  }
+
+  Future<void> _checkForUpdates(BuildContext context) async {
+    final service = widget.updateService;
+    final installer = widget.updateInstaller;
+    if (service == null || installer == null || _checkingForUpdates) return;
+    setState(() => _checkingForUpdates = true);
+    try {
+      await runV2UpdateFlow(context, service: service, installer: installer);
+    } finally {
+      if (mounted) setState(() => _checkingForUpdates = false);
+    }
+  }
+
+  void _afterMenuClose(BuildContext menuContext, VoidCallback action) {
+    Navigator.of(menuContext).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) action();
+    });
+  }
+
+  Future<void> _showWorkspaceMenu(BuildContext context) async {
+    Widget menu(BuildContext menuContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.managementPageBuilder != null)
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings_outlined),
+                title: const Text('机构管理'),
+                subtitle: const Text('成员、学生、学科与记录导出'),
+                onTap: () => _afterMenuClose(
+                  menuContext,
+                  () => _openManagement(context),
+                ),
+              ),
+            ListTile(
+              leading: _checkingForUpdates
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.system_update_alt_outlined),
+              title: const Text('检查更新'),
+              subtitle: widget.appVersion == null
+                  ? null
+                  : Text('当前版本 ${widget.appVersion}'),
+              onTap:
+                  _checkingForUpdates ||
+                      widget.updateService == null ||
+                      widget.updateInstaller == null
+                  ? null
+                  : () => _afterMenuClose(
+                      menuContext,
+                      () => _checkForUpdates(context),
+                    ),
+            ),
+            if (widget.onSignOut != null)
+              ListTile(
+                leading: const Icon(Icons.logout_outlined),
+                title: const Text('退出登录'),
+                onTap: () => _afterMenuClose(menuContext, widget.onSignOut!),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (MediaQuery.sizeOf(context).width < 720) {
+      await showModalBottomSheet<void>(
+        context: context,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: menu,
+      );
+    } else {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('设置'),
+          content: SizedBox(width: 390, child: menu(dialogContext)),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return _V2RuntimeScope(
@@ -337,6 +447,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     onStudentSelected: _openStudent,
                     onOpenCase: _openCase,
                     onBackFromCase: _closeCase,
+                    onOpenMore: () => _showWorkspaceMenu(context),
                   );
                 }
                 return _DesktopWorkspace(
@@ -348,6 +459,10 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                   onStudentSelected: _openStudent,
                   onOpenCase: _openCase,
                   onBackFromCase: _closeCase,
+                  onManage: widget.managementPageBuilder == null
+                      ? null
+                      : () => _openManagement(context),
+                  onSettings: () => _showWorkspaceMenu(context),
                 );
               },
             );
@@ -368,6 +483,8 @@ class _DesktopWorkspace extends StatelessWidget {
     required this.onStudentSelected,
     required this.onOpenCase,
     required this.onBackFromCase,
+    required this.onSettings,
+    this.onManage,
   });
 
   final int destination;
@@ -378,6 +495,8 @@ class _DesktopWorkspace extends StatelessWidget {
   final ValueChanged<V2Student> onStudentSelected;
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
+  final VoidCallback? onManage;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -391,6 +510,8 @@ class _DesktopWorkspace extends StatelessWidget {
               child: _NavigationRail(
                 selectedIndex: destination,
                 onSelected: onDestinationChanged,
+                onManage: onManage,
+                onSettings: onSettings,
               ),
             ),
             VerticalDivider(width: 1, color: border),
@@ -417,15 +538,8 @@ class _DesktopWorkspace extends StatelessWidget {
               ),
             ] else if (destination == 0) ...[
               Expanded(child: _TodayPane(onOpenCase: onOpenCase)),
-            ] else if (destination == 3) ...[
-              Expanded(child: _CaseIndexPane(onOpenCase: onOpenCase)),
             ] else ...[
-              const Expanded(
-                child: _QuietPlaceholder(
-                  title: '课程',
-                  message: 'V2 第一阶段先确定教师高频工作流。课程入口将在 Shell 稳定后接入。',
-                ),
-              ),
+              Expanded(child: _CaseIndexPane(onOpenCase: onOpenCase)),
             ],
           ],
         ),
@@ -444,6 +558,7 @@ class _CompactWorkspace extends StatefulWidget {
     required this.onStudentSelected,
     required this.onOpenCase,
     required this.onBackFromCase,
+    required this.onOpenMore,
   });
 
   final int destination;
@@ -454,6 +569,7 @@ class _CompactWorkspace extends StatefulWidget {
   final ValueChanged<V2Student> onStudentSelected;
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
+  final VoidCallback onOpenMore;
 
   @override
   State<_CompactWorkspace> createState() => _CompactWorkspaceState();
@@ -490,10 +606,8 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       );
     } else if (widget.destination == 0) {
       body = _TodayPane(onOpenCase: widget.onOpenCase, compact: true);
-    } else if (widget.destination == 3) {
-      body = _CaseIndexPane(onOpenCase: widget.onOpenCase, compact: true);
     } else {
-      body = const _QuietPlaceholder(title: '课程', message: '课程入口将在下一阶段接入 V2。');
+      body = _CaseIndexPane(onOpenCase: widget.onOpenCase, compact: true);
     }
 
     return Scaffold(
@@ -503,6 +617,10 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
           : NavigationBar(
               selectedIndex: widget.destination,
               onDestinationSelected: (value) {
+                if (value == 3) {
+                  widget.onOpenMore();
+                  return;
+                }
                 setState(() => _studentOpen = false);
                 widget.onDestinationChanged(value);
               },
@@ -518,14 +636,13 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
                   label: '学生',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.menu_book_outlined),
-                  selectedIcon: Icon(Icons.menu_book),
-                  label: '课程',
-                ),
-                NavigationDestination(
                   icon: Icon(Icons.fact_check_outlined),
                   selectedIcon: Icon(Icons.fact_check),
                   label: '学情',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.more_horiz),
+                  label: '更多',
                 ),
               ],
             ),
@@ -537,10 +654,14 @@ class _NavigationRail extends StatelessWidget {
   const _NavigationRail({
     required this.selectedIndex,
     required this.onSelected,
+    required this.onSettings,
+    this.onManage,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback? onManage;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -555,7 +676,6 @@ class _NavigationRail extends StatelessWidget {
           for (final item in const [
             (Icons.today_outlined, '今日'),
             (Icons.people_outline, '学生'),
-            (Icons.menu_book_outlined, '课程'),
             (Icons.fact_check_outlined, '学情'),
           ].indexed)
             _RailItem(
@@ -565,11 +685,17 @@ class _NavigationRail extends StatelessWidget {
               onTap: () => onSelected(item.$1),
             ),
           const Spacer(),
-          const _RailItem(
-            icon: Icons.admin_panel_settings_outlined,
-            tooltip: '管理',
+          if (onManage != null)
+            _RailItem(
+              icon: Icons.admin_panel_settings_outlined,
+              tooltip: '管理',
+              onTap: onManage,
+            ),
+          _RailItem(
+            icon: Icons.settings_outlined,
+            tooltip: '设置',
+            onTap: onSettings,
           ),
-          const _RailItem(icon: Icons.settings_outlined, tooltip: '设置'),
           const SizedBox(height: 12),
         ],
       ),
@@ -1759,37 +1885,6 @@ class _EmptyWorkspacePreview extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuietPlaceholder extends StatelessWidget {
-  const _QuietPlaceholder({required this.title, required this.message});
-
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 10),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
           ),
         ),
       ),
