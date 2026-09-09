@@ -9,10 +9,10 @@ on:
         type: string
         default: v0.2.0
       app_version:
-        description: "Stable semantic app version including Android build, for example 0.2.0+2"
+        description: "Stable semantic app version including Android build, for example 0.2.0+4"
         required: true
         type: string
-        default: 0.2.0+2
+        default: 0.2.0+4
       release_notes:
         description: "One update note per line; optional"
         required: false
@@ -30,9 +30,9 @@ env:
   RELEASE_TAG: ${{ inputs.release_tag }}
   RELEASE_VERSION: ${{ inputs.app_version }}
   XUEQING_ENV: production
-  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || 'https://czuctoulgnfytcfonkhc.supabase.co' }}
-  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}
-  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || 'czuctoulgnfytcfonkhc.supabase.co' }}
+  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '' }}
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '' }}
+  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '' }}
   XUEQING_ALLOW_DEVELOPMENT_RELEASE: "false"
   XUEQING_SHOW_DEV_TOOLS: "false"
   XUEQING_REQUIRE_RELEASE_SIGNING: "true"
