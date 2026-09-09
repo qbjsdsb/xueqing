@@ -1,0 +1,55 @@
+name: Verify student multi-select export
+
+on:
+  push:
+    branches:
+      - ux/student-multi-select-export
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ux/student-multi-select-export
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .flutter-version
+          cache: true
+
+      - name: Apply focused patch
+        run: python3 tools/tmp_student_multi_export_patch.py
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Format
+        run: dart format lib test
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Commit verified product changes
+        shell: bash
+        run: |
+          rm -f tools/tmp_student_multi_export_patch.py
+          rm -f .github/workflows/tmp-student-multi-export.yml
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No product changes to commit."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Export: add student and subject multi-select workbook"
+          git push origin HEAD:ux/student-multi-select-export
