@@ -1144,8 +1144,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final shouldClose = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('关闭 Case？'),
-        content: const Text('关闭后不再列入当前待跟进事项，但历史记录会保留。'),
+        title: const Text('结束跟进？'),
+        content: const Text('结束后不会再列入当前待跟进事项，但学生的历史记录会完整保留。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -1153,7 +1153,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('关闭'),
+            child: const Text('结束跟进'),
           ),
         ],
       ),
@@ -1527,7 +1527,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final today = _actionsInBucket(actions, WorkspaceActionBucket.today);
     final future = _actionsInBucket(actions, WorkspaceActionBucket.future);
     final undated = _actionsInBucket(actions, WorkspaceActionBucket.undated);
-    final recentStudents = _studentsByRecentActivity(workspace.students);
+    final recentStudents = _dedupeStudentsById(
+      _studentsByRecentActivity(workspace.students),
+    );
     final hasScheduledWork = overdue.isNotEmpty || today.isNotEmpty;
     final hasImmediateWork = hasScheduledWork || undated.isNotEmpty;
     final hasBlockBeforeFuture = hasScheduledWork || !hasImmediateWork;
@@ -1809,13 +1811,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               title: '学生',
               subtitle: '搜索学生，先理解当前重点，再进入需要处理的问题。',
               actions: [
-                if (workspace.canManageCaseTypes &&
-                    workspace.organizationId != null)
-                  OutlinedButton.icon(
-                    onPressed: _showCaseTypeManager,
-                    icon: Icon(Icons.category_outlined),
-                    label: const Text('问题类型'),
-                  ),
                 FilledButton.icon(
                   onPressed: () => _showQuickCapture(),
                   icon: Icon(Icons.edit_note_outlined),
@@ -1852,7 +1847,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             else
               _WorkspaceSection(
                 title: '学生列表',
-                count: '${students.length} 人',
+                count:
+                    '${students.map((student) => student.id).toSet().length} 人',
                 child: Column(
                   children: [
                     for (final student in students)
@@ -3901,7 +3897,7 @@ class _WorkspaceQuickCaptureFormState
           for (final student in widget.students)
             _WorkspaceChoiceOption<WorkspaceStudent>(
               key: ValueKey<String>(
-                'quick-capture-student-option-${student.id}',
+                'quick-capture-student-option-${student.profileId}',
               ),
               value: student,
               title: [student.name, student.subject].join(' · '),
@@ -4927,7 +4923,7 @@ class _WorkspaceShell extends StatelessWidget {
     if (!hasTeachingAccess && showManagement) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('机构管理'),
+          title: const Text('学情闭环'),
           actions: [
             if (onCheckForUpdates != null)
               IconButton(
@@ -4958,7 +4954,7 @@ class _WorkspaceShell extends StatelessWidget {
         if (sizeClass == WindowSizeClass.compact) {
           return Scaffold(
             appBar: AppBar(
-              title: Text(hasTeachingAccess ? '教师工作台' : '机构管理'),
+              title: const Text('学情闭环'),
               actions: [
                 if (onCheckForUpdates != null)
                   IconButton(
@@ -5163,6 +5159,16 @@ class _WorkspaceRail extends StatelessWidget {
       ),
     );
   }
+}
+
+List<WorkspaceStudent> _dedupeStudentsById(
+  Iterable<WorkspaceStudent> students,
+) {
+  final seen = <String>{};
+  return <WorkspaceStudent>[
+    for (final student in students)
+      if (seen.add(student.id)) student,
+  ];
 }
 
 List<NavigationDestination> _workspaceDestinations({

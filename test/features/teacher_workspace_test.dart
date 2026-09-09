@@ -1631,7 +1631,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('选择学生'), findsOneWidget);
     await tester.tap(
-      find.byKey(const Key('quick-capture-student-option-student-1')),
+      find.byKey(const Key('quick-capture-student-option-profile-1')),
     );
     await tester.pumpAndSettle();
     expect(
@@ -1961,8 +1961,8 @@ void main() {
     await tester.tap(closeButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('关闭 Case？'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '关闭').last);
+    expect(find.text('结束跟进？'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '结束跟进').last);
     await tester.pumpAndSettle();
 
     expect(repository.closeCount, 1);
@@ -1988,7 +1988,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, '结束跟进'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '关闭').last);
+    await tester.tap(find.widgetWithText(FilledButton, '结束跟进').last);
     await tester.pumpAndSettle();
 
     expect(find.textContaining('网络暂时不可用'), findsOneWidget);
@@ -1997,7 +1997,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, '结束跟进'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '关闭').last);
+    await tester.tap(find.widgetWithText(FilledButton, '结束跟进').last);
     await tester.pumpAndSettle();
 
     expect(repository.closeCount, 2);

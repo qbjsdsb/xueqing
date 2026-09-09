@@ -63,7 +63,7 @@ class _MemberTile extends StatelessWidget {
           if (member.isOnboarding && member.onboardingExpiresAt != null) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(
-              '首次接管有效期至 ${_formatDateTime(member.onboardingExpiresAt)}',
+              '首次登录设置有效期至 ${_formatDateTime(member.onboardingExpiresAt)}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
