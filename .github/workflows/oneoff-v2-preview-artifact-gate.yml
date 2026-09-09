@@ -1,0 +1,71 @@
+name: One-off V2 preview artifact gate
+
+on:
+  push:
+    branches:
+      - ci/v2-real-preview-artifacts
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ci/v2-real-preview-artifacts
+          fetch-depth: 0
+
+      - name: Patch platform smoke preview opt-in
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/phase0b0a-platform-smoke.yml')
+          text = path.read_text()
+
+          replacements = [
+              (
+                  '''      app_version:\n        description: "Optional app version including build number; defaults to pubspec.yaml"\n        required: false\n        type: string\n\npermissions:''',
+                  '''      app_version:\n        description: "Optional app version including build number; defaults to pubspec.yaml"\n        required: false\n        type: string\n      show_developer_tools:\n        description: "Expose development-only tools in a manually dispatched preview artifact"\n        required: false\n        default: false\n        type: boolean\n\npermissions:''',
+                  'workflow_dispatch input',
+              ),
+              (
+                  '''  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}\n''',
+                  '''  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ github.event.inputs.supabase_publishable_key || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}\n  XUEQING_SHOW_DEV_TOOLS: ${{ github.event_name == 'workflow_dispatch' && inputs.show_developer_tools && 'true' || 'false' }}\n''',
+                  'environment gate',
+              ),
+              (
+                  '''            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=${XUEQING_SUPABASE_PUBLISHABLE_KEY}"\n''',
+                  '''            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=${XUEQING_SUPABASE_PUBLISHABLE_KEY}" \\\n            --dart-define="XUEQING_SHOW_DEV_TOOLS=${XUEQING_SHOW_DEV_TOOLS}"\n''',
+                  'Android dart define',
+              ),
+              (
+                  '''            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `\n            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=true"\n''',
+                  '''            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `\n            --dart-define="XUEQING_SHOW_DEV_TOOLS=$env:XUEQING_SHOW_DEV_TOOLS" `\n            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=true"\n''',
+                  'Windows dart define',
+              ),
+          ]
+
+          for old, new, label in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {count}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Commit validated patch and remove helper
+        shell: bash
+        run: |
+          rm .github/workflows/oneoff-v2-preview-artifact-gate.yml
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: make V2 real preview artifacts opt-in"
+          git push origin HEAD:ci/v2-real-preview-artifacts
