@@ -71,9 +71,8 @@ class BootstrapPage extends StatelessWidget {
                       const SizedBox(height: AppSpacing.sm),
                       OutlinedButton.icon(
                         onPressed: () {
-                          Navigator.of(context).pushNamed(
-                            AppRoutes.v2RealPreview,
-                          );
+                          Navigator.of(context)
+                              .pushNamed(AppRoutes.v2RealPreview);
                         },
                         icon: const Icon(Icons.visibility_outlined),
                         label: const Text('打开新版真实数据预览（只读）'),
