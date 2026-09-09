@@ -1,4 +1,4 @@
-# retry 2 after scoping Today filter patch
+# retry 3 after test enum-scope fix
 name: One-off V2 release semantics
 
 on:
@@ -30,6 +30,19 @@ jobs:
 
       - name: Apply release semantics patch
         run: python3 .github/scripts/patch_v2_release_semantics.py
+
+      - name: Keep adapter test independent from fixture import scope
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('test/features/design_v2_read_model_adapter_test.dart')
+          text = path.read_text(encoding='utf-8')
+          old = "      expect(stable.actionTiming, V2ActionTiming.future);\n"
+          new = "      expect(stable.actionTiming?.name, 'future');\n"
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one enum assertion, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
 
       - name: Format
         run: |
