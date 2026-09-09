@@ -1,0 +1,126 @@
+name: One-shot status presentation consistency fix
+
+on:
+  push:
+    branches:
+      - ux/status-presentation-consistency
+    paths:
+      - .github/workflows/status-presentation-consistency-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/status-presentation-consistency
+          fetch-depth: 0
+
+      - name: Align workspace marker and teacher export status vocabulary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new, expected=1):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'{path}: expected {expected}, found {count}: {old!r}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          workspace = 'lib/features/teacher_workspace/presentation/teacher_workspace_page.dart'
+          export = 'lib/export/learning_record_export.dart'
+          export_test = 'test/export/teacher_learning_record_export_test.dart'
+
+          replace_exact(
+              workspace,
+              "'待验证' => Theme.of(context).colorScheme.tertiary,",
+              "'继续关注' => Theme.of(context).colorScheme.tertiary,",
+          )
+          replace_exact(
+              workspace,
+              "'稳定' => Theme.of(context).colorScheme.primary,",
+              "'暂时稳定' => Theme.of(context).colorScheme.primary,",
+          )
+          replace_exact(
+              workspace,
+              "'已关闭' => Theme.of(context).colorScheme.onSurfaceVariant,",
+              "'已结束' => Theme.of(context).colorScheme.onSurfaceVariant,",
+          )
+
+          replace_exact(export, "'new' => '待整理',", "'new' => '新记录',")
+          replace_exact(
+              export,
+              "'pending_verification' => '待验证',",
+              "'pending_verification' => '继续关注',",
+          )
+
+          replace_exact(export_test, "expect(rows.first.status, '待验证');", "expect(rows.first.status, '继续关注');")
+
+          p = Path(export_test)
+          text = p.read_text(encoding='utf-8')
+          anchor = "  });\n}"
+          if text.count(anchor) != 1:
+              raise SystemExit('teacher export test closing anchor not unique')
+          block = r'''
+
+  test('uses the current teacher status vocabulary for new records', () {
+    final rows = LearningRecordExport.rowsForTeacherRecords(
+      <TeacherLearningRecord>[
+        TeacherLearningRecord(
+          id: 'case-new',
+          occurredAt: DateTime.utc(2026, 9, 4, 10),
+          studentName: '示例学生',
+          subjectName: '语文',
+          issueTitle: '新发现的问题',
+          recordKind: 'case_created',
+          content: '刚刚记录的一条课堂事实。',
+          attachmentCount: 0,
+          currentStatus: 'new',
+        ),
+      ],
+      teacherName: '王老师',
+    );
+
+    expect(rows, hasLength(1));
+    expect(rows.single.status, '新记录');
+  });
+'''
+          p.write_text(text.replace(anchor, '  });' + block + '}'), encoding='utf-8')
+
+          # Guard against reintroducing the superseded vocabulary in the two
+          # concrete presentation mappings fixed by this slice.
+          export_text = Path(export).read_text(encoding='utf-8')
+          if "'new' => '待整理'" in export_text or "'pending_verification' => '待验证'" in export_text:
+              raise SystemExit('stale teacher export status vocabulary remains')
+          workspace_text = Path(workspace).read_text(encoding='utf-8')
+          for stale in (
+              "'待验证' => Theme.of(context).colorScheme.tertiary,",
+              "'稳定' => Theme.of(context).colorScheme.primary,",
+              "'已关闭' => Theme.of(context).colorScheme.onSurfaceVariant,",
+          ):
+              if stale in workspace_text:
+                  raise SystemExit(f'stale workspace marker mapping remains: {stale}')
+          PY
+
+      - name: Verify exact scope and formatting hygiene
+        run: |
+          git diff --check
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "$(printf '%s\n' \
+            lib/export/learning_record_export.dart \
+            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
+            test/export/teacher_learning_record_export_test.dart | sort | tr '\n' ' ')"
+
+      - name: Commit real patch and remove one-shot workflow
+        run: |
+          rm .github/workflows/status-presentation-consistency-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "UX: align status presentation across workspace and exports"
+          git push origin HEAD:ux/status-presentation-consistency
