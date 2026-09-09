@@ -1349,7 +1349,7 @@ void main() {
         ..failFirstSave = true;
       await _pumpWorkspace(tester, repository);
 
-      await tester.tap(find.text('记录问题').first);
+      await tester.tap(find.text('记录新问题').first);
       await tester.pumpAndSettle();
       expect(find.text('今天发现什么？ *'), findsOneWidget);
       expect(
@@ -1397,7 +1397,7 @@ void main() {
     final repository = _FakeLearningRepository(_fixtureWorkspace());
     await _pumpWorkspace(tester, repository);
 
-    await tester.tap(find.text('记录问题').first);
+    await tester.tap(find.text('记录新问题').first);
     await tester.pumpAndSettle();
 
     final studentPicker = find.byType(
@@ -1420,7 +1420,7 @@ void main() {
     final repository = _FakeLearningRepository(_fixtureWorkspace());
     await _pumpWorkspace(tester, repository);
 
-    await tester.tap(find.text('记录问题').first);
+    await tester.tap(find.text('记录新问题').first);
     await tester.pumpAndSettle();
 
     final noteField = find.byKey(const Key('quick-capture-title-field'));
@@ -1449,7 +1449,7 @@ void main() {
     await _pumpWorkspace(tester, repository);
 
     expect(find.text('今日'), findsWidgets);
-    expect(find.widgetWithText(FilledButton, '记录问题'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '记录新问题'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '问题类型'), findsNothing);
   });
 
@@ -1471,7 +1471,7 @@ void main() {
     );
     await _pumpWorkspace(tester, repository);
 
-    await tester.tap(find.text('记录问题').first);
+    await tester.tap(find.text('记录新问题').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('quick-capture-more-options')));
     await tester.pumpAndSettle();
@@ -1531,7 +1531,7 @@ void main() {
     tester.view.physicalSize = const Size(375, 812);
 
     await _pumpWorkspace(tester, repository);
-    await tester.tap(find.text('记录问题').first);
+    await tester.tap(find.text('记录新问题').first);
     await tester.pumpAndSettle();
 
     expect(

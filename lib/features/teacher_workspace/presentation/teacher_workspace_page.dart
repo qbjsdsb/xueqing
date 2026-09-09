@@ -459,7 +459,6 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       _activeUserId = null;
       _signedIn = false;
       _membershipState = null;
-      _emailController.clear();
       _passwordController.clear();
     });
   }
@@ -895,6 +894,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     WorkspaceAction? currentAction,
     bool completeCurrentActionInitially = false,
     bool preserveSelection = false,
+    bool preserveStudentOnly = false,
   }) async {
     final repository = widget.progressiveCaseRepository;
     if (repository == null) {
@@ -920,6 +920,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             preserveStudent: student,
             preserveCaseId: learningCase.id,
           )
+        : preserveStudentOnly
+        ? await _reload(preserveStudent: student)
         : await _reload();
     if (!mounted || !reloaded) {
       return;
@@ -1525,7 +1527,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             FilledButton.icon(
               onPressed: () => _showQuickCapture(),
               icon: Icon(Icons.edit_note_outlined),
-              label: const Text('记录问题'),
+              label: const Text('记录新问题'),
             ),
           ],
         ),
@@ -1801,7 +1803,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                 FilledButton.icon(
                   onPressed: () => _showQuickCapture(),
                   icon: Icon(Icons.edit_note_outlined),
-                  label: const Text('记录问题'),
+                  label: const Text('记录新问题'),
                 ),
               ],
             ),
@@ -1932,7 +1934,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             FilledButton.icon(
               onPressed: () => _showQuickCapture(student: student),
               icon: Icon(Icons.edit_note_outlined),
-              label: const Text('记录问题'),
+              label: const Text('记录新问题'),
             ),
           ],
         ),
@@ -1964,7 +1966,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               ? _WorkspaceStateNotice(
                   title: allCases.isEmpty ? '还没有记录的问题' : '当前没有需要跟进的问题',
                   message: allCases.isEmpty
-                      ? '发现问题时，可以先记录一句，课后再整理。'
+                      ? '发现新的问题时，可以先记一句；已有问题有变化时，直接点“记进展”。'
                       : '已有问题记录仍然保留，需要时可以查看全部。',
                   icon: Icons.inbox_outlined,
                 )
@@ -1975,6 +1977,18 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                         student: student,
                         learningCase: learningCase,
                         onOpen: () => _openCase(student, learningCase),
+                        onRecordProgress:
+                            widget.progressiveCaseRepository != null &&
+                                learningCase.status != LearningCaseStatus.closed
+                            ? () => unawaited(
+                                _recordProgress(
+                                  student,
+                                  learningCase,
+                                  currentAction: learningCase.primaryAction,
+                                  preserveStudentOnly: true,
+                                ),
+                              )
+                            : null,
                       ),
                   ],
                 ),
@@ -2001,6 +2015,18 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
                     student: student,
                     learningCase: learningCase,
                     onOpen: () => _openCase(student, learningCase),
+                    onRecordProgress:
+                        widget.progressiveCaseRepository != null &&
+                            learningCase.status != LearningCaseStatus.closed
+                        ? () => unawaited(
+                            _recordProgress(
+                              student,
+                              learningCase,
+                              currentAction: learningCase.primaryAction,
+                              preserveStudentOnly: true,
+                            ),
+                          )
+                        : null,
                   ),
               ],
             ),
@@ -3869,7 +3895,7 @@ class _WorkspaceQuickCaptureFormState
                     children: [
                       Expanded(
                         child: Text(
-                          '记录问题',
+                          '记录新问题',
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
@@ -3969,7 +3995,7 @@ class _WorkspaceQuickCaptureFormState
                         child: FilledButton(
                           key: const Key('workspace-quick-capture-save'),
                           onPressed: _saving ? null : _save,
-                          child: Text(_saving ? '保存中…' : '记录问题'),
+                          child: Text(_saving ? '保存中…' : '记录新问题'),
                         ),
                       ),
                     ],
@@ -5286,11 +5312,13 @@ class _WorkspaceCaseRow extends StatelessWidget {
     required this.student,
     required this.learningCase,
     required this.onOpen,
+    this.onRecordProgress,
   });
 
   final WorkspaceStudent student;
   final WorkspaceCase learningCase;
   final VoidCallback onOpen;
+  final VoidCallback? onRecordProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -5332,7 +5360,20 @@ class _WorkspaceCaseRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          OutlinedButton(onPressed: onOpen, child: const Text('查看问题')),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              if (onRecordProgress != null)
+                FilledButton.tonalIcon(
+                  key: ValueKey<String>('case-row-progress-${learningCase.id}'),
+                  onPressed: onRecordProgress,
+                  icon: const Icon(Icons.edit_note_outlined, size: 18),
+                  label: const Text('记进展'),
+                ),
+              OutlinedButton(onPressed: onOpen, child: const Text('查看问题')),
+            ],
+          ),
         ],
       ),
     );
@@ -5661,19 +5702,19 @@ class _WorkspaceFacts extends StatelessWidget {
       ],
     );
     if (sizeClass != WindowSizeClass.expanded) {
-      return _WorkspaceSection(title: '最近关键事实', child: facts);
+      return _WorkspaceSection(title: '最近记录', child: facts);
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: _WorkspaceSection(title: '最近关键事实', child: facts),
+          child: _WorkspaceSection(title: '最近记录', child: facts),
         ),
         const SizedBox(width: AppSpacing.xl),
         const Expanded(
           child: _WorkspaceStateNotice(
             title: '历史按需展开',
-            message: '先用最近关键事实解释现在，需要时再查看更早 timeline。',
+            message: '先看最近记录；需要时再查看更早记录。',
             icon: Icons.history_outlined,
           ),
         ),
@@ -5733,10 +5774,10 @@ class _WorkspaceEvidenceSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('观察与证据', style: Theme.of(context).textTheme.titleMedium),
+          Text('学生表现', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
           if (learningCase.evidence.isEmpty)
-            const Text('还没有记录证据。')
+            const Text('还没有记录学生表现。')
           else
             for (final evidence in learningCase.evidence)
               _WorkspaceEvidenceItem(
