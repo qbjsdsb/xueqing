@@ -81,8 +81,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('导出学生记录'), findsOneWidget);
-    expect(find.byKey(const Key('student-record-export-select-all')), findsOneWidget);
-    expect(find.byKey(const Key('student-record-export-clear')), findsOneWidget);
+    expect(
+      find.byKey(const Key('student-record-export-select-all')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('student-record-export-clear')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 }
