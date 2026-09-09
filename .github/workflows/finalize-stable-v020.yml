@@ -1,0 +1,304 @@
+name: Finalize Xueqing v0.2.0 Stable
+
+on:
+  push:
+    branches:
+      - release/v0.2.0-stable-final
+    paths:
+      - .github/workflows/finalize-stable-v020.yml
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: finalize-xueqing-v0.2.0-stable
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: v0.2.0
+  RELEASE_VERSION: 0.2.0+6
+  FROZEN_SHA: b040397f4488436037b0987b95f29ba90f1badc6
+  WINDOWS_SOURCE_RUN: "34311318290"
+
+jobs:
+  android:
+    name: Rebuild and verify signed Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout frozen Stable source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FROZEN_SHA }}
+          persist-credentials: false
+
+      - name: Verify staged Release still targets frozen source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('v0.2.0 must still be the staged Pre-release before finalization')
+          PY
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          test "$actual" = "$FROZEN_SHA"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Read already-public client configuration from frozen source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          from pathlib import Path
+          from urllib.parse import urlparse
+          text = Path('.github/workflows/package-android.yml').read_text(encoding='utf-8')
+          def fallback(name):
+              line = next((line for line in text.splitlines() if line.strip().startswith(name + ':')), None)
+              if line is None:
+                  raise SystemExit(f'Missing {name} in frozen package workflow')
+              quoted = line.split("'")
+              if len(quoted) < 3:
+                  raise SystemExit(f'Missing public fallback for {name}')
+              return quoted[-2]
+          url = fallback('XUEQING_SUPABASE_URL')
+          key = fallback('XUEQING_SUPABASE_PUBLISHABLE_KEY')
+          host = urlparse(url).hostname
+          if not host:
+              raise SystemExit('Could not derive allowed Supabase host')
+          print('XUEQING_ENV=production')
+          print('XUEQING_ALLOW_DEVELOPMENT_RELEASE=false')
+          print('XUEQING_SHOW_DEV_TOOLS=false')
+          print(f'XUEQING_SUPABASE_URL={url}')
+          print(f'XUEQING_SUPABASE_PUBLISHABLE_KEY={key}')
+          print(f'XUEQING_SUPABASE_ALLOWED_HOSTS={host}')
+          PY
+
+      - name: Configure permanent Android release signing
+        shell: bash
+        env:
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for required in XUEQING_ANDROID_KEYSTORE_BASE64 XUEQING_ANDROID_KEYSTORE_PASSWORD XUEQING_ANDROID_KEY_ALIAS XUEQING_ANDROID_KEY_PASSWORD; do
+            test -n "${!required:-}" || { echo "Missing permanent signing input: $required"; exit 1; }
+          done
+          printf '%s' "$XUEQING_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
+          {
+            printf 'storeFile=release-keystore.jks\n'
+            printf 'storePassword=%s\n' "$XUEQING_ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$XUEQING_ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$XUEQING_ANDROID_KEY_PASSWORD"
+          } > android/key.properties
+          chmod 600 android/release-keystore.jks android/key.properties
+
+      - name: Build signed Stable APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release \
+            --build-name="0.2.0" \
+            --build-number="6" \
+            --dart-define="XUEQING_ENV=$XUEQING_ENV" \
+            --dart-define="XUEQING_APP_VERSION=$RELEASE_VERSION" \
+            --dart-define="XUEQING_SUPABASE_URL=$XUEQING_SUPABASE_URL" \
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="XUEQING_SUPABASE_ALLOWED_HOSTS=$XUEQING_SUPABASE_ALLOWED_HOSTS" \
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$XUEQING_ALLOW_DEVELOPMENT_RELEASE" \
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$XUEQING_SHOW_DEV_TOOLS"
+
+      - name: Verify APK and permanent certificate fingerprint
+        shell: bash
+        env:
+          XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          test -x "$apksigner"
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          verify_output="$("$apksigner" verify --verbose --print-certs "$apk")"
+          printf '%s\n' "$verify_output"
+          actual="$(printf '%s\n' "$verify_output" | sed -nE 's/^(Signer #1|V[0-9.]+ Signer): certificate SHA-256 digest: //p' | head -n 1 | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          expected="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          [[ "$actual" =~ ^[0-9a-f]{64}$ ]] || { echo 'Could not parse Android certificate fingerprint'; exit 1; }
+          [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || { echo 'Pinned Android certificate fingerprint is malformed'; exit 1; }
+          [[ "$actual" = "$expected" ]] || { echo 'Android certificate fingerprint mismatch'; exit 1; }
+          echo "Android certificate fingerprint verified: $actual"
+
+      - name: Upload verified Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-stable-android-${{ github.run_id }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -f android/key.properties android/release-keystore.jks
+
+  publish:
+    name: Assemble assets and promote Latest Stable
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download verified Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: final-stable-android-${{ github.run_id }}
+          path: release-input/android
+
+      - name: Reuse verified Windows bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: release-windows-signed-34311318290
+          path: release-input/windows
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.WINDOWS_SOURCE_RUN }}
+
+      - name: Reuse verified Windows Setup installer
+        uses: actions/download-artifact@v4
+        with:
+          name: release-windows-installer-34311318290
+          path: release-input/installer
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.WINDOWS_SOURCE_RUN }}
+
+      - name: Package Stable assets, update manifest, and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          android_asset="xueqing-${RELEASE_TAG}-android.apk"
+          windows_asset="xueqing-${RELEASE_TAG}-windows.zip"
+          installer_asset="xueqing-${RELEASE_TAG}-windows-setup.exe"
+          cp release-input/android/app-release.apk "release-assets/$android_asset"
+          test -f release-input/windows/xueqing.exe
+          test -f release-input/windows/xueqing_updater.exe
+          test -f release-input/windows/xueqing_updater_bootstrap.exe
+          test -f release-input/installer/xueqing-setup-0.2.0.exe
+          cp release-input/installer/xueqing-setup-0.2.0.exe "release-assets/$installer_asset"
+          (cd release-input/windows && zip -q -r "$GITHUB_WORKSPACE/release-assets/$windows_asset" .)
+          export ANDROID_ASSET="$android_asset" WINDOWS_ASSET="$windows_asset"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('release-assets')
+          repo = os.environ['GITHUB_REPOSITORY']
+          tag = os.environ['RELEASE_TAG']
+          version = os.environ['RELEASE_VERSION']
+          def artifact(name, fmt):
+              path = root / name
+              return {
+                  'url': f'https://github.com/{repo}/releases/download/{tag}/{name}',
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                  'size_bytes': path.stat().st_size,
+                  'format': fmt,
+                  'file_name': name,
+              }
+          manifest = {
+              'schema': 1,
+              'channel': 'stable',
+              'version': version,
+              'notes': ['教师工作流全面简化', '成长记录与导出优化', 'Android / Windows 正式安装与应用内更新'],
+              'platforms': {
+                  'android': artifact(os.environ['ANDROID_ASSET'], 'apk'),
+                  'windows': artifact(os.environ['WINDOWS_ASSET'], 'zip'),
+              },
+          }
+          (root / 'update-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+          (cd release-assets && sha256sum *.apk *.zip *.exe update-manifest.json | sort) > release-assets/SHA256SUMS.txt
+
+      - name: Verify package integrity before publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('release-assets')
+          manifest = json.loads((root / 'update-manifest.json').read_text(encoding='utf-8'))
+          if manifest['channel'] != 'stable' or manifest['version'] != '0.2.0+6':
+              raise SystemExit('Stable manifest metadata is incorrect')
+          for item in manifest['platforms'].values():
+              path = root / item['file_name']
+              if path.stat().st_size != item['size_bytes']:
+                  raise SystemExit(f'Size mismatch: {path}')
+              if hashlib.sha256(path.read_bytes()).hexdigest() != item['sha256']:
+                  raise SystemExit(f'Hash mismatch: {path}')
+          installer = root / 'xueqing-v0.2.0-windows-setup.exe'
+          if not installer.is_file() or installer.stat().st_size <= 0:
+              raise SystemExit('Windows Setup installer is missing')
+          PY
+
+      - name: Upload immutable Release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          test "$actual" = "$FROZEN_SHA"
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Verify staged assets and promote Latest Stable
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('Release left staging state before promotion')
+          names = {item['name'] for item in release['assets']}
+          expected = {
+              'xueqing-v0.2.0-android.apk',
+              'xueqing-v0.2.0-windows.zip',
+              'xueqing-v0.2.0-windows-setup.exe',
+              'update-manifest.json',
+              'SHA256SUMS.txt',
+          }
+          missing = expected - names
+          if missing:
+              raise SystemExit(f'Missing Release assets: {sorted(missing)}')
+          PY
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+
+      - name: Verify final Latest Stable Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,url,isDraft,isPrerelease,assets)"
+          printf '%s\n' "$release_json"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or release['isPrerelease']:
+              raise SystemExit('Stable promotion did not complete')
+          if len(release['assets']) < 5:
+              raise SystemExit('Final Stable Release assets are incomplete')
+          PY
