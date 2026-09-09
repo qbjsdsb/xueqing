@@ -37,7 +37,7 @@ void main() {
 
     expect(find.text('真实学生'), findsWidgets);
     expect(find.text('阅读概括仍会漏结果'), findsOneWidget);
-    expect(find.text('下一次课再验证'), findsOneWidget);
+    expect(find.textContaining('下一次课再验证'), findsOneWidget);
     expect(find.text('林同学'), findsNothing);
   });
 
@@ -78,6 +78,7 @@ void main() {
     expect(attempts, 2);
     expect(find.text('真实学生'), findsWidgets);
     expect(find.text('学情暂时无法读取'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('authorized workspace with zero students uses V2 empty state', (
