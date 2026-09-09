@@ -97,7 +97,7 @@ class _OrganizationStudentTeacherAssignmentTransferDialogState
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                '交接会在同一个事务中结束当前任课并建立新的任课记录，历史不会丢失。学生已有的开放问题和待办不会自动换负责人；如需停用原老师的可教学科，请先把这些事项交接清楚。',
+                '交接会在同一个事务中结束当前任课并建立新的任课记录，历史不会丢失。学生已有的正在跟进的问题和待办不会自动换负责人；如需停用原老师的可教学科，请先把这些事项交接清楚。',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: AppSpacing.md),

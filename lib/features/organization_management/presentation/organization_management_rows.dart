@@ -339,6 +339,8 @@ class _OrganizationStudentTile extends StatelessWidget {
   const _OrganizationStudentTile({
     required this.student,
     required this.busy,
+    required this.activeAssignments,
+    required this.onTransferAssignment,
     required this.onAddSubject,
     required this.onToggleSubjectService,
     required this.onToggleTeaching,
@@ -348,12 +350,27 @@ class _OrganizationStudentTile extends StatelessWidget {
 
   final OrganizationStudentRecord student;
   final bool busy;
+  final List<OrganizationStudentTeacherAssignment> activeAssignments;
+  final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
+  onTransferAssignment;
   final VoidCallback? onAddSubject;
   final Future<void> Function(OrganizationStudentSubjectService service)?
   onToggleSubjectService;
   final VoidCallback? onToggleTeaching;
   final VoidCallback? onToggleArchive;
   final VoidCallback? onEdit;
+
+  OrganizationStudentTeacherAssignment? _assignmentFor(
+    OrganizationStudentSubjectService service,
+  ) {
+    for (final assignment in activeAssignments) {
+      if (assignment.isActive &&
+          assignment.studentSubjectProfileId == service.profileId) {
+        return assignment;
+      }
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -394,7 +411,10 @@ class _OrganizationStudentTile extends StatelessWidget {
                 for (final service in student.subjectServices)
                   _StudentSubjectServiceRow(
                     service: service,
+                    assignment: _assignmentFor(service),
                     busy: busy,
+                    onTransfer: (assignment) =>
+                        onTransferAssignment(assignment),
                     onToggle:
                         onToggleSubjectService == null ||
                             service.isArchived ||
@@ -472,42 +492,84 @@ class _OrganizationStudentTile extends StatelessWidget {
 class _StudentSubjectServiceRow extends StatelessWidget {
   const _StudentSubjectServiceRow({
     required this.service,
+    required this.assignment,
     required this.busy,
+    required this.onTransfer,
     required this.onToggle,
   });
 
   final OrganizationStudentSubjectService service;
+  final OrganizationStudentTeacherAssignment? assignment;
   final bool busy;
+  final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
+  onTransfer;
   final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
+    final currentAssignment = assignment;
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              service.subjectName,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          _ManagementStatusChip(
-            label: _studentSubjectStatusLabel(service.status),
-            isPositive: service.isActive,
-          ),
-          if (onToggle != null) ...[
-            const SizedBox(width: AppSpacing.xxs),
-            TextButton(
-              key: ValueKey<String>(
-                service.isActive
-                    ? 'student-subject-end-${service.profileId}'
-                    : 'student-subject-restore-${service.profileId}',
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  service.subjectName,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ),
-              onPressed: busy ? null : onToggle,
-              child: Text(service.isActive ? '结束' : '恢复'),
+              const SizedBox(width: AppSpacing.xs),
+              _ManagementStatusChip(
+                label: _studentSubjectStatusLabel(service.status),
+                isPositive: service.isActive,
+              ),
+              if (onToggle != null) ...[
+                const SizedBox(width: AppSpacing.xxs),
+                TextButton(
+                  key: ValueKey<String>(
+                    service.isActive
+                        ? 'student-subject-end-${service.profileId}'
+                        : 'student-subject-restore-${service.profileId}',
+                  ),
+                  onPressed: busy ? null : onToggle,
+                  child: Text(service.isActive ? '结束' : '恢复'),
+                ),
+              ],
+            ],
+          ),
+          if (service.isActive) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xxs,
+              children: [
+                Icon(
+                  Icons.person_pin_outlined,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                Text(
+                  currentAssignment == null
+                      ? '暂未安排负责老师'
+                      : '${_studentAssignmentRoleLabel(currentAssignment.assignmentRole)}：${currentAssignment.teacherName}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (currentAssignment != null)
+                  TextButton(
+                    key: ValueKey<String>(
+                      'student-assignment-transfer-${currentAssignment.assignmentId}',
+                    ),
+                    onPressed: busy
+                        ? null
+                        : () => onTransfer(currentAssignment),
+                    child: const Text('交接老师'),
+                  ),
+              ],
             ),
           ],
         ],

@@ -2,6 +2,8 @@ part of 'organization_management_page.dart';
 
 enum _ManagementArea { people, students, settings }
 
+enum _ManagementExportMode { students, teacher }
+
 class _ManagementOverview extends StatefulWidget {
   const _ManagementOverview({
     required this.snapshot,
@@ -83,7 +85,6 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
   String _studentQuery = '';
   bool _showAllStudents = false;
   bool _showEndedTeacherScopes = false;
-  bool _showEndedAssignments = false;
 
   @override
   void initState() {
@@ -106,6 +107,120 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
       _studentQuery = '';
       _showAllStudents = false;
     });
+  }
+
+  Future<void> _showExportRecords() async {
+    if (widget.busy) return;
+    final canExportStudents = widget.onExportStudentRecords != null;
+    final canExportTeachers = widget.onExportTeacherRecords != null;
+    if (!canExportStudents && !canExportTeachers) return;
+
+    final selection = await showDialog<_ManagementExportMode>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('导出记录'),
+        children: [
+          if (canExportStudents)
+            SimpleDialogOption(
+              key: const Key('management-export-students-option'),
+              onPressed: () =>
+                  Navigator.of(context).pop(_ManagementExportMode.students),
+              child: const ListTile(
+                leading: Icon(Icons.school_outlined),
+                title: Text('按学生和学科导出'),
+                subtitle: Text('可选择多名学生和多个学科，导出完整学情记录'),
+              ),
+            ),
+          if (canExportTeachers)
+            SimpleDialogOption(
+              key: const Key('management-export-teacher-option'),
+              onPressed: () =>
+                  Navigator.of(context).pop(_ManagementExportMode.teacher),
+              child: const ListTile(
+                leading: Icon(Icons.person_outline),
+                title: Text('按老师导出'),
+                subtitle: Text('选择一位老师，导出其真实记录归属下的全部记录'),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || selection == null) return;
+    switch (selection) {
+      case _ManagementExportMode.students:
+        await widget.onExportStudentRecords?.call();
+      case _ManagementExportMode.teacher:
+        await widget.onExportTeacherRecords?.call();
+    }
+  }
+
+  Widget? _buildSetupNextStep() {
+    final options = widget.snapshot.setupOptions;
+    late final String title;
+    late final String message;
+    late final String actionLabel;
+    VoidCallback? action;
+
+    if (options.subjects.isEmpty) {
+      title = '先添加机构学科';
+      message = '只添加机构实际教授的学科。添加后，再给老师配置可以负责的学科。';
+      actionLabel = '添加学科';
+      action = widget.onAddSubject;
+    } else if (options.teachers.isEmpty) {
+      title = '下一步：加入一位老师';
+      message = widget.canInvite
+          ? '有了老师后，才能配置可教学科并为学生建立负责关系。'
+          : '当前还没有可承担教学的老师，请让机构负责人先邀请老师加入。';
+      actionLabel = '邀请老师';
+      action = widget.canInvite ? widget.onInviteMember : null;
+    } else if (!options.canCreateStudent) {
+      title = '下一步：配置老师可教学科';
+      message = '指定老师可以负责哪些学科后，就可以直接添加学生并安排负责老师。';
+      actionLabel = '配置老师学科';
+      action = widget.onAddTeacherScope;
+    } else if (widget.snapshot.students.isEmpty) {
+      title = '准备完成，可以添加第一位学生';
+      message = '添加学生时只需要先确定姓名、学科和负责老师，其他资料可以以后补充。';
+      actionLabel = '添加第一位学生';
+      action = widget.onAddStudent;
+    } else {
+      return null;
+    }
+
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.32),
+        borderRadius: BorderRadius.circular(AppRadii.medium),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSpacing.md,
+        runSpacing: AppSpacing.sm,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(message, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
+          ),
+          if (action != null)
+            FilledButton.tonal(
+              key: const Key('management-next-step-action'),
+              onPressed: widget.busy ? null : action,
+              child: Text(actionLabel),
+            ),
+        ],
+      ),
+    );
   }
 
   _ManagementArea _initialArea(_OrganizationManagementSnapshot snapshot) {
@@ -136,10 +251,15 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     final endedAssignments = widget.snapshot.studentTeacherAssignments
         .where((assignment) => !assignment.isActive)
         .toList(growable: false);
+    final setupNextStep = _buildSetupNextStep();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (setupNextStep != null) ...[
+          setupNextStep,
+          const SizedBox(height: AppSpacing.md),
+        ],
         _ManagementAreaSwitcher(
           selectedArea: _selectedArea,
           onChanged: (area) {
@@ -147,6 +267,19 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
             setState(() => _selectedArea = area);
           },
         ),
+        if (widget.onExportStudentRecords != null ||
+            widget.onExportTeacherRecords != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              key: const Key('management-export-records'),
+              onPressed: widget.busy ? null : _showExportRecords,
+              icon: const Icon(Icons.download_outlined, size: 18),
+              label: const Text('导出记录'),
+            ),
+          ),
+        ],
         const SizedBox(height: AppSpacing.lg),
         switch (_selectedArea) {
           _ManagementArea.people => _buildPeopleArea(
@@ -195,26 +328,11 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           _ManagementSection(
             title: '机构成员',
             count: '${widget.snapshot.members.length} 人',
-            action: widget.canInvite || widget.onExportTeacherRecords != null
-                ? Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      if (widget.onExportTeacherRecords != null)
-                        OutlinedButton.icon(
-                          onPressed: widget.busy
-                              ? null
-                              : widget.onExportTeacherRecords,
-                          icon: const Icon(Icons.download_outlined, size: 18),
-                          label: const Text('导出老师记录'),
-                        ),
-                      if (widget.canInvite)
-                        FilledButton.tonalIcon(
-                          onPressed: widget.busy ? null : widget.onInviteMember,
-                          icon: const Icon(Icons.group_add_outlined, size: 18),
-                          label: const Text('邀请成员'),
-                        ),
-                    ],
+            action: widget.canInvite
+                ? FilledButton.tonalIcon(
+                    onPressed: widget.busy ? null : widget.onInviteMember,
+                    icon: const Icon(Icons.group_add_outlined, size: 18),
+                    label: const Text('邀请成员'),
                   )
                 : null,
             child: widget.snapshot.members.isEmpty
@@ -351,6 +469,12 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                   ...student.subjectServices.map(
                     (service) => service.subjectName,
                   ),
+                  ...activeAssignments
+                      .where(
+                        (assignment) =>
+                            assignment.studentId == student.studentId,
+                      )
+                      .map((assignment) => assignment.teacherName),
                 ].whereType<String>().join(' ').toLowerCase();
                 return searchable.contains(normalizedQuery);
               })
@@ -365,14 +489,6 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     final matchingStudentIds = filteredStudents
         .map((student) => student.studentId)
         .toSet();
-    final visibleActiveAssignments = normalizedQuery.isEmpty
-        ? activeAssignments
-        : activeAssignments
-              .where(
-                (assignment) =>
-                    matchingStudentIds.contains(assignment.studentId),
-              )
-              .toList(growable: false);
     final visibleEndedAssignments = normalizedQuery.isEmpty
         ? endedAssignments
         : endedAssignments
@@ -385,7 +501,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     return _ManagementAreaCard(
       icon: Icons.school_outlined,
       title: '学生',
-      description: '先找学生，再处理档案或任课交接；历史任课默认收起。',
+      description: '学生、学科和当前负责老师都在这里处理；历史任课按需查看。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -395,7 +511,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
               controller: _studentSearchController,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: '搜索姓名、编号、年级、班级、校区或学科',
+                hintText: '搜索姓名、编号、年级、班级、校区、学科或老师',
                 isDense: true,
                 suffixIcon: _studentQuery.isEmpty
                     ? null
@@ -422,25 +538,10 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
             count: normalizedQuery.isEmpty
                 ? '${widget.snapshot.students.length} 人'
                 : '${filteredStudents.length} 个结果',
-            action: Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
-              children: [
-                if (widget.onExportStudentRecords != null)
-                  OutlinedButton.icon(
-                    key: const Key('management-export-student-records'),
-                    onPressed: widget.busy
-                        ? null
-                        : widget.onExportStudentRecords,
-                    icon: const Icon(Icons.download_outlined, size: 18),
-                    label: const Text('导出学生记录'),
-                  ),
-                FilledButton.icon(
-                  onPressed: widget.busy ? null : widget.onAddStudent,
-                  icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-                  label: const Text('添加学生'),
-                ),
-              ],
+            action: FilledButton.icon(
+              onPressed: widget.busy ? null : widget.onAddStudent,
+              icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+              label: const Text('添加学生'),
             ),
             child: visibleStudents.isEmpty
                 ? _ManagementEmptyState(
@@ -456,6 +557,14 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                         _OrganizationStudentTile(
                           student: student,
                           busy: widget.busy,
+                          activeAssignments: activeAssignments
+                              .where(
+                                (assignment) =>
+                                    assignment.studentId == student.studentId,
+                              )
+                              .toList(growable: false),
+                          onTransferAssignment: (assignment) => widget
+                              .onTransferStudentTeacherAssignment(assignment),
                           onAddSubject: student.isActive && !student.isMerged
                               ? () => widget.onAddStudentSubject(student)
                               : null,
@@ -498,61 +607,30 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                     ],
                   ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          ExpansionTile(
-            key: const PageStorageKey<String>('management-assignments'),
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: EdgeInsets.zero,
-            title: Text(
-              '任课老师与交接',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            subtitle: Text('${visibleActiveAssignments.length} 条当前任课'),
-            children: [
-              if (visibleActiveAssignments.isEmpty)
-                const _ManagementEmptyState(
-                  title: '没有当前任课关系',
-                  message: '添加学生时会建立首个主责任课关系，后续交接也在这里处理。',
-                  icon: Icons.swap_horiz_outlined,
-                )
-              else
-                for (final assignment in visibleActiveAssignments)
+          if (visibleEndedAssignments.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            ExpansionTile(
+              key: const PageStorageKey<String>(
+                'management-assignment-history',
+              ),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.history_outlined),
+              title: Text(
+                '历史任课记录',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              subtitle: Text('${visibleEndedAssignments.length} 条历史任课'),
+              children: [
+                for (final assignment in visibleEndedAssignments)
                   _StudentTeacherAssignmentTile(
                     assignment: assignment,
                     busy: widget.busy,
-                    onTransfer: () =>
-                        widget.onTransferStudentTeacherAssignment(assignment),
+                    onTransfer: null,
                   ),
-              if (visibleEndedAssignments.isNotEmpty) ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => setState(
-                      () => _showEndedAssignments = !_showEndedAssignments,
-                    ),
-                    icon: Icon(
-                      _showEndedAssignments
-                          ? Icons.expand_less
-                          : Icons.history_outlined,
-                      size: 18,
-                    ),
-                    label: Text(
-                      _showEndedAssignments
-                          ? '收起历史任课'
-                          : '查看历史任课（${visibleEndedAssignments.length}）',
-                    ),
-                  ),
-                ),
-                if (_showEndedAssignments)
-                  for (final assignment in visibleEndedAssignments)
-                    _StudentTeacherAssignmentTile(
-                      assignment: assignment,
-                      busy: widget.busy,
-                      onTransfer: null,
-                    ),
               ],
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );

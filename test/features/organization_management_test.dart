@@ -1572,14 +1572,11 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    expect(find.text('任课老师与交接'), findsOneWidget);
-    expect(find.text('交接老师'), findsNothing);
-    final assignmentSection = find.text('任课老师与交接');
-    await tester.ensureVisible(assignmentSection);
-    await tester.tap(assignmentSection);
-    await tester.pumpAndSettle();
-
-    final transferButton = find.text('交接老师');
+    expect(find.text('任课老师与交接'), findsNothing);
+    expect(find.text('主责老师：原老师'), findsOneWidget);
+    final transferButton = find.byKey(
+      const ValueKey<String>('student-assignment-transfer-assignment-1'),
+    );
     await tester.ensureVisible(transferButton);
     await tester.tap(transferButton);
     await tester.pumpAndSettle();
@@ -1598,7 +1595,7 @@ void main() {
     expect(repository.assignmentTransferCount, 1);
     expect(repository.updatedTeacherAssignment?.status, 'transferred');
     expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');
-    expect(find.text('主责老师：新老师 · new-teacher@example.com'), findsOneWidget);
+    expect(find.text('主责老师：新老师'), findsOneWidget);
   });
 
   testWidgets('missing subjects opens settings first', (tester) async {
@@ -1610,7 +1607,12 @@ void main() {
     await _pumpManagement(tester, repository);
 
     expect(find.text('基础设置'), findsOneWidget);
-    expect(find.text('添加学科'), findsOneWidget);
+    expect(find.text('先添加机构学科'), findsOneWidget);
+    expect(
+      find.byKey(const Key('management-next-step-action')),
+      findsOneWidget,
+    );
+    expect(find.text('添加学科'), findsWidgets);
     expect(find.text('机构成员'), findsNothing);
   });
 
@@ -1638,6 +1640,8 @@ void main() {
 
     expect(find.text('机构成员'), findsOneWidget);
     expect(find.text('老师可教学科'), findsOneWidget);
+    expect(find.text('下一步：配置老师可教学科'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '配置老师学科'), findsOneWidget);
     expect(find.text('基础设置'), findsNothing);
   });
 
