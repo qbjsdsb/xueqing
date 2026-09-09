@@ -1,5 +1,6 @@
 import '../../cloud/learning_repository.dart';
 import 'v2_fixture.dart';
+import 'v2_workspace_data.dart';
 
 /// Read-only bridge from the existing production workspace model into the V2
 /// presentation model. It deliberately contains no Supabase calls and no write
@@ -20,6 +21,12 @@ class V2ReadModelSnapshot {
   final List<V2FocusItem> focusItems;
   final List<V2TimelineEntry> timeline;
   final List<V2CaseBinding> caseBindings;
+
+  V2WorkspaceData get workspaceData => V2WorkspaceData(
+    students: students,
+    focusItems: focusItems,
+    timeline: timeline,
+  );
 
   List<V2FocusItem> focusItemsForStudent(String studentId) => focusItems
       .where((item) => item.studentId == studentId)
