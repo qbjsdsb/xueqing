@@ -38,7 +38,10 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
   }
 
   void _retry() {
-    setState(() => _workspaceFuture = widget.loadWorkspace());
+    final nextWorkspace = widget.loadWorkspace();
+    setState(() {
+      _workspaceFuture = nextWorkspace;
+    });
   }
 
   @override
