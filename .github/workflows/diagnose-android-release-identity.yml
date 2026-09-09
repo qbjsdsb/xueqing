@@ -60,14 +60,26 @@ jobs:
           apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
           [[ -x "$apksigner" ]] || { echo "apksigner unavailable"; exit 1; }
 
-          apk_output="$("$apksigner" verify --verbose --print-certs release-input/xueqing-v0.2.0-android.apk)"
-          apk_sha="$(printf '%s\n' "$apk_output" | sed -nE 's/^Signer #1 certificate SHA-256 digest: *//p' | head -n1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          apk_output="$("$apksigner" verify --verbose --print-certs release-input/xueqing-v0.2.0-android.apk 2>&1)"
+          printf '%s\n' "$apk_output" | grep -Ei 'Signer #1 certificate|SHA-256|SHA256' || true
+          apk_sha="$(printf '%s\n' "$apk_output" \
+            | grep -Ei 'certificate SHA-256 digest|certificate SHA256 digest' \
+            | head -n1 \
+            | sed -E 's/.*digest:[[:space:]]*//' \
+            | tr -d ':[:space:]' \
+            | tr '[:upper:]' '[:lower:]')"
 
           key_output="$(keytool -list -v \
             -keystore release-keystore.jks \
             -storepass "$XUEQING_ANDROID_KEYSTORE_PASSWORD" \
-            -alias "$XUEQING_ANDROID_KEY_ALIAS")"
-          key_sha="$(printf '%s\n' "$key_output" | sed -nE 's/^.*SHA256: *//p' | head -n1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+            -alias "$XUEQING_ANDROID_KEY_ALIAS" 2>&1)"
+          printf '%s\n' "$key_output" | grep -Ei 'SHA256:' || true
+          key_sha="$(printf '%s\n' "$key_output" \
+            | grep -Ei 'SHA256:' \
+            | head -n1 \
+            | sed -E 's/.*SHA256:[[:space:]]*//' \
+            | tr -d ':[:space:]' \
+            | tr '[:upper:]' '[:lower:]')"
           pinned_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
 
           for pair in "v0.2.0 APK:$apk_sha" "current keystore:$key_sha" "pinned variable:$pinned_sha"; do
