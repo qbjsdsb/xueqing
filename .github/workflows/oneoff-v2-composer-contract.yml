@@ -29,7 +29,7 @@ jobs:
         run: python3 .github/scripts/patch_v2_composer_contract.py
 
       - name: Format changed Dart
-        run: flutter format lib/features/design_v2/v2_composers.dart lib/features/design_v2/v2_workflow_controller.dart test/features/design_v2_composers_test.dart
+        run: dart format lib/features/design_v2/v2_composers.dart lib/features/design_v2/v2_workflow_controller.dart test/features/design_v2_composers_test.dart
 
       - name: Analyze
         run: flutter analyze
