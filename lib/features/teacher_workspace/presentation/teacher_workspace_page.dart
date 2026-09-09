@@ -1283,8 +1283,9 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (!mounted || !reloaded) {
         return;
       }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已完成待办。')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result ? '已记录进展并完成提醒。' : '已完成提醒。')),
+      );
     } finally {
       if (mounted) {
         setState(() => _completingActionId = null);
@@ -1292,7 +1293,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     }
   }
 
-  Future<CaseCommandReceipt?> _showCompleteActionForm({
+  Future<bool?> _showCompleteActionForm({
     required WorkspaceActionWithContext item,
     required DateTime? businessDate,
   }) {
@@ -1303,10 +1304,11 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       action: item.action,
       learningCase: item.learningCase,
       repository: widget.repository,
+      progressiveRepository: widget.progressiveCaseRepository,
       businessDate: businessDate,
     );
     return sizeClass == WindowSizeClass.compact
-        ? showModalBottomSheet<CaseCommandReceipt>(
+        ? showModalBottomSheet<bool>(
             context: context,
             isScrollControlled: true,
             isDismissible: false,
@@ -1318,7 +1320,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             clipBehavior: Clip.antiAlias,
             builder: (_) => form,
           )
-        : showDialog<CaseCommandReceipt>(
+        : showDialog<bool>(
             context: context,
             barrierDismissible: false,
             builder: (_) => Dialog(child: form),
@@ -5469,7 +5471,7 @@ class _WorkspaceActionGroup extends StatelessWidget {
                                   ? Icons.check_circle_outline
                                   : Icons.check,
                             ),
-                            label: Text(progressiveFlow ? '完成' : '完成行动'),
+                            label: Text(progressiveFlow ? '处理' : '完成行动'),
                           ),
                         OutlinedButton(
                           onPressed: () => onOpenCase(item.learningCase),
@@ -5503,11 +5505,13 @@ class _WorkspaceCompleteActionForm extends StatefulWidget {
     required this.learningCase,
     required this.repository,
     required this.businessDate,
+    this.progressiveRepository,
   });
 
   final WorkspaceAction action;
   final WorkspaceCase learningCase;
   final LearningRepository repository;
+  final ProgressiveCaseRepository? progressiveRepository;
   final DateTime? businessDate;
 
   @override
@@ -5518,40 +5522,81 @@ class _WorkspaceCompleteActionForm extends StatefulWidget {
 class _WorkspaceCompleteActionFormState
     extends State<_WorkspaceCompleteActionForm> {
   late final String _operationId;
+  late final TextEditingController _progressController;
   CompleteCaseActionCommand? _submittedCommand;
+  RecordCaseProgressCommand? _submittedProgressCommand;
   String? _saveError;
   bool _saving = false;
   bool _submissionAttempted = false;
+
+  bool get _inputsLocked => _saving || _submissionAttempted;
+  bool get _isDirty => _progressController.text.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _operationId = createOperationId();
+    _progressController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _progressController.dispose();
+    super.dispose();
   }
 
   Future<void> _save() async {
     if (_saving) {
       return;
     }
-    _submittedCommand ??= CompleteCaseActionCommand(
-      operationId: _operationId,
-      actionId: widget.action.id,
-      caseId: widget.learningCase.id,
-      expectedCaseVersion: widget.learningCase.version,
-      expectedActionVersion: widget.action.version,
-    );
-    final command = _submittedCommand!;
+    final summary = _progressController.text.trim();
+    final progressiveRepository = widget.progressiveRepository;
+    if (_submittedCommand == null &&
+        _submittedProgressCommand == null &&
+        summary.isNotEmpty &&
+        progressiveRepository != null) {
+      _submittedProgressCommand = RecordCaseProgressCommand(
+        operationId: _operationId,
+        caseId: widget.learningCase.id,
+        expectedCaseVersion: widget.learningCase.version,
+        progressKind: CaseProgressKind.observation,
+        summary: summary,
+        completeCurrentAction: true,
+        currentActionId: widget.action.id,
+        expectedActionVersion: widget.action.version,
+        nextStep: CaseProgressNextStep.continueTracking,
+      );
+    }
+    _submittedCommand ??= _submittedProgressCommand == null
+        ? CompleteCaseActionCommand(
+            operationId: _operationId,
+            actionId: widget.action.id,
+            caseId: widget.learningCase.id,
+            expectedCaseVersion: widget.learningCase.version,
+            expectedActionVersion: widget.action.version,
+          )
+        : null;
+
     setState(() {
       _saving = true;
       _submissionAttempted = true;
       _saveError = null;
     });
     try {
-      final receipt = await widget.repository.completeCaseAction(command);
+      final progressCommand = _submittedProgressCommand;
+      if (progressCommand != null) {
+        await progressiveRepository!.recordProgress(progressCommand);
+        if (!mounted) {
+          return;
+        }
+        Navigator.of(context).pop(true);
+        return;
+      }
+      await widget.repository.completeCaseAction(_submittedCommand!);
       if (!mounted) {
         return;
       }
-      Navigator.of(context).pop(receipt);
+      Navigator.of(context).pop(false);
     } catch (error) {
       if (!mounted) {
         return;
@@ -5591,13 +5636,35 @@ class _WorkspaceCompleteActionFormState
       }
       return;
     }
+    if (_isDirty) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('放弃这次处理？'),
+          content: const Text('刚才填写的新情况还没有保存。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('继续编辑'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('放弃'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || discard != true) {
+        return;
+      }
+    }
     Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope<void>(
-      canPop: !_saving && !_submissionAttempted,
+      canPop: !_isDirty && !_saving && !_submissionAttempted,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !_saving) {
           unawaited(_close());
@@ -5616,7 +5683,7 @@ class _WorkspaceCompleteActionFormState
                 children: [
                   Expanded(
                     child: Text(
-                      '完成待办',
+                      '处理提醒',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -5629,23 +5696,41 @@ class _WorkspaceCompleteActionFormState
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '只完成这件已经做完的事，不会自动写入学生表现，也不会强制生成下一步。',
+                widget.progressiveRepository == null
+                    ? '完成这件已经做完的事，不会自动生成新的提醒。'
+                    : '没什么需要补充时，直接完成提醒即可；有新情况就写一句，会和完成提醒一起保存。',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              _WorkspaceContextLine(label: '当前待办', value: widget.action.title),
+              _WorkspaceContextLine(label: '当前提醒', value: widget.action.title),
               const SizedBox(height: AppSpacing.sm),
               _WorkspaceContextLine(
                 label: '对应问题',
                 value: widget.learningCase.title,
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '如果出现了值得长期保留的新情况，完成后可进入问题继续“记录进展”。',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              if (widget.progressiveRepository != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  key: const Key('workspace-complete-action-progress'),
+                  controller: _progressController,
+                  enabled: !_inputsLocked,
+                  minLines: 2,
+                  maxLines: 5,
+                  textInputAction: TextInputAction.newline,
+                  decoration: const InputDecoration(
+                    labelText: '这次有什么新情况？（可选）',
+                    hintText: '例如：这次能主动圈出限制词，但独立作答时还漏了一处。',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '不填写也可以直接完成；这里不会自动生成新的提醒。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               if (_saveError != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 Text(
@@ -5672,7 +5757,7 @@ class _WorkspaceCompleteActionFormState
                             ? '保存中…'
                             : _submissionAttempted
                             ? '重新保存'
-                            : '完成待办',
+                            : '完成这次提醒',
                       ),
                     ),
                   ),
