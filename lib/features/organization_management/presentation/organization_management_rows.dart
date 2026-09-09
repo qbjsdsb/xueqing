@@ -335,6 +335,8 @@ class _TeacherSubjectScopeTile extends StatelessWidget {
   }
 }
 
+enum _StudentMoreAction { edit, toggleTeaching, toggleArchive }
+
 class _OrganizationStudentTile extends StatelessWidget {
   const _OrganizationStudentTile({
     required this.student,
@@ -447,6 +449,7 @@ class _OrganizationStudentTile extends StatelessWidget {
             Wrap(
               spacing: AppSpacing.xs,
               runSpacing: AppSpacing.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 if (onAddSubject != null)
                   TextButton.icon(
@@ -454,39 +457,54 @@ class _OrganizationStudentTile extends StatelessWidget {
                     icon: const Icon(Icons.add_circle_outline, size: 18),
                     label: const Text('添加学科'),
                   ),
-                if (onToggleTeaching != null)
-                  TextButton.icon(
+                if (onToggleTeaching != null ||
+                    onToggleArchive != null ||
+                    onEdit != null)
+                  PopupMenuButton<_StudentMoreAction>(
                     key: ValueKey<String>(
-                      'student-teaching-toggle-${student.studentId}',
+                      'student-more-actions-${student.studentId}',
                     ),
-                    onPressed: busy ? null : onToggleTeaching,
-                    icon: Icon(
-                      student.isActive
-                          ? Icons.pause_circle_outline
-                          : Icons.play_circle_outline,
-                      size: 18,
-                    ),
-                    label: Text(student.isActive ? '暂停教学' : '恢复教学'),
-                  ),
-                if (onToggleArchive != null)
-                  TextButton.icon(
-                    key: ValueKey<String>(
-                      'student-archive-toggle-${student.studentId}',
-                    ),
-                    onPressed: busy ? null : onToggleArchive,
-                    icon: Icon(
-                      student.status == 'archived'
-                          ? Icons.unarchive_outlined
-                          : Icons.archive_outlined,
-                      size: 18,
-                    ),
-                    label: Text(student.status == 'archived' ? '取消归档' : '归档学生'),
-                  ),
-                if (onEdit != null)
-                  TextButton.icon(
-                    onPressed: busy ? null : onEdit,
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text('编辑'),
+                    tooltip: '更多操作',
+                    enabled: !busy,
+                    icon: const Icon(Icons.more_horiz),
+                    onSelected: (action) {
+                      switch (action) {
+                        case _StudentMoreAction.edit:
+                          onEdit?.call();
+                        case _StudentMoreAction.toggleTeaching:
+                          onToggleTeaching?.call();
+                        case _StudentMoreAction.toggleArchive:
+                          onToggleArchive?.call();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      if (onEdit != null)
+                        PopupMenuItem<_StudentMoreAction>(
+                          key: ValueKey<String>(
+                            'student-edit-${student.studentId}',
+                          ),
+                          value: _StudentMoreAction.edit,
+                          child: const Text('编辑资料'),
+                        ),
+                      if (onToggleTeaching != null)
+                        PopupMenuItem<_StudentMoreAction>(
+                          key: ValueKey<String>(
+                            'student-teaching-toggle-${student.studentId}',
+                          ),
+                          value: _StudentMoreAction.toggleTeaching,
+                          child: Text(student.isActive ? '暂停教学' : '恢复教学'),
+                        ),
+                      if (onToggleArchive != null)
+                        PopupMenuItem<_StudentMoreAction>(
+                          key: ValueKey<String>(
+                            'student-archive-toggle-${student.studentId}',
+                          ),
+                          value: _StudentMoreAction.toggleArchive,
+                          child: Text(
+                            student.status == 'archived' ? '取消归档' : '归档学生',
+                          ),
+                        ),
+                    ],
                   ),
               ],
             ),

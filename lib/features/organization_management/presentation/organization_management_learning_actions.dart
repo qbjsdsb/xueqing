@@ -574,8 +574,8 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
           ? '暂停 ${student.studentName} 的教学？'
           : '恢复 ${student.studentName} 的教学？',
       message: pausing
-          ? '暂停后，这位学生会暂时从老师工作台和今日事项中隐藏；学科档案、当前任课、Case、证据和待办都会原样保留，恢复后继续原来的教学上下文。'
-          : '恢复后，这位学生会重新出现在有当前任课关系的老师工作台中；原学科、Case、证据和待办继续有效，不会重新建档。',
+          ? '暂停后，这位学生会暂时从老师工作台和今日事项中隐藏；学科档案、当前任课、跟进问题、证据和待办都会原样保留，恢复后继续原来的教学上下文。'
+          : '恢复后，这位学生会重新出现在有当前任课关系的老师工作台中；原学科、跟进问题、证据和待办继续有效，不会重新建档。',
       confirmLabel: pausing ? '确认暂停' : '确认恢复',
     );
     if (!mounted || !confirmed) return;
@@ -623,7 +623,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
           ? '归档 ${student.studentName}？'
           : '取消归档 ${student.studentName}？',
       message: archiving
-          ? '归档用于学生长期结束服务或离开机构后的历史保留。已有学科、Case、证据和历史记录不会删除；若只是暂时停课，请不要归档。'
+          ? '归档用于学生长期结束服务或离开机构后的历史保留。已有学科、跟进问题、证据和历史记录不会删除；若只是暂时停课，请不要归档。'
           : '取消归档只把学生恢复为“暂不教学”，不会自动恢复老师工作台，也不会自动恢复已经结束的学科。需要继续教学时，再明确执行恢复教学和相应学科恢复。',
       confirmLabel: archiving ? '确认归档' : '确认取消归档',
     );
