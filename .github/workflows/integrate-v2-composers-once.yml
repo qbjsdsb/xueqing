@@ -1,0 +1,185 @@
+name: Integrate V2 composers once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/integrate-v2-composers-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-prototype-foundation
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Preserve student-subject and Case boundaries
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          composer = Path('lib/features/design_v2/v2_composers.dart')
+          text = composer.read_text()
+
+          old = """  required String subject,\n  V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,\n}) async {\n  final saved = await _showAdaptiveComposer<bool>(\n    context,\n    child: V2QuickCaptureComposer(\n      studentName: studentName,\n      subject: subject,\n      attachmentPicker: attachmentPicker,\n    ),\n"""
+          new = """  required List<String> subjects,\n  V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,\n}) async {\n  assert(subjects.isNotEmpty);\n  final saved = await _showAdaptiveComposer<bool>(\n    context,\n    child: V2QuickCaptureComposer(\n      studentName: studentName,\n      subjects: subjects,\n      attachmentPicker: attachmentPicker,\n    ),\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = """    required this.studentName,\n    required this.subject,\n    required this.attachmentPicker,\n"""
+          new = """    required this.studentName,\n    required this.subjects,\n    required this.attachmentPicker,\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = """  final String studentName;\n  final String subject;\n  final V2AttachmentPicker attachmentPicker;\n\n  @override\n  State<V2QuickCaptureComposer> createState() => _V2QuickCaptureComposerState();\n"""
+          new = """  final String studentName;\n  final List<String> subjects;\n  final V2AttachmentPicker attachmentPicker;\n\n  @override\n  State<V2QuickCaptureComposer> createState() => _V2QuickCaptureComposerState();\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = """  final _controller = TextEditingController();\n  final _attachments = <PickedEvidenceAttachment>[];\n  bool _showMore = false;\n"""
+          new = """  final _controller = TextEditingController();\n  final _attachments = <PickedEvidenceAttachment>[];\n  String? _selectedSubject;\n  bool _showMore = false;\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = """  @override\n  void dispose() {\n    _controller.dispose();\n"""
+          new = """  @override\n  void initState() {\n    super.initState();\n    if (widget.subjects.length == 1) {\n      _selectedSubject = widget.subjects.single;\n    }\n  }\n\n  @override\n  void dispose() {\n    _controller.dispose();\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = """  void _save() {\n    if (_controller.text.trim().isEmpty) {\n      return;\n    }\n    Navigator.of(context).pop(true);\n  }\n"""
+          new = """  bool get _canSave =>\n      _selectedSubject != null && _controller.text.trim().isNotEmpty;\n\n  void _save() {\n    if (_canSave) {\n      Navigator.of(context).pop(true);\n    }\n  }\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = """      contextLine: '${widget.studentName} · ${widget.subject}',\n"""
+          new = """      contextLine: _selectedSubject == null\n          ? widget.studentName\n          : '${widget.studentName} · $_selectedSubject',\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = """        onPrimary: _controller.text.trim().isEmpty ? null : _save,\n"""
+          new = """        onPrimary: _canSave ? _save : null,\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = """        children: [\n          Text('今天发现什么？', style: Theme.of(context).textTheme.titleMedium),\n"""
+          new = """        children: [\n          if (widget.subjects.length > 1) ...[\n            Text('选择学科', style: Theme.of(context).textTheme.bodySmall),\n            const SizedBox(height: 4),\n            _InlineSelector<String>(\n              key: const Key('v2-quick-capture-subject-selector'),\n              value: _selectedSubject,\n              values: widget.subjects,\n              label: (value) => value,\n              onChanged: (value) => setState(() => _selectedSubject = value),\n            ),\n            const SizedBox(height: 22),\n          ],\n          Text('今天发现什么？', style: Theme.of(context).textTheme.titleMedium),\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+          composer.write_text(text)
+
+          workspace = Path('lib/features/design_v2/v2_workspace_preview.dart')
+          text = workspace.read_text()
+          old = "import 'v2_fixture.dart';\n"
+          new = "import 'v2_composers.dart';\nimport 'v2_fixture.dart';\n"
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          marker = "class V2WorkspacePreview extends StatefulWidget {"
+          helper = r'''Future<void> _showV2ProgressCasePicker(
+            BuildContext context,
+            V2Student student,
+          ) async {
+            Widget choices(BuildContext sheetContext) => ListView.separated(
+              shrinkWrap: true,
+              itemCount: v2FocusItems.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                color: Theme.of(sheetContext).colorScheme.outlineVariant,
+              ),
+              itemBuilder: (_, index) {
+                final item = v2FocusItems[index];
+                return ListTile(
+                  title: Text(item.title),
+                  subtitle: Text(item.subject),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(sheetContext).pop(item),
+                );
+              },
+            );
+
+            final compact = MediaQuery.sizeOf(context).width < 720;
+            final selected = compact
+                ? await showModalBottomSheet<V2FocusItem>(
+                    context: context,
+                    useSafeArea: true,
+                    builder: (sheetContext) => Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '选择要记录进展的问题',
+                            style: Theme.of(sheetContext).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          choices(sheetContext),
+                        ],
+                      ),
+                    ),
+                  )
+                : await showDialog<V2FocusItem>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('选择要记录进展的问题'),
+                      content: SizedBox(width: 420, child: choices(dialogContext)),
+                    ),
+                  );
+            if (selected == null || !context.mounted) {
+              return;
+            }
+            await showV2ProgressComposer(
+              context,
+              studentName: student.name,
+              subject: selected.subject,
+              caseTitle: selected.title,
+            );
+          }
+
+          '''
+          assert marker in text
+          text = text.replace(marker, helper + marker, 1)
+
+          old = """        OutlinedButton.icon(\n          onPressed: () {},\n          icon: const Icon(Icons.note_add_outlined, size: 18),\n          label: const Text('记录问题'),\n        ),\n        FilledButton.icon(\n          onPressed: () {},\n          icon: const Icon(Icons.edit_note_outlined, size: 18),\n          label: const Text('记进展'),\n        ),\n"""
+          new = """        OutlinedButton.icon(\n          onPressed: () => showV2QuickCapture(\n            context,\n            studentName: student.name,\n            subjects: student.subjects,\n          ),\n          icon: const Icon(Icons.note_add_outlined, size: 18),\n          label: const Text('记录问题'),\n        ),\n        FilledButton.icon(\n          onPressed: () => _showV2ProgressCasePicker(context, student),\n          icon: const Icon(Icons.edit_note_outlined, size: 18),\n          label: const Text('记进展'),\n        ),\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = """                      FilledButton.icon(\n                        onPressed: () {},\n                        icon: const Icon(Icons.edit_note_outlined, size: 18),\n                        label: const Text('记进展'),\n                      ),\n"""
+          new = """                      FilledButton.icon(\n                        onPressed: () => showV2ProgressComposer(\n                          context,\n                          studentName: '林同学',\n                          subject: '语文',\n                          caseTitle: '阅读概括不完整',\n                        ),\n                        icon: const Icon(Icons.edit_note_outlined, size: 18),\n                        label: const Text('记进展'),\n                      ),\n"""
+          assert old in text
+          text = text.replace(old, new, 1)
+          workspace.write_text(text)
+          PY
+      - name: Format, analyze, and test V2
+        run: |
+          dart format \
+            lib/features/design_v2/v2_composers.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/design_v2_composers_test.dart
+          flutter analyze \
+            lib/main_v2.dart \
+            lib/features/design_v2/v2_theme.dart \
+            lib/features/design_v2/v2_fixture.dart \
+            lib/features/design_v2/v2_composers.dart \
+            lib/features/design_v2/v2_workspace_preview.dart
+          flutter test \
+            test/features/design_v2_workspace_test.dart \
+            test/features/design_v2_composers_test.dart
+      - name: Commit integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/features/design_v2/v2_composers.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/design_v2_composers_test.dart
+          git commit -m 'ui(v2): integrate adaptive capture and progress flows'
+          git push origin HEAD:ui/v2-prototype-foundation
