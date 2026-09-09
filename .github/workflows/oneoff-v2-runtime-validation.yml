@@ -29,6 +29,7 @@ jobs:
         run: |
           python3 .github/scripts/patch_v2_runtime_and_photo_readback.py
           python3 .github/scripts/fix_v2_runtime_preview_compat.py
+          python3 .github/scripts/fix_v2_runtime_contract_format.py
 
       - name: Format changed Dart
         run: |
