@@ -129,6 +129,29 @@ rows = replace_once(
 )
 rows_path.write_text(rows)
 
+teacher_test_path = Path('test/features/teacher_workspace_test.dart')
+teacher_test = teacher_test_path.read_text()
+teacher_test = replace_once(
+    teacher_test,
+    "const Key('quick-capture-student-option-student-1')",
+    "const Key('quick-capture-student-option-profile-1')",
+    'compact quick capture test key',
+)
+teacher_test = replace_once(
+    teacher_test,
+    "expect(find.text('关闭 Case？'), findsOneWidget);\n    await tester.tap(find.widgetWithText(FilledButton, '关闭').last);",
+    "expect(find.text('结束跟进？'), findsOneWidget);\n    await tester.tap(find.widgetWithText(FilledButton, '结束跟进').last);",
+    'stable close test wording',
+)
+teacher_test = replace_count(
+    teacher_test,
+    "await tester.tap(find.widgetWithText(FilledButton, '关闭').last);",
+    "await tester.tap(find.widgetWithText(FilledButton, '结束跟进').last);",
+    2,
+    'retry close test wording',
+)
+teacher_test_path.write_text(teacher_test)
+
 contract_path = Path('test/features/workflow_clarity_contract_test.dart')
 contract_path.write_text("""import 'dart:io';
 
