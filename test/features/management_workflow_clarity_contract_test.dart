@@ -16,9 +16,7 @@ void main() {
     expect(rows, contains("'暂未安排负责老师'"));
     expect(
       rows,
-      contains(
-        "'student-assignment-transfer-\${currentAssignment.assignmentId}'",
-      ),
+      contains("'student-assignment-transfer-\${assignment.assignmentId}'"),
     );
   });
 
