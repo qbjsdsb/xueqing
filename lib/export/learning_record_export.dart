@@ -293,9 +293,9 @@ class LearningRecordExport {
 
   static String _wireStatusLabel(String status) {
     return switch (status) {
-      'new' => '待整理',
+      'new' => '新记录',
       'confirmed' || 'intervening' => '跟进中',
-      'pending_verification' => '待验证',
+      'pending_verification' => '继续关注',
       'stable' => '暂时稳定',
       'closed' => '已结束',
       _ => '状态未知',
