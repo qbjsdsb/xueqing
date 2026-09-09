@@ -14,12 +14,14 @@ void main() {
       'content': '课堂观察：两次漏看限制词。',
       'assessment_result': null,
       'teacher_name': '王老师',
+      'next_step': '下节课再检查一次',
       'attachment_count': 2,
       'current_status': 'confirmed',
     });
 
     expect(record.id, 'record-1');
     expect(record.teacherName, '王老师');
+    expect(record.nextStep, '下节课再检查一次');
     expect(record.recordKind, 'evidence');
     expect(record.attachmentCount, 2);
     expect(record.occurredAt.toUtc(), DateTime.utc(2026, 9, 9, 10, 30));
@@ -42,18 +44,21 @@ void main() {
     );
   });
 
-  test('maps student export authorization and session errors to teacher copy', () {
-    expect(
-      studentLearningRecordExportErrorMessage(
-        const PostgrestException(message: 'teaching_fact_gate'),
-      ),
-      '当前账号没有这个学生学科的记录导出权限。',
-    );
-    expect(
-      studentLearningRecordExportErrorMessage(
-        const AuthException('No active session.'),
-      ),
-      '登录状态已失效，请重新登录。',
-    );
-  });
+  test(
+    'maps student export authorization and session errors to teacher copy',
+    () {
+      expect(
+        studentLearningRecordExportErrorMessage(
+          const PostgrestException(message: 'teaching_fact_gate'),
+        ),
+        '当前账号没有这个学生学科的记录导出权限。',
+      );
+      expect(
+        studentLearningRecordExportErrorMessage(
+          const AuthException('No active session.'),
+        ),
+        '登录状态已失效，请重新登录。',
+      );
+    },
+  );
 }

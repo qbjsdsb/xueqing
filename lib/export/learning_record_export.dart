@@ -4,6 +4,7 @@ import 'package:excel/excel.dart';
 import 'package:file_saver/file_saver.dart';
 
 import '../cloud/learning_repository.dart';
+import '../cloud/student_learning_record_repository.dart';
 import '../cloud/teacher_learning_record_repository.dart';
 
 class LearningRecordExportRow {
@@ -135,6 +136,33 @@ class LearningRecordExport {
       }
     }
 
+    rows.sort((left, right) => left.occurredAt.compareTo(right.occurredAt));
+    return List<LearningRecordExportRow>.unmodifiable(rows);
+  }
+
+  static List<LearningRecordExportRow> rowsForStudentRecords(
+    List<StudentLearningRecord> records,
+  ) {
+    final rows = <LearningRecordExportRow>[
+      for (final record in records)
+        LearningRecordExportRow(
+          occurredAt: record.occurredAt,
+          studentName: record.studentName,
+          subjectName: record.subjectName,
+          issueTitle: record.issueTitle,
+          recordType: _teacherRecordTypeLabel(record.recordKind),
+          content: record.content,
+          assessmentResult: record.assessmentResult == null
+              ? null
+              : _assessmentResultLabel(record.assessmentResult!),
+          nextStep: record.nextStep,
+          teacherName: record.teacherName,
+          attachmentNote: record.attachmentCount <= 0
+              ? null
+              : '${record.attachmentCount} 个附件',
+          status: _wireStatusLabel(record.currentStatus),
+        ),
+    ];
     rows.sort((left, right) => left.occurredAt.compareTo(right.occurredAt));
     return List<LearningRecordExportRow>.unmodifiable(rows);
   }

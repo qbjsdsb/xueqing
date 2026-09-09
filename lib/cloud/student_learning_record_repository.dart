@@ -10,6 +10,7 @@ class StudentLearningRecord {
     required this.recordKind,
     required this.content,
     required this.teacherName,
+    this.nextStep,
     required this.attachmentCount,
     required this.currentStatus,
     this.assessmentResult,
@@ -24,6 +25,7 @@ class StudentLearningRecord {
   final String content;
   final String? assessmentResult;
   final String teacherName;
+  final String? nextStep;
   final int attachmentCount;
   final String currentStatus;
 
@@ -38,6 +40,7 @@ class StudentLearningRecord {
       content: _requiredString(json['content'], 'content'),
       assessmentResult: _optionalString(json['assessment_result']),
       teacherName: _requiredString(json['teacher_name'], 'teacher_name'),
+      nextStep: _optionalString(json['next_step']),
       attachmentCount: _requiredInt(
         json['attachment_count'],
         'attachment_count',

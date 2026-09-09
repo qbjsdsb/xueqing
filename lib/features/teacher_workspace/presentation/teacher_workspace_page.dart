@@ -18,6 +18,7 @@ import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/organization_member_provisioning_repository.dart';
 import '../../../cloud/progressive_case_repository.dart';
 import '../../../cloud/teacher_learning_record_repository.dart';
+import '../../../cloud/student_learning_record_repository.dart';
 import '../../../config/app_config.dart';
 import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
 import '../../organization_management/presentation/organization_management_page.dart';
@@ -42,6 +43,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     this.organizationMemberProvisioningRepository,
     this.organizationMemberLifecycleRepository,
     this.teacherLearningRecordRepository,
+    this.studentLearningRecordRepository,
     this.caseReopenDraftStore,
     super.key,
   });
@@ -59,6 +61,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
   final OrganizationMemberLifecycleRepository?
   organizationMemberLifecycleRepository;
   final TeacherLearningRecordRepository? teacherLearningRecordRepository;
+  final StudentLearningRecordRepository? studentLearningRecordRepository;
   final CaseReopenDraftStore? caseReopenDraftStore;
 
   @override
@@ -83,6 +86,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   _organizationMemberProvisioningRepository;
   OrganizationMemberLifecycleRepository? _organizationMemberLifecycleRepository;
   TeacherLearningRecordRepository? _teacherLearningRecordRepository;
+  StudentLearningRecordRepository? _studentLearningRecordRepository;
   String? _errorMessage;
   String? _activeUserId;
   bool _signedIn = false;
@@ -136,6 +140,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
       _organizationMemberLifecycleRepository =
           widget.organizationMemberLifecycleRepository;
       _teacherLearningRecordRepository = widget.teacherLearningRecordRepository;
+      _studentLearningRecordRepository = widget.studentLearningRecordRepository;
     } else {
       widget.config.cloudConfig.validate(
         requireConfigured: widget.config.environment.isProduction,
@@ -169,6 +174,8 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
           SupabaseOrganizationMemberLifecycleRepository(CloudClient.client);
       _teacherLearningRecordRepository =
           SupabaseTeacherLearningRecordRepository(CloudClient.client);
+      _studentLearningRecordRepository =
+          SupabaseStudentLearningRecordRepository(CloudClient.client);
     }
 
     _activeUserId = _authRepository!.currentUser?.id;
@@ -426,6 +433,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
               _organizationMemberProvisioningRepository,
           invitationAcceptanceRepository: _invitationAcceptanceRepository,
           teacherLearningRecordRepository: _teacherLearningRecordRepository,
+          studentLearningRecordRepository: _studentLearningRecordRepository,
           updateService: _updateService,
           updateInstaller: _updateInstaller,
           onSignOut: _busy ? null : _signOut,
@@ -473,6 +481,7 @@ class TeacherWorkspacePage extends StatefulWidget {
     this.memberProvisioningRepository,
     this.invitationAcceptanceRepository,
     this.teacherLearningRecordRepository,
+    this.studentLearningRecordRepository,
     this.updateService,
     this.updateInstaller,
     this.onSignOut,
@@ -489,6 +498,7 @@ class TeacherWorkspacePage extends StatefulWidget {
   final OrganizationInvitationAcceptanceRepository?
   invitationAcceptanceRepository;
   final TeacherLearningRecordRepository? teacherLearningRecordRepository;
+  final StudentLearningRecordRepository? studentLearningRecordRepository;
   final UpdateService? updateService;
   final UpdateInstaller? updateInstaller;
   final VoidCallback? onSignOut;
@@ -1856,7 +1866,31 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   }
 
   Future<void> _exportStudentSubject(WorkspaceStudent student) async {
-    final rows = LearningRecordExport.rowsForStudentSubject(student);
+    late final List<LearningRecordExportRow> rows;
+    try {
+      final recordRepository = widget.studentLearningRecordRepository;
+      rows = recordRepository == null
+          ? LearningRecordExport.rowsForStudentSubject(student)
+          : LearningRecordExport.rowsForStudentRecords(
+              await recordRepository.listStudentSubjectRecords(
+                profileId: student.profileId,
+              ),
+            );
+    } catch (error, stackTrace) {
+      _workspaceLogger.error(
+        'student_subject_export_load_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        final message =
+            studentLearningRecordExportErrorMessage(error) ??
+            '学情记录暂时无法读取，请检查网络后重试。';
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+      }
+      return;
+    }
     if (rows.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context)

@@ -26,6 +26,7 @@ returns table (
   content text,
   assessment_result text,
   teacher_name text,
+  next_step text,
   attachment_count integer,
   current_status text
 )
@@ -96,6 +97,15 @@ begin
       null::text as assessment_result,
       coalesce(nullif(btrim(creator_user.display_name), ''), '未命名成员')
         as teacher_name,
+      (
+        select action.title
+        from public.case_actions as action
+        where action.learning_case_id = learning_case.id
+          and action.status = 'pending'
+          and action.is_primary
+        order by action.updated_at desc, action.id
+        limit 1
+      ) as next_step,
       coalesce((
         select count(*)::integer
         from public.case_evidence_attachments as attachment
@@ -138,6 +148,15 @@ begin
       null::text as assessment_result,
       coalesce(nullif(btrim(creator_user.display_name), ''), '未命名成员')
         as teacher_name,
+      (
+        select action.title
+        from public.case_actions as action
+        where action.learning_case_id = learning_case.id
+          and action.status = 'pending'
+          and action.is_primary
+        order by action.updated_at desc, action.id
+        limit 1
+      ) as next_step,
       coalesce((
         select count(*)::integer
         from public.case_evidence_attachments as attachment
@@ -190,6 +209,15 @@ begin
       null::text as assessment_result,
       coalesce(nullif(btrim(creator_user.display_name), ''), '未命名成员')
         as teacher_name,
+      (
+        select action.title
+        from public.case_actions as action
+        where action.learning_case_id = learning_case.id
+          and action.status = 'pending'
+          and action.is_primary
+        order by action.updated_at desc, action.id
+        limit 1
+      ) as next_step,
       0 as attachment_count,
       learning_case.status as current_status,
       2 as sort_order
@@ -230,6 +258,15 @@ begin
       assessment.result as assessment_result,
       coalesce(nullif(btrim(creator_user.display_name), ''), '未命名成员')
         as teacher_name,
+      (
+        select action.title
+        from public.case_actions as action
+        where action.learning_case_id = learning_case.id
+          and action.status = 'pending'
+          and action.is_primary
+        order by action.updated_at desc, action.id
+        limit 1
+      ) as next_step,
       0 as attachment_count,
       learning_case.status as current_status,
       3 as sort_order
@@ -263,6 +300,7 @@ begin
     raw_records.content,
     raw_records.assessment_result,
     raw_records.teacher_name,
+    raw_records.next_step,
     raw_records.attachment_count,
     raw_records.current_status
   from raw_records
@@ -297,6 +335,7 @@ returns table (
   content text,
   assessment_result text,
   teacher_name text,
+  next_step text,
   attachment_count integer,
   current_status text
 )
