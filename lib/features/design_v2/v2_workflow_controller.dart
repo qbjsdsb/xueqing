@@ -313,7 +313,9 @@ class V2WorkflowController {
         return profile;
       }
     }
-    throw StateError('The selected student subject profile is no longer active.');
+    throw StateError(
+      'The selected student subject profile is no longer active.',
+    );
   }
 
   WorkspaceCase _caseFor(String caseId) {
@@ -340,7 +342,8 @@ class V2WorkflowController {
     if (attachments.isEmpty) {
       return;
     }
-    if (workspace.organizationId == null || evidenceAttachmentRepository == null) {
+    if (workspace.organizationId == null ||
+        evidenceAttachmentRepository == null) {
       throw const V2WorkflowSaveException(
         '当前环境暂时不能保存图片，请移除图片后再试。',
         recordMayBeSaved: false,

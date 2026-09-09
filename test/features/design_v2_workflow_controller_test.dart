@@ -9,42 +9,45 @@ import 'package:xueqing/features/teacher_workspace/presentation/evidence_attachm
 
 void main() {
   group('V2WorkflowController', () {
-    test('Quick Capture keeps exact student-subject identity and custom type', () async {
-      final learning = _FakeLearningRepository();
-      final progress = _FakeProgressiveCaseRepository();
-      final attachments = _FakeEvidenceAttachmentRepository();
-      final controller = V2WorkflowController(
-        workspace: _workspace(),
-        learningRepository: learning,
-        progressiveCaseRepository: progress,
-        evidenceAttachmentRepository: attachments,
-        now: () => DateTime(2026, 9, 9, 18, 30),
-      );
+    test(
+      'Quick Capture keeps exact student-subject identity and custom type',
+      () async {
+        final learning = _FakeLearningRepository();
+        final progress = _FakeProgressiveCaseRepository();
+        final attachments = _FakeEvidenceAttachmentRepository();
+        final controller = V2WorkflowController(
+          workspace: _workspace(),
+          learningRepository: learning,
+          progressiveCaseRepository: progress,
+          evidenceAttachmentRepository: attachments,
+          now: () => DateTime(2026, 9, 9, 18, 30),
+        );
 
-      final result = await controller.quickCapture(
-        V2QuickCaptureWrite(
-          operationId: 'operation-quick-1',
-          studentId: 'student-1',
-          subject: '语文',
-          caseTypeKey: 'custom-reading',
-          body: '概括题遗漏结果。需要提醒后才能补全。',
-          attachments: [_attachment('photo-1.jpg')],
-        ),
-      );
+        final result = await controller.quickCapture(
+          V2QuickCaptureWrite(
+            operationId: 'operation-quick-1',
+            studentId: 'student-1',
+            subject: '语文',
+            caseTypeKey: 'custom-reading',
+            body: '概括题遗漏结果。需要提醒后才能补全。',
+            attachments: [_attachment('photo-1.jpg')],
+          ),
+        );
 
-      expect(result.caseId, 'case-created');
-      expect(result.attachmentCount, 1);
-      expect(learning.quickCaptureCalls, hasLength(1));
-      final command = learning.quickCaptureCalls.single;
-      expect(command.profileId, 'profile-chinese');
-      expect(command.expectedProfileVersion, 2);
-      expect(command.caseType, LearningCaseType.knowledge);
-      expect(command.organizationCaseTypeId, 'custom-reading');
-      expect(command.title, '概括题遗漏结果');
-      expect(command.evidenceSummary, '概括题遗漏结果。需要提醒后才能补全。');
-      expect(attachments.uploads.single.evidenceId, 'evidence-created');
-      expect(attachments.uploads.single.caseId, 'case-created');
-    });
+        expect(result.caseId, 'case-created');
+        expect(result.attachmentCount, 1);
+        expect(learning.quickCaptureCalls, hasLength(1));
+        final command = learning.quickCaptureCalls.single;
+        expect(command.profileId, 'profile-chinese');
+        expect(command.expectedProfileVersion, 2);
+        expect(command.caseType, LearningCaseType.knowledge);
+        expect(command.organizationCaseTypeId, 'custom-reading');
+        expect(command.title, '概括题遗漏结果');
+        expect(command.evidenceSummary, '概括题遗漏结果。需要提醒后才能补全。');
+        expect(attachments.uploads.single.evidenceId, 'evidence-created');
+        expect(attachments.uploads.single.caseId, 'case-created');
+      },
+    );
 
     test('same-name students never replace stable student identity', () async {
       final learning = _FakeLearningRepository();
@@ -109,136 +112,150 @@ void main() {
       expect(attachments.uploads.single.evidenceId, 'evidence-photo');
     });
 
-    test('open observation records progress first and attaches to its evidence', () async {
-      final log = <String>[];
-      final learning = _FakeLearningRepository(log: log);
-      final progress = _FakeProgressiveCaseRepository(log: log)
-        ..receipt = const ProgressiveCaseReceipt(
-          operationId: 'operation-observation',
-          caseId: 'case-existing',
-          status: 'confirmed',
-          caseVersion: 4,
-          recordId: 'evidence-observation',
+    test(
+      'open observation records progress first and attaches to its evidence',
+      () async {
+        final log = <String>[];
+        final learning = _FakeLearningRepository(log: log);
+        final progress = _FakeProgressiveCaseRepository(log: log)
+          ..receipt = const ProgressiveCaseReceipt(
+            operationId: 'operation-observation',
+            caseId: 'case-existing',
+            status: 'confirmed',
+            caseVersion: 4,
+            recordId: 'evidence-observation',
+          );
+        final attachments = _FakeEvidenceAttachmentRepository(log: log);
+        final controller = V2WorkflowController(
+          workspace: _workspace(),
+          learningRepository: learning,
+          progressiveCaseRepository: progress,
+          evidenceAttachmentRepository: attachments,
         );
-      final attachments = _FakeEvidenceAttachmentRepository(log: log);
-      final controller = V2WorkflowController(
-        workspace: _workspace(),
-        learningRepository: learning,
-        progressiveCaseRepository: progress,
-        evidenceAttachmentRepository: attachments,
-      );
 
-      await controller.recordProgress(
-        V2ProgressWrite(
-          operationId: 'operation-observation',
-          photoEvidenceOperationId: 'unused-photo-operation',
-          caseId: 'case-existing',
-          progressKind: CaseProgressKind.observation,
-          summary: '今天能主动定位关键词。',
-          nextStep: CaseProgressNextStep.continueTracking,
-          attachments: [_attachment('observation.jpg')],
-        ),
-      );
-
-      expect(log, ['progress', 'upload']);
-      expect(learning.addEvidenceCalls, isEmpty);
-      expect(progress.calls.single.expectedCaseVersion, 3);
-      expect(attachments.uploads.single.evidenceId, 'evidence-observation');
-    });
-
-    test('closing observation stores photo evidence before closing the case', () async {
-      final log = <String>[];
-      final learning = _FakeLearningRepository(log: log)
-        ..addEvidenceReceipt = const CaseCommandReceipt(
-          operationId: 'operation-photo-close',
-          caseId: 'case-existing',
-          eventId: 'event-photo-close',
-          status: 'confirmed',
-          caseVersion: 4,
-          recordId: 'evidence-before-close',
+        await controller.recordProgress(
+          V2ProgressWrite(
+            operationId: 'operation-observation',
+            photoEvidenceOperationId: 'unused-photo-operation',
+            caseId: 'case-existing',
+            progressKind: CaseProgressKind.observation,
+            summary: '今天能主动定位关键词。',
+            nextStep: CaseProgressNextStep.continueTracking,
+            attachments: [_attachment('observation.jpg')],
+          ),
         );
-      final progress = _FakeProgressiveCaseRepository(log: log);
-      final attachments = _FakeEvidenceAttachmentRepository(log: log);
-      final controller = V2WorkflowController(
-        workspace: _workspace(),
-        learningRepository: learning,
-        progressiveCaseRepository: progress,
-        evidenceAttachmentRepository: attachments,
-      );
 
-      await controller.recordProgress(
-        V2ProgressWrite(
-          operationId: 'operation-close',
-          photoEvidenceOperationId: 'operation-photo-close',
-          caseId: 'case-existing',
-          progressKind: CaseProgressKind.observation,
-          summary: '本次已经能够稳定独立完成。',
-          nextStep: CaseProgressNextStep.close,
-          closeReason: CaseClosureReason.resolved,
-          attachments: [_attachment('close.jpg')],
-        ),
-      );
+        expect(log, ['progress', 'upload']);
+        expect(learning.addEvidenceCalls, isEmpty);
+        expect(progress.calls.single.expectedCaseVersion, 3);
+        expect(attachments.uploads.single.evidenceId, 'evidence-observation');
+      },
+    );
 
-      expect(log, ['add-evidence', 'upload', 'progress']);
-      expect(progress.calls.single.expectedCaseVersion, 4);
-      expect(progress.calls.single.nextStep, CaseProgressNextStep.close);
-    });
+    test(
+      'closing observation stores photo evidence before closing the case',
+      () async {
+        final log = <String>[];
+        final learning = _FakeLearningRepository(log: log)
+          ..addEvidenceReceipt = const CaseCommandReceipt(
+            operationId: 'operation-photo-close',
+            caseId: 'case-existing',
+            eventId: 'event-photo-close',
+            status: 'confirmed',
+            caseVersion: 4,
+            recordId: 'evidence-before-close',
+          );
+        final progress = _FakeProgressiveCaseRepository(log: log);
+        final attachments = _FakeEvidenceAttachmentRepository(log: log);
+        final controller = V2WorkflowController(
+          workspace: _workspace(),
+          learningRepository: learning,
+          progressiveCaseRepository: progress,
+          evidenceAttachmentRepository: attachments,
+        );
 
-    test('missing attachment capability stops before the learning write', () async {
-      final learning = _FakeLearningRepository();
-      final controller = V2WorkflowController(
-        workspace: _workspace(),
-        learningRepository: learning,
-        progressiveCaseRepository: _FakeProgressiveCaseRepository(),
-      );
-
-      expect(
-        () => controller.quickCapture(
-          V2QuickCaptureWrite(
-            operationId: 'operation-no-attachments',
-            studentId: 'student-1',
-            subject: '语文',
-            caseTypeKey: 'unclassified',
-            body: '有图片但当前没有附件能力。',
-            attachments: [_attachment('blocked.jpg')],
+        await controller.recordProgress(
+          V2ProgressWrite(
+            operationId: 'operation-close',
+            photoEvidenceOperationId: 'operation-photo-close',
+            caseId: 'case-existing',
+            progressKind: CaseProgressKind.observation,
+            summary: '本次已经能够稳定独立完成。',
+            nextStep: CaseProgressNextStep.close,
+            closeReason: CaseClosureReason.resolved,
+            attachments: [_attachment('close.jpg')],
           ),
-        ),
-        throwsA(
-          isA<V2WorkflowSaveException>().having(
-            (error) => error.recordMayBeSaved,
-            'recordMayBeSaved',
-            isFalse,
+        );
+
+        expect(log, ['add-evidence', 'upload', 'progress']);
+        expect(progress.calls.single.expectedCaseVersion, 4);
+        expect(progress.calls.single.nextStep, CaseProgressNextStep.close);
+      },
+    );
+
+    test(
+      'missing attachment capability stops before the learning write',
+      () async {
+        final learning = _FakeLearningRepository();
+        final controller = V2WorkflowController(
+          workspace: _workspace(),
+          learningRepository: learning,
+          progressiveCaseRepository: _FakeProgressiveCaseRepository(),
+        );
+
+        expect(
+          () => controller.quickCapture(
+            V2QuickCaptureWrite(
+              operationId: 'operation-no-attachments',
+              studentId: 'student-1',
+              subject: '语文',
+              caseTypeKey: 'unclassified',
+              body: '有图片但当前没有附件能力。',
+              attachments: [_attachment('blocked.jpg')],
+            ),
           ),
-        ),
-      );
-      expect(learning.quickCaptureCalls, isEmpty);
-    });
+          throwsA(
+            isA<V2WorkflowSaveException>().having(
+              (error) => error.recordMayBeSaved,
+              'recordMayBeSaved',
+              isFalse,
+            ),
+          ),
+        );
+        expect(learning.quickCaptureCalls, isEmpty);
+      },
+    );
 
-    test('case type choices use real active types and one unclassified option', () {
-      final controller = V2WorkflowController(
-        workspace: _workspace(),
-        learningRepository: _FakeLearningRepository(),
-        progressiveCaseRepository: _FakeProgressiveCaseRepository(),
-      );
+    test(
+      'case type choices use real active types and one unclassified option',
+      () {
+        final controller = V2WorkflowController(
+          workspace: _workspace(),
+          learningRepository: _FakeLearningRepository(),
+          progressiveCaseRepository: _FakeProgressiveCaseRepository(),
+        );
 
-      expect(controller.caseTypeChoices.first.key, 'unclassified');
-      expect(
-        controller.caseTypeChoices.where((item) => item.label == '暂不分类'),
-        hasLength(1),
-      );
-      expect(
-        controller.caseTypeChoices.any((item) => item.key == 'custom-reading'),
-        isTrue,
-      );
-      expect(
-        controller.caseTypeChoices.any((item) => item.key == 'archived-type'),
-        isFalse,
-      );
-      expect(
-        controller.caseTypeChoices.any((item) => item.key == 'builtin:other'),
-        isFalse,
-      );
-    });
+        expect(controller.caseTypeChoices.first.key, 'unclassified');
+        expect(
+          controller.caseTypeChoices.where((item) => item.label == '暂不分类'),
+          hasLength(1),
+        );
+        expect(
+          controller.caseTypeChoices.any(
+            (item) => item.key == 'custom-reading',
+          ),
+          isTrue,
+        );
+        expect(
+          controller.caseTypeChoices.any((item) => item.key == 'archived-type'),
+          isFalse,
+        );
+        expect(
+          controller.caseTypeChoices.any((item) => item.key == 'builtin:other'),
+          isFalse,
+        );
+      },
+    );
   });
 }
 
@@ -344,8 +361,11 @@ WorkspaceCase _case() => WorkspaceCase(
   timeline: const [],
 );
 
-PickedEvidenceAttachment _attachment(String fileName) => PickedEvidenceAttachment(
-  attachmentId: '00000000-0000-4000-8000-${fileName.hashCode.abs().toString().padLeft(12, '0').substring(0, 12)}',
+PickedEvidenceAttachment _attachment(
+  String fileName,
+) => PickedEvidenceAttachment(
+  attachmentId:
+      '00000000-0000-4000-8000-${fileName.hashCode.abs().toString().padLeft(12, '0').substring(0, 12)}',
   bytes: Uint8List.fromList([1, 2, 3]),
   fileName: fileName,
   contentType: 'image/jpeg',
@@ -380,7 +400,9 @@ class _FakeLearningRepository extends Fake implements LearningRepository {
   }
 
   @override
-  Future<CaseCommandReceipt> addCaseEvidence(AddCaseEvidenceCommand command) async {
+  Future<CaseCommandReceipt> addCaseEvidence(
+    AddCaseEvidenceCommand command,
+  ) async {
     addEvidenceCalls.add(command);
     log?.add('add-evidence');
     return addEvidenceReceipt;
