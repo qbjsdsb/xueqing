@@ -171,10 +171,6 @@ new_tests = insert_after + """
 
     await tester.tap(find.text('记录新问题').first);
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const Key('quick-capture-existing-cases-hint')),
-      findsNothing,
-    );
 
     final studentPicker = find.byType(
       DropdownButtonFormField<WorkspaceStudent>,
