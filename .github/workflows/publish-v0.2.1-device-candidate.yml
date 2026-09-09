@@ -1,0 +1,411 @@
+name: Publish signed Xueqing v0.2.1 device candidate
+
+on:
+  push:
+    branches:
+      - release/v0.2.1-device-candidate
+    paths:
+      - ".github/release-requests/v0.2.1-rc.1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-v0.2.1-device-candidate
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: v0.2.1-rc.1
+  RELEASE_VERSION: 0.2.1+7
+  RELEASE_VERSION_NAME: 0.2.1
+  RELEASE_BUILD_NUMBER: "7"
+  RELEASE_COMMIT: 7777fdd44f70cc4c9d6a729e49c6e6b8f3885b03
+  XUEQING_ENV: production
+  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '' }}
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '' }}
+  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '' }}
+  XUEQING_ALLOW_DEVELOPMENT_RELEASE: "false"
+  XUEQING_SHOW_DEV_TOOLS: "false"
+  XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+
+jobs:
+  validate:
+    name: Validate frozen candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify frozen main and release identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          if [[ "$current_main" != "$RELEASE_COMMIT" ]]; then
+            echo "main moved after the v0.2.1 freeze; do not publish this candidate."
+            exit 1
+          fi
+          if [[ "$RELEASE_VERSION" != "0.2.1+7" ]] || [[ "$RELEASE_BUILD_NUMBER" != "7" ]]; then
+            echo "Unexpected v0.2.1 candidate version identity."
+            exit 1
+          fi
+          if [[ -z "$XUEQING_SUPABASE_URL" || -z "$XUEQING_SUPABASE_PUBLISHABLE_KEY" || -z "$XUEQING_SUPABASE_ALLOWED_HOSTS" ]]; then
+            echo "Production Supabase release variables are incomplete."
+            exit 1
+          fi
+          required=(
+            XUEQING_ANDROID_KEYSTORE_BASE64
+            XUEQING_ANDROID_KEYSTORE_PASSWORD
+            XUEQING_ANDROID_KEY_ALIAS
+            XUEQING_ANDROID_KEY_PASSWORD
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing permanent Android release secret: $name"
+              exit 1
+            fi
+          done
+          cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Pinned Android certificate fingerprint is missing or malformed."
+            exit 1
+          fi
+
+  android-release:
+    name: Signed Android v0.2.1 candidate
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout frozen main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_COMMIT }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Configure permanent Android release signing
+        shell: bash
+        env:
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$XUEQING_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
+          {
+            printf 'storeFile=release-keystore.jks\n'
+            printf 'storePassword=%s\n' "$XUEQING_ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$XUEQING_ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$XUEQING_ANDROID_KEY_PASSWORD"
+          } > android/key.properties
+          chmod 600 android/release-keystore.jks android/key.properties
+
+      - name: Build signed Android candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release \
+            --build-name="$RELEASE_VERSION_NAME" \
+            --build-number="$RELEASE_BUILD_NUMBER" \
+            --dart-define="XUEQING_ENV=$XUEQING_ENV" \
+            --dart-define="XUEQING_APP_VERSION=$RELEASE_VERSION" \
+            --dart-define="XUEQING_SUPABASE_URL=$XUEQING_SUPABASE_URL" \
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="XUEQING_SUPABASE_ALLOWED_HOSTS=$XUEQING_SUPABASE_ALLOWED_HOSTS" \
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$XUEQING_ALLOW_DEVELOPMENT_RELEASE" \
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$XUEQING_SHOW_DEV_TOOLS"
+
+      - name: Verify Android signer and versionCode
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          aapt="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name aapt -print | sort -V | tail -n 1)"
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          if [[ -z "$apksigner" || ! -x "$apksigner" || -z "$aapt" || ! -x "$aapt" ]]; then
+            echo "Android build-tools verification utilities are unavailable."
+            exit 1
+          fi
+          verify_output="$("$apksigner" verify --verbose --print-certs "$apk")"
+          actual_cert_sha="$(printf '%s\n' "$verify_output" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          expected_cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ "$actual_cert_sha" != "$expected_cert_sha" ]]; then
+            echo "Android candidate signer does not match the permanent release certificate."
+            exit 1
+          fi
+          badging="$("$aapt" dump badging "$apk" | head -n 1)"
+          printf '%s\n' "$badging"
+          if [[ "$badging" != *"versionCode='$RELEASE_BUILD_NUMBER'"* ]] || [[ "$badging" != *"versionName='$RELEASE_VERSION_NAME'"* ]]; then
+            echo "Android candidate package version does not match v0.2.1+7."
+            exit 1
+          fi
+
+      - name: Upload Android candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: v021-candidate-android-${{ github.run_id }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Remove Android signing material
+        if: always()
+        shell: bash
+        run: rm -f android/key.properties android/release-keystore.jks
+
+  windows-release:
+    name: Windows v0.2.1 candidate
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout frozen main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_COMMIT }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows candidate
+        shell: pwsh
+        run: |
+          flutter build windows --release `
+            --dart-define="XUEQING_ENV=$env:XUEQING_ENV" `
+            --dart-define="XUEQING_APP_VERSION=$env:RELEASE_VERSION" `
+            --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `
+            --dart-define="XUEQING_SUPABASE_ALLOWED_HOSTS=$env:XUEQING_SUPABASE_ALLOWED_HOSTS" `
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$env:XUEQING_ALLOW_DEVELOPMENT_RELEASE" `
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$env:XUEQING_SHOW_DEV_TOOLS"
+          if ($LASTEXITCODE -ne 0) { throw "Windows candidate build failed." }
+
+      - name: Bundle Visual C++ release runtime
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          if (-not (Test-Path $vswhere)) { throw "Visual Studio locator was not found." }
+          $vsPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if ([string]::IsNullOrWhiteSpace($vsPath)) { throw "Visual C++ toolset installation was not found." }
+          $releaseDir = Join-Path $pwd "build/windows/x64/runner/Release"
+          $redistRoot = Join-Path $vsPath "VC/Redist/MSVC"
+          $runtimeDir = Get-ChildItem -Path $redistRoot -Directory -Recurse |
+            Where-Object {
+              $_.Name -eq "Microsoft.VC143.CRT" -and
+              (Test-Path (Join-Path $_.FullName "msvcp140.dll")) -and
+              (Test-Path (Join-Path $_.FullName "vcruntime140.dll")) -and
+              (Test-Path (Join-Path $_.FullName "vcruntime140_1.dll"))
+            } | Select-Object -First 1
+          if ($null -eq $runtimeDir) { throw "Visual C++ release runtime directory was not found." }
+          foreach ($name in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            Copy-Item -Path (Join-Path $runtimeDir.FullName $name) -Destination $releaseDir -Force
+          }
+          $dumpbin = Get-ChildItem -Path (Join-Path $vsPath "VC/Tools/MSVC") -Filter "dumpbin.exe" -File -Recurse | Select-Object -First 1
+          if ($null -eq $dumpbin) { throw "dumpbin.exe was not found." }
+          $deps = (& $dumpbin.FullName /DEPENDENTS (Join-Path $releaseDir "xueqing.exe") 2>&1) -join "`n"
+          if ($deps -match "(?i)MSVCP140D\.dll|VCRUNTIME140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
+            throw "Candidate binary depends on a Debug Visual C++ runtime."
+          }
+
+      - name: Build and test Windows updater helpers
+        shell: pwsh
+        working-directory: tools/windows_updater
+        run: |
+          dart pub get
+          dart analyze
+          if ($LASTEXITCODE -ne 0) { throw "Windows updater analysis failed." }
+          dart test
+          if ($LASTEXITCODE -ne 0) { throw "Windows updater tests failed." }
+          $releaseDir = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release"
+          dart compile exe bin/xueqing_updater.dart -o (Join-Path $releaseDir "xueqing_updater.exe")
+          dart compile exe bin/xueqing_updater.dart -o (Join-Path $releaseDir "xueqing_updater_bootstrap.exe")
+
+      - name: Build Windows candidate installer
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/tools/windows_installer/build_installer.ps1" -AppVersion "$env:RELEASE_VERSION_NAME"
+          if ($LASTEXITCODE -ne 0) { throw "Windows candidate installer build failed." }
+
+      - name: Smoke install and uninstall Windows candidate
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE "build/windows/installer") -Filter "xueqing-setup-*.exe" -File | Select-Object -First 1
+          if ($null -eq $installer) { throw "Windows installer was not found." }
+          $installDir = Join-Path $env:LOCALAPPDATA "Programs/Xueqing"
+          if (Test-Path $installDir) { Remove-Item -Recurse -Force $installDir }
+          $installProcess = Start-Process -FilePath $installer.FullName -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-') -Wait -PassThru
+          if ($installProcess.ExitCode -ne 0) { throw "Windows installer smoke failed." }
+          foreach ($requiredFile in @("xueqing.exe", "xueqing_updater.exe", "xueqing_updater_bootstrap.exe", "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            $installedPath = Join-Path $installDir $requiredFile
+            if (-not (Test-Path $installedPath) -or (Get-Item $installedPath).Length -le 0) {
+              throw "Installer did not install required file: $requiredFile"
+            }
+          }
+          $uninstaller = Join-Path $installDir "unins000.exe"
+          if (-not (Test-Path $uninstaller)) { throw "Windows uninstaller was not installed." }
+          $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+          if ($uninstallProcess.ExitCode -ne 0) { throw "Windows uninstaller smoke failed." }
+
+      - name: Upload Windows candidate bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: v021-candidate-windows-bundle-${{ github.run_id }}
+          path: build/windows/x64/runner/Release
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Windows candidate installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: v021-candidate-windows-installer-${{ github.run_id }}
+          path: build/windows/installer/xueqing-setup-${{ env.RELEASE_VERSION_NAME }}.exe
+          if-no-files-found: error
+          retention-days: 1
+
+  package-and-publish:
+    name: Publish v0.2.1 candidate Pre-release
+    needs: [validate, android-release, windows-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download Android candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: v021-candidate-android-${{ github.run_id }}
+          path: release-input/android
+
+      - name: Download Windows candidate bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: v021-candidate-windows-bundle-${{ github.run_id }}
+          path: release-input/windows
+
+      - name: Download Windows candidate installer
+        uses: actions/download-artifact@v4
+        with:
+          name: v021-candidate-windows-installer-${{ github.run_id }}
+          path: release-input/installer
+
+      - name: Package candidate assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          android_asset="xueqing-${RELEASE_TAG}-android.apk"
+          windows_asset="xueqing-${RELEASE_TAG}-windows.zip"
+          setup_asset="xueqing-${RELEASE_TAG}-windows-setup.exe"
+          cp release-input/android/app-release.apk "release-assets/$android_asset"
+          test -f release-input/windows/xueqing.exe
+          test -f release-input/windows/xueqing_updater.exe
+          test -f release-input/windows/xueqing_updater_bootstrap.exe
+          (cd release-input/windows && zip -q -r "$GITHUB_WORKSPACE/release-assets/$windows_asset" .)
+          installer="release-input/installer/xueqing-setup-${RELEASE_VERSION_NAME}.exe"
+          test -s "$installer"
+          cp "$installer" "release-assets/$setup_asset"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          info = {
+              "channel": "stable-device-candidate",
+              "app_version": os.environ["RELEASE_VERSION"],
+              "release_tag": os.environ["RELEASE_TAG"],
+              "source_commit": os.environ["RELEASE_COMMIT"],
+              "environment": "production",
+              "android_signing": "permanent-release-certificate-verified",
+              "stable_latest": False,
+          }
+          Path("release-assets/candidate-info.json").write_text(
+              json.dumps(info, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          (cd release-assets && sha256sum *.apk *.zip *.exe candidate-info.json | sort) > release-assets/SHA256SUMS.txt
+
+      - name: Create or verify candidate Pre-release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
+            RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ["RELEASE_JSON"])
+          if release["isDraft"] or not release["isPrerelease"]:
+              raise SystemExit("Existing candidate tag is not a published Pre-release.")
+          PY
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_COMMIT" \
+              --prerelease \
+              --title "Xueqing v0.2.1 RC 1" \
+              --notes $'v0.2.1 正式发布前真实设备候选。\n\n- 基于冻结 main 7777fdd44f70cc4c9d6a729e49c6e6b8f3885b03。\n- 应用版本 0.2.1+7，Android 使用与 v0.2.0 相同的永久 release 证书并验证指纹。\n- 使用 Production 配置构建，但保持 GitHub Pre-release，不进入 releases/latest。\n- Windows 提供完整 ZIP 与 Setup EXE，并在发布前执行安装/卸载 smoke。\n- 用于 Android v0.2.0+6 → v0.2.1+7 覆盖升级和 Windows 真机验收。'
+          fi
+          actual_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          if [[ "$actual_commit" != "$RELEASE_COMMIT" ]]; then
+            echo "Candidate tag does not point to the frozen main commit."
+            exit 1
+          fi
+
+      - name: Upload candidate assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Verify final candidate Pre-release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets,url)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ["RELEASE_JSON"])
+          if release["isDraft"] or not release["isPrerelease"]:
+              raise SystemExit("Candidate Release must remain a published Pre-release.")
+          assets = {item["name"]: item for item in release["assets"]}
+          tag = os.environ["RELEASE_TAG"]
+          expected = {
+              f"xueqing-{tag}-android.apk",
+              f"xueqing-{tag}-windows.zip",
+              f"xueqing-{tag}-windows-setup.exe",
+              "candidate-info.json",
+              "SHA256SUMS.txt",
+          }
+          missing = sorted(expected - set(assets))
+          if missing:
+              raise SystemExit(f"Missing candidate Release assets: {missing}")
+          empty = sorted(name for name in expected if int(assets[name].get("size", 0)) <= 0)
+          if empty:
+              raise SystemExit(f"Empty candidate Release assets: {empty}")
+          print(release["url"])
+          PY
