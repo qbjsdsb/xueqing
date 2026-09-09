@@ -1,6 +1,97 @@
 part of 'organization_management_page.dart';
 
 mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
+  Future<void> _exportStudentRecords() async {
+    if (_busy) return;
+    final repository = widget.studentLearningRecordRepository;
+    if (repository == null) return;
+
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) return;
+      final hasExportableProfile = snapshot.students.any(
+        (student) =>
+            student.isActive &&
+            !student.isMerged &&
+            student.subjectServices.any((service) => service.isActive),
+      );
+      if (!hasExportableProfile) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('当前没有可导出的学生学科记录。')));
+        return;
+      }
+
+      final selection =
+          await showDialog<OrganizationStudentRecordExportSelection>(
+            context: context,
+            builder: (context) => OrganizationStudentRecordExportDialog(
+              students: snapshot.students,
+            ),
+          );
+      if (!mounted || selection == null || selection.profiles.isEmpty) return;
+
+      setState(() {
+        _busy = true;
+        _errorMessage = null;
+      });
+
+      final records = <StudentLearningRecord>[];
+      const requestBatchSize = 4;
+      for (
+        var start = 0;
+        start < selection.profiles.length;
+        start += requestBatchSize
+      ) {
+        final end = (start + requestBatchSize).clamp(
+          0,
+          selection.profiles.length,
+        );
+        final batch = selection.profiles.sublist(start, end);
+        final batchRecords = await Future.wait([
+          for (final profile in batch)
+            repository.listStudentSubjectRecords(profileId: profile.profileId),
+        ]);
+        for (final profileRecords in batchRecords) {
+          records.addAll(profileRecords);
+        }
+      }
+      if (!mounted) return;
+      if (records.isEmpty) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('所选学生和学科还没有可导出的学情记录。')));
+        return;
+      }
+
+      final rows = LearningRecordExport.rowsForStudentRecords(records);
+      final savedPath = await LearningRecordExport.saveAsXlsx(
+        fileNameWithoutExtension: LearningRecordExport.studentBatchFileName(
+          studentCount: selection.studentCount,
+          profileCount: selection.profiles.length,
+        ),
+        rows: rows,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            savedPath == null
+                ? '已取消导出。'
+                : '已生成 ${selection.studentCount} 名学生、${selection.profiles.length} 个学科的学情记录表。',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            studentLearningRecordExportErrorMessage(error) ??
+            '导出失败，请检查网络和账号状态后重试。';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _exportTeacherRecords() async {
     if (_busy) return;
     final repository = widget.teacherLearningRecordRepository;

@@ -300,6 +300,17 @@ class LearningRecordExport {
     return sanitizeFileName('${teacherName}_教学记录_${_formatDate(now)}');
   }
 
+  static String studentBatchFileName({
+    required int studentCount,
+    required int profileCount,
+    DateTime? exportedAt,
+  }) {
+    final now = exportedAt ?? DateTime.now();
+    return sanitizeFileName(
+      '学生学情记录_$studentCount人_$profileCount科_${_formatDate(now)}',
+    );
+  }
+
   static String sanitizeFileName(String value) {
     final normalized = value
         .trim()

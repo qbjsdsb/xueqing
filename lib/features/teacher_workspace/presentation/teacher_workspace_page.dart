@@ -1463,6 +1463,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       repository: managementRepository,
       provisioningRepository: widget.memberProvisioningRepository,
       teacherLearningRecordRepository: widget.teacherLearningRecordRepository,
+      studentLearningRecordRepository: widget.studentLearningRecordRepository,
       organizationId: organizationId,
       organizationName: workspace.organizationName,
       roles: workspace.roles,
