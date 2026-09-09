@@ -23,6 +23,9 @@ jobs:
           flutter-version: 3.47.1
           cache: true
 
+      - name: Patch helper assertion
+        run: python3 .github/scripts/patch_finish_v2_injectable_helper.py
+
       - name: Apply V2 data-injection refactor
         run: python3 .github/scripts/finish_v2_injectable_data_once.py
 
@@ -40,6 +43,7 @@ jobs:
         run: |
           git rm .github/workflows/finish-v2-injectable-data-once.yml
           git rm .github/scripts/finish_v2_injectable_data_once.py
+          git rm .github/scripts/patch_finish_v2_injectable_helper.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add lib/features/design_v2 test/features
