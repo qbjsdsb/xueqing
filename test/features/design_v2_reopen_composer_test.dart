@@ -46,7 +46,9 @@ void main() {
 
     expect(find.text('重新跟进尚未完成，请直接重试。'), findsOneWidget);
     expect(
-      tester.widget<TextField>(find.byKey(const Key('v2-reopen-summary'))).enabled,
+      tester
+          .widget<TextField>(find.byKey(const Key('v2-reopen-summary')))
+          .enabled,
       isFalse,
     );
     expect(
@@ -97,7 +99,9 @@ void main() {
     expect(find.text('周五再核验'), findsOneWidget);
     expect(find.text('9 月 12 日'), findsOneWidget);
     expect(
-      tester.widget<TextField>(find.byKey(const Key('v2-reopen-summary'))).enabled,
+      tester
+          .widget<TextField>(find.byKey(const Key('v2-reopen-summary')))
+          .enabled,
       isFalse,
     );
 

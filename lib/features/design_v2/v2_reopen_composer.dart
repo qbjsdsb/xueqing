@@ -180,9 +180,7 @@ class _V2ReopenCaseComposerState extends State<V2ReopenCaseComposer> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('这次重新跟进还没有完整结束'),
-        content: const Text(
-          '系统已经保留这次操作。为了避免重复记录“再次出现”的证据，建议直接继续保存，不要重新填写一份。',
-        ),
+        content: const Text('系统已经保留这次操作。为了避免重复记录“再次出现”的证据，建议直接继续保存，不要重新填写一份。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -257,9 +255,7 @@ class _V2ReopenCaseComposerState extends State<V2ReopenCaseComposer> {
               key: const Key('v2-reopen-next-action'),
               controller: _actionController,
               enabled: !_locked,
-              decoration: const InputDecoration(
-                labelText: '下一步准备做什么？',
-              ),
+              decoration: const InputDecoration(labelText: '下一步准备做什么？'),
             ),
             const SizedBox(height: 12),
             Row(
@@ -276,7 +272,9 @@ class _V2ReopenCaseComposerState extends State<V2ReopenCaseComposer> {
                   const SizedBox(width: 8),
                   IconButton(
                     tooltip: '清除日期',
-                    onPressed: _locked ? null : () => setState(() => _dueOn = null),
+                    onPressed: _locked
+                        ? null
+                        : () => setState(() => _dueOn = null),
                     icon: const Icon(Icons.close),
                   ),
                 ],
