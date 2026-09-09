@@ -155,24 +155,32 @@ class _OrganizationStudentRecordExportDialogState
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: AppSpacing.sm),
-              Row(
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.xxs,
                 children: [
                   Text(
                     '已选 $selectedStudentCount 名学生 · ${_selectedProfileIds.length} 个学科',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  const Spacer(),
-                  TextButton(
-                    key: const Key('student-record-export-select-all'),
-                    onPressed: students.isEmpty ? null : _selectAll,
-                    child: const Text('全选'),
-                  ),
-                  TextButton(
-                    key: const Key('student-record-export-clear'),
-                    onPressed: _selectedProfileIds.isEmpty
-                        ? null
-                        : () => setState(_selectedProfileIds.clear),
-                    child: const Text('清空'),
+                  Wrap(
+                    spacing: AppSpacing.xxs,
+                    children: [
+                      TextButton(
+                        key: const Key('student-record-export-select-all'),
+                        onPressed: students.isEmpty ? null : _selectAll,
+                        child: const Text('全选'),
+                      ),
+                      TextButton(
+                        key: const Key('student-record-export-clear'),
+                        onPressed: _selectedProfileIds.isEmpty
+                            ? null
+                            : () => setState(_selectedProfileIds.clear),
+                        child: const Text('清空'),
+                      ),
+                    ],
                   ),
                 ],
               ),
