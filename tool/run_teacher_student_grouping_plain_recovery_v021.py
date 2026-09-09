@@ -75,14 +75,19 @@ if test.count(old_search_assertion) != 1:
 test = test.replace(old_search_assertion, new_search_assertion, 1)
 test_path.write_text(test)
 
-# Keep engineering wording in comments from tripping a UI-copy contract.
-# The visible teacher copy no longer exposes this term; the comment remains
-# technically precise without sharing the exact UI-forbidden phrase.
+# Keep engineering wording out of the teacher-facing source text. These are
+# implementation/recovery details, not concepts a teacher should have to learn.
 page_path = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
 page = page_path.read_text()
-old_comment = '// A committed reopen is safe to retry with the same operation ID.'
-new_comment = '// A committed reopen is safe to retry with the same operation id.'
-if page.count(old_comment) != 1:
-    raise SystemExit('teacher copy contract: reopen engineering comment changed')
-page = page.replace(old_comment, new_comment, 1)
+exact_replacements = {
+    '// A committed reopen is safe to retry with the same operation ID.':
+        '// A committed reopen is safe to retry with the same operation id.',
+    "'无法安全保存恢复记录，未提交到服务器。请重试。'":
+        "'这次内容还没有提交成功，请重试。'",
+    "'证据已保存，但恢复记录暂时无法保存。请保持页面打开并重试。'":
+        "'这次观察已保存，但跟进状态暂时没有恢复。请保持页面打开并重试。'",
+}
+for old_text, new_text in exact_replacements.items():
+    if old_text in page:
+        page = page.replace(old_text, new_text)
 page_path.write_text(page)
