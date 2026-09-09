@@ -223,12 +223,14 @@ class WorkspaceTimelineEvent {
     required this.occurredAt,
     required this.typeLabel,
     required this.text,
+    this.evidenceId,
   });
 
   final String id;
   final DateTime occurredAt;
   final String typeLabel;
   final String text;
+  final String? evidenceId;
 }
 
 class WorkspaceCase {
@@ -1717,6 +1719,7 @@ class SupabaseLearningRepository implements LearningRepository {
               'event_occurred_at',
             ),
             typeLabel: '发现问题',
+            evidenceId: initialEvidenceId,
             text: initialEvidence == null
                 ? problemTitle
                 : problemDescription != null &&
@@ -1750,6 +1753,7 @@ class SupabaseLearningRepository implements LearningRepository {
           occurredAt: item.observedAt,
           typeLabel: '学生表现',
           text: '${item.summary}${progressSuffix(progressByRecordId[item.id])}',
+          evidenceId: item.id,
         ),
       );
     }

@@ -161,6 +161,7 @@ class V2ReadModelAdapter {
               // the current viewer just to fill the UI.
               teacher: '',
               time: _timeLabel(event.occurredAt),
+              evidenceId: event.evidenceId,
             ),
           );
         }

@@ -51,9 +51,17 @@ class XueqingRouter {
           settings: settings,
           builder: (_) => TeacherWorkspaceEntryPage(
             config: config,
-            authenticatedWorkspaceBuilder: (context, repository, onSignOut) =>
-                V2RealPreviewPage(
-                  loadWorkspace: repository.loadWorkspace,
+            authenticatedWorkspaceBuilder:
+                (
+                  context,
+                  repository,
+                  progressiveCaseRepository,
+                  evidenceAttachmentRepository,
+                  onSignOut,
+                ) => V2RealPreviewPage(
+                  learningRepository: repository,
+                  progressiveCaseRepository: progressiveCaseRepository,
+                  evidenceAttachmentRepository: evidenceAttachmentRepository,
                   onSignOut: onSignOut,
                 ),
           ),

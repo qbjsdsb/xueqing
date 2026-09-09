@@ -86,6 +86,7 @@ void main() {
 
         expect(timeline, hasLength(2));
         expect(timeline.first.body, '第二次检查仍漏结果。');
+        expect(timeline.first.evidenceId, 'evidence-timeline');
         expect(timeline.last.body, '第一次发现概括遗漏。');
         expect(timeline.every((entry) => entry.teacher.isEmpty), isTrue);
         expect(snapshot.viewerName, '乔老师');
@@ -149,6 +150,7 @@ TeacherWorkspace _workspace() {
                 occurredAt: DateTime(2026, 9, 9, 18, 31),
                 typeLabel: '新表现',
                 text: '第二次检查仍漏结果。',
+                evidenceId: 'evidence-timeline',
               ),
             ],
           ),
