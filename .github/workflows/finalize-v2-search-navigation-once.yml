@@ -1,0 +1,94 @@
+name: Finalize V2 search navigation once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/finalize-v2-search-navigation-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-prototype-foundation
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Apply real search and correct cross-entry Case navigation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/make-v2-search-real-once.yml').read_text().splitlines()
+          capture = False
+          lines = []
+          for line in workflow:
+              if "python3 - <<'PY'" in line:
+                  capture = True
+                  continue
+              if capture and line.strip() == 'PY':
+                  break
+              if capture:
+                  lines.append(line[10:] if line.startswith('          ') else line)
+          script = '\n'.join(lines)
+          old_insert = "marker = '\\n          }\\n'\npos = t.rfind(marker)\nassert pos >= 0\nt = t[:pos] + insertion + t[pos:]\ntest.write_text(t)"
+          new_insert = "pos = t.rfind('\\n}')\nassert pos >= 0\nt = t[:pos] + insertion + t[pos:]\ntest.write_text(t)"
+          assert old_insert in script
+          exec(script.replace(old_insert, new_insert), {'__name__': '__main__'})
+
+          path = Path('lib/features/design_v2/v2_workspace_preview.dart')
+          text = path.read_text()
+
+          old_open = """  void _openCase(V2FocusItem item) {\n    setState(() {\n      _selectedStudent = v2StudentForFocusItem(item);\n      _selectedCase = item;\n      _showCase = true;\n    });\n  }\n"""
+          new_open = """  void _openCase(V2FocusItem item) {\n    setState(() {\n      _destination = 1;\n      _selectedStudent = v2StudentForFocusItem(item);\n      _selectedCase = item;\n      _showCase = true;\n    });\n  }\n"""
+          assert old_open in text
+          text = text.replace(old_open, new_open, 1)
+
+          old_material = """      child: Material(\n        color: selected\n"""
+          new_material = """      child: Material(\n        key: Key('v2-student-row-${student.id}'),\n        color: selected\n"""
+          assert old_material in text
+          text = text.replace(old_material, new_material, 1)
+          path.write_text(text)
+
+          test = Path('test/features/design_v2_workspace_test.dart')
+          t = test.read_text()
+          old_student = """    expect(find.text('王同学'), findsOneWidget);\n    expect(find.text('吴同学'), findsOneWidget);\n    expect(find.text('林同学'), findsNothing);\n    expect(find.text('找到 2 位'), findsOneWidget);\n"""
+          new_student = """    expect(\n      find.byKey(const Key('v2-student-row-student-wang')),\n      findsOneWidget,\n    );\n    expect(\n      find.byKey(const Key('v2-student-row-student-wu')),\n      findsOneWidget,\n    );\n    expect(\n      find.byKey(const Key('v2-student-row-student-lin')),\n      findsNothing,\n    );\n    expect(find.text('找到 2 位'), findsOneWidget);\n"""
+          assert old_student in t
+          t = t.replace(old_student, new_student, 1)
+
+          old_today = """    expect(find.text('时态切换不稳定'), findsOneWidget);\n    expect(find.text('王同学 · 英语'), findsOneWidget);\n  });\n\n  testWidgets('compact uses bottom navigation and opens student detail',\n"""
+          new_today = """    expect(find.text('时态切换不稳定'), findsOneWidget);\n    expect(find.text('王同学 · 英语'), findsOneWidget);\n    expect(find.text('成长过程'), findsOneWidget);\n    expect(find.text('用一篇完形再检查'), findsOneWidget);\n  });\n\n  testWidgets('compact uses bottom navigation and opens student detail',\n"""
+          assert old_today in t
+          t = t.replace(old_today, new_today, 1)
+          test.write_text(t)
+          PY
+      - name: Format, analyze, and test corrected search navigation
+        run: |
+          dart format \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/design_v2_workspace_test.dart
+          flutter analyze \
+            lib/main_v2.dart \
+            lib/features/design_v2/v2_theme.dart \
+            lib/features/design_v2/v2_fixture.dart \
+            lib/features/design_v2/v2_composers.dart \
+            lib/features/design_v2/v2_workspace_preview.dart
+          flutter test \
+            test/features/design_v2_workspace_test.dart \
+            test/features/design_v2_composers_test.dart
+      - name: Commit only after all V2 checks pass
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/design_v2_workspace_test.dart
+          git commit -m 'ui(v2): make search and cross-entry Case navigation real'
+          git push origin HEAD:ui/v2-prototype-foundation
