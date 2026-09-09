@@ -108,10 +108,10 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
         return '重新登录失败，请确认新密码符合要求后重试。';
       }
       if (message.isNotEmpty) {
-        return '接管未完成：$message';
+        return '首次登录设置未完成：$message';
       }
     }
-    return '接管未完成。账号仍保持待接管状态，请检查网络后重试。';
+    return '首次登录设置未完成。账号仍保持待设置状态，请检查网络后重试。';
   }
 
   String _formatExpiry(DateTime? value) {
@@ -127,7 +127,7 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
     final theme = Theme.of(context);
     final displayName = widget.displayName?.trim();
     return Scaffold(
-      appBar: AppBar(title: const Text('首次接管账号')),
+      appBar: AppBar(title: const Text('首次登录设置')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
@@ -152,8 +152,8 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                       const SizedBox(height: AppSpacing.md),
                       Text(
                         displayName == null || displayName.isEmpty
-                            ? '请完成账号接管'
-                            : '$displayName，请完成账号接管',
+                            ? '请完成首次登录设置'
+                            : '$displayName，请完成首次登录设置',
                         style: theme.textTheme.headlineSmall,
                       ),
                       const SizedBox(height: AppSpacing.xs),
@@ -185,7 +185,7 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                             const SizedBox(height: AppSpacing.xs),
                             _OnboardingInfoLine(
                               icon: Icons.schedule_outlined,
-                              label: '接管有效期',
+                              label: '临时密码有效期',
                               value: _formatExpiry(widget.expiresAt),
                             ),
                           ],
@@ -193,7 +193,7 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        '完成后系统会退出临时会话。请回到登录页，用这个邮箱和新密码重新登录。',
+                        '设置完成后会回到登录页，邮箱会保留；直接输入新密码重新登录。',
                         style: theme.textTheme.bodyMedium,
                       ),
                       const SizedBox(height: AppSpacing.lg),
@@ -295,7 +295,7 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                                   ),
                                 )
                               : const Icon(Icons.lock_reset_outlined),
-                          label: Text(_busy ? '正在完成接管…' : '设置新密码并完成接管'),
+                          label: Text(_busy ? '正在完成设置…' : '设置新密码并继续'),
                         ),
                       ),
                     ],

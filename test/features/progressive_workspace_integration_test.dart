@@ -75,14 +75,56 @@ void main() {
       expect(find.text('记录验证结果'), findsNothing);
     },
   );
+
+  testWidgets(
+    'Student detail can record progress directly and stay in student context',
+    (tester) async {
+      final progressiveRepository = _NoopProgressiveRepository();
+      await tester.pumpWidget(
+        _host(progressiveRepository: progressiveRepository),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('学生'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('林同学').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('记录新问题'), findsOneWidget);
+      expect(find.text('记进展'), findsOneWidget);
+      expect(find.text('查看问题'), findsOneWidget);
+
+      await tester.tap(find.text('记进展'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('progress-summary')),
+        '今天独立做题时主动圈出了限制词。',
+      );
+      await tester.ensureVisible(find.byKey(const Key('progress-save')));
+      await tester.tap(find.byKey(const Key('progress-save')));
+      await tester.pumpAndSettle();
+
+      expect(progressiveRepository.progressCommands, hasLength(1));
+      expect(
+        progressiveRepository.progressCommands.single.summary,
+        '今天独立做题时主动圈出了限制词。',
+      );
+      expect(find.text('现在最重要的事'), findsOneWidget);
+      expect(find.text('继续理解这个问题'), findsNothing);
+    },
+  );
 }
 
-Widget _host({_WorkspaceRepository? repository}) {
+Widget _host({
+  _WorkspaceRepository? repository,
+  _NoopProgressiveRepository? progressiveRepository,
+}) {
   return MaterialApp(
     theme: AppTheme.light(),
     home: TeacherWorkspacePage(
       repository: repository ?? _WorkspaceRepository(_workspace()),
-      progressiveCaseRepository: _NoopProgressiveRepository(),
+      progressiveCaseRepository:
+          progressiveRepository ?? _NoopProgressiveRepository(),
     ),
   );
 }
@@ -172,11 +214,26 @@ class _WorkspaceRepository implements LearningRepository {
 }
 
 class _NoopProgressiveRepository implements ProgressiveCaseRepository {
+  final List<RecordCaseProgressCommand> progressCommands =
+      <RecordCaseProgressCommand>[];
+
   @override
   Future<ProgressiveCaseReceipt> recordProgress(
     RecordCaseProgressCommand command,
-  ) {
-    throw UnimplementedError();
+  ) async {
+    command.validate();
+    progressCommands.add(command);
+    return ProgressiveCaseReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      status: 'confirmed',
+      caseVersion: command.expectedCaseVersion + 1,
+      nextStep: command.nextStep.wireValue,
+      recordId: 'progress-1',
+      completedActionId: command.completeCurrentAction
+          ? command.currentActionId
+          : null,
+    );
   }
 
   @override

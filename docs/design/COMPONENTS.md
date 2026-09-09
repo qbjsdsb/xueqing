@@ -49,7 +49,7 @@
 
 ### `CaseRow`
 
-显示：Case title、status marker、最近关键事实或更新时间、Next Action 的短文案。Case status 与 action status 分开显示；“继续关注”不能被写成“逾期”。Case row 是信息容器，不是包住其他按钮的父级 button；使用独立的 `查看问题` 导航按钮，再用一个分开的主操作按钮，避免 row navigation 与 action 的嵌套 focus/semantics。
+显示：Case title、status marker、最近记录或更新时间、Next Action 的短文案。Case status 与 action status 分开显示；“继续关注”不能被写成“逾期”。Case row 是信息容器，不是包住其他按钮的父级 button；使用独立的 `查看问题` 导航按钮，再用一个分开的主操作按钮，避免 row navigation 与 action 的嵌套 focus/semantics。
 
 ### `ActionRow`
 
@@ -133,7 +133,7 @@
 
 ### Quick Capture
 
-最小结构：已知 Student/Subject 上下文 → `今天发现什么？` 一条真实观察 → `记录问题`。同一句完整输入作为首次事实，内部短标题由系统从首句生成；问题类型和现场图片放入 `更多选项`，默认不打断课堂记录。保存成功反馈为“已记录到学生成长记录”，默认不创建 Action、不进入 Today，也不要求课后再完成一次“整理”。
+最小结构：已知 Student/Subject 上下文 → `今天发现什么？` 一条真实观察 → `记录新问题`。同一句完整输入作为首次事实，内部短标题由系统从首句生成；问题类型和现场图片放入 `更多选项`，默认不打断课堂记录。保存成功反馈为“已记录到学生成长记录”，默认不创建 Action、不进入 Today，也不要求课后再完成一次“整理”。
 
 ## 8. Component state contract
 
