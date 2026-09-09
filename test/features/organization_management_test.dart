@@ -904,6 +904,17 @@ Future<void> _selectManagementArea(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openStudentMoreActions(
+  WidgetTester tester, {
+  String studentId = 'student-1',
+}) async {
+  final more = find.byKey(ValueKey<String>('student-more-actions-$studentId'));
+  expect(more, findsOneWidget);
+  await tester.ensureVisible(more);
+  await tester.tap(more);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('shows organization members and pending owner approval', (
     tester,
@@ -1245,6 +1256,45 @@ void main() {
     expect(find.text('保存配置'), findsOneWidget);
   });
 
+  testWidgets('student management stays focused on narrow Android width', (
+    tester,
+  ) async {
+    final originalPhysicalSize = tester.view.physicalSize;
+    final originalDevicePixelRatio = tester.view.devicePixelRatio;
+    addTearDown(() {
+      tester.view.physicalSize = originalPhysicalSize;
+      tester.view.devicePixelRatio = originalDevicePixelRatio;
+    });
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(375, 812);
+
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+      students: [_studentRecord()],
+      studentTeacherAssignments: [_studentTeacherAssignment()],
+    );
+    await _pumpManagement(tester, repository);
+    await _selectManagementArea(tester, '学生');
+
+    final addSubject = find.widgetWithText(TextButton, '添加学科');
+    await tester.ensureVisible(addSubject);
+    expect(addSubject, findsOneWidget);
+    final transfer = find.byKey(
+      const ValueKey<String>('student-assignment-transfer-assignment-1'),
+    );
+    await tester.ensureVisible(transfer);
+    expect(transfer, findsOneWidget);
+    expect(find.text('暂停教学'), findsNothing);
+    expect(find.text('编辑资料'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    await _openStudentMoreActions(tester);
+    expect(find.text('暂停教学'), findsOneWidget);
+    expect(find.text('编辑资料'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'manager pauses and resumes teaching without rewriting subject context',
     (tester) async {
@@ -1256,6 +1306,8 @@ void main() {
       );
       await _pumpManagement(tester, repository);
       await _selectManagementArea(tester, '学生');
+      expect(find.text('暂停教学'), findsNothing);
+      await _openStudentMoreActions(tester);
 
       final pause = find.byKey(
         const ValueKey<String>('student-teaching-toggle-student-1'),
@@ -1267,7 +1319,7 @@ void main() {
       expect(find.text('暂停 原学生 的教学？'), findsOneWidget);
       expect(
         find.text(
-          '暂停后，这位学生会暂时从老师工作台和今日事项中隐藏；学科档案、当前任课、Case、证据和待办都会原样保留，恢复后继续原来的教学上下文。',
+          '暂停后，这位学生会暂时从老师工作台和今日事项中隐藏；学科档案、当前任课、跟进问题、证据和待办都会原样保留，恢复后继续原来的教学上下文。',
         ),
         findsOneWidget,
       );
@@ -1283,6 +1335,8 @@ void main() {
       );
       expect(repository.studentTeacherAssignments.single.status, 'active');
       expect(find.text('暂不教学'), findsOneWidget);
+      expect(find.text('恢复教学'), findsNothing);
+      await _openStudentMoreActions(tester);
 
       final resume = find.byKey(
         const ValueKey<String>('student-teaching-toggle-student-1'),
@@ -1319,6 +1373,8 @@ void main() {
       await _selectManagementArea(tester, '学生');
 
       expect(find.text('暂不教学'), findsOneWidget);
+      expect(find.text('恢复教学'), findsNothing);
+      await _openStudentMoreActions(tester);
       expect(
         find.byKey(const ValueKey<String>('student-archive-toggle-student-1')),
         findsNothing,
@@ -1339,6 +1395,8 @@ void main() {
       );
       await _pumpManagement(tester, repository);
       await _selectManagementArea(tester, '学生');
+      expect(find.text('归档学生'), findsNothing);
+      await _openStudentMoreActions(tester);
 
       final archive = find.byKey(
         const ValueKey<String>('student-archive-toggle-student-1'),
@@ -1350,7 +1408,7 @@ void main() {
       expect(find.text('归档 原学生？'), findsOneWidget);
       expect(
         find.text(
-          '归档用于学生长期结束服务或离开机构后的历史保留。已有学科、Case、证据和历史记录不会删除；若只是暂时停课，请不要归档。',
+          '归档用于学生长期结束服务或离开机构后的历史保留。已有学科、跟进问题、证据和历史记录不会删除；若只是暂时停课，请不要归档。',
         ),
         findsOneWidget,
       );
@@ -1366,6 +1424,8 @@ void main() {
       );
       expect(find.text('已归档'), findsOneWidget);
       expect(find.text('恢复教学'), findsNothing);
+      expect(find.text('取消归档'), findsNothing);
+      await _openStudentMoreActions(tester);
       expect(find.text('取消归档'), findsOneWidget);
 
       final unarchive = find.byKey(
@@ -1386,6 +1446,9 @@ void main() {
         'inactive',
       );
       expect(find.text('暂不教学'), findsOneWidget);
+      expect(find.text('恢复教学'), findsNothing);
+      expect(find.text('归档学生'), findsNothing);
+      await _openStudentMoreActions(tester);
       expect(find.text('恢复教学'), findsOneWidget);
       expect(find.text('归档学生'), findsOneWidget);
     },
@@ -1402,8 +1465,11 @@ void main() {
     await _pumpManagement(tester, repository);
 
     expect(find.text('原学生'), findsOneWidget);
-    final editButton = find.text('编辑');
-    await tester.ensureVisible(editButton);
+    expect(find.text('编辑资料'), findsNothing);
+    await _openStudentMoreActions(tester);
+    final editButton = find.byKey(
+      const ValueKey<String>('student-edit-student-1'),
+    );
     await tester.tap(editButton);
     await tester.pumpAndSettle();
 
