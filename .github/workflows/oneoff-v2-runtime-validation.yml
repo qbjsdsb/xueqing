@@ -1,0 +1,78 @@
+name: One-off V2 runtime validation
+
+on:
+  push:
+    branches:
+      - ui/v2-writable-composers
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-writable-composers
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+
+      - name: Apply V2 runtime patch
+        run: python3 .github/scripts/patch_v2_runtime_and_photo_readback.py
+
+      - name: Format changed Dart
+        run: |
+          dart format \
+            lib/app/router/app_router.dart \
+            lib/cloud/learning_repository.dart \
+            lib/features/design_v2/v2_fixture.dart \
+            lib/features/design_v2/v2_read_model_adapter.dart \
+            lib/features/design_v2/v2_real_preview_page.dart \
+            lib/features/design_v2/v2_workspace_loader.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
+            test/features/design_v2_read_model_adapter_test.dart \
+            test/features/design_v2_real_preview_contract_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused V2 tests
+        run: |
+          flutter test test/features/design_v2_composers_test.dart
+          flutter test test/features/design_v2_workflow_controller_test.dart
+          flutter test test/features/design_v2_read_model_adapter_test.dart
+          flutter test test/features/design_v2_workspace_test.dart
+          flutter test test/features/design_v2_workspace_loader_test.dart
+          flutter test test/features/design_v2_real_preview_contract_test.dart
+
+      - name: Full Flutter tests
+        run: flutter test
+
+      - name: Commit validated product changes
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/app/router/app_router.dart \
+            lib/cloud/learning_repository.dart \
+            lib/features/design_v2/v2_fixture.dart \
+            lib/features/design_v2/v2_read_model_adapter.dart \
+            lib/features/design_v2/v2_real_preview_page.dart \
+            lib/features/design_v2/v2_workspace_loader.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
+            test/features/design_v2_read_model_adapter_test.dart \
+            test/features/design_v2_real_preview_contract_test.dart
+          git commit -m "UI V2: connect real writes and lazy photo readback"
+          git push origin HEAD:ui/v2-writable-composers
