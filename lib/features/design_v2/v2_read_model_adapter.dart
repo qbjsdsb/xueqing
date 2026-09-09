@@ -132,6 +132,8 @@ class V2ReadModelAdapter {
             nextStep: _nextStep(primaryAction),
             dueLabel: _dueLabel(primaryAction),
             subject: profile.subject,
+            pendingVerification:
+                learningCase.status == LearningCaseStatus.pendingVerification,
           ),
         );
         bindings.add(

@@ -21,16 +21,31 @@ class V2WorkspaceData {
       .where((item) => item.studentId == student.id)
       .toList(growable: false);
 
-  V2Student studentForFocusItem(V2FocusItem item) => students.firstWhere(
-    (student) => student.id == item.studentId,
-  );
+  V2Student? studentForFocusItemOrNull(V2FocusItem item) {
+    for (final student in students) {
+      if (student.id == item.studentId) {
+        return student;
+      }
+    }
+    return null;
+  }
+
+  V2Student studentForFocusItem(V2FocusItem item) {
+    final student = studentForFocusItemOrNull(item);
+    if (student == null) {
+      throw StateError('Focus item ${item.id} has no matching student.');
+    }
+    return student;
+  }
 
   List<V2TimelineEntry> timelineForCase(V2FocusItem item) => timeline
       .where((entry) => entry.caseId == item.id)
       .toList(growable: false);
 
   List<V2TimelineEntry> timelineForStudent(V2Student student) {
-    final caseIds = focusItemsForStudent(student).map((item) => item.id).toSet();
+    final caseIds = focusItemsForStudent(student)
+        .map((item) => item.id)
+        .toSet();
     return timeline
         .where((entry) => caseIds.contains(entry.caseId))
         .toList(growable: false);
