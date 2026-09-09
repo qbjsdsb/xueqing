@@ -1,0 +1,55 @@
+name: Patch v0.2.1 candidate public config
+
+on:
+  push:
+    branches:
+      - release/v0.2.1-device-candidate
+    paths:
+      - ".github/release-requests/v0.2.1-patch-public-config"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v0.2.1-device-candidate
+
+      - name: Replace unavailable repository variables with public client config
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/publish-v0.2.1-device-candidate.yml')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              "  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '' }}":
+                  "  XUEQING_SUPABASE_URL: https://czuctoulgnfytcfonkhc.supabase.co",
+              "  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '' }}":
+                  "  XUEQING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI",
+              "  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '' }}":
+                  "  XUEQING_SUPABASE_ALLOWED_HOSTS: czuctoulgnfytcfonkhc.supabase.co",
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f'expected exactly one public-config placeholder: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit isolated candidate config patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/publish-v0.2.1-device-candidate.yml
+          git diff --cached --quiet && { echo "No patch produced."; exit 1; }
+          git commit -m "ci: use verified public config for v0.2.1 candidate"
+          git push origin HEAD:release/v0.2.1-device-candidate
