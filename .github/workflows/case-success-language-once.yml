@@ -38,7 +38,7 @@ jobs:
           replace(
               "已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。",
               "已保存，当前状态：${_caseStatusLabelFromWire(result.status)}。",
-              2,
+              3,
           )
           replace("'new' => '待整理',", "'new' => '新记录',", 1)
           replace("'confirmed' => '已确认',", "'confirmed' => '跟进中',", 1)
