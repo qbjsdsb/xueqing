@@ -167,6 +167,32 @@ class WorkspaceAction {
   final DateTime? businessDueDate;
 }
 
+const String v2ObservationPhotoCompanionTitle = '本次表现图片';
+const String v2InterventionPhotoCompanionTitle = '本次教学处理图片';
+const String v2AssessmentPhotoCompanionTitle = '本次检查图片';
+
+String? v2ProgressPhotoCompanionEvidenceId({
+  required Iterable<WorkspaceEvidence> evidence,
+  required String expectedTitle,
+  required DateTime occurredAt,
+  required String summary,
+  String? excludingEvidenceId,
+}) {
+  final normalizedSummary = summary.trim();
+  final normalizedTime = occurredAt.toUtc();
+  for (final item in evidence) {
+    if (item.id == excludingEvidenceId ||
+        item.sourceType != 'observation' ||
+        item.title != expectedTitle ||
+        item.observedAt.toUtc() != normalizedTime ||
+        item.summary.trim() != normalizedSummary) {
+      continue;
+    }
+    return item.id;
+  }
+  return null;
+}
+
 class WorkspaceEvidence {
   const WorkspaceEvidence({
     required this.id,
@@ -1743,8 +1769,57 @@ class SupabaseLearningRepository implements LearningRepository {
         ),
       );
     }
+    final progressPhotoEvidenceByRecordId = <String, String>{};
     for (final item in evidence) {
-      if (initialEvidenceIds.contains(item.id)) {
+      if (initialEvidenceIds.contains(item.id) ||
+          progressByRecordId[item.id] == null) {
+        continue;
+      }
+      final companionId = v2ProgressPhotoCompanionEvidenceId(
+        evidence: evidence,
+        expectedTitle: v2ObservationPhotoCompanionTitle,
+        occurredAt: item.observedAt,
+        summary: item.summary,
+        excludingEvidenceId: item.id,
+      );
+      if (companionId != null) {
+        progressPhotoEvidenceByRecordId[item.id] = companionId;
+      }
+    }
+    for (final item in interventions) {
+      if (progressByRecordId[item.id] == null) {
+        continue;
+      }
+      final companionId = v2ProgressPhotoCompanionEvidenceId(
+        evidence: evidence,
+        expectedTitle: v2InterventionPhotoCompanionTitle,
+        occurredAt: item.occurredAt,
+        summary: item.strategy,
+      );
+      if (companionId != null) {
+        progressPhotoEvidenceByRecordId[item.id] = companionId;
+      }
+    }
+    for (final item in assessments) {
+      if (progressByRecordId[item.id] == null) {
+        continue;
+      }
+      final companionId = v2ProgressPhotoCompanionEvidenceId(
+        evidence: evidence,
+        expectedTitle: v2AssessmentPhotoCompanionTitle,
+        occurredAt: item.assessedAt,
+        summary: item.evidenceSummary,
+      );
+      if (companionId != null) {
+        progressPhotoEvidenceByRecordId[item.id] = companionId;
+      }
+    }
+    final linkedCompanionEvidenceIds = progressPhotoEvidenceByRecordId.values
+        .toSet();
+
+    for (final item in evidence) {
+      if (initialEvidenceIds.contains(item.id) ||
+          linkedCompanionEvidenceIds.contains(item.id)) {
         continue;
       }
       timeline.add(
@@ -1753,7 +1828,7 @@ class SupabaseLearningRepository implements LearningRepository {
           occurredAt: item.observedAt,
           typeLabel: '学生表现',
           text: '${item.summary}${progressSuffix(progressByRecordId[item.id])}',
-          evidenceId: item.id,
+          evidenceId: progressPhotoEvidenceByRecordId[item.id] ?? item.id,
         ),
       );
     }
@@ -1765,6 +1840,7 @@ class SupabaseLearningRepository implements LearningRepository {
           typeLabel: '教学处理',
           text:
               '${item.strategy}${progressSuffix(progressByRecordId[item.id])}',
+          evidenceId: progressPhotoEvidenceByRecordId[item.id],
         ),
       );
     }
@@ -1776,6 +1852,7 @@ class SupabaseLearningRepository implements LearningRepository {
           typeLabel: '检查结果 · ${_assessmentResultLabel(item.result)}',
           text:
               '${item.evidenceSummary}${progressSuffix(progressByRecordId[item.id])}',
+          evidenceId: progressPhotoEvidenceByRecordId[item.id],
         ),
       );
     }

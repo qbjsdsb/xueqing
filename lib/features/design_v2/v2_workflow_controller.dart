@@ -211,6 +211,9 @@ class V2WorkflowController {
         write.attachments.isNotEmpty &&
         (write.progressKind != CaseProgressKind.observation ||
             write.nextStep == CaseProgressNextStep.close);
+    final progressOccurredAt = needsCompanionEvidence
+        ? (write.occurredAt ?? _now())
+        : write.occurredAt;
 
     var expectedCaseVersion = learningCase.version;
     if (needsCompanionEvidence) {
@@ -223,7 +226,7 @@ class V2WorkflowController {
             expectedCaseVersion: expectedCaseVersion,
             sourceType: 'observation',
             title: _photoEvidenceTitle(write.progressKind),
-            observedAt: write.occurredAt ?? _now(),
+            observedAt: progressOccurredAt!,
             summary: summary,
           ),
         );
@@ -266,7 +269,7 @@ class V2WorkflowController {
         progressKind: write.progressKind,
         summary: summary,
         assessmentResult: write.assessmentResult,
-        occurredAt: write.occurredAt,
+        occurredAt: progressOccurredAt,
         completeCurrentAction: write.completeCurrentAction,
         currentActionId: currentAction?.id,
         expectedActionVersion: currentAction?.version,
@@ -389,9 +392,9 @@ class V2WorkflowController {
   }
 
   String _photoEvidenceTitle(CaseProgressKind kind) => switch (kind) {
-    CaseProgressKind.observation => '本次表现图片',
-    CaseProgressKind.intervention => '本次教学处理图片',
-    CaseProgressKind.assessment => '本次检查图片',
+    CaseProgressKind.observation => v2ObservationPhotoCompanionTitle,
+    CaseProgressKind.intervention => v2InterventionPhotoCompanionTitle,
+    CaseProgressKind.assessment => v2AssessmentPhotoCompanionTitle,
   };
 
   String? _normalizedOptional(String? value) {

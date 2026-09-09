@@ -84,11 +84,13 @@ void main() {
         );
       final progress = _FakeProgressiveCaseRepository(log: log);
       final attachments = _FakeEvidenceAttachmentRepository(log: log);
+      final occurredAt = DateTime.utc(2026, 9, 9, 10, 30);
       final controller = V2WorkflowController(
         workspace: _workspace(),
         learningRepository: learning,
         progressiveCaseRepository: progress,
         evidenceAttachmentRepository: attachments,
+        now: () => occurredAt,
       );
 
       await controller.recordProgress(
@@ -107,8 +109,14 @@ void main() {
 
       expect(log, ['add-evidence', 'upload', 'progress']);
       expect(learning.addEvidenceCalls.single.expectedCaseVersion, 3);
+      expect(
+        learning.addEvidenceCalls.single.title,
+        v2InterventionPhotoCompanionTitle,
+      );
+      expect(learning.addEvidenceCalls.single.observedAt, occurredAt);
       expect(progress.calls.single.expectedCaseVersion, 4);
       expect(progress.calls.single.progressKind, CaseProgressKind.intervention);
+      expect(progress.calls.single.occurredAt, occurredAt);
       expect(attachments.uploads.single.evidenceId, 'evidence-photo');
     });
 

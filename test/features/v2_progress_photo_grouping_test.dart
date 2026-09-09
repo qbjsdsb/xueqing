@@ -33,14 +33,8 @@ void main() {
           title: v2InterventionPhotoCompanionTitle,
           summary: '另一条处理。',
         ),
-        evidence(
-          id: 'wrong-role',
-          title: v2AssessmentPhotoCompanionTitle,
-        ),
-        evidence(
-          id: 'companion',
-          title: v2InterventionPhotoCompanionTitle,
-        ),
+        evidence(id: 'wrong-role', title: v2AssessmentPhotoCompanionTitle),
+        evidence(id: 'companion', title: v2InterventionPhotoCompanionTitle),
       ];
 
       expect(
