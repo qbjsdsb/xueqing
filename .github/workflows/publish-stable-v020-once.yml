@@ -1,0 +1,65 @@
+name: Publish Xueqing v0.2.0 Stable once
+
+on:
+  push:
+    branches:
+      - release/v0.2.0-stable-final
+    paths:
+      - .github/workflows/publish-stable-v020-once.yml
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  stage-and-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FROZEN_MAIN_SHA: b040397f4488436037b0987b95f29ba90f1badc6
+      RELEASE_TAG: v0.2.0
+      APP_VERSION: 0.2.0+6
+    steps:
+      - name: Verify frozen main, stage Release, and dispatch signed Stable publisher
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          if [[ "$current_main" != "$FROZEN_MAIN_SHA" ]]; then
+            echo "main moved after the Stable source was frozen; refusing to publish."
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$RELEASE_TAG already exists; refusing to overwrite an existing Release."
+            exit 1
+          fi
+
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$FROZEN_MAIN_SHA" \
+            --title "Xueqing v0.2.0" \
+            --notes $'Xueqing 首个正式稳定版。\n\n- 教师记录与跟进流程进一步简化\n- 教师可读的中文成长记录与状态词统一\n- 学生学科记录与单独老师记录支持 XLSX 导出\n- Android 提供正式签名 APK，Windows 提供 Setup 安装包\n- 正式版启用 Stable 应用内更新链' \
+            --prerelease
+
+          python3 - <<'PY' > dispatch.json
+          import json
+          print(json.dumps({
+              "ref": "main",
+              "inputs": {
+                  "release_tag": "v0.2.0",
+                  "app_version": "0.2.0+6",
+                  "release_notes": "教师工作流全面简化\n成长记录与导出优化\nAndroid / Windows 正式安装与应用内更新",
+              },
+          }, ensure_ascii=False))
+          PY
+
+          gh api \
+            --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/publish-release-assets.yml/dispatches" \
+            --input dispatch.json
+
+          echo "Stable publisher dispatched for $RELEASE_TAG / $APP_VERSION at $FROZEN_MAIN_SHA"
