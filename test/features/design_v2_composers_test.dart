@@ -228,7 +228,10 @@ void main() {
       '保存期间不能误关。',
     );
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
+    final saveButton = find.widgetWithText(FilledButton, '记录问题');
+    await tester.ensureVisible(saveButton);
+    await tester.pump();
+    await tester.tap(saveButton);
     await tester.pump();
 
     expect(find.text('保存中…'), findsOneWidget);
