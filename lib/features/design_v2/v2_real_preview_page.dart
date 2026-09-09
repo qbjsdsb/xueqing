@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
+import '../teacher_workspace/workspace_runtime.dart';
 import 'v2_theme.dart';
 import 'v2_workspace_loader.dart';
 
@@ -14,16 +15,29 @@ import 'v2_workspace_loader.dart';
 /// exact workspace snapshot that supplied the visible optimistic-lock versions.
 class V2RealPreviewPage extends StatelessWidget {
   V2RealPreviewPage({
+    this.runtime,
     LearningRepository? learningRepository,
     V2WorkspaceLoad? loadWorkspace,
-    this.progressiveCaseRepository,
-    this.evidenceAttachmentRepository,
-    this.onSignOut,
+    ProgressiveCaseRepository? progressiveCaseRepository,
+    EvidenceAttachmentRepository? evidenceAttachmentRepository,
+    VoidCallback? onSignOut,
     super.key,
-  }) : assert(learningRepository != null || loadWorkspace != null),
-       learningRepository = learningRepository,
-       loadWorkspace = loadWorkspace ?? learningRepository!.loadWorkspace;
+  }) : assert(
+         runtime != null || learningRepository != null || loadWorkspace != null,
+       ),
+       learningRepository = runtime?.learningRepository ?? learningRepository,
+       loadWorkspace =
+           loadWorkspace ??
+           runtime?.learningRepository.loadWorkspace ??
+           learningRepository!.loadWorkspace,
+       progressiveCaseRepository =
+           runtime?.progressiveCaseRepository ?? progressiveCaseRepository,
+       evidenceAttachmentRepository =
+           runtime?.evidenceAttachmentRepository ??
+           evidenceAttachmentRepository,
+       onSignOut = runtime?.onSignOut ?? onSignOut;
 
+  final AuthenticatedWorkspaceRuntime? runtime;
   final LearningRepository? learningRepository;
   final V2WorkspaceLoad loadWorkspace;
   final ProgressiveCaseRepository? progressiveCaseRepository;
@@ -82,6 +96,7 @@ class V2RealPreviewPage extends StatelessWidget {
               removeTop: true,
               child: V2WorkspaceLoader(
                 loadWorkspace: loadWorkspace,
+                runtime: runtime,
                 learningRepository: learningRepository,
                 progressiveCaseRepository: progressiveCaseRepository,
                 evidenceAttachmentRepository: evidenceAttachmentRepository,
