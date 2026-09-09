@@ -28,6 +28,13 @@ jobs:
           path = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
           text = path.read_text(encoding='utf-8')
 
+          prefix = '已保存，Case 进入'
+          prefix_count = text.count(prefix)
+          if prefix_count < 3 or prefix_count > 10:
+              raise SystemExit(f'unexpected teacher-visible Case success prefix count: {prefix_count}')
+          text = text.replace(prefix, '已保存，当前状态：')
+          print(f'replaced {prefix_count} teacher-visible success prefixes')
+
           def replace(old, new, expected):
               global text
               count = text.count(old)
@@ -35,11 +42,6 @@ jobs:
                   raise SystemExit(f'expected {expected}, found {count}: {old!r}')
               text = text.replace(old, new)
 
-          replace(
-              "已保存，Case 进入${_caseStatusLabelFromWire(result.status)}。",
-              "已保存，当前状态：${_caseStatusLabelFromWire(result.status)}。",
-              3,
-          )
           replace("'new' => '待整理',", "'new' => '新记录',", 1)
           replace("'confirmed' => '已确认',", "'confirmed' => '跟进中',", 1)
           replace("'intervening' => '干预中',", "'intervening' => '跟进中',", 1)
