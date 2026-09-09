@@ -91,7 +91,7 @@ jobs:
             lib/features/design_v2/v2_workspace_loader.dart \
             lib/features/design_v2/v2_workspace_preview.dart \
             test/features/v2_shell_production_capabilities_test.dart
-          git rm .github/scripts/patch_v2_shell_production_capabilities.py
-          git rm .github/workflows/oneoff-v2-shell-production-capabilities.yml
+          git rm -f .github/scripts/patch_v2_shell_production_capabilities.py
+          git rm -f .github/workflows/oneoff-v2-shell-production-capabilities.yml
           git commit -m "UI V2: wire real management update and account actions"
           git push origin HEAD:ui/v2-shell-production-capabilities
