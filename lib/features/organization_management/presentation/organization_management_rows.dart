@@ -360,16 +360,24 @@ class _OrganizationStudentTile extends StatelessWidget {
   final VoidCallback? onToggleArchive;
   final VoidCallback? onEdit;
 
-  OrganizationStudentTeacherAssignment? _assignmentFor(
+  List<OrganizationStudentTeacherAssignment> _assignmentsFor(
     OrganizationStudentSubjectService service,
   ) {
-    for (final assignment in activeAssignments) {
-      if (assignment.isActive &&
-          assignment.studentSubjectProfileId == service.profileId) {
-        return assignment;
-      }
-    }
-    return null;
+    final matches = activeAssignments
+        .where(
+          (assignment) =>
+              assignment.isActive &&
+              assignment.studentSubjectProfileId == service.profileId,
+        )
+        .toList(growable: false);
+    matches.sort((a, b) {
+      final aOrder = a.assignmentRole == 'lead' ? 0 : 1;
+      final bOrder = b.assignmentRole == 'lead' ? 0 : 1;
+      final roleOrder = aOrder.compareTo(bOrder);
+      if (roleOrder != 0) return roleOrder;
+      return a.teacherName.compareTo(b.teacherName);
+    });
+    return matches;
   }
 
   @override
@@ -411,7 +419,7 @@ class _OrganizationStudentTile extends StatelessWidget {
                 for (final service in student.subjectServices)
                   _StudentSubjectServiceRow(
                     service: service,
-                    assignment: _assignmentFor(service),
+                    assignments: _assignmentsFor(service),
                     busy: busy,
                     onTransfer: (assignment) =>
                         onTransferAssignment(assignment),
@@ -492,14 +500,14 @@ class _OrganizationStudentTile extends StatelessWidget {
 class _StudentSubjectServiceRow extends StatelessWidget {
   const _StudentSubjectServiceRow({
     required this.service,
-    required this.assignment,
+    required this.assignments,
     required this.busy,
     required this.onTransfer,
     required this.onToggle,
   });
 
   final OrganizationStudentSubjectService service;
-  final OrganizationStudentTeacherAssignment? assignment;
+  final List<OrganizationStudentTeacherAssignment> assignments;
   final bool busy;
   final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
   onTransfer;
@@ -507,7 +515,6 @@ class _StudentSubjectServiceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentAssignment = assignment;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Column(
@@ -543,34 +550,48 @@ class _StudentSubjectServiceRow extends StatelessWidget {
           ),
           if (service.isActive) ...[
             const SizedBox(height: AppSpacing.xxs),
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xxs,
-              children: [
-                Icon(
-                  Icons.person_pin_outlined,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                Text(
-                  currentAssignment == null
-                      ? '暂未安排负责老师'
-                      : '${_studentAssignmentRoleLabel(currentAssignment.assignmentRole)}：${currentAssignment.teacherName}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                if (currentAssignment != null)
-                  TextButton(
-                    key: ValueKey<String>(
-                      'student-assignment-transfer-${currentAssignment.assignmentId}',
-                    ),
-                    onPressed: busy
-                        ? null
-                        : () => onTransfer(currentAssignment),
-                    child: const Text('交接老师'),
+            if (assignments.isEmpty)
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xxs,
+                children: [
+                  Icon(
+                    Icons.person_pin_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-              ],
-            ),
+                  Text(
+                    '暂未安排负责老师',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              )
+            else
+              for (final assignment in assignments)
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xxs,
+                  children: [
+                    Icon(
+                      Icons.person_pin_outlined,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    Text(
+                      '${_studentAssignmentRoleLabel(assignment.assignmentRole)}：${assignment.teacherName}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    TextButton(
+                      key: ValueKey<String>(
+                        'student-assignment-transfer-${assignment.assignmentId}',
+                      ),
+                      onPressed: busy ? null : () => onTransfer(assignment),
+                      child: const Text('交接老师'),
+                    ),
+                  ],
+                ),
           ],
         ],
       ),

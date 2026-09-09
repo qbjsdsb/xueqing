@@ -1598,6 +1598,74 @@ void main() {
     expect(find.text('主责老师：新老师'), findsOneWidget);
   });
 
+  testWidgets('student subject shows lead and collaborator together', (
+    tester,
+  ) async {
+    final lead = _studentTeacherAssignment();
+    final collaborator = OrganizationStudentTeacherAssignment(
+      assignmentId: 'assignment-2',
+      organizationId: 'org-1',
+      studentSubjectProfileId: 'profile-1',
+      studentId: 'student-1',
+      studentName: '原学生',
+      organizationSubjectId: 'subject-1',
+      subjectName: '数学',
+      subjectCode: 'math',
+      membershipId: 'membership-2',
+      teacherName: '协作老师',
+      teacherEmail: 'collaborator@example.com',
+      assignmentRole: 'collaborator',
+      status: 'active',
+      version: 1,
+      activeFrom: DateTime(2026, 9, 1),
+      activeTo: null,
+      endedAt: null,
+    );
+    final repository = _FakeOrganizationManagementRepository(
+      members: const [],
+      invitations: const [],
+      students: [_studentRecord()],
+      studentTeacherAssignments: [collaborator, lead],
+      setupOptions: const OrganizationSetupOptions(
+        subjects: [
+          OrganizationSetupSubject(id: 'subject-1', displayName: '数学'),
+        ],
+        teachers: [
+          OrganizationSetupTeacher(
+            membershipId: 'membership-1',
+            displayName: '原老师',
+            email: 'old-teacher@example.com',
+            organizationSubjectIds: ['subject-1'],
+          ),
+          OrganizationSetupTeacher(
+            membershipId: 'membership-2',
+            displayName: '协作老师',
+            email: 'collaborator@example.com',
+            organizationSubjectIds: ['subject-1'],
+          ),
+        ],
+      ),
+    );
+
+    await _pumpManagement(tester, repository);
+    await _selectManagementArea(tester, '学生');
+
+    expect(find.text('主责老师：原老师'), findsOneWidget);
+    expect(find.text('协作老师：协作老师'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('student-assignment-transfer-assignment-1'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('student-assignment-transfer-assignment-2'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('missing subjects opens settings first', (tester) async {
     final repository = _FakeOrganizationManagementRepository(
       members: const [],
