@@ -1791,18 +1791,22 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       animation: _studentSearchController,
       builder: (context, _) {
         final query = _studentSearchController.text.trim();
-        final students = workspace.students.where((student) {
+        final studentGroups = _groupStudentsById(workspace.students).where((
+          group,
+        ) {
           if (query.isEmpty) {
             return true;
           }
-          final caseText = student.cases
-              .map(
-                (learningCase) =>
-                    '${learningCase.title}${learningCase.description ?? ''}',
-              )
-              .join();
-          return '${student.name}${student.subject}${student.context}$caseText'
-              .contains(query);
+          return group.any((student) {
+            final caseText = student.cases
+                .map(
+                  (learningCase) =>
+                      '${learningCase.title}${learningCase.description ?? ''}',
+                )
+                .join();
+            return '${student.name}${student.subject}${student.context}$caseText'
+                .contains(query);
+          });
         }).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1838,7 +1842,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
               onSubmitted: (_) => FocusScope.of(context).unfocus(),
             ),
             const SizedBox(height: AppSpacing.lg),
-            if (students.isEmpty)
+            if (studentGroups.isEmpty)
               const _WorkspaceStateNotice(
                 title: '没有找到匹配的学生',
                 message: '换一个姓名、学科或问题关键词试试。',
@@ -1847,15 +1851,20 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
             else
               _WorkspaceSection(
                 title: '学生列表',
-                count:
-                    '${students.map((student) => student.id).toSet().length} 人',
+                count: '${studentGroups.length} 人',
                 child: Column(
                   children: [
-                    for (final student in students)
-                      _WorkspaceStudentRow(
-                        student: student,
-                        onOpen: () => _openStudent(student),
-                      ),
+                    for (final group in studentGroups)
+                      if (group.length == 1)
+                        _WorkspaceStudentRow(
+                          student: group.single,
+                          onOpen: () => _openStudent(group.single),
+                        )
+                      else
+                        _WorkspaceMultiSubjectStudentRow(
+                          students: group,
+                          onOpen: _openStudent,
+                        ),
                   ],
                 ),
               ),
@@ -2534,7 +2543,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
     try {
       await widget.draftStore.clear(scopeKey);
     } catch (_) {
-      // A committed reopen is safe to retry with the same operation ID.
+      // A committed reopen is safe to retry with the same operation id.
       // Keeping the draft is safer than masking a successful server result.
     }
   }
@@ -2689,7 +2698,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
         return;
       }
       setState(() {
-        _saveError = '无法安全保存恢复记录，未提交到服务器。请重试或关闭窗口后再试。';
+        _saveError = '这次内容还没有提交成功，请重试；如果仍失败，可以关闭后重新进入。';
       });
       return;
     }
@@ -2763,8 +2772,8 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
       final unknownResult = _isUnknownResultFailure(error);
       final saveError = error is _CaseReopenDraftStorageException
           ? hasCommittedEvidence
-                ? '证据已保存，但恢复记录暂时无法保存。请保持页面打开并重试。'
-                : '无法安全保存恢复记录，未提交到服务器。请重试。'
+                ? '这次观察已保存，但跟进状态暂时没有恢复。请保持页面打开并重试。'
+                : '这次内容还没有提交成功，请重试。'
           : _describeCaseCommandError(error);
       setState(() {
         _saving = false;
@@ -2791,7 +2800,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('放弃这次复发记录？'),
-        content: const Text('当前输入还没有保存。放弃后不会产生新的证据。'),
+        content: const Text('当前输入还没有保存。放弃后不会新增这次观察记录。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -2855,7 +2864,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '提交前会保存安全恢复记录；两步可安全重试，退出应用后也会保留未完成进度。',
+                    '未完成的内容会自动保留；如果网络中断，重新打开后可以继续，不需要重复填写。',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -2867,7 +2876,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                   const SizedBox(height: AppSpacing.md),
                   DropdownButtonFormField<String>(
                     initialValue: _sourceType,
-                    decoration: const InputDecoration(labelText: '证据来源 *'),
+                    decoration: const InputDecoration(labelText: '记录来源 *'),
                     items: [
                       for (final entry in _sourceTypeLabels.entries)
                         DropdownMenuItem<String>(
@@ -2890,7 +2899,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                     autofocus: true,
                     enabled: !_inputsLocked,
                     decoration: InputDecoration(
-                      labelText: '复发证据标题 *',
+                      labelText: '简要标题 *',
                       hintText: '例如：关闭后再次跳过通分步骤',
                       errorText: _evidenceTitleError,
                     ),
@@ -2904,7 +2913,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                     maxLines: 6,
                     textInputAction: TextInputAction.newline,
                     decoration: InputDecoration(
-                      labelText: '可观察表现 *',
+                      labelText: '具体表现 *',
                       hintText: '写下这次实际看到的复发，而不是只写“又出现了”',
                       errorText: _evidenceSummaryError,
                       alignLabelWithHint: true,
@@ -2984,13 +2993,13 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    '服务器会把观察时间和最新关闭边界比较；提交开始后输入会锁定，重试沿用原 operation ID。',
+                    '观察时间需要晚于上次结束跟进；开始保存后请等待完成，网络异常时可以直接重试。',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (_evidenceId != null) ...[
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '证据已保存，正在等待继续跟进；请重试完成第二步。',
+                      '这次观察已经保存，继续提交即可恢复跟进；如果刚才网络中断，直接重试即可。',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.primary,
                       ),
@@ -3022,7 +3031,7 @@ class _WorkspaceReopenCaseFormState extends State<_WorkspaceReopenCaseForm> {
                             _saving
                                 ? '保存中…'
                                 : _evidenceId == null
-                                ? '保存证据'
+                                ? '保存并继续'
                                 : '继续跟进',
                           ),
                         ),
@@ -5161,6 +5170,16 @@ class _WorkspaceRail extends StatelessWidget {
   }
 }
 
+List<List<WorkspaceStudent>> _groupStudentsById(
+  Iterable<WorkspaceStudent> students,
+) {
+  final groups = <String, List<WorkspaceStudent>>{};
+  for (final student in students) {
+    groups.putIfAbsent(student.id, () => <WorkspaceStudent>[]).add(student);
+  }
+  return groups.values.toList(growable: false);
+}
+
 List<WorkspaceStudent> _dedupeStudentsById(
   Iterable<WorkspaceStudent> students,
 ) {
@@ -5439,6 +5458,126 @@ class _WorkspaceStudentRow extends StatelessWidget {
                           ? '暂无需要跟进的问题'
                           : '$activeCaseCount 个跟进中的问题',
                       style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceMultiSubjectStudentRow extends StatelessWidget {
+  const _WorkspaceMultiSubjectStudentRow({
+    required this.students,
+    required this.onOpen,
+  });
+
+  final List<WorkspaceStudent> students;
+  final ValueChanged<WorkspaceStudent> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final profiles = List<WorkspaceStudent>.of(students)
+      ..sort((left, right) => left.subject.compareTo(right.subject));
+    final student = profiles.first;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.xxs),
+            child: Icon(Icons.person_outline, size: 21),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  student.name,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                _WorkspaceMetadata(student.grade),
+                const SizedBox(height: AppSpacing.xs),
+                for (var index = 0; index < profiles.length; index++) ...[
+                  if (index > 0) const Divider(height: 1),
+                  _WorkspaceStudentSubjectLink(
+                    student: profiles[index],
+                    onOpen: () => onOpen(profiles[index]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkspaceStudentSubjectLink extends StatelessWidget {
+  const _WorkspaceStudentSubjectLink({
+    required this.student,
+    required this.onOpen,
+  });
+
+  final WorkspaceStudent student;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeCaseCount = student.cases
+        .where(
+          (learningCase) => learningCase.status != LearningCaseStatus.closed,
+        )
+        .length;
+    final followUpLabel = activeCaseCount == 0
+        ? '暂无需要跟进的问题'
+        : '$activeCaseCount 个跟进中的问题';
+    return Semantics(
+      button: true,
+      label: '打开 ${student.name} 的 ${student.subject} 学情',
+      child: InkWell(
+        key: ValueKey<String>('workspace-student-subject-${student.profileId}'),
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(AppRadii.small),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      student.subject,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    if (student.context.trim().isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        student.context,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      followUpLabel,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
@@ -7053,7 +7192,7 @@ String _describeCaseCommandError(Object error) {
     return '最新验证还没有通过，暂时不能标记为稳定。';
   }
   if (detail.contains('case_recurrence_before_close')) {
-    return '观察时间必须晚于最近一次关闭时间；请调整实际观察时间后重试。';
+    return '观察时间需要晚于最近一次结束跟进时间；请调整实际观察时间后重试。';
   }
   if (detail.contains('review_due_date_required')) {
     return '复查行动需要安排日期。';
