@@ -538,6 +538,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
   bool _showAllUndatedActions = false;
   bool _showAllStudentCases = false;
   bool _showAllCaseTimeline = false;
+  bool _showCaseCategoryDetails = false;
 
   @override
   void initState() {
@@ -650,6 +651,8 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     setState(() {
       _selectedStudent = student;
       _selectedCase = learningCase;
+      _showAllCaseTimeline = false;
+      _showCaseCategoryDetails = false;
       _showAllCaseTimeline = false;
     });
   }
@@ -2292,33 +2295,6 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           title: '问题',
           content: learningCase.description ?? '尚未补充问题说明。',
         ),
-        _WorkspaceEvidenceSection(
-          learningCase: learningCase,
-          organizationId: workspace.organizationId,
-          repository: widget.evidenceAttachmentRepository,
-        ),
-        _WorkspaceNarrativeSection(
-          title: '教学处理',
-          content: learningCase.interventions.isEmpty
-              ? '尚未记录教学处理。'
-              : learningCase.interventions
-                    .map(
-                      (item) =>
-                          '${_formatDate(item.occurredAt)}：${item.strategy}',
-                    )
-                    .join('\n\n'),
-        ),
-        _WorkspaceNarrativeSection(
-          title: '检查结果',
-          content: learningCase.assessments.isEmpty
-              ? '尚未记录检查结果。'
-              : learningCase.assessments
-                    .map(
-                      (item) =>
-                          '${_formatDate(item.assessedAt)} ${_assessmentLabel(item.result)}：${item.evidenceSummary}',
-                    )
-                    .join('\n\n'),
-        ),
         _WorkspaceSection(
           title: '成长记录',
           count: learningCase.timeline.isEmpty
@@ -2337,16 +2313,62 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
           child: learningCase.timeline.isEmpty
               ? const _WorkspaceStateNotice(
                   title: '暂时没有更多历史',
-                  message: '新的课堂记录、教学动作和检查结果会按时间追加在这里。',
+                  message: '新的课堂记录、教学处理和检查结果会按时间追加在这里。',
                   icon: Icons.history_outlined,
                 )
-              : Column(
-                  children: [
-                    for (final event in visibleTimeline)
-                      _WorkspaceTimelineItem(event: event),
-                  ],
-                ),
+              : _WorkspaceTimelineGroupedList(events: visibleTimeline),
         ),
+        const SizedBox(height: AppSpacing.sm),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const Key('workspace-case-category-toggle'),
+            onPressed: () => setState(
+              () => _showCaseCategoryDetails = !_showCaseCategoryDetails,
+            ),
+            icon: Icon(
+              _showCaseCategoryDetails
+                  ? Icons.expand_less
+                  : Icons.view_list_outlined,
+            ),
+            label: Text(_showCaseCategoryDetails ? '收起分类记录' : '按类别查看与照片'),
+          ),
+        ),
+        if (_showCaseCategoryDetails) ...[
+          Text(
+            '这里按类别核对学生表现、教学处理和检查结果；成长过程仍以时间顺序为主。',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          _WorkspaceEvidenceSection(
+            learningCase: learningCase,
+            organizationId: workspace.organizationId,
+            repository: widget.evidenceAttachmentRepository,
+          ),
+          _WorkspaceNarrativeSection(
+            title: '教学处理',
+            content: learningCase.interventions.isEmpty
+                ? '尚未记录教学处理。'
+                : learningCase.interventions
+                      .map(
+                        (item) =>
+                            '${_formatDate(item.occurredAt)}：${item.strategy}',
+                      )
+                      .join('\n\n'),
+          ),
+          _WorkspaceNarrativeSection(
+            title: '检查结果',
+            content: learningCase.assessments.isEmpty
+                ? '尚未记录检查结果。'
+                : learningCase.assessments
+                      .map(
+                        (item) =>
+                            '${_formatDate(item.assessedAt)} ${_assessmentLabel(item.result)}：${item.evidenceSummary}',
+                      )
+                      .join('\n\n'),
+          ),
+        ],
       ],
     );
   }
@@ -6277,27 +6299,69 @@ String _describeAttachmentUiError(Object error) {
   return describeEvidenceAttachmentError(error, duringUpload: true);
 }
 
-class _WorkspaceTimelineItem extends StatelessWidget {
-  const _WorkspaceTimelineItem({required this.event});
+class _WorkspaceTimelineGroupedList extends StatelessWidget {
+  const _WorkspaceTimelineGroupedList({required this.events});
 
-  final WorkspaceTimelineEvent event;
+  final Iterable<WorkspaceTimelineEvent> events;
 
   @override
   Widget build(BuildContext context) {
+    final groups = <String, List<WorkspaceTimelineEvent>>{};
+    for (final event in events) {
+      final local = event.occurredAt.toLocal();
+      final dateLabel = _formatDate(local);
+      groups
+          .putIfAbsent(dateLabel, () => <WorkspaceTimelineEvent>[])
+          .add(event);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final entry in groups.entries) ...[
+          Padding(
+            padding: const EdgeInsets.only(
+              top: AppSpacing.sm,
+              bottom: AppSpacing.xxs,
+            ),
+            child: Text(
+              entry.key,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          for (final event in entry.value)
+            _WorkspaceTimelineItem(event: event, timeOnly: true),
+        ],
+      ],
+    );
+  }
+}
+
+class _WorkspaceTimelineItem extends StatelessWidget {
+  const _WorkspaceTimelineItem({required this.event, this.timeOnly = false});
+
+  final WorkspaceTimelineEvent event;
+  final bool timeOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final local = event.occurredAt.toLocal();
+    final timeLabel =
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 72,
+            width: timeOnly ? 48 : 72,
             child: Text(
-              _formatDate(event.occurredAt),
+              timeOnly ? timeLabel : _formatDate(local),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
           Padding(
-            padding: EdgeInsets.only(top: 5),
+            padding: const EdgeInsets.only(top: 5),
             child: Icon(
               Icons.circle,
               size: 8,
