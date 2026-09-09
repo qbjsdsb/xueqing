@@ -102,6 +102,17 @@ void main() {
 
       expect(find.byKey(const Key('v2-reminder-title')), findsOneWidget);
       expect(find.byKey(const Key('v2-reminder-date')), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('v2-progress-body')),
+        '今天检查后仍有一个要点不稳定。',
+      );
+      await tester.pump();
+
+      final save = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '保存进展'),
+      );
+      expect(save.onPressed, isNull);
     },
   );
 }

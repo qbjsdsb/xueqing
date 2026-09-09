@@ -338,6 +338,9 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
     if (_kind == V2ProgressKind.assessment && _assessmentResult == null) {
       return false;
     }
+    if (_nextStep == V2NextStep.remind && _reminderDate == null) {
+      return false;
+    }
     return true;
   }
 
