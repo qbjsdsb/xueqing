@@ -1,0 +1,96 @@
+name: Diagnose Android release signing identity
+
+on:
+  push:
+    branches:
+      - release/v0.2.1-device-candidate
+    paths:
+      - ".github/release-requests/android-signing-diagnosis"
+
+permissions:
+  contents: read
+
+env:
+  XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+
+jobs:
+  diagnose:
+    name: Compare v0.2.0 APK, current keystore, and pinned fingerprint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+      XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+      XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+      XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+    steps:
+      - name: Set up Flutter for Android build-tools
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Download published v0.2.0 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download v0.2.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'xueqing-v0.2.0-android.apk' \
+            --dir release-input
+          test -s release-input/xueqing-v0.2.0-android.apk
+
+      - name: Decode current permanent keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in XUEQING_ANDROID_KEYSTORE_BASE64 XUEQING_ANDROID_KEYSTORE_PASSWORD XUEQING_ANDROID_KEY_ALIAS XUEQING_ANDROID_KEY_PASSWORD; do
+            [[ -n "${!name:-}" ]] || { echo "Missing release signing secret: $name"; exit 1; }
+          done
+          printf '%s' "$XUEQING_ANDROID_KEYSTORE_BASE64" | base64 --decode > release-keystore.jks
+          chmod 600 release-keystore.jks
+
+      - name: Compare signing identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          [[ -x "$apksigner" ]] || { echo "apksigner unavailable"; exit 1; }
+
+          apk_output="$("$apksigner" verify --verbose --print-certs release-input/xueqing-v0.2.0-android.apk)"
+          apk_sha="$(printf '%s\n' "$apk_output" | sed -nE 's/^Signer #1 certificate SHA-256 digest: *//p' | head -n1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+
+          key_output="$(keytool -list -v \
+            -keystore release-keystore.jks \
+            -storepass "$XUEQING_ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$XUEQING_ANDROID_KEY_ALIAS")"
+          key_sha="$(printf '%s\n' "$key_output" | sed -nE 's/^.*SHA256: *//p' | head -n1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          pinned_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+
+          for pair in "v0.2.0 APK:$apk_sha" "current keystore:$key_sha" "pinned variable:$pinned_sha"; do
+            name="${pair%%:*}"
+            value="${pair#*:}"
+            [[ "$value" =~ ^[0-9a-f]{64}$ ]] || { echo "$name fingerprint could not be parsed"; exit 1; }
+          done
+
+          echo "v0.2.0 APK SHA256=$apk_sha"
+          echo "current keystore SHA256=$key_sha"
+          echo "pinned variable SHA256=$pinned_sha"
+
+          if [[ "$apk_sha" != "$key_sha" ]]; then
+            echo "RESULT=KEYSTORE_MISMATCH_WITH_PUBLISHED_V020"
+            exit 2
+          fi
+          if [[ "$apk_sha" != "$pinned_sha" ]]; then
+            echo "RESULT=PINNED_VARIABLE_STALE"
+            exit 3
+          fi
+          echo "RESULT=ALL_IDENTITIES_MATCH"
+
+      - name: Remove decoded keystore
+        if: always()
+        shell: bash
+        run: rm -f release-keystore.jks
