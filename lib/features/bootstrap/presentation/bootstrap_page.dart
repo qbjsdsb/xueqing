@@ -71,6 +71,16 @@ class BootstrapPage extends StatelessWidget {
                       const SizedBox(height: AppSpacing.sm),
                       OutlinedButton.icon(
                         onPressed: () {
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.v2RealPreview,
+                          );
+                        },
+                        icon: const Icon(Icons.visibility_outlined),
+                        label: const Text('打开新版真实数据预览（只读）'),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: () {
                           Navigator.of(context).pushNamed(AppRoutes.cloudSpike);
                         },
                         icon: const Icon(Icons.cloud_outlined),
@@ -89,7 +99,7 @@ class BootstrapPage extends StatelessWidget {
                     Text(
                       config.environment.isProduction
                           ? '当前已加载生产配置；在完成发布检查、备份恢复和机构授权前，不应录入真实学生资料。'
-                          : '当前只连接开发环境虚构资料；正式 provider、真实学生数据和生产配置尚未启用。',
+                          : '当前为开发验证环境；新版真实数据预览只读取当前账号已有授权数据，不会启用 V2 写入。',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -128,7 +138,7 @@ class _StatusPanel extends StatelessWidget {
           const Divider(height: 1),
           _StatusRow(
             label: '工作范围',
-            value: isProduction ? '生产发布前置检查' : '0B.0-D 数据接入验证',
+            value: isProduction ? '生产发布前置检查' : 'V2 只读接入验证',
           ),
         ],
       ),
