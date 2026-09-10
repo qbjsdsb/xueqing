@@ -207,10 +207,18 @@ abstract final class AppTheme {
       scrollbarTheme: ScrollbarThemeData(
         radius: const Radius.circular(AppRadii.pill),
         thickness: WidgetStateProperty.resolveWith((states) {
-          return states.contains(WidgetState.dragged) ? 6 : 4;
+          if (states.contains(WidgetState.dragged) ||
+              states.contains(WidgetState.hovered)) {
+            return 6;
+          }
+          return 4;
         }),
         thumbColor: WidgetStateProperty.resolveWith((states) {
-          final alpha = states.contains(WidgetState.dragged) ? 0.52 : 0.30;
+          final alpha = states.contains(WidgetState.dragged)
+              ? 0.56
+              : states.contains(WidgetState.hovered)
+              ? 0.42
+              : 0.30;
           return colorScheme.onSurfaceVariant.withValues(alpha: alpha);
         }),
       ),
