@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_motion.dart';
+import '../../cloud/composer_draft_store.dart';
 import '../teacher_workspace/presentation/evidence_attachment_picker.dart';
 import 'v2_workflow_controller.dart';
 
@@ -104,6 +105,24 @@ class V2ProgressDraft {
 typedef V2QuickCaptureSave = Future<void> Function(V2QuickCaptureDraft draft);
 typedef V2ProgressSave = Future<void> Function(V2ProgressDraft draft);
 
+class V2QuickCapturePersistence {
+  const V2QuickCapturePersistence({
+    required this.store,
+    required this.scopeKey,
+    required this.studentId,
+    required this.operationId,
+    this.initialDraft,
+    this.lostAttachmentLoader,
+  });
+
+  final ComposerDraftStore store;
+  final String scopeKey;
+  final String studentId;
+  final String operationId;
+  final ComposerDraftSnapshot? initialDraft;
+  final EvidenceAttachmentLostDataLoader? lostAttachmentLoader;
+}
+
 Future<bool> showV2QuickCapture(
   BuildContext context, {
   required String studentName,
@@ -111,6 +130,7 @@ Future<bool> showV2QuickCapture(
   List<V2ProblemTypeOption> problemTypes = v2PreviewProblemTypeOptions,
   V2QuickCaptureSave? onSave,
   V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,
+  V2QuickCapturePersistence? persistence,
 }) async {
   assert(subjects.isNotEmpty);
   assert(problemTypes.isNotEmpty);
@@ -123,6 +143,7 @@ Future<bool> showV2QuickCapture(
           problemTypes: problemTypes,
           onSave: onSave,
           attachmentPicker: attachmentPicker,
+          persistence: persistence,
         ),
       ) ??
       false;
@@ -275,6 +296,7 @@ class V2QuickCaptureComposer extends StatefulWidget {
     required this.problemTypes,
     required this.attachmentPicker,
     this.onSave,
+    this.persistence,
     super.key,
   });
 
@@ -283,6 +305,7 @@ class V2QuickCaptureComposer extends StatefulWidget {
   final List<V2ProblemTypeOption> problemTypes;
   final V2AttachmentPicker attachmentPicker;
   final V2QuickCaptureSave? onSave;
+  final V2QuickCapturePersistence? persistence;
 
   @override
   State<V2QuickCaptureComposer> createState() => _V2QuickCaptureComposerState();
@@ -305,6 +328,15 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     if (widget.subjects.length == 1) {
       _selectedSubject = widget.subjects.single;
     }
+    final initialDraft = widget.persistence?.initialDraft;
+    if (initialDraft != null) {
+      _applyInitialDraft(initialDraft);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _restoreLostAttachment();
+        }
+      });
+    }
   }
 
   @override
@@ -313,10 +345,142 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     super.dispose();
   }
 
+  void _applyInitialDraft(ComposerDraftSnapshot snapshot) {
+    final persistence = widget.persistence;
+    if (persistence == null ||
+        snapshot.kind != 'quick_capture' ||
+        snapshot.studentId != persistence.studentId ||
+        snapshot.state['operation_id'] != persistence.operationId) {
+      return;
+    }
+    final subject = snapshot.subject;
+    if (subject != null && widget.subjects.contains(subject)) {
+      _selectedSubject = subject;
+    }
+    final caseTypeKey = snapshot.state['case_type_key'];
+    if (caseTypeKey is String &&
+        widget.problemTypes.any((option) => option.key == caseTypeKey)) {
+      _problemTypeKey = caseTypeKey;
+    }
+    final body = snapshot.state['body'];
+    if (body is String) {
+      _controller.text = body;
+    }
+    final showMore = snapshot.state['show_more'];
+    if (showMore is bool) {
+      _showMore = showMore;
+    }
+    _attachments
+      ..clear()
+      ..addAll(
+        snapshot.attachments
+            .take(3)
+            .map(
+              (attachment) => PickedEvidenceAttachment(
+                attachmentId: attachment.attachmentId,
+                bytes: attachment.bytes,
+                fileName: attachment.fileName,
+                contentType: attachment.contentType,
+              ),
+            ),
+      );
+  }
+
+  ComposerDraftSnapshot _draftSnapshot() {
+    final persistence = widget.persistence!;
+    return ComposerDraftSnapshot(
+      kind: 'quick_capture',
+      studentId: persistence.studentId,
+      subject: _selectedSubject,
+      state: <String, dynamic>{
+        'operation_id': persistence.operationId,
+        'case_type_key': _problemTypeKey,
+        'body': _controller.text,
+        'show_more': _showMore,
+      },
+      attachments: _attachments
+          .map(
+            (attachment) => ComposerDraftAttachment(
+              attachmentId: attachment.attachmentId,
+              bytes: attachment.bytes,
+              fileName: attachment.fileName,
+              contentType: attachment.contentType,
+            ),
+          )
+          .toList(growable: false),
+      savedAt: DateTime.now(),
+    );
+  }
+
+  Future<void> _persistDraft() async {
+    final persistence = widget.persistence;
+    if (persistence == null) return;
+    await persistence.store.save(persistence.scopeKey, _draftSnapshot());
+  }
+
+  Future<void> _persistDraftSilently() async {
+    try {
+      await _persistDraft();
+    } catch (_) {
+      // Best effort after an in-app state change. The external-picker boundary
+      // below is strict and will not launch unless the draft was saved.
+    }
+  }
+
+  Future<void> _clearPersistedDraft() async {
+    final persistence = widget.persistence;
+    if (persistence == null) return;
+    try {
+      await persistence.store.clear(persistence.scopeKey);
+    } catch (_) {
+      // A successful server write must not be reported as failed only because
+      // local cleanup could not complete. Operation ids keep a stale retry safe.
+    }
+  }
+
+  Future<void> _restoreLostAttachment() async {
+    final persistence = widget.persistence;
+    if (persistence?.initialDraft == null || _attachments.length >= 3) {
+      return;
+    }
+    try {
+      final loader =
+          persistence?.lostAttachmentLoader ?? recoverLostEvidenceAttachment;
+      final recovered = await loader();
+      if (!mounted || recovered == null) return;
+      if (_attachments.any(
+        (attachment) => attachment.attachmentId == recovered.attachmentId,
+      )) {
+        return;
+      }
+      setState(() {
+        _attachments.add(recovered);
+        _mediaError = null;
+      });
+      await _persistDraftSilently();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _mediaError = describeEvidenceAttachmentError(error));
+    }
+  }
+
   Future<void> _pickAttachment() async {
     if (_saving || _attachments.length >= 3) {
       return;
     }
+    if (widget.persistence != null) {
+      try {
+        await _persistDraft();
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _mediaError = '暂时无法保护当前草稿，请稍后再拍照；已经输入的文字仍在当前窗口。';
+          });
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
     try {
       final picked = await widget.attachmentPicker(context);
       if (!mounted || picked == null) {
@@ -326,12 +490,18 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
         _attachments.add(picked);
         _mediaError = null;
       });
+      await _persistDraftSilently();
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() => _mediaError = describeEvidenceAttachmentError(error));
     }
+  }
+
+  void _removeAttachment(int index) {
+    setState(() => _attachments.removeAt(index));
+    _persistDraftSilently();
   }
 
   bool get _hasDraft =>
@@ -348,7 +518,8 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     }
     final onSave = widget.onSave;
     if (onSave == null) {
-      Navigator.of(context).pop(true);
+      await _clearPersistedDraft();
+      if (mounted) Navigator.of(context).pop(true);
       return;
     }
     final draft = V2QuickCaptureDraft(
@@ -362,11 +533,14 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       _saveError = null;
     });
     try {
+      await _persistDraftSilently();
       await onSave(draft);
+      await _clearPersistedDraft();
       if (mounted) {
         Navigator.of(context).pop(true);
       }
     } catch (error) {
+      await _persistDraftSilently();
       if (mounted) {
         setState(() {
           _saving = false;
@@ -381,7 +555,8 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       return;
     }
     if (!_hasDraft) {
-      Navigator.of(context).pop(false);
+      await _clearPersistedDraft();
+      if (mounted) Navigator.of(context).pop(false);
       return;
     }
     final action = await _showV2DraftCloseDialog(
@@ -397,7 +572,8 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       await _save();
       return;
     }
-    Navigator.of(context).pop(false);
+    await _clearPersistedDraft();
+    if (mounted) Navigator.of(context).pop(false);
   }
 
   @override
@@ -428,7 +604,10 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
                 value: _selectedSubject,
                 values: widget.subjects,
                 label: (value) => value,
-                onChanged: (value) => setState(() => _selectedSubject = value),
+                onChanged: (value) {
+                  setState(() => _selectedSubject = value);
+                  _persistDraftSilently();
+                },
               ),
               const SizedBox(height: 22),
             ],
@@ -450,7 +629,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
             V2MediaDraftStrip(
               attachments: _attachments,
               onAdd: _pickAttachment,
-              onRemove: (index) => setState(() => _attachments.removeAt(index)),
+              onRemove: _removeAttachment,
             ),
             if (_mediaError != null) ...[
               const SizedBox(height: 8),
@@ -463,7 +642,10 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
             const SizedBox(height: 8),
             TextButton.icon(
               key: const Key('v2-quick-capture-more'),
-              onPressed: () => setState(() => _showMore = !_showMore),
+              onPressed: () {
+                setState(() => _showMore = !_showMore);
+                _persistDraftSilently();
+              },
               icon: Icon(_showMore ? Icons.expand_less : Icons.tune, size: 18),
               label: Text(_showMore ? '收起更多选项' : '更多选项'),
             ),
@@ -487,6 +669,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
                         onChanged: (value) {
                           if (value != null) {
                             setState(() => _problemTypeKey = value);
+                            _persistDraftSilently();
                           }
                         },
                       ),

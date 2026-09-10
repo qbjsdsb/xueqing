@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/layout/responsive.dart';
 import '../../../app/theme/app_spacing.dart';
+import '../../../cloud/evidence_attachment_repository.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
 import '../../../cloud/organization_member_provisioning_repository.dart';
@@ -38,6 +39,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.onOpenCaseTypes,
     this.onChanged,
     this.provisioningRepository,
+    this.evidenceAttachmentRepository,
     this.teacherLearningRecordRepository,
     this.studentLearningRecordRepository,
     super.key,
@@ -51,6 +53,7 @@ class OrganizationManagementPage extends StatefulWidget {
   final VoidCallback? onOpenCaseTypes;
   final VoidCallback? onChanged;
   final OrganizationMemberProvisioningRepository? provisioningRepository;
+  final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final TeacherLearningRecordRepository? teacherLearningRecordRepository;
   final StudentLearningRecordRepository? studentLearningRecordRepository;
 

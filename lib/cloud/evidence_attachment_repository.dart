@@ -81,6 +81,8 @@ abstract interface class EvidenceAttachmentRepository {
     required String contentType,
   });
 
+  Future<Uint8List> downloadBytes(String storagePath);
+
   Future<String> createSignedUrl(String storagePath);
 }
 
@@ -269,6 +271,23 @@ class SupabaseEvidenceAttachmentRepository
       }
     }
     return null;
+  }
+
+  @override
+  Future<Uint8List> downloadBytes(String storagePath) async {
+    final normalizedPath = storagePath.trim();
+    if (normalizedPath.isEmpty) {
+      throw ArgumentError('storagePath cannot be empty.');
+    }
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) {
+      throw const AuthException('No active session.');
+    }
+    final bytes = await _client.storage
+        .from(caseEvidenceAttachmentBucket)
+        .download(normalizedPath);
+    _assertSameSession(authUser.id);
+    return bytes;
   }
 
   @override

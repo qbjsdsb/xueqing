@@ -63,12 +63,17 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       }
 
       final rows = LearningRecordExport.rowsForStudentRecords(records);
+      final preparedRows =
+          await LearningRecordExport.prepareRowsWithAttachmentImages(
+            rows: rows,
+            repository: widget.evidenceAttachmentRepository,
+          );
       final savedPath = await LearningRecordExport.saveAsXlsx(
         fileNameWithoutExtension: LearningRecordExport.studentBatchFileName(
           studentCount: selection.studentCount,
           profileCount: selection.profiles.length,
         ),
-        rows: rows,
+        rows: preparedRows,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,6 +89,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       if (!mounted) return;
       setState(() {
         _errorMessage =
+            learningRecordImageExportErrorMessage(error) ??
             studentLearningRecordExportErrorMessage(error) ??
             '导出失败，请检查网络和账号状态后重试。';
       });
@@ -168,11 +174,16 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
         records,
         teacherName: teacherName,
       );
+      final preparedRows =
+          await LearningRecordExport.prepareRowsWithAttachmentImages(
+            rows: rows,
+            repository: widget.evidenceAttachmentRepository,
+          );
       final savedPath = await LearningRecordExport.saveAsXlsx(
         fileNameWithoutExtension: LearningRecordExport.teacherFileName(
           teacherName,
         ),
-        rows: rows,
+        rows: preparedRows,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -186,6 +197,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       if (!mounted) return;
       setState(() {
         _errorMessage =
+            learningRecordImageExportErrorMessage(error) ??
             teacherLearningRecordExportErrorMessage(error) ??
             '导出失败，请检查网络和账号状态后重试。';
       });

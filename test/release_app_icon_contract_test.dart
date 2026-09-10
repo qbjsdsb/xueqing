@@ -27,8 +27,14 @@ void main() {
     ).readAsStringSync();
     expect(foreground, contains('android:viewportWidth="108"'));
     expect(foreground, contains('#F8F6EF'));
-    expect(foreground, contains('M50.9,34.2'));
-    expect(foreground, contains('L80.0,29.2'));
+    // Keep the mark optically smaller than v0.3.0 and soften the book-page
+    // silhouette with curves instead of restoring the old sharp polygon.
+    expect(foreground, contains('M51.2,35.0'));
+    expect(foreground, contains('L77.2,31.5'));
+    expect(foreground, contains('Q41.8,72.0'));
+    expect(foreground, contains('Q67.8,33.0'));
+    expect(foreground, isNot(contains('M50.9,34.2')));
+    expect(foreground, isNot(contains('L80.0,29.2')));
 
     final adaptive33 = File(
       'android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml',

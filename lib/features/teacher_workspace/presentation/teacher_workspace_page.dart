@@ -12,6 +12,7 @@ import '../../../app/theme/app_spacing.dart';
 import '../../../cloud/auth_repository.dart';
 import '../../../cloud/cloud_client.dart';
 import '../../../cloud/case_reopen_draft_store.dart';
+import '../../../cloud/composer_draft_store.dart';
 import '../../../cloud/evidence_attachment_repository.dart';
 import '../../../cloud/learning_repository.dart';
 import '../../../cloud/organization_management_repository.dart';
@@ -47,6 +48,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
     this.teacherLearningRecordRepository,
     this.studentLearningRecordRepository,
     this.caseReopenDraftStore,
+    this.composerDraftStore,
     this.authenticatedWorkspaceBuilder,
     super.key,
   });
@@ -66,6 +68,7 @@ class TeacherWorkspaceEntryPage extends StatefulWidget {
   final TeacherLearningRecordRepository? teacherLearningRecordRepository;
   final StudentLearningRecordRepository? studentLearningRecordRepository;
   final CaseReopenDraftStore? caseReopenDraftStore;
+  final ComposerDraftStore? composerDraftStore;
   final AuthenticatedWorkspaceBuilder? authenticatedWorkspaceBuilder;
 
   @override
@@ -101,12 +104,15 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   OrganizationMembershipState? _membershipState;
   bool _onboardingTransition = false;
   late final CaseReopenDraftStore _caseReopenDraftStore;
+  late final ComposerDraftStore _composerDraftStore;
 
   @override
   void initState() {
     super.initState();
     _caseReopenDraftStore =
         widget.caseReopenDraftStore ?? SecureCaseReopenDraftStore();
+    _composerDraftStore =
+        widget.composerDraftStore ?? SecureComposerDraftStore();
     _updateService = widget.config.environment.isProduction
         ? UpdateService(currentVersion: widget.config.appVersion)
         : UpdateService.githubPilot(currentVersion: widget.config.appVersion);
@@ -452,6 +458,7 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
             updateService: _updateService,
             updateInstaller: _updateInstaller,
             caseReopenDraftStore: _caseReopenDraftStore,
+            composerDraftStore: _composerDraftStore,
             appVersion: widget.config.appVersion,
             sessionUserId: _activeUserId,
             onSignOut: _busy ? null : _signOut,
@@ -1505,6 +1512,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       provisioningRepository: widget.memberProvisioningRepository,
       teacherLearningRecordRepository: widget.teacherLearningRecordRepository,
       studentLearningRecordRepository: widget.studentLearningRecordRepository,
+      evidenceAttachmentRepository: widget.evidenceAttachmentRepository,
       organizationId: organizationId,
       organizationName: workspace.organizationName,
       roles: workspace.roles,

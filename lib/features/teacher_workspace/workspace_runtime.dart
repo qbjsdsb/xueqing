@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../cloud/case_reopen_draft_store.dart';
+import '../../cloud/composer_draft_store.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/organization_management_repository.dart';
@@ -36,6 +37,7 @@ class AuthenticatedWorkspaceRuntime {
     this.memberProvisioningRepository,
     this.teacherLearningRecordRepository,
     this.studentLearningRecordRepository,
+    this.composerDraftStore,
     this.sessionUserId,
     this.onSignOut,
   });
@@ -49,6 +51,7 @@ class AuthenticatedWorkspaceRuntime {
   final OrganizationMemberProvisioningRepository? memberProvisioningRepository;
   final TeacherLearningRecordRepository? teacherLearningRecordRepository;
   final StudentLearningRecordRepository? studentLearningRecordRepository;
+  final ComposerDraftStore? composerDraftStore;
   final UpdateService updateService;
   final UpdateInstaller updateInstaller;
   final CaseReopenDraftStore caseReopenDraftStore;

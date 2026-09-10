@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../cloud/composer_draft_store.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
@@ -175,6 +176,13 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         profileId: profile.profileId,
       );
       final rows = LearningRecordExport.rowsForStudentRecords(records);
+      final preparedRows =
+          await LearningRecordExport.prepareRowsWithAttachmentImages(
+            rows: rows,
+            repository:
+                widget.runtime?.evidenceAttachmentRepository ??
+                widget.evidenceAttachmentRepository,
+          );
       if (!context.mounted) {
         return;
       }
@@ -187,7 +195,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         fileNameWithoutExtension: LearningRecordExport.studentSubjectFileName(
           profile,
         ),
-        rows: rows,
+        rows: preparedRows,
       );
       if (!context.mounted) {
         return;
@@ -200,6 +208,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         return;
       }
       final message =
+          learningRecordImageExportErrorMessage(error) ??
           studentLearningRecordExportErrorMessage(error) ??
           '学情记录暂时无法读取，请检查网络后重试。';
       ScaffoldMessenger.of(context)
@@ -284,8 +293,19 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
                 sessionUserId: widget.runtime?.sessionUserId,
               )
             : null;
+        final composerDraftStore = runtime?.composerDraftStore;
+        final sessionUserId = runtime?.sessionUserId;
+        final composerDraftScopeKey =
+            composerDraftStore != null && sessionUserId != null
+            ? quickCaptureComposerScopeKey(
+                sessionUserId: sessionUserId,
+                organizationId: workspace.organizationId,
+              )
+            : null;
         return V2WorkspacePreview(
           data: snapshotData.workspaceData,
+          composerDraftStore: composerDraftStore,
+          composerDraftScopeKey: composerDraftScopeKey,
           workflowController: workflowController,
           evidenceAttachmentRepository: evidenceAttachmentRepository,
           onExportStudent: runtime?.studentLearningRecordRepository == null
