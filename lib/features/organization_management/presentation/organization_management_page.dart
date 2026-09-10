@@ -182,8 +182,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                                   : null,
                               onEditStudent: _editStudent,
                               onToggleMemberStatus: _toggleMemberStatus,
-                              onReissueMemberCredential:
-                                  canManageMemberAccounts
+                              onReissueMemberCredential: canManageMemberAccounts
                                   ? _reissueMemberCredential
                                   : null,
                               onAddSubject: _addSubject,
