@@ -4,20 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing published Pre-release staging tag, for example v0.2.0"
+        description: "Existing published Pre-release staging tag, for example v0.3.1"
         required: true
         type: string
-        default: v0.2.0
+        default: v0.3.1
       app_version:
-        description: "Stable semantic app version including Android build, for example 0.2.0+4"
+        description: "Stable semantic app version including Android build, for example 0.3.1+9"
         required: true
         type: string
-        default: 0.2.0+4
+        default: 0.3.1+9
       release_notes:
         description: "One update note per line; optional"
         required: false
         type: string
         default: "稳定性与更新流程改进"
+      supabase_url:
+        description: "Public production Supabase URL; used only when the repository variable is unset"
+        required: false
+        type: string
+        default: ""
+      supabase_publishable_key:
+        description: "Public Supabase publishable client key; used only when the repository variable is unset"
+        required: false
+        type: string
+        default: ""
+      supabase_allowed_hosts:
+        description: "Comma-separated production hosts; used only when the repository variable is unset"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -30,9 +45,9 @@ env:
   RELEASE_TAG: ${{ inputs.release_tag }}
   RELEASE_VERSION: ${{ inputs.app_version }}
   XUEQING_ENV: production
-  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '' }}
-  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '' }}
-  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '' }}
+  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || inputs.supabase_url }}
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || inputs.supabase_publishable_key }}
+  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || inputs.supabase_allowed_hosts }}
   XUEQING_ALLOW_DEVELOPMENT_RELEASE: "false"
   XUEQING_SHOW_DEV_TOOLS: "false"
   XUEQING_REQUIRE_RELEASE_SIGNING: "true"
@@ -188,7 +203,10 @@ jobs:
           apk="build/app/outputs/flutter-apk/app-release.apk"
           verify_output="$("$apksigner" verify --verbose --print-certs "$apk")"
           printf '%s\n' "$verify_output"
-          actual_cert_sha="$(printf '%s\n' "$verify_output" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          actual_cert_sha="$(printf '%s\n' "$verify_output" | sed -n -E \
+            -e 's/^Signer #1 certificate SHA-256 digest: //p' \
+            -e 's/^V[0-9.]+ Signer: certificate SHA-256 digest: //p' \
+            | head -n 1 | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
           expected_cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
           if [[ ! "$actual_cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
             echo "Could not read the APK signing certificate SHA-256 fingerprint."
