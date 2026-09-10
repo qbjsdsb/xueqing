@@ -1015,16 +1015,8 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       );
     }
 
-    final transitionKey = widget.showCase && widget.selectedCase != null
-        ? 'case-${widget.selectedCase!.id}'
-        : widget.destination == 1 && _studentOpen
-        ? 'student-${widget.selectedStudent.id}'
-        : 'destination-${widget.destination}';
-
     return Scaffold(
-      body: SafeArea(
-        child: _QuietPaneTransition(transitionKey: transitionKey, child: body),
-      ),
+      body: SafeArea(child: body),
       bottomNavigationBar: widget.showCase || _studentOpen
           ? null
           : NavigationBar(

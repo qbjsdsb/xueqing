@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../cloud/learning_repository.dart';
 import '../cloud/student_learning_record_repository.dart';
@@ -275,10 +277,27 @@ class LearningRecordExport {
   static Future<String?> saveAsXlsx({
     required String fileNameWithoutExtension,
     required List<LearningRecordExportRow> rows,
-  }) {
+  }) async {
     final bytes = buildWorkbook(rows: rows);
+    final name = sanitizeFileName(fileNameWithoutExtension);
+    if (Platform.isWindows) {
+      final downloads = await getDownloadsDirectory();
+      if (downloads == null) {
+        throw const FileSystemException('无法读取 Windows 下载文件夹。');
+      }
+      var file = File('${downloads.path}${Platform.pathSeparator}$name.xlsx');
+      var suffix = 2;
+      while (await file.exists()) {
+        file = File(
+          '${downloads.path}${Platform.pathSeparator}$name-$suffix.xlsx',
+        );
+        suffix++;
+      }
+      await file.writeAsBytes(bytes, flush: true);
+      return file.path;
+    }
     return FileSaver.instance.saveAs(
-      name: sanitizeFileName(fileNameWithoutExtension),
+      name: name,
       bytes: bytes,
       fileExtension: 'xlsx',
       mimeType: MimeType.microsoftExcel,

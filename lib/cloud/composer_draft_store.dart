@@ -106,7 +106,10 @@ class SecureComposerDraftStore implements ComposerDraftStore {
             'attachment.attachment_id',
           ),
           bytes: bytes,
-          fileName: _requiredString(metadata['file_name'], 'attachment.file_name'),
+          fileName: _requiredString(
+            metadata['file_name'],
+            'attachment.file_name',
+          ),
           contentType: _requiredString(
             metadata['content_type'],
             'attachment.content_type',
