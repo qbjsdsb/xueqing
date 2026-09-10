@@ -996,6 +996,19 @@ abstract interface class OrganizationManagementRepository {
     String? studentCode,
     required String status,
   });
+
+  Future<OrganizationStudentUpdateResult> updateStudentProfile({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+    required String name,
+    String? studentCode,
+    required String grade,
+    String? className,
+    String? campus,
+  });
+
   Future<OrganizationInvitation> createInvitation({
     required String organizationId,
     required String email,
@@ -1279,7 +1292,10 @@ String? organizationStudentLifecycleErrorMessage(Object error) {
   }
   return switch (detail.toLowerCase()) {
     'invalid_student_update_input' => '学生姓名、编号或状态不符合要求。',
+    'invalid_student_profile_update_input' => '学生姓名和年级必填；学生编号、班级和校区可以留空。',
     'student_code_already_exists' => '这个学生编号已被本机构其他学生使用，请核对后修改。',
+    'possible_duplicate_student' => '已存在姓名、年级、班级和校区相同的学生；请先核对，确为不同学生时填写不同学生编号。',
+    'student_enrollment_not_found' => '这位学生缺少可编辑的在读资料，请刷新后重试。',
     'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
     'student_not_found' => '学生档案已变化，请刷新后重试。',
     'student_merged_immutable' => '已合并的学生档案不能直接修改。',
@@ -1748,6 +1764,43 @@ class SupabaseOrganizationManagementRepository
         'p_name': name.trim(),
         'p_student_code': _nullableText(studentCode),
         'p_status': status.trim(),
+      },
+    );
+    return OrganizationStudentUpdateResult.fromJson(_mapResponse(response));
+  }
+
+  @override
+  Future<OrganizationStudentUpdateResult> updateStudentProfile({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+    required String name,
+    String? studentCode,
+    required String grade,
+    String? className,
+    String? campus,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        organizationId.trim().isEmpty ||
+        studentId.trim().isEmpty ||
+        expectedStudentVersion <= 0 ||
+        name.trim().isEmpty ||
+        grade.trim().isEmpty) {
+      throw ArgumentError('Student profile update identity cannot be empty.');
+    }
+    final response = await _call(
+      'update_organization_student_profile',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_id': studentId,
+        'p_expected_student_version': expectedStudentVersion,
+        'p_name': name.trim(),
+        'p_student_code': _nullableText(studentCode),
+        'p_grade': grade.trim(),
+        'p_class_name': _nullableText(className),
+        'p_campus': _nullableText(campus),
       },
     );
     return OrganizationStudentUpdateResult.fromJson(_mapResponse(response));

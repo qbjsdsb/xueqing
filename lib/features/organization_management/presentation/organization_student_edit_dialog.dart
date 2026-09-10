@@ -12,6 +12,9 @@ class OrganizationStudentEditDraft {
     required this.expectedStudentVersion,
     required this.name,
     required this.studentCode,
+    required this.grade,
+    required this.className,
+    required this.campus,
   });
 
   final String operationId;
@@ -19,6 +22,9 @@ class OrganizationStudentEditDraft {
   final int expectedStudentVersion;
   final String name;
   final String? studentCode;
+  final String grade;
+  final String? className;
+  final String? campus;
 }
 
 class OrganizationStudentEditDialog extends StatefulWidget {
@@ -44,6 +50,9 @@ class _OrganizationStudentEditDialogState
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _studentCodeController;
+  late final TextEditingController _gradeController;
+  late final TextEditingController _classNameController;
+  late final TextEditingController _campusController;
   final String _operationId = createOperationId();
   bool _busy = false;
   String? _errorMessage;
@@ -55,12 +64,22 @@ class _OrganizationStudentEditDialogState
     _studentCodeController = TextEditingController(
       text: widget.student.studentCode ?? '',
     );
+    _gradeController = TextEditingController(text: widget.student.grade ?? '');
+    _classNameController = TextEditingController(
+      text: widget.student.className ?? '',
+    );
+    _campusController = TextEditingController(
+      text: widget.student.campus ?? '',
+    );
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _studentCodeController.dispose();
+    _gradeController.dispose();
+    _classNameController.dispose();
+    _campusController.dispose();
     super.dispose();
   }
 
@@ -78,6 +97,9 @@ class _OrganizationStudentEditDialogState
           expectedStudentVersion: widget.student.version,
           name: _nameController.text.trim(),
           studentCode: _nullableText(_studentCodeController.text),
+          grade: _gradeController.text.trim(),
+          className: _nullableText(_classNameController.text),
+          campus: _nullableText(_campusController.text),
         ),
       );
       if (mounted) Navigator.of(context).pop(result);
@@ -104,11 +126,11 @@ class _OrganizationStudentEditDialogState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return AlertDialog(
-      title: const Text('编辑学生'),
+      title: const Text('编辑学生资料'),
       content: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 520,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.58,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.68,
         ),
         child: Form(
           key: _formKey,
@@ -118,11 +140,12 @@ class _OrganizationStudentEditDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '这里只修改姓名和编号。暂停教学、恢复教学与归档属于独立操作，不会在普通编辑中顺带改变。',
+                  '修改姓名、编号和在读信息，不会改变教学状态、学科、任课关系、问题或历史记录。',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
+                  key: const Key('student-edit-name-field'),
                   controller: _nameController,
                   autofocus: true,
                   maxLength: 120,
@@ -140,12 +163,53 @@ class _OrganizationStudentEditDialogState
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 TextFormField(
+                  key: const Key('student-edit-code-field'),
                   controller: _studentCodeController,
                   maxLength: 80,
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(
                     labelText: '学生编号',
-                    hintText: '可选',
+                    hintText: '可选，例如 S-001',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                TextFormField(
+                  key: const Key('student-edit-grade-field'),
+                  controller: _gradeController,
+                  maxLength: 120,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: '年级 *',
+                    hintText: '例如：初三',
+                  ),
+                  validator: (value) {
+                    final text = value?.trim() ?? '';
+                    if (text.isEmpty) return '请输入年级。';
+                    if (text.length > 120) return '年级不能超过 120 个字符。';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                TextFormField(
+                  key: const Key('student-edit-class-field'),
+                  controller: _classNameController,
+                  maxLength: 120,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: '班级',
+                    hintText: '可选，例如 3 班',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                TextFormField(
+                  key: const Key('student-edit-campus-field'),
+                  controller: _campusController,
+                  maxLength: 120,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _submit(),
+                  decoration: const InputDecoration(
+                    labelText: '校区',
+                    hintText: '可选，例如 思明校区',
                   ),
                 ),
                 if (_errorMessage != null) ...[
@@ -174,6 +238,7 @@ class _OrganizationStudentEditDialogState
           child: const Text('取消'),
         ),
         FilledButton(
+          key: const Key('student-edit-submit'),
           onPressed: _busy ? null : _submit,
           child: _busy
               ? const SizedBox(
@@ -181,7 +246,7 @@ class _OrganizationStudentEditDialogState
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('保存学生'),
+              : const Text('保存资料'),
         ),
       ],
     );

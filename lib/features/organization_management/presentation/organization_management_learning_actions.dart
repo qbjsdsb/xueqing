@@ -673,14 +673,16 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
         context: context,
         builder: (context) => OrganizationStudentEditDialog(
           student: student,
-          onSubmit: (draft) => widget.repository.updateStudent(
+          onSubmit: (draft) => widget.repository.updateStudentProfile(
             operationId: draft.operationId,
             organizationId: widget.organizationId,
             studentId: draft.studentId,
             expectedStudentVersion: draft.expectedStudentVersion,
             name: draft.name,
             studentCode: draft.studentCode,
-            status: student.status,
+            grade: draft.grade,
+            className: draft.className,
+            campus: draft.campus,
           ),
         ),
       );
@@ -689,7 +691,7 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
       if (!mounted) return;
       widget.onChanged?.call();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已更新 ${result.studentName} 的基本信息。')),
+        SnackBar(content: Text('已更新 ${result.studentName} 的基础资料。')),
       );
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));

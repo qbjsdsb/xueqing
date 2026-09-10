@@ -46,6 +46,7 @@ class _FakeOrganizationManagementRepository
   int studentCreateCount = 0;
   int memberStatusUpdateCount = 0;
   int studentUpdateCount = 0;
+  int studentProfileUpdateCount = 0;
   int teacherScopeUpdateCount = 0;
   int assignmentTransferCount = 0;
   int studentSubjectAddCount = 0;
@@ -733,6 +734,50 @@ class _FakeOrganizationManagementRepository
   }
 
   @override
+  Future<OrganizationStudentUpdateResult> updateStudentProfile({
+    required String operationId,
+    required String organizationId,
+    required String studentId,
+    required int expectedStudentVersion,
+    required String name,
+    String? studentCode,
+    required String grade,
+    String? className,
+    String? campus,
+  }) async {
+    studentProfileUpdateCount++;
+    final index = students.indexWhere(
+      (student) => student.studentId == studentId,
+    );
+    if (index < 0) throw StateError('Student not found.');
+    final previous = students[index];
+    final next = OrganizationStudentRecord(
+      studentId: previous.studentId,
+      studentName: name,
+      studentCode: studentCode,
+      status: previous.status,
+      version: expectedStudentVersion + 1,
+      grade: grade,
+      className: className,
+      campus: campus,
+      startsOn: previous.startsOn,
+      endsOn: previous.endsOn,
+      subjectNames: previous.subjectNames,
+      subjectServices: previous.subjectServices,
+    );
+    students[index] = next;
+    updatedStudent = OrganizationStudentUpdateResult(
+      operationId: operationId,
+      studentId: studentId,
+      studentName: next.studentName,
+      studentCode: next.studentCode,
+      status: next.status,
+      version: next.version,
+    );
+    return updatedStudent!;
+  }
+
+  @override
   Future<OrganizationInvitation> createInvitation({
     required String organizationId,
     required String email,
@@ -1017,12 +1062,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('学生姓名 *'), findsOneWidget);
+    expect(find.text('年级 *'), findsOneWidget);
     expect(find.text('服务学科 *'), findsOneWidget);
     expect(find.text('负责老师 *'), findsOneWidget);
     expect(find.text('学生编号'), findsNothing);
-    expect(find.text('年级'), findsNothing);
     expect(find.text('学情背景（可选）'), findsNothing);
     await tester.enterText(find.byType(TextFormField).first, '新学生');
+    await tester.tap(find.byKey(const Key('student-setup-submit')));
+    await tester.pumpAndSettle();
+    expect(repository.studentCreateCount, 0);
+    expect(find.text('请输入年级。'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('student-setup-grade-field')),
+      '初三',
+    );
     await tester.tap(find.byKey(const Key('student-setup-submit')));
     await tester.pumpAndSettle();
 
@@ -1192,16 +1246,16 @@ void main() {
 
     final toggle = find.byKey(const Key('student-setup-optional-toggle'));
     expect(toggle, findsOneWidget);
+    expect(find.text('年级 *'), findsOneWidget);
     expect(find.text('学生编号'), findsNothing);
-    expect(find.text('年级'), findsNothing);
     expect(find.text('班级'), findsNothing);
     expect(find.text('校区'), findsNothing);
 
     await tester.tap(toggle);
     await tester.pumpAndSettle();
 
+    expect(find.text('年级 *'), findsOneWidget);
     expect(find.text('学生编号'), findsOneWidget);
-    expect(find.text('年级'), findsOneWidget);
     expect(find.text('班级'), findsOneWidget);
     expect(find.text('校区'), findsOneWidget);
     expect(find.text('学情背景（可选）'), findsOneWidget);
@@ -1454,47 +1508,113 @@ void main() {
     },
   );
 
-  testWidgets('admin edits student identity without changing lifecycle', (
-    tester,
-  ) async {
-    final repository = _FakeOrganizationManagementRepository(
-      members: const [],
-      invitations: const [],
-      students: [_studentRecord()],
-    );
-    await _pumpManagement(tester, repository);
+  testWidgets(
+    'admin edits complete student profile without changing lifecycle',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        students: [_studentRecord()],
+      );
+      await _pumpManagement(tester, repository);
 
-    expect(find.text('原学生'), findsOneWidget);
-    expect(find.text('编辑资料'), findsNothing);
-    await _openStudentMoreActions(tester);
-    final editButton = find.byKey(
-      const ValueKey<String>('student-edit-student-1'),
-    );
-    await tester.tap(editButton);
-    await tester.pumpAndSettle();
+      expect(find.text('原学生'), findsOneWidget);
+      expect(find.text('编辑资料'), findsNothing);
+      await _openStudentMoreActions(tester);
+      final editButton = find.byKey(
+        const ValueKey<String>('student-edit-student-1'),
+      );
+      await tester.tap(editButton);
+      await tester.pumpAndSettle();
 
-    expect(find.text('编辑学生'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.text('教学可见状态 *'),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.text('这里只修改姓名和编号。暂停教学、恢复教学与归档属于独立操作，不会在普通编辑中顺带改变。'),
-      findsOneWidget,
-    );
-    await tester.enterText(find.byType(TextFormField).first, '更新学生');
-    await tester.tap(find.text('保存学生'));
-    await tester.pumpAndSettle();
+      expect(find.text('编辑学生资料'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('教学可见状态 *'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.text('修改姓名、编号和在读信息，不会改变教学状态、学科、任课关系、问题或历史记录。'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('student-edit-grade-field')),
+            )
+            .controller
+            ?.text,
+        '初二',
+      );
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('student-edit-class-field')),
+            )
+            .controller
+            ?.text,
+        '一班',
+      );
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('student-edit-campus-field')),
+            )
+            .controller
+            ?.text,
+        '本部',
+      );
 
-    expect(repository.studentUpdateCount, 1);
-    expect(repository.updatedStudent?.studentName, '更新学生');
-    expect(repository.updatedStudent?.status, 'active');
-    expect(repository.updatedStudent?.version, 4);
-    expect(find.text('编辑学生'), findsNothing);
-  });
+      await tester.enterText(
+        find.byKey(const Key('student-edit-name-field')),
+        '更新学生',
+      );
+      await tester.enterText(
+        find.byKey(const Key('student-edit-code-field')),
+        'S-UPDATED',
+      );
+      await tester.enterText(
+        find.byKey(const Key('student-edit-grade-field')),
+        '',
+      );
+      await tester.tap(find.byKey(const Key('student-edit-submit')));
+      await tester.pumpAndSettle();
+      expect(repository.studentProfileUpdateCount, 0);
+      expect(find.text('请输入年级。'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('student-edit-grade-field')),
+        '初三',
+      );
+      await tester.enterText(
+        find.byKey(const Key('student-edit-class-field')),
+        '',
+      );
+      await tester.enterText(
+        find.byKey(const Key('student-edit-campus-field')),
+        '',
+      );
+      await tester.tap(find.byKey(const Key('student-edit-submit')));
+      await tester.pumpAndSettle();
+
+      expect(repository.studentProfileUpdateCount, 1);
+      expect(repository.studentUpdateCount, 0);
+      expect(repository.updatedStudent?.studentName, '更新学生');
+      expect(repository.updatedStudent?.status, 'active');
+      expect(repository.updatedStudent?.version, 4);
+      expect(repository.students.single.studentCode, 'S-UPDATED');
+      expect(repository.students.single.grade, '初三');
+      expect(repository.students.single.className, isNull);
+      expect(repository.students.single.campus, isNull);
+      expect(
+        repository.students.single.subjectServices.single.status,
+        'active',
+      );
+      expect(find.text('编辑学生资料'), findsNothing);
+    },
+  );
 
   testWidgets('admin can add an organization subject from the catalog', (
     tester,

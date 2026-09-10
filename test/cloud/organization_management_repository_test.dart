@@ -201,6 +201,18 @@ void main() {
       ),
       '这个学生编号已被本机构其他学生使用，请核对后修改。',
     );
+    expect(
+      organizationStudentLifecycleErrorMessage(
+        const AuthException('possible_duplicate_student'),
+      ),
+      '已存在姓名、年级、班级和校区相同的学生；请先核对，确为不同学生时填写不同学生编号。',
+    );
+    expect(
+      organizationStudentLifecycleErrorMessage(
+        const AuthException('student_enrollment_not_found'),
+      ),
+      '这位学生缺少可编辑的在读资料，请刷新后重试。',
+    );
   });
 
   test('parses and explains student teaching lifecycle results', () {

@@ -164,7 +164,7 @@ class _OrganizationStudentSetupDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '先填写学生姓名、服务学科和负责老师；保存后会一次完成建档和首个负责关系。其他资料需要时再展开填写。',
+                  '先填写学生姓名、年级、服务学科和负责老师；保存后会一次完成建档和首个负责关系。其他资料需要时再展开填写。',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -185,6 +185,23 @@ class _OrganizationStudentSetupDialogState
                     if (text.length > 120) {
                       return '学生姓名不能超过 120 个字符。';
                     }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextFormField(
+                  key: const Key('student-setup-grade-field'),
+                  controller: _gradeController,
+                  maxLength: 120,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: '年级 *',
+                    hintText: '例如：初三',
+                  ),
+                  validator: (value) {
+                    final text = value?.trim() ?? '';
+                    if (text.isEmpty) return '请输入年级。';
+                    if (text.length > 120) return '年级不能超过 120 个字符。';
                     return null;
                   },
                 ),
@@ -271,7 +288,7 @@ class _OrganizationStudentSetupDialogState
                           children: [
                             const SizedBox(height: AppSpacing.xs),
                             Text(
-                              '这些信息不是建档必填项；如果现在已知，可以一起保存。',
+                              '学生编号、班级、校区和学情背景都不是必填项；如果现在已知，可以一起保存。',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
@@ -285,16 +302,6 @@ class _OrganizationStudentSetupDialogState
                               textInputAction: TextInputAction.next,
                               decoration: const InputDecoration(
                                 labelText: '学生编号',
-                                hintText: '可选',
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            TextFormField(
-                              controller: _gradeController,
-                              maxLength: 120,
-                              textInputAction: TextInputAction.next,
-                              decoration: const InputDecoration(
-                                labelText: '年级',
                                 hintText: '可选',
                               ),
                             ),
