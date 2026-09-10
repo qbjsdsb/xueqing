@@ -6,14 +6,23 @@ test_path = Path('test/features/design_v2_workspace_test.dart')
 workspace = workspace_path.read_text(encoding='utf-8')
 old_history = "    final hasInternalHistory = widget.showCase || _studentOpen;\n"
 new_history = (
-    "    final hasInternalHistory =\n"
-    "        widget.showCase || _studentOpen || widget.destination != 0;\n"
+    "    final hasInternalHistory = widget.showCase || _studentOpen;\n"
+    "    final handlesSystemBack =\n"
+    "        hasInternalHistory || widget.destination != 0;\n"
 )
 if workspace.count(old_history) != 1:
     raise SystemExit(
         f'expected exactly one compact history declaration, found {workspace.count(old_history)}'
     )
 workspace = workspace.replace(old_history, new_history, 1)
+
+old_can_pop = "      canPop: !hasInternalHistory,\n"
+new_can_pop = "      canPop: !handlesSystemBack,\n"
+if workspace.count(old_can_pop) != 1:
+    raise SystemExit(
+        f'expected exactly one compact PopScope canPop declaration, found {workspace.count(old_can_pop)}'
+    )
+workspace = workspace.replace(old_can_pop, new_can_pop, 1)
 
 old_back = """        if (_studentOpen) {
           setState(() => _studentOpen = false);
