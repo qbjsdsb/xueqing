@@ -30,6 +30,7 @@ import 'evidence_attachment_picker.dart';
 import 'progressive_case_forms.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../export/learning_record_export.dart';
+import '../../../export/learning_record_export_feedback.dart';
 import '../../../update/update_dialog.dart';
 import '../../../update/update_installer.dart';
 import '../../../update/update_service.dart';
@@ -1963,9 +1964,12 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(savedPath == null ? '已取消导出。' : '学情记录表已生成。')),
-      );
+      if (savedPath == null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已取消导出。')));
+      } else {
+        showLearningRecordExportSuccess(context, savedPath: savedPath);
+      }
     } catch (error, stackTrace) {
       _workspaceLogger.error(
         'student_subject_export_failed',

@@ -74,7 +74,8 @@ void main() {
     expect(composers, contains('onPopInvokedWithResult'));
 
     expect(updateFlow, contains('service.checkForUpdate()'));
-    expect(updateFlow, contains('service.download(result)'));
+    expect(updateFlow, contains('service.download('));
+    expect(updateFlow, contains('onProgress:'));
     expect(updateFlow, contains('installer.install(downloaded)'));
     expect(updateFlow, contains('SystemNavigator.pop()'));
   });

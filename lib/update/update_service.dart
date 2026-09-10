@@ -9,6 +9,10 @@ import 'package:path_provider/path_provider.dart';
 import 'update_models.dart';
 
 typedef UpdateManifestLoader = Future<String> Function(Uri uri);
+typedef UpdateDownloadProgress = void Function(
+  int downloadedBytes,
+  int totalBytes,
+);
 
 class UpdateException implements Exception {
   const UpdateException(this.userMessage, {this.cause});
@@ -155,7 +159,10 @@ class UpdateService {
     );
   }
 
-  Future<UpdateDownloadedArtifact> download(UpdateCheckResult result) async {
+  Future<UpdateDownloadedArtifact> download(
+    UpdateCheckResult result, {
+    UpdateDownloadProgress? onProgress,
+  }) async {
     if (!result.hasUpdate || result.artifact == null) {
       throw const UpdateException('当前没有可下载的更新。');
     }
@@ -164,6 +171,7 @@ class UpdateService {
     if (artifact.sizeBytes > maxDownloadBytes) {
       throw const UpdateException('更新包超过允许的最大大小，已停止下载。');
     }
+    onProgress?.call(0, artifact.sizeBytes);
     final temporaryDirectory = await getTemporaryDirectory();
     final updatesDirectory = Directory(
       '${temporaryDirectory.path}${Platform.pathSeparator}xueqing-updates',
@@ -200,6 +208,7 @@ class UpdateService {
         if (downloadedBytes > artifact.sizeBytes) {
           throw const UpdateException('下载内容超过清单声明大小，已停止。');
         }
+        onProgress?.call(downloadedBytes, artifact.sizeBytes);
         digestInput.add(chunk);
         sink.add(chunk);
       }
@@ -213,6 +222,7 @@ class UpdateService {
         throw const UpdateException('更新包校验失败，已删除不完整文件。');
       }
       verified = true;
+      onProgress?.call(artifact.sizeBytes, artifact.sizeBytes);
       return UpdateDownloadedArtifact(artifact: artifact, file: destination);
     } on UpdateException {
       rethrow;

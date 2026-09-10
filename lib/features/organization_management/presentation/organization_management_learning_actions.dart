@@ -76,15 +76,17 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
         rows: preparedRows,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            savedPath == null
-                ? '已取消导出。'
-                : '已生成 ${selection.studentCount} 名学生、${selection.profiles.length} 个学科的学情记录表。',
-          ),
-        ),
-      );
+      if (savedPath == null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已取消导出。')));
+      } else {
+        showLearningRecordExportSuccess(
+          context,
+          savedPath: savedPath,
+          summary:
+              '已导出 ${selection.studentCount} 名学生、${selection.profiles.length} 个学科的学情记录',
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -186,13 +188,16 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
         rows: preparedRows,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            savedPath == null ? '已取消导出。' : '$teacherName 的教学记录表已生成。',
-          ),
-        ),
-      );
+      if (savedPath == null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已取消导出。')));
+      } else {
+        showLearningRecordExportSuccess(
+          context,
+          savedPath: savedPath,
+          summary: '$teacherName 的教学记录已导出',
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {

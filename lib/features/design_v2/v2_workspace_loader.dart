@@ -8,6 +8,7 @@ import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
 import '../../cloud/student_learning_record_repository.dart';
 import '../../export/learning_record_export.dart';
+import '../../export/learning_record_export_feedback.dart';
 import '../teacher_workspace/workspace_runtime.dart';
 import 'v2_fixture.dart';
 import 'v2_management_page.dart';
@@ -200,9 +201,12 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(savedPath == null ? '已取消导出。' : '学情记录表已生成。')),
-      );
+      if (savedPath == null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已取消导出。')));
+      } else {
+        showLearningRecordExportSuccess(context, savedPath: savedPath);
+      }
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -211,6 +215,84 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           learningRecordImageExportErrorMessage(error) ??
           studentLearningRecordExportErrorMessage(error) ??
           '学情记录暂时无法读取，请检查网络后重试。';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _exportMyStudentRecords(
+    BuildContext context,
+    TeacherWorkspace workspace,
+  ) async {
+    final repository = widget.runtime?.studentLearningRecordRepository;
+    if (repository == null) return;
+
+    final profilesById = <String, WorkspaceStudent>{};
+    for (final profile in workspace.students) {
+      profilesById[profile.profileId] = profile;
+    }
+    final profiles = profilesById.values.toList(growable: false);
+    if (profiles.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('当前没有可导出的任课学生。')));
+      return;
+    }
+
+    try {
+      final records = <StudentLearningRecord>[];
+      const requestBatchSize = 4;
+      for (var start = 0; start < profiles.length; start += requestBatchSize) {
+        final end = (start + requestBatchSize).clamp(0, profiles.length);
+        final batch = profiles.sublist(start, end);
+        final batches = await Future.wait([
+          for (final profile in batch)
+            repository.listStudentSubjectRecords(profileId: profile.profileId),
+        ]);
+        for (final batchRecords in batches) {
+          records.addAll(batchRecords);
+        }
+      }
+      if (!context.mounted) return;
+      if (records.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('我的任课学生目前还没有可导出的学情记录。')));
+        return;
+      }
+
+      final rows = LearningRecordExport.rowsForStudentRecords(records);
+      final preparedRows =
+          await LearningRecordExport.prepareRowsWithAttachmentImages(
+            rows: rows,
+            repository:
+                widget.runtime?.evidenceAttachmentRepository ??
+                widget.evidenceAttachmentRepository,
+          );
+      final studentCount = profiles.map((profile) => profile.id).toSet().length;
+      final savedPath = await LearningRecordExport.saveAsXlsx(
+        fileNameWithoutExtension: LearningRecordExport.studentBatchFileName(
+          studentCount: studentCount,
+          profileCount: profiles.length,
+        ),
+        rows: preparedRows,
+      );
+      if (!context.mounted) return;
+      if (savedPath == null) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('已取消导出。')));
+        return;
+      }
+      showLearningRecordExportSuccess(
+        context,
+        savedPath: savedPath,
+        summary: '已导出 $studentCount 名任课学生的学情记录',
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      final message =
+          learningRecordImageExportErrorMessage(error) ??
+          studentLearningRecordExportErrorMessage(error) ??
+          '学情记录暂时无法导出，请检查网络后重试。';
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
     }
@@ -312,6 +394,11 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
               ? null
               : (context, student) =>
                     _exportStudentRecords(context, workspace, student),
+          onExportMyStudents:
+              runtime?.studentLearningRecordRepository != null &&
+                  !workspace.canManageOrganization
+              ? (context) => _exportMyStudentRecords(context, workspace)
+              : null,
           managementPageBuilder: managementPageBuilder,
           updateService: runtime?.updateService,
           updateInstaller: runtime?.updateInstaller,

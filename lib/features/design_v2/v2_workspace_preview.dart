@@ -24,6 +24,7 @@ typedef V2StudentExport = Future<void> Function(
   V2Student student,
 );
 typedef V2WorkspaceRefresh = Future<void> Function();
+typedef V2WorkspaceExport = Future<void> Function(BuildContext context);
 
 const int _studentFocusPreviewLimit = 3;
 
@@ -532,6 +533,7 @@ class V2WorkspacePreview extends StatefulWidget {
     this.composerDraftScopeKey,
     this.evidenceAttachmentRepository,
     this.onExportStudent,
+    this.onExportMyStudents,
     this.managementPageBuilder,
     this.updateService,
     this.updateInstaller,
@@ -547,6 +549,7 @@ class V2WorkspacePreview extends StatefulWidget {
   final String? composerDraftScopeKey;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final V2StudentExport? onExportStudent;
+  final V2WorkspaceExport? onExportMyStudents;
   final WidgetBuilder? managementPageBuilder;
   final UpdateService? updateService;
   final UpdateInstaller? updateInstaller;
@@ -811,6 +814,17 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                 () => _showOperationGuide(context),
               ),
             ),
+            if (widget.onExportMyStudents != null)
+              ListTile(
+                key: const Key('v2-menu-export-my-students'),
+                leading: const Icon(Icons.download_outlined),
+                title: const Text('导出我的学生学情'),
+                subtitle: const Text('导出当前有权限的学生、记录与图片'),
+                onTap: () => _afterMenuClose(
+                  menuContext,
+                  () => unawaited(widget.onExportMyStudents!(context)),
+                ),
+              ),
             if (widget.managementPageBuilder != null)
               ListTile(
                 leading: const Icon(Icons.admin_panel_settings_outlined),
@@ -1137,34 +1151,50 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       );
     }
 
-    return Scaffold(
-      body: SafeArea(child: body),
-      bottomNavigationBar: widget.showCase || _studentOpen
-          ? null
-          : NavigationBar(
-              selectedIndex: widget.destination,
-              onDestinationSelected: (value) {
-                setState(() => _studentOpen = false);
-                widget.onDestinationChanged(value);
-              },
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.today_outlined),
-                  selectedIcon: Icon(Icons.today),
-                  label: '今日',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.people_outline),
-                  selectedIcon: Icon(Icons.people),
-                  label: '学生',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.fact_check_outlined),
-                  selectedIcon: Icon(Icons.fact_check),
-                  label: '学情',
-                ),
-              ],
-            ),
+    final hasInternalHistory = widget.showCase || _studentOpen;
+    return PopScope<void>(
+      canPop: !hasInternalHistory,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (widget.showCase) {
+          widget.onBackFromCase();
+          return;
+        }
+        if (_studentOpen) {
+          setState(() => _studentOpen = false);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: SafeArea(child: body),
+        bottomNavigationBar: hasInternalHistory
+            ? null
+            : NavigationBar(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                selectedIndex: widget.destination,
+                onDestinationSelected: (value) {
+                  setState(() => _studentOpen = false);
+                  widget.onDestinationChanged(value);
+                },
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.today_outlined),
+                    selectedIcon: Icon(Icons.today),
+                    label: '今日',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.people_outline),
+                    selectedIcon: Icon(Icons.people),
+                    label: '学生',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.fact_check_outlined),
+                    selectedIcon: Icon(Icons.fact_check),
+                    label: '学情',
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }
@@ -1345,8 +1375,9 @@ class _StudentListPaneState extends State<_StudentListPane> {
   Widget build(BuildContext context) {
     final data = V2WorkspaceDataScope.of(context);
     final visibleStudents = _visibleStudents(data);
+    final scheme = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainerLowest,
+      color: widget.compact ? scheme.surface : scheme.surfaceContainerLowest,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
