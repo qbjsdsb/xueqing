@@ -1,0 +1,144 @@
+name: One-off finalize v0.3.0 freeze and dispatch
+
+on:
+  push:
+    branches:
+      - release/v0.3.0-staging
+    paths:
+      - .github/workflows/oneoff-finalize-v0.3.0.yml
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  finalize-and-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FINAL_SHA: 1b0edef9ba0c54848ce18bb3359ea1833b67a8cf
+      EXPECTED_OLD_SHA: da5ca994ed265664e441dcc4bebd2fd52a3cd704
+      RELEASE_TAG: v0.3.0
+      APP_VERSION: 0.3.0+8
+    steps:
+      - name: Verify release preconditions
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          if [[ "$main_sha" != "$FINAL_SHA" ]]; then
+            echo "main moved after v0.3.0 freeze: $main_sha"
+            exit 1
+          fi
+
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json
+          import os
+
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release.get('draft'):
+              raise SystemExit('v0.3.0 unexpectedly became a draft')
+          if not release.get('prerelease'):
+              raise SystemExit('v0.3.0 is no longer the expected staging prerelease')
+          if release.get('immutable'):
+              raise SystemExit('v0.3.0 release is immutable')
+          assets = release.get('assets') or []
+          if assets:
+              raise SystemExit(f'v0.3.0 already has {len(assets)} asset(s); refusing to retarget')
+          PY
+
+          current_tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
+          if [[ "$current_tag_sha" != "$EXPECTED_OLD_SHA" && "$current_tag_sha" != "$FINAL_SHA" ]]; then
+            echo "v0.3.0 points to unexpected SHA: $current_tag_sha"
+            exit 1
+          fi
+
+      - name: Retarget empty staging tag to frozen main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
+          if [[ "$current_tag_sha" == "$EXPECTED_OLD_SHA" ]]; then
+            gh api --method PATCH \
+              "repos/$GITHUB_REPOSITORY/git/refs/tags/$RELEASE_TAG" \
+              -f sha="$FINAL_SHA" \
+              -F force=true \
+              >/dev/null
+          fi
+
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
+          if [[ "$tag_sha" != "$FINAL_SHA" ]]; then
+            echo "v0.3.0 retarget verification failed: $tag_sha"
+            exit 1
+          fi
+
+          release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.id')"
+          gh api --method PATCH \
+            "repos/$GITHUB_REPOSITORY/releases/$release_id" \
+            -f target_commitish="$FINAL_SHA" \
+            >/dev/null
+
+          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json
+          import os
+
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release.get('target_commitish') != os.environ['FINAL_SHA']:
+              raise SystemExit('release target_commitish did not move to frozen main')
+          if not release.get('prerelease'):
+              raise SystemExit('release stopped being a prerelease during retarget')
+          if release.get('assets'):
+              raise SystemExit('release gained assets during retarget')
+          PY
+
+      - name: Dispatch signed Stable publisher
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          notes=$'新版学情工作台正式启用，围绕“发现问题 → 跟进 → 验证 → 下一步”进一步收口\n优化 Today、学生与问题闭环，以及已结束问题的完整历史与安全重新跟进\n待办支持直接完成与改期，图片记录在成长时间线聚合呈现\n完成正式应用图标、Reduced Motion、移动端触控与发布前可用性打磨\n管理、成员、学科、任课交接、导出与应用内更新继续复用成熟能力'
+          jq -n \
+            --arg ref main \
+            --arg tag "$RELEASE_TAG" \
+            --arg version "$APP_VERSION" \
+            --arg notes "$notes" \
+            '{ref:$ref,inputs:{release_tag:$tag,app_version:$version,release_notes:$notes}}' \
+            > /tmp/dispatch.json
+
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/publish-release-assets.yml/dispatches" \
+            --input /tmp/dispatch.json
+
+      - name: Verify Stable publisher is queued for frozen main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          found=""
+          for attempt in $(seq 1 20); do
+            runs="$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow publish-release-assets.yml \
+              --event workflow_dispatch \
+              --limit 10 \
+              --json databaseId,headSha,status,conclusion,url,createdAt)"
+            found="$(printf '%s' "$runs" | jq -c --arg sha "$FINAL_SHA" 'map(select(.headSha == $sha)) | .[0] // empty')"
+            if [[ -n "$found" ]]; then
+              printf '%s\n' "$found"
+              break
+            fi
+            sleep 2
+          done
+          if [[ -z "$found" ]]; then
+            echo "Stable publisher dispatch for frozen SHA was not observed"
+            exit 1
+          fi
