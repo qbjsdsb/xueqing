@@ -1,0 +1,115 @@
+name: One-off stage v0.3.1
+
+on:
+  push:
+    branches:
+      - "release/v0.3.1-stage"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: oneoff-stage-v0.3.1
+  cancel-in-progress: false
+
+jobs:
+  stage-and-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_RELEASE_COMMIT: afd9667ba53624e8298765b0cbc4bfd7061cedec
+      RELEASE_TAG: v0.3.1
+      RELEASE_VERSION: 0.3.1+9
+      RELEASE_NOTES: |-
+        提升 Android 快速记录、拍照与进程恢复可靠性
+        图片统一压缩后上传，降低流量与存储占用
+        学员、批量学员与按老师导出的 Excel 支持直接嵌入学情图片
+        优化移动端交互细节与应用图标显示
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify immutable release candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          actual_main="$(git rev-parse origin/main)"
+          if [[ "$actual_main" != "$EXPECTED_RELEASE_COMMIT" ]]; then
+            echo "main moved: expected $EXPECTED_RELEASE_COMMIT, got $actual_main"
+            exit 1
+          fi
+
+          actual_version="$(git show "$EXPECTED_RELEASE_COMMIT:pubspec.yaml" | awk '$1 == "version:" {print $2; exit}')"
+          if [[ "$actual_version" != "$RELEASE_VERSION" ]]; then
+            echo "pubspec version mismatch: expected $RELEASE_VERSION, got $actual_version"
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$EXPECTED_RELEASE_COMMIT" HEAD; then
+            echo "Staging branch is not based on the expected release commit."
+            exit 1
+          fi
+
+      - name: Create or verify published Pre-release staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets > /tmp/release.json 2>/dev/null; then
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          release = json.loads(Path('/tmp/release.json').read_text())
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('Existing v0.3.1 Release is not a published Pre-release staging Release.')
+          if release.get('assets'):
+              raise SystemExit('Existing v0.3.1 staging Release already has assets; refusing ambiguous restaging.')
+          PY
+          else
+            printf '%s\n' "$RELEASE_NOTES" > /tmp/release-notes.txt
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$EXPECTED_RELEASE_COMMIT" \
+              --prerelease \
+              --title "学情 v0.3.1" \
+              --notes-file /tmp/release-notes.txt
+          fi
+
+          tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          if [[ "$tag_commit" != "$EXPECTED_RELEASE_COMMIT" ]]; then
+            echo "v0.3.1 tag mismatch: expected $EXPECTED_RELEASE_COMMIT, got $tag_commit"
+            exit 1
+          fi
+
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,isPrerelease,url,assets
+
+      - name: Dispatch stable signed publisher
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          payload = {
+              'ref': 'main',
+              'inputs': {
+                  'release_tag': os.environ['RELEASE_TAG'],
+                  'app_version': os.environ['RELEASE_VERSION'],
+                  'release_notes': os.environ['RELEASE_NOTES'],
+              },
+          }
+          Path('/tmp/dispatch.json').write_text(
+              json.dumps(payload, ensure_ascii=False), encoding='utf-8'
+          )
+          PY
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/publish-release-assets.yml/dispatches" \
+            --input /tmp/dispatch.json
+          echo "Stable publisher dispatched for $RELEASE_TAG at $EXPECTED_RELEASE_COMMIT"
