@@ -27,6 +27,26 @@ jobs:
       - name: Apply audited closure patch
         run: |
           set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/patch_v2_release_closure.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''loader = replace_once(
+              loader,
+              "  @override\\n  Widget build(BuildContext context) {",
+              export_methods + "  @override\\n  Widget build(BuildContext context) {",
+              "loader student export flow",
+          )'''
+          new = '''loader = replace_once(
+              loader,
+              "  void _retry() {\\n    final nextWorkspace = widget.loadWorkspace();\\n    setState(() {\\n      _workspaceFuture = nextWorkspace;\\n    });\\n  }\\n\\n  @override\\n  Widget build(BuildContext context) {",
+              "  void _retry() {\\n    final nextWorkspace = widget.loadWorkspace();\\n    setState(() {\\n      _workspaceFuture = nextWorkspace;\\n    });\\n  }\\n\\n" + export_methods + "  @override\\n  Widget build(BuildContext context) {",
+              "loader student export flow",
+          )'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one helper anchor block, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
           python .github/scripts/patch_v2_release_closure.py
 
       - name: Get packages
