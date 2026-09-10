@@ -58,6 +58,7 @@ jobs:
               if text.count(anchor) != 1:
                   raise SystemExit('loader import anchor mismatch')
               text = text.replace(anchor, "import 'v2_fixture.dart';\n" + anchor, 1)
+          text = text.replace("import 'v2_workspace_data.dart';\n", "", 1)
           loader.write_text(text, encoding='utf-8')
 
           teacher = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
