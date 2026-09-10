@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xueqing/app/theme/app_motion.dart';
@@ -11,6 +13,30 @@ void main() {
     expect(theme.cardTheme.elevation, 0);
     expect(AppMotion.standard, const Duration(milliseconds: 180));
     expect(AppMotion.settle, const Duration(milliseconds: 240));
+  });
+
+  test('V2 composers keep release-safe motion and touch targets', () {
+    final source = File(
+      'lib/features/design_v2/v2_composers.dart',
+    ).readAsStringSync();
+
+    expect(
+      source,
+      isNot(contains('duration: const Duration(milliseconds: 180),')),
+    );
+    expect(
+      RegExp(
+        r'AppMotion\.effectiveDuration\(context\)',
+      ).allMatches(source).length,
+      4,
+    );
+    expect(
+      RegExp(r'BoxConstraints\(minHeight: 44\)').allMatches(source).length,
+      greaterThanOrEqualTo(2),
+    );
+    expect(source, contains("key: ValueKey('v2-media-remove-\$index')"));
+    expect(source, contains('width: 44'));
+    expect(source, contains('height: 44'));
   });
 
   testWidgets('motion respects the platform reduced-motion preference', (
