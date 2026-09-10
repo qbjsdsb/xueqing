@@ -192,7 +192,7 @@ class SecureComposerDraftStore implements ComposerDraftStore {
   }
 
   Future<Directory> _draftDirectory(String scopeKey) async {
-    final root = await getTemporaryDirectory();
+    final root = await getApplicationSupportDirectory();
     return Directory(
       '${root.path}${Platform.pathSeparator}$_directoryName'
       '${Platform.pathSeparator}${_scopeToken(scopeKey)}',
@@ -212,6 +212,18 @@ class SecureComposerDraftStore implements ComposerDraftStore {
       _ => 'bin',
     };
   }
+}
+
+String quickCaptureComposerScopeKey({
+  required String sessionUserId,
+  String? organizationId,
+}) {
+  final user = _validateScope(sessionUserId);
+  final organization = organizationId?.trim();
+  if (organization != null && organization.isNotEmpty) {
+    return 'quick-capture:$user:$organization';
+  }
+  return 'quick-capture:$user';
 }
 
 class InMemoryComposerDraftStore implements ComposerDraftStore {
