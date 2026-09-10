@@ -161,7 +161,8 @@ class AppVersion implements Comparable<AppVersion> {
   }
 
   @override
-  int get hashCode => Object.hash(major, minor, patch, build, prerelease);
+  int get hashCode =>
+      Object.hash(major, minor, patch, build, Object.hashAll(prerelease));
 
   bool operator <(AppVersion other) => compareTo(other) < 0;
   bool operator <=(AppVersion other) => compareTo(other) <= 0;
