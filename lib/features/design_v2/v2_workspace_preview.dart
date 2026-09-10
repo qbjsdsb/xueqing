@@ -95,57 +95,33 @@ Future<void> _showV2QuickCaptureStudentPicker(BuildContext context) async {
     return;
   }
 
-  Widget choices(BuildContext selectionContext) => ListView.separated(
-    shrinkWrap: true,
-    itemCount: students.length,
-    separatorBuilder: (_, _) => Divider(
-      height: 1,
-      color: Theme.of(selectionContext).colorScheme.outlineVariant,
-    ),
-    itemBuilder: (_, index) {
-      final student = students[index];
-      return ListTile(
-        title: Text(student.name),
-        subtitle: Text('${student.grade} · ${student.subjects.join(' / ')}'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(selectionContext).pop(student),
-      );
-    },
-  );
-
   final compact = MediaQuery.sizeOf(context).width < 720;
   final selected = compact
       ? await showModalBottomSheet<V2Student>(
           context: context,
           useSafeArea: true,
           showDragHandle: true,
+          isScrollControlled: true,
           builder: (sheetContext) => Padding(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '选择学生',
-                  style: Theme.of(sheetContext).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 480),
-                  child: choices(sheetContext),
-                ),
-              ],
+            padding: EdgeInsets.fromLTRB(
+              18,
+              8,
+              18,
+              28 + MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 560),
+              child: _V2StudentPicker(students: students),
             ),
           ),
         )
       : await showDialog<V2Student>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('选择学生'),
             content: SizedBox(
-              width: 420,
-              height: 480,
-              child: choices(dialogContext),
+              width: 440,
+              height: 540,
+              child: _V2StudentPicker(students: students),
             ),
           ),
         );
@@ -153,6 +129,108 @@ Future<void> _showV2QuickCaptureStudentPicker(BuildContext context) async {
     return;
   }
   await _showV2QuickCaptureForStudent(context, selected);
+}
+
+class _V2StudentPicker extends StatefulWidget {
+  const _V2StudentPicker({required this.students});
+
+  final List<V2Student> students;
+
+  @override
+  State<_V2StudentPicker> createState() => _V2StudentPickerState();
+}
+
+class _V2StudentPickerState extends State<_V2StudentPicker> {
+  final _controller = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  List<V2Student> get _visibleStudents {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.students;
+    return widget.students
+        .where((student) {
+          final haystack = [
+            student.name,
+            student.grade,
+            ...student.subjects,
+          ].join(' ').toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = _visibleStudents;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('选择学生', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('v2-quick-capture-student-search'),
+          controller: _controller,
+          autofocus: true,
+          onChanged: (value) => setState(() => _query = value),
+          decoration: InputDecoration(
+            hintText: '搜索姓名、年级或学科…',
+            prefixIcon: const Icon(Icons.search, size: 19),
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: '清除搜索',
+                    onPressed: () {
+                      _controller.clear();
+                      setState(() => _query = '');
+                    },
+                    icon: const Icon(Icons.close, size: 18),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          _query.trim().isEmpty
+              ? '全部 ${widget.students.length} 位'
+              : '找到 ${visible.length} 位',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 6),
+        Expanded(
+          child: visible.isEmpty
+              ? Center(
+                  child: Text(
+                    '没有找到匹配的学生',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: visible.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                  itemBuilder: (_, index) {
+                    final student = visible[index];
+                    return ListTile(
+                      title: Text(student.name),
+                      subtitle: Text(
+                        '${student.grade} · ${student.subjects.join(' / ')}',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).pop(student),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
 }
 
 Future<void> _showV2CompleteCurrentAction(
@@ -613,12 +691,12 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
         data: widget.data,
         child: Builder(
           builder: (context) {
+            final hasMenuActions =
+                widget.managementPageBuilder != null ||
+                widget.updateService != null &&
+                    widget.updateInstaller != null ||
+                widget.onSignOut != null;
             if (widget.data.students.isEmpty) {
-              final hasMenuActions =
-                  widget.managementPageBuilder != null ||
-                  widget.updateService != null &&
-                      widget.updateInstaller != null ||
-                  widget.onSignOut != null;
               return _EmptyWorkspacePreview(
                 onOpenManagement: widget.managementPageBuilder == null
                     ? null
@@ -642,7 +720,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     onStudentSelected: _openStudent,
                     onOpenCase: _openCase,
                     onBackFromCase: _closeCase,
-                    onOpenMore: () => _showWorkspaceMenu(context),
+                    onOpenMore: hasMenuActions
+                        ? () => _showWorkspaceMenu(context)
+                        : null,
                   );
                 }
                 return _DesktopWorkspace(
@@ -764,7 +844,7 @@ class _CompactWorkspace extends StatefulWidget {
   final ValueChanged<V2Student> onStudentSelected;
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
-  final VoidCallback onOpenMore;
+  final VoidCallback? onOpenMore;
 
   @override
   State<_CompactWorkspace> createState() => _CompactWorkspaceState();
@@ -794,15 +874,24 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       body = _StudentListPane(
         selectedStudent: widget.selectedStudent,
         compact: true,
+        onOpenMore: widget.onOpenMore,
         onSelected: (student) {
           widget.onStudentSelected(student);
           setState(() => _studentOpen = true);
         },
       );
     } else if (widget.destination == 0) {
-      body = _TodayPane(onOpenCase: widget.onOpenCase, compact: true);
+      body = _TodayPane(
+        onOpenCase: widget.onOpenCase,
+        compact: true,
+        onOpenMore: widget.onOpenMore,
+      );
     } else {
-      body = _CaseIndexPane(onOpenCase: widget.onOpenCase, compact: true);
+      body = _CaseIndexPane(
+        onOpenCase: widget.onOpenCase,
+        compact: true,
+        onOpenMore: widget.onOpenMore,
+      );
     }
 
     return Scaffold(
@@ -812,10 +901,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
           : NavigationBar(
               selectedIndex: widget.destination,
               onDestinationSelected: (value) {
-                if (value == 3) {
-                  widget.onOpenMore();
-                  return;
-                }
                 setState(() => _studentOpen = false);
                 widget.onDestinationChanged(value);
               },
@@ -834,10 +919,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
                   icon: Icon(Icons.fact_check_outlined),
                   selectedIcon: Icon(Icons.fact_check),
                   label: '学情',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.more_horiz),
-                  label: '更多',
                 ),
               ],
             ),
@@ -926,7 +1007,7 @@ class _RailItem extends StatelessWidget {
             onTap: onTap,
             child: SizedBox(
               width: 48,
-              height: 44,
+              height: 48,
               child: Icon(
                 icon,
                 size: 20,
@@ -947,11 +1028,13 @@ class _StudentListPane extends StatefulWidget {
     required this.selectedStudent,
     required this.onSelected,
     this.compact = false,
+    this.onOpenMore,
   });
 
   final V2Student selectedStudent;
   final ValueChanged<V2Student> onSelected;
   final bool compact;
+  final VoidCallback? onOpenMore;
 
   @override
   State<_StudentListPane> createState() => _StudentListPaneState();
@@ -1008,7 +1091,23 @@ class _StudentListPaneState extends State<_StudentListPane> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('学生', style: Theme.of(context).textTheme.headlineSmall),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '学生',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ),
+                    if (widget.compact && widget.onOpenMore != null)
+                      IconButton(
+                        key: const Key('v2-compact-more'),
+                        tooltip: '更多操作',
+                        onPressed: widget.onOpenMore,
+                        icon: const Icon(Icons.more_vert),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 18),
                 TextField(
                   key: const Key('v2-student-search'),
@@ -1886,10 +1985,39 @@ class _CaseDetailPane extends StatelessWidget {
 }
 
 class _TodayPane extends StatelessWidget {
-  const _TodayPane({required this.onOpenCase, this.compact = false});
+  const _TodayPane({
+    required this.onOpenCase,
+    this.compact = false,
+    this.onOpenMore,
+  });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
+  final VoidCallback? onOpenMore;
+
+  static int _priority(V2FocusItem item) => switch (item.actionTiming) {
+    V2ActionTiming.overdue => 0,
+    V2ActionTiming.today => 1,
+    V2ActionTiming.undated => 2,
+    V2ActionTiming.future => 3,
+    null => 4,
+  };
+
+  static int _compare(V2FocusItem left, V2FocusItem right) {
+    final priority = _priority(left).compareTo(_priority(right));
+    if (priority != 0) return priority;
+    final leftDue = left.dueOn;
+    final rightDue = right.dueOn;
+    if (leftDue != null && rightDue != null) {
+      final due = leftDue.compareTo(rightDue);
+      if (due != 0) return due;
+    } else if (leftDue != null) {
+      return -1;
+    } else if (rightDue != null) {
+      return 1;
+    }
+    return left.title.compareTo(right.title);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1901,23 +2029,29 @@ class _TodayPane extends StatelessWidget {
               item.actionTiming != null,
         )
         .toList(growable: false);
-    final actionItems = validItems
-        .where(
-          (item) =>
-              item.actionTiming != V2ActionTiming.future &&
-              !item.pendingVerification,
-        )
-        .toList(growable: false);
-    final verificationItems = validItems
-        .where(
-          (item) =>
-              item.actionTiming != V2ActionTiming.future &&
-              item.pendingVerification,
-        )
-        .toList(growable: false);
-    final futureItems = validItems
-        .where((item) => item.actionTiming == V2ActionTiming.future)
-        .toList(growable: false);
+    final actionItems =
+        validItems
+            .where(
+              (item) =>
+                  item.actionTiming != V2ActionTiming.future &&
+                  !item.pendingVerification,
+            )
+            .toList(growable: true)
+          ..sort(_compare);
+    final verificationItems =
+        validItems
+            .where(
+              (item) =>
+                  item.actionTiming != V2ActionTiming.future &&
+                  item.pendingVerification,
+            )
+            .toList(growable: true)
+          ..sort(_compare);
+    final futureItems =
+        validItems
+            .where((item) => item.actionTiming == V2ActionTiming.future)
+            .toList(growable: true)
+          ..sort(_compare);
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(compact ? 18 : 32),
@@ -1953,6 +2087,15 @@ class _TodayPane extends StatelessWidget {
                     icon: const Icon(Icons.note_add_outlined, size: 18),
                     label: const Text('记录问题'),
                   ),
+                  if (compact && onOpenMore != null) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      key: const Key('v2-compact-more'),
+                      tooltip: '更多操作',
+                      onPressed: onOpenMore,
+                      icon: const Icon(Icons.more_vert),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 28),
@@ -2111,7 +2254,7 @@ class _TodayAction extends StatelessWidget {
               ),
             ),
             Text(
-              verification ? '待验证' : item.dueLabel,
+              _todayActionStatus(item, verification: verification),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(width: 4),
@@ -2123,11 +2266,26 @@ class _TodayAction extends StatelessWidget {
   }
 }
 
+String _todayActionStatus(V2FocusItem item, {required bool verification}) {
+  if (verification) {
+    return item.actionTiming == V2ActionTiming.overdue ? '待验证 · 已逾期' : '待验证';
+  }
+  if (item.actionTiming == V2ActionTiming.overdue) {
+    return item.dueLabel == '待安排' ? '已逾期' : '逾期 · ${item.dueLabel}';
+  }
+  return item.dueLabel;
+}
+
 class _CaseIndexPane extends StatefulWidget {
-  const _CaseIndexPane({required this.onOpenCase, this.compact = false});
+  const _CaseIndexPane({
+    required this.onOpenCase,
+    this.compact = false,
+    this.onOpenMore,
+  });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
+  final VoidCallback? onOpenMore;
 
   @override
   State<_CaseIndexPane> createState() => _CaseIndexPaneState();
@@ -2187,7 +2345,23 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('学情', style: Theme.of(context).textTheme.headlineSmall),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '学情',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                  if (widget.compact && widget.onOpenMore != null)
+                    IconButton(
+                      key: const Key('v2-compact-more'),
+                      tooltip: '更多操作',
+                      onPressed: widget.onOpenMore,
+                      icon: const Icon(Icons.more_vert),
+                    ),
+                ],
+              ),
               const SizedBox(height: 5),
               Text(
                 _showClosed ? '回看已经结束的跟进记录' : '找到仍需要复盘的问题',

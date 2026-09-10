@@ -30,6 +30,7 @@ class V2FocusItem {
     required this.dueLabel,
     required this.subject,
     this.actionTiming,
+    this.dueOn,
     this.pendingVerification = false,
     this.closed = false,
   });
@@ -42,6 +43,7 @@ class V2FocusItem {
   final String dueLabel;
   final String subject;
   final V2ActionTiming? actionTiming;
+  final DateTime? dueOn;
   final bool pendingVerification;
   final bool closed;
 }

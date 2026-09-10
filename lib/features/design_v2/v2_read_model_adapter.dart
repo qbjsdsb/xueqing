@@ -137,6 +137,7 @@ class V2ReadModelAdapter {
           dueLabel: closed ? '已结束' : _dueLabel(primaryAction),
           subject: profile.subject,
           actionTiming: closed ? null : _actionTiming(primaryAction),
+          dueOn: closed ? null : _actionDueOn(primaryAction),
           pendingVerification:
               !closed &&
               learningCase.status == LearningCaseStatus.pendingVerification,
@@ -222,11 +223,11 @@ class V2ReadModelAdapter {
     return title == null || title.isEmpty ? '待安排下一步' : title;
   }
 
+  static DateTime? _actionDueOn(WorkspaceAction? action) =>
+      action?.businessDueDate ?? action?.dueAt;
+
   static String _dueLabel(WorkspaceAction? action) {
-    if (action == null) {
-      return '待安排';
-    }
-    final date = action.businessDueDate ?? action.dueAt;
+    final date = _actionDueOn(action);
     return date == null ? '待安排' : _dateLabel(date);
   }
 

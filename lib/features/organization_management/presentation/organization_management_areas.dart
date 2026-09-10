@@ -321,7 +321,9 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     return _ManagementAreaCard(
       icon: Icons.people_outline,
       title: '成员',
-      description: '管理机构成员、账号状态和老师可教学科。邮箱只用于登录，日常协作优先显示姓名。',
+      description: widget.isOwner
+          ? '管理机构成员、账号状态和老师可教学科。邮箱只用于登录，日常协作优先显示姓名。'
+          : '查看机构成员并管理老师可教学科；邀请、停用和账号凭据由负责人处理。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
