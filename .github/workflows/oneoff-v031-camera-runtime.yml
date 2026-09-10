@@ -25,7 +25,9 @@ jobs:
           cache: true
 
       - name: Apply production recovery wiring
-        run: python3 .github/scripts/apply_v031_camera_runtime.py
+        run: |
+          python3 .github/scripts/apply_v031_camera_runtime.py
+          python3 .github/scripts/fix_v031_camera_runtime_preview.py
 
       - name: Resolve dependencies
         run: flutter pub get
@@ -72,6 +74,7 @@ jobs:
         shell: bash
         run: |
           rm -f .github/scripts/apply_v031_camera_runtime.py
+          rm -f .github/scripts/fix_v031_camera_runtime_preview.py
           rm -f .github/workflows/oneoff-v031-camera-runtime.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
