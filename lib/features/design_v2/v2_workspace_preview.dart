@@ -626,6 +626,33 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     });
   }
 
+  Future<void> _showOperationGuide(BuildContext context) async {
+    if (MediaQuery.sizeOf(context).width < 720) {
+      await showModalBottomSheet<void>(
+        context: context,
+        useSafeArea: true,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (sheetContext) => const FractionallySizedBox(
+          heightFactor: 0.82,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: _V2OperationGuide(showTitle: true),
+          ),
+        ),
+      );
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => const AlertDialog(
+        title: Text('操作指南'),
+        content: SizedBox(width: 520, height: 500, child: _V2OperationGuide()),
+      ),
+    );
+  }
+
   Future<void> _showWorkspaceMenu(BuildContext context) async {
     Widget menu(BuildContext menuContext) => SafeArea(
       child: Padding(
@@ -653,6 +680,16 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                         () => _refreshWorkspace(),
                       ),
               ),
+            ListTile(
+              key: const Key('v2-menu-operation-guide'),
+              leading: const Icon(Icons.help_outline),
+              title: const Text('操作指南'),
+              subtitle: const Text('常用操作一页看懂'),
+              onTap: () => _afterMenuClose(
+                menuContext,
+                () => _showOperationGuide(context),
+              ),
+            ),
             if (widget.managementPageBuilder != null)
               ListTile(
                 leading: const Icon(Icons.admin_panel_settings_outlined),
@@ -725,20 +762,12 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
         data: widget.data,
         child: Builder(
           builder: (context) {
-            final hasMenuActions =
-                widget.onRefresh != null ||
-                widget.managementPageBuilder != null ||
-                widget.updateService != null &&
-                    widget.updateInstaller != null ||
-                widget.onSignOut != null;
             if (widget.data.students.isEmpty) {
               return _EmptyWorkspacePreview(
                 onOpenManagement: widget.managementPageBuilder == null
                     ? null
                     : () => _openManagement(context),
-                onOpenMore: hasMenuActions
-                    ? () => _showWorkspaceMenu(context)
-                    : null,
+                onOpenMore: () => _showWorkspaceMenu(context),
               );
             }
             final selectedStudent =
@@ -755,9 +784,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     onStudentSelected: _openStudent,
                     onOpenCase: _openCase,
                     onBackFromCase: _closeCase,
-                    onOpenMore: hasMenuActions
-                        ? () => _showWorkspaceMenu(context)
-                        : null,
+                    onOpenMore: () => _showWorkspaceMenu(context),
                   );
                 }
                 return _DesktopWorkspace(
@@ -2499,6 +2526,114 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
   }
 }
 
+class _V2OperationGuide extends StatelessWidget {
+  const _V2OperationGuide({this.showTitle = false});
+
+  final bool showTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showTitle) ...[
+            Text('操作指南', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 6),
+          ],
+          Text(
+            '记录事实 → 跟进 → 验证 → 下一步',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const _V2GuideItem(
+            icon: Icons.today_outlined,
+            title: '先看今日',
+            body: '优先处理逾期和今天的提醒；可以直接完成这一步或改期。',
+          ),
+          const _V2GuideItem(
+            icon: Icons.note_add_outlined,
+            title: '记录问题',
+            body: '在今日或学生页点“记录问题”，选学生和学科，只写真实观察；需要时附照片。',
+          ),
+          const _V2GuideItem(
+            icon: Icons.edit_note_outlined,
+            title: '继续跟进',
+            body: '进入问题点“记进展”，记录学生表现、教学处理或检查结果，并确定下一步。',
+          ),
+          const _V2GuideItem(
+            icon: Icons.history_outlined,
+            title: '历史与复发',
+            body: '学情 → 历史可看已结束问题；再次出现时用“再次出现，重新跟进”，不要重复新建。',
+          ),
+          const _V2GuideItem(
+            icon: Icons.admin_panel_settings_outlined,
+            title: '管理与导出',
+            body: '负责人/管理员在机构管理维护成员、学生、学科、任课和问题类型；学生详情可按学科导出。',
+          ),
+          const _V2GuideItem(
+            icon: Icons.sync_outlined,
+            title: '刷新与更新',
+            body: '多人协作需要最新数据时点“刷新学情”；在更多/设置里检查更新。',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _V2GuideItem extends StatelessWidget {
+  const _V2GuideItem({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              icon,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(body, style: theme.textTheme.bodyMedium),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyWorkspacePreview extends StatelessWidget {
   const _EmptyWorkspacePreview({this.onOpenManagement, this.onOpenMore});
 
@@ -2511,7 +2646,7 @@ class _EmptyWorkspacePreview extends StatelessWidget {
       appBar: onOpenManagement == null && onOpenMore == null
           ? null
           : AppBar(
-              title: const Text('学情闭环'),
+              title: const Text('学情'),
               actions: [
                 if (onOpenManagement != null)
                   IconButton(

@@ -14,7 +14,7 @@ class XueqingApp extends StatelessWidget {
     final router = XueqingRouter(config: config);
 
     return MaterialApp(
-      title: '学情闭环',
+      title: '学情',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
