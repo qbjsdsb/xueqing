@@ -95,7 +95,9 @@ void main() {
 
     expect(find.byType(BottomSheet), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsWidgets);
-    await tester.ensureVisible(find.byKey(const Key('v2-complete-action-save')));
+    await tester.ensureVisible(
+      find.byKey(const Key('v2-complete-action-save')),
+    );
     expect(find.byKey(const Key('v2-complete-action-save')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -131,7 +133,9 @@ void main() {
 
     expect(find.byType(Dialog), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsWidgets);
-    await tester.ensureVisible(find.byKey(const Key('v2-reschedule-action-save')));
+    await tester.ensureVisible(
+      find.byKey(const Key('v2-reschedule-action-save')),
+    );
     expect(find.byKey(const Key('v2-reschedule-action-save')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
