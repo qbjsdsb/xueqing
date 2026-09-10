@@ -1,0 +1,71 @@
+name: One-off v0.3.1 camera draft recovery core
+
+on:
+  push:
+    branches:
+      - hotfix/v0.3.1-reliability-mobile
+    paths:
+      - .github/workflows/oneoff-v031-camera-core.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/v0.3.1-reliability-mobile
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Apply camera draft recovery core
+        run: python3 .github/scripts/apply_v031_camera_core.py
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Format focused changes
+        run: dart format lib/cloud/composer_draft_store.dart lib/features/design_v2/v2_composers.dart test/features/v2_quick_capture_recovery_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused recovery tests
+        run: |
+          flutter test test/features/v2_quick_capture_recovery_test.dart
+          flutter test test/features/design_v2_composers_test.dart
+          flutter test test/features/evidence_attachment_picker_test.dart
+
+      - name: Full tests
+        run: flutter test
+
+      - name: Verify patch boundary
+        shell: bash
+        run: |
+          git diff --check
+          changed="$(git diff --name-only)"
+          echo "$changed"
+          unexpected="$(printf '%s\n' "$changed" | grep -Ev '^(lib/cloud/composer_draft_store\.dart|lib/features/design_v2/v2_composers\.dart|test/features/v2_quick_capture_recovery_test\.dart)$' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected files changed by camera core patch:" >&2
+            echo "$unexpected" >&2
+            exit 1
+          fi
+
+      - name: Commit verified changes and remove one-off harness
+        shell: bash
+        run: |
+          rm -f .github/scripts/apply_v031_camera_core.py
+          rm -f .github/workflows/oneoff-v031-camera-core.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m 'Protect quick-capture drafts across Android camera handoff'
+          git push origin HEAD:hotfix/v0.3.1-reliability-mobile
