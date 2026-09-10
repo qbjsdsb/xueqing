@@ -26,38 +26,110 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Apply narrow production V2 ergonomics fixes
+      - name: Apply exact release ergonomics fixes
         shell: bash
         run: |
           set -euo pipefail
-          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpwYXRoID0gUGF0aCgibGliL2ZlYXR1cmVzL2Rlc2lnbl92Mi92Ml9jb21wb3NlcnMuZGFydCIpCnRleHQgPSBwYXRoLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQoKaW1wb3J0X2FuY2hvciA9ICJpbXBvcnQgJ3BhY2thZ2U6Zmx1dHRlci9tYXRlcmlhbC5kYXJ0JztcblxuIgppZiAiLi4vLi4vYXBwL3RoZW1lL2FwcF9tb3Rpb24uZGFydCIgbm90IGluIHRleHQ6CiAgICBpZiBpbXBvcnRfYW5jaG9yIG5vdCBpbiB0ZXh0OgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoIkZsdXR0ZXIgaW1wb3J0IGFuY2hvciBtaXNzaW5nIikKICAgIHRleHQgPSB0ZXh0LnJlcGxhY2UoCiAgICAgICAgaW1wb3J0X2FuY2hvciwKICAgICAgICBpbXBvcnRfYW5jaG9yICsgImltcG9ydCAnLi4vLi4vYXBwL3RoZW1lL2FwcF9tb3Rpb24uZGFydCc7XG5cbiIsCiAgICAgICAgMSwKICAgICkKCmZpeGVkX2R1cmF0aW9uID0gImR1cmF0aW9uOiBjb25zdCBEdXJhdGlvbihtaWxsaXNlY29uZHM6IDE4MCksIgpjb3VudCA9IHRleHQuY291bnQoZml4ZWRfZHVyYXRpb24pCmlmIGNvdW50ICE9IDQ6CiAgICByYWlzZSBTeXN0ZW1FeGl0KGYiRXhwZWN0ZWQgZXhhY3RseSA0IGZpeGVkIFYyIGNvbXBvc2VyIG1vdGlvbiBkdXJhdGlvbnMsIGZvdW5kIHtjb3VudH0iKQp0ZXh0ID0gdGV4dC5yZXBsYWNlKAogICAgZml4ZWRfZHVyYXRpb24sCiAgICAiZHVyYXRpb246IEFwcE1vdGlvbi5lZmZlY3RpdmVEdXJhdGlvbihjb250ZXh0KSwiLAopCgpzZWxlY3Rvcl9vbGQgPSAiIiIgICAgICAgICAgICAgIGNoaWxkOiBDb250YWluZXIoCiAgICAgICAgICAgICAgICBwYWRkaW5nOiBjb25zdCBFZGdlSW5zZXRzLmZyb21MVFJCKDEwLCA4LCAxMCwgNyksCiAgICAgICAgICAgICAgICBkZWNvcmF0aW9uOiBCb3hEZWNvcmF0aW9uKCIiIgpzZWxlY3Rvcl9uZXcgPSAiIiIgICAgICAgICAgICAgIGNoaWxkOiBDb250YWluZXIoCiAgICAgICAgICAgICAgICBjb25zdHJhaW50czogY29uc3QgQm94Q29uc3RyYWludHMobWluSGVpZ2h0OiA0NCksCiAgICAgICAgICAgICAgICBhbGlnbm1lbnQ6IEFsaWdubWVudC5jZW50ZXIsCiAgICAgICAgICAgICAgICBwYWRkaW5nOiBjb25zdCBFZGdlSW5zZXRzLmZyb21MVFJCKDEwLCA4LCAxMCwgNyksCiAgICAgICAgICAgICAgICBkZWNvcmF0aW9uOiBCb3hEZWNvcmF0aW9uKCIiIgppZiBzZWxlY3Rvcl9vbGQgbm90IGluIHRleHQ6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCJJbmxpbmUgc2VsZWN0b3IgdGFyZ2V0IG1pc3NpbmciKQp0ZXh0ID0gdGV4dC5yZXBsYWNlKHNlbGVjdG9yX29sZCwgc2VsZWN0b3JfbmV3LCAxKQoKbWVkaWFfb2xkID0gIiIiICAgICAgICAgICAgICAgICAgICBQb3NpdGlvbmVkKAogICAgICAgICAgICAgICAgICAgICAgcmlnaHQ6IC03LAogICAgICAgICAgICAgICAgICAgICAgdG9wOiAtNywKICAgICAgICAgICAgICAgICAgICAgIGNoaWxkOiBNYXRlcmlhbCgKICAgICAgICAgICAgICAgICAgICAgICAgY29sb3I6IHNjaGVtZS5zdXJmYWNlQ29udGFpbmVySGlnaGVzdCwKICAgICAgICAgICAgICAgICAgICAgICAgc2hhcGU6IGNvbnN0IENpcmNsZUJvcmRlcigpLAogICAgICAgICAgICAgICAgICAgICAgICBjaGlsZDogSW5rV2VsbCgKICAgICAgICAgICAgICAgICAgICAgICAgICBrZXk6IFZhbHVlS2V5KCd2Mi1tZWRpYS1yZW1vdmUtJGluZGV4JyksCiAgICAgICAgICAgICAgICAgICAgICAgICAgY3VzdG9tQm9yZGVyOiBjb25zdCBDaXJjbGVCb3JkZXIoKSwKICAgICAgICAgICAgICAgICAgICAgICAgICBvblRhcDogKCkgPT4gb25SZW1vdmUoaW5kZXgpLAogICAgICAgICAgICAgICAgICAgICAgICAgIGNoaWxkOiBjb25zdCBTaXplZEJveCgKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHdpZHRoOiAyNiwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGhlaWdodDogMjYsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICBjaGlsZDogSWNvbihJY29ucy5jbG9zZSwgc2l6ZTogMTUpLAogICAgICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICksIiIiCm1lZGlhX25ldyA9ICIiIiAgICAgICAgICAgICAgICAgICAgUG9zaXRpb25lZCgKICAgICAgICAgICAgICAgICAgICAgIHJpZ2h0OiAtNywKICAgICAgICAgICAgICAgICAgICAgIHRvcDogLTcsCiAgICAgICAgICAgICAgICAgICAgICBjaGlsZDogTWF0ZXJpYWwoCiAgICAgICAgICAgICAgICAgICAgICAgIGNvbG9yOiBDb2xvcnMudHJhbnNwYXJlbnQsCiAgICAgICAgICAgICAgICAgICAgICAgIHNoYXBlOiBjb25zdCBDaXJjbGVCb3JkZXIoKSwKICAgICAgICAgICAgICAgICAgICAgICAgY2hpbGQ6IElua1dlbGwoCiAgICAgICAgICAgICAgICAgICAgICAgICAga2V5OiBWYWx1ZUtleSgndjItbWVkaWEtcmVtb3ZlLSRpbmRleCcpLAogICAgICAgICAgICAgICAgICAgICAgICAgIGN1c3RvbUJvcmRlcjogY29uc3QgQ2lyY2xlQm9yZGVyKCksCiAgICAgICAgICAgICAgICAgICAgICAgICBvblRhcDogKCkgPT4gb25SZW1vdmUoaW5kZXgpLAogICAgICAgICAgICAgICAgICAgICAgICAgIGNoaWxkOiBTaXplZEJveCgKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHdpZHRoOiA0NCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGhlaWdodDogNDQsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICBjaGlsZDogQ2VudGVyKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICBjaGlsZDogQ29udGFpbmVyKAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHdpZHRoOiAyNiwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBoZWlnaHQ6IDI2LAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGRlY29yYXRpb246IEJveERlY29yYXRpb24KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgY29sb3I6IHNjaGVtZS5zdXJmYWNlQ29udGFpbmVySGlnaGVzdCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgc2hhcGU6IEJveFNoYXBlLmNpcmNsZSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNoaWxkOiBjb25zdCBJY29uKEljb25zLmNsb3NlLCBzaXplOiAxNSksCiAgICAgICAgICAgICAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICAgICAgICksIiIiCmlmIG1lZGlhX29sZCBub3QgaW4gdGV4dDoKICAgIHJhaXNlIFN5c3RlbUV4aXQoIk1lZGlhIHJlbW92ZSB0YXJnZXQgbWlzc2luZyIpCnRleHQgPSB0ZXh0LnJlcGxhY2UobWVkaWFfb2xkLCBtZWRpYV9uZXcsIDEpCgpzdGFydCA9IHRleHQuZmluZCgiY2xhc3MgX1F1aWV0UmFkaW9Sb3cgZXh0ZW5kcyBTdGF0ZWxlc3NXaWRnZXQgeyIpCmlmIHN0YXJ0IDwgMDoKICAgIHJhaXNlIFN5c3RlbUV4aXQoIlF1aWV0IHJhZGlvIGNsYXNzIG1pc3NpbmciKQpuZXdfcmFkaW8gPSAiIiJjbGFzcyBfUXVpZXRSYWRpb1JvdyBleHRlbmRzIFN0YXRlbGVzc1dpZGdldCB7CiAgY29uc3QgX1F1aWV0UmFkaW9Sb3coewogICAgcmVxdWlyZWQgdGhpcy5sYWJlbCwKICAgIHJlcXVpcmVkIHRoaXMuc2VsZWN0ZWQsCiAgICByZXF1aXJlZCB0aGlzLm9uVGFwLAogICAgc3VwZXIua2V5LAogIH0pOwoKICBmaW5hbCBTdHJpbmcgbGFiZWw7CiAgZmluYWwgYm9vbCBzZWxlY3RlZDsKICBmaW5hbCBWb2lkQ2FsbGJhY2sgb25UYXA7CgogIEBvdmVycmlkZQogIFdpZGdldCBidWlsZChCdWlsZENvbnRleHQgY29udGV4dCkgewogICAgZmluYWwgc2NoZW1lID0gVGhlbWUub2YoY29udGV4dCkuY29sb3JTY2hlbWU7CiAgICByZXR1cm4gSW5rV2VsbCgKICAgICAgb25UYXA6IG9uVGFwLAogICAgICBib3JkZXJSYWRpdXM6IEJvcmRlclJhZGl1cy5jaXJjdWxhcig1KSwKICAgICAgY2hpbGQ6IENvbnN0cmFpbmVkQm94KAogICAgICAgIGNvbnN0cmFpbnRzOiBjb25zdCBCb3hDb25zdHJhaW50cyhtaW5IZWlnaHQ6IDQ0KSwKICAgICAgICBjaGlsZDogUGFkZGluZygKICAgICAgICAgIHBhZGRpbmc6IGNvbnN0IEVkZ2VJbnNldHMuc3ltbWV0cmljKHZlcnRpY2FsOiA4KSwKICAgICAgICAgIGNoaWxkOiBSb3coCiAgICAgICAgICAgIGNoaWxkcmVuOiBbCiAgICAgICAgICAgICAgQ29udGFpbmVyKAogICAgICAgICAgICAgICAgd2lkdGg6IDE2LAogICAgICAgICAgICAgICAgaGVpZ2h0OiAxNiwKICAgICAgICAgICAgICAgIHBhZGRpbmc6IGNvbnN0IEVkZ2VJbnNldHMuYWxsKDMpLAogICAgICAgICAgICAgICAgZGVjb3JhdGlvbjogQm94RGVjb3JhdGlvbigKICAgICAgICAgICAgICAgICAgc2hhcGU6IEJveFNoYXBlLmNpcmNsZSwKICAgICAgICAgICAgICAgICAgYm9yZGVyOiBCb3JkZXIuYWxsKAogICAgICAgICAgICAgICAgICAgIGNvbG9yOiBzZWxlY3RlZCA/IHNjaGVtZS5wcmltYXJ5IDogc2NoZW1lLm91dGxpbmUsCiAgICAgICAgICAgICAgICAgICAgd2lkdGg6IDEuNCwKICAgICAgICAgICAgICAgICAgKSwKICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICBjaGlsZDogRGVjb3JhdGVkQm94KAogICAgICAgICAgICAgICAgICBkZWNvcmF0aW9uOiBCb3hEZWNvcmF0aW9uKAogICAgICAgICAgICAgICAgICAgIHNoYXBlOiBCb3hTaGFwZS5jaXJjbGUsCiAgICAgICAgICAgICAgICAgICAgY29sb3I6IHNlbGVjdGVkID8gc2NoZW1lLnByaW1hcnkgOiBDb2xvcnMudHJhbnNwYXJlbnQsCiAgICAgICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgICApLAogICAgICAgICAgICAgICksCiAgICAgICAgICAgICAgY29uc3QgU2l6ZWRCb3god2lkdGg6IDEwKSwKICAgICAgICAgICAgICBUZXh0KGxhYmVsLCBzdHlsZTogVGhlbWUub2YoY29udGV4dCkudGV4dFRoZW1lLmJvZHlNZWRpdW0pLAogICAgICAgICAgICBdLAogICAgICAgICAgKSwKICAgICAgICApLAogICAgICApLAogICAgKTsKICB9Cn0KIiIiCnRleHQgPSB0ZXh0WzpzdGFydF0gKyBuZXdfcmFkaW8KcGF0aC53cml0ZV90ZXh0KHRleHQsIGVuY29kaW5nPSJ1dGYtOCIpCgp0ZXN0X3BhdGggPSBQYXRoKCJ0ZXN0L2ZlYXR1cmVzL3YyX3Zpc3VhbF9wb2xpc2hfY29udHJhY3RfdGVzdC5kYXJ0IikKdGVzdF90ZXh0ID0gdGVzdF9wYXRoLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQppZiBub3QgdGVzdF90ZXh0LnN0YXJ0c3dpdGgoImltcG9ydCAnZGFydDppbyc7Iik6CiAgICB0ZXN0X3RleHQgPSAiaW1wb3J0ICdkYXJ0OmlvJztcblxuIiArIHRlc3RfdGV4dAphbmNob3IgPSAiICB0ZXN0V2lkZ2V0cygnbW90aW9uIHJlc3BlY3RzIHRoZSBwbGF0Zm9ybSByZWR1Y2VkLW1vdGlvbiBwcmVmZXJlbmNlJywgKCIKZXh0cmEgPSAiIiIgIHRlc3QoJ1YyIGNvbXBvc2VycyBrZWVwIG1vdGlvbiBhbmQgdG91Y2ggdGFyZ2V0cyByZWxlYXNlLXNhZmUnLCAoKSB7CiAgICBmaW5hbCBzb3VyY2UgPSBGaWxlKCdsaWIvZmVhdHVyZXMvZGVzaWduX3YyL3YyX2NvbXBvc2Vycy5kYXJ0JykKICAgICAgICAucmVhZEFzU3RyaW5nU3luYygpOwogICAgZXhwZWN0KAogICAgICBzb3VyY2UsCiAgICAgIGlzTm90KGNvbnRhaW5zKCdkdXJhdGlvbjogY29uc3QgRHVyYXRpb24obWlsbGlzZWNvbmRzOiAxODApLCcpKSwKICAgICk7CiAgICBleHBlY3QoCiAgICAgIFJlZ0V4cChyJ0FwcE1vdGlvblwuZWZmZWN0aXZlRHVyYXRpb25cKGNvbnRleHRcKScpCiAgICAgICAgICAuYWxsTWF0Y2hlcyhzb3VyY2UpCiAgICAgICAgICAubGVuZ3RoLAogICAgICBncmVhdGVyVGhhbk9yRXF1YWxUbyg0KSwKICAgICk7CiAgICBleHBlY3QoCiAgICAgIFJlZ0V4cChyJ0JveENvbnN0cmFpbnRzXChtaW5IZWlnaHQ6IDQ0XCknKS5hbGxNYXRjaGVzKHNvdXJjZSkubGVuZ3RoLAogICAgICBncmVhdGVyVGhhbk9yRXF1YWxUbygyKSwKICAgICk7CiAgICBleHBlY3Qoc291cmNlLCBjb250YWlucygnd2lkdGg6IDQ0JykpOwogICAgZXhwZWN0KHNvdXJjZSwgY29udGFpbnMoJ2hlaWdodDogNDQnKSk7CiAgfSk7CgoiIiIKaWYgZXh0cmEuc3RyaXAoKSBub3QgaW4gdGVzdF90ZXh0OgogICAgaWYgYW5jaG9yIG5vdCBpbiB0ZXN0X3RleHQ6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgiVmlzdWFsIHBvbGlzaCB0ZXN0IGFuY2hvciBtaXNzaW5nIikKICAgIHRlc3RfdGV4dCA9IHRlc3RfdGV4dC5yZXBsYWNlKGFuY2hvciwgZXh0cmEgKyBhbmNob3IsIDEpCnRlc3RfcGF0aC53cml0ZV90ZXh0KHRlc3RfdGV4dCwgZW5jb2Rpbmc9InV0Zi04IikK' | base64 --decode > /tmp/fix_v2.py
-          python3 /tmp/fix_v2.py
-          dart format lib/features/design_v2/v2_composers.dart test/features/v2_visual_polish_contract_test.dart
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Validate product tree
+          path = Path('lib/features/design_v2/v2_composers.dart')
+          text = path.read_text(encoding='utf-8')
+
+          motion_import = "import '../../app/theme/app_motion.dart';\n"
+          import_anchor = "import 'package:flutter/material.dart';\n\n"
+          if motion_import not in text:
+              if import_anchor not in text:
+                  raise SystemExit('material import anchor missing')
+              text = text.replace(import_anchor, import_anchor + motion_import, 1)
+
+          fixed = 'duration: const Duration(milliseconds: 180),'
+          count = text.count(fixed)
+          if count != 4:
+              raise SystemExit(f'expected 4 fixed composer durations, found {count}')
+          text = text.replace(fixed, 'duration: AppMotion.effectiveDuration(context),')
+
+          selector_marker = 'class _InlineSelector<T> extends StatelessWidget {'
+          selector_at = text.find(selector_marker)
+          if selector_at < 0:
+              raise SystemExit('inline selector class missing')
+          head, tail = text[:selector_at], text[selector_at:]
+          selector_old = "              child: Container(\n                padding: const EdgeInsets.fromLTRB(10, 8, 10, 7),"
+          selector_new = "              child: Container(\n                constraints: const BoxConstraints(minHeight: 44),\n                padding: const EdgeInsets.fromLTRB(10, 8, 10, 7),"
+          if selector_old not in tail:
+              raise SystemExit('inline selector target missing')
+          tail = tail.replace(selector_old, selector_new, 1)
+          text = head + tail
+
+          radio_marker = 'class _QuietRadioRow extends StatelessWidget {'
+          radio_at = text.find(radio_marker)
+          if radio_at < 0:
+              raise SystemExit('quiet radio class missing')
+          head, tail = text[:radio_at], text[radio_at:]
+          radio_old = "      child: Padding(\n        padding: const EdgeInsets.symmetric(vertical: 8),"
+          radio_new = "      child: Container(\n        constraints: const BoxConstraints(minHeight: 44),\n        padding: const EdgeInsets.symmetric(vertical: 8),"
+          if radio_old not in tail:
+              raise SystemExit('quiet radio target missing')
+          tail = tail.replace(radio_old, radio_new, 1)
+          text = head + tail
+
+          media_old = """                          child: const SizedBox(
+                            width: 26,
+                            height: 26,
+                            child: Icon(Icons.close, size: 15),
+                          ),"""
+          media_new = """                          child: SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: Container(
+                                width: 26,
+                                height: 26,
+                                decoration: BoxDecoration(
+                                  color: scheme.surfaceContainerHighest,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 15),
+                              ),
+                            ),
+                          ),"""
+          if media_old not in text:
+              raise SystemExit('media remove target missing')
+          text = text.replace(media_old, media_new, 1)
+
+          if 'duration: const Duration(milliseconds: 180),' in text:
+              raise SystemExit('fixed composer duration remains')
+          if text.count('AppMotion.effectiveDuration(context)') != 4:
+              raise SystemExit('composer reduced-motion coverage is incomplete')
+          if text.count('BoxConstraints(minHeight: 44)') < 2:
+              raise SystemExit('touch target constraints are incomplete')
+          if "width: 44,\n                            height: 44," not in text:
+              raise SystemExit('media remove hit target is not 44x44')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          dart format lib/features/design_v2/v2_composers.dart
+
+      - name: Validate focused and full Flutter tree
         shell: bash
         run: |
           set -euo pipefail
           flutter pub get
           dart format --output=none --set-exit-if-changed .
           flutter analyze
-          flutter test test/features/v2_visual_polish_contract_test.dart
           flutter test test/features/design_v2_composers_test.dart
+          flutter test test/features/v2_visual_polish_contract_test.dart
           flutter test
           git diff --check
 
-      - name: Commit validated ergonomics fixes and remove one-off workflow
+      - name: Commit validated production change and remove one-off workflow
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .github/workflows/oneoff-v0.3.0-final-ergonomics.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --check
-          if git diff --cached --quiet; then
-            echo 'No validated changes to commit.'
-            exit 1
-          fi
-          git commit -m 'fix: close final V2 motion and touch ergonomics [final-ergonomics-generated]'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/features/design_v2/v2_composers.dart
+          git rm .github/workflows/oneoff-v0.3.0-final-ergonomics.yml
+          git commit -m 'fix: finish v0.3.0 composer ergonomics'
           git push origin HEAD:release/v0.3.0-icon-optical-size
