@@ -35,6 +35,24 @@ void main() {
     );
   });
 
+  test('desktop scrollbars become easier to target on hover and drag', () {
+    final theme = AppTheme.light();
+    final thickness = theme.scrollbarTheme.thickness!;
+    final thumbColor = theme.scrollbarTheme.thumbColor!;
+
+    expect(thickness.resolve(<WidgetState>{}), 4);
+    expect(thickness.resolve(<WidgetState>{WidgetState.hovered}), 6);
+    expect(thickness.resolve(<WidgetState>{WidgetState.dragged}), 6);
+    expect(
+      thumbColor.resolve(<WidgetState>{WidgetState.hovered}),
+      isNot(thumbColor.resolve(<WidgetState>{})),
+    );
+    expect(
+      thumbColor.resolve(<WidgetState>{WidgetState.dragged}),
+      isNot(thumbColor.resolve(<WidgetState>{WidgetState.hovered})),
+    );
+  });
+
   testWidgets('follows the system theme at the app root', (tester) async {
     final config = AppConfig.fromValues(
       environmentValue: 'development',
