@@ -1,0 +1,139 @@
+name: v0.3.3 Today verification correction
+
+on:
+  push:
+    branches:
+      - ux/v0.3.3-cross-platform-polish
+    paths:
+      - .github/workflows/v033-today-verification-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/v0.3.3-cross-platform-polish
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Correct Today pending-verification classification
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('lib/features/design_v2/v2_workspace_preview.dart')
+          source = path.read_text()
+
+          def replace_once(old, new, label):
+              global source
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, found {count}')
+              source = source.replace(old, new, 1)
+
+          replace_once(
+              ".where((item) => item.actionTiming == null)\n            .toList(growable: true)",
+              ".where(\n              (item) =>\n                  item.actionTiming == null && !item.pendingVerification,\n            )\n            .toList(growable: true)",
+              'unplanned excludes verification',
+          )
+          replace_once(
+              "(item) =>\n                  item.actionTiming != null &&\n                  item.actionTiming != V2ActionTiming.future &&\n                  item.pendingVerification,",
+              "(item) =>\n                  item.actionTiming != V2ActionTiming.future &&\n                  item.pendingVerification,",
+              'verification includes actionless',
+          )
+          replace_once(
+              "String _todayActionStatus(V2FocusItem item, {required bool verification}) {\n  if (item.actionTiming == null) return '';\n  if (verification) {\n    return item.actionTiming == V2ActionTiming.overdue ? '待验证 · 已逾期' : '待验证';\n  }",
+              "String _todayActionStatus(V2FocusItem item, {required bool verification}) {\n  if (verification) {\n    if (item.actionTiming == null) return '待验证';\n    return item.actionTiming == V2ActionTiming.overdue ? '待验证 · 已逾期' : '待验证';\n  }\n  if (item.actionTiming == null) return '';",
+              'verification status without action',
+          )
+          path.write_text(source)
+
+          test_path = Path('test/features/v2_final_ergonomics_test.dart')
+          test_source = test_path.read_text()
+          marker = "  testWidgets('quick capture student picker searches name grade and subject', (\n"
+          if test_source.count(marker) != 1:
+              raise SystemExit('test insertion marker mismatch')
+          test_lines = [
+              "  testWidgets('Today keeps actionless verification cases in verification bucket', (",
+              "    tester,",
+              "  ) async {",
+              "    await tester.binding.setSurfaceSize(const Size(1100, 800));",
+              "    addTearDown(() => tester.binding.setSurfaceSize(null));",
+              "    const verification = V2FocusItem(",
+              "      id: 'verification-no-action',",
+              "      studentId: 's1',",
+              "      title: '等待稳定性复查的问题',",
+              "      summary: '本轮处理已经完成，等待复查是否稳定。',",
+              "      nextStep: '待安排下一步',",
+              "      dueLabel: '待安排',",
+              "      subject: '语文',",
+              "      pendingVerification: true,",
+              "    );",
+              "    const data = V2WorkspaceData(",
+              "      students: _students,",
+              "      focusItems: <V2FocusItem>[verification],",
+              "      timeline: [],",
+              "    );",
+              "",
+              "    await tester.pumpWidget(_app(data));",
+              "    await tester.pumpAndSettle();",
+              "    await tester.tap(find.byTooltip('今日'));",
+              "    await tester.pumpAndSettle();",
+              "",
+              "    expect(find.text('等待稳定性复查的问题'), findsOneWidget);",
+              "    expect(find.text('等待确认是否已经稳定'), findsOneWidget);",
+              "    expect(find.text('待验证'), findsNWidgets(2));",
+              "    expect(find.text('待安排下一步'), findsNothing);",
+              "    expect(find.text('今天没有需要处理的学情事项'), findsNothing);",
+              "  });",
+              "",
+              "",
+          ]
+          new_test = '\n'.join(test_lines)
+          test_path.write_text(test_source.replace(marker, new_test + marker, 1))
+
+      - name: Format focused files
+        run: >-
+          dart format
+          lib/features/design_v2/v2_workspace_preview.dart
+          test/features/v2_final_ergonomics_test.dart
+
+      - name: Analyze focused files
+        run: >-
+          flutter analyze
+          lib/features/design_v2/v2_workspace_preview.dart
+          test/features/v2_final_ergonomics_test.dart
+
+      - name: Run Today and read-model regression tests
+        run: >-
+          flutter test
+          test/features/v2_final_ergonomics_test.dart
+          test/features/design_v2_read_model_adapter_test.dart
+          test/features/design_v2_workspace_test.dart
+
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/v033-today-verification-fix.yml
+
+      - name: Verify and commit
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Keep actionless verification visible in Today"
+          git push origin HEAD:ux/v0.3.3-cross-platform-polish
