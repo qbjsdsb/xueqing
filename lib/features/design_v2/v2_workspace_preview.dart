@@ -18,6 +18,7 @@ typedef V2StudentExport = Future<void> Function(
   BuildContext context,
   V2Student student,
 );
+typedef V2WorkspaceRefresh = Future<void> Function();
 
 class _V2RuntimeScope extends InheritedWidget {
   const _V2RuntimeScope({
@@ -485,6 +486,7 @@ class V2WorkspacePreview extends StatefulWidget {
     this.updateInstaller,
     this.appVersion,
     this.onSignOut,
+    this.onRefresh,
     this.onWorkspaceChanged,
   });
 
@@ -497,6 +499,7 @@ class V2WorkspacePreview extends StatefulWidget {
   final UpdateInstaller? updateInstaller;
   final String? appVersion;
   final VoidCallback? onSignOut;
+  final V2WorkspaceRefresh? onRefresh;
   final VoidCallback? onWorkspaceChanged;
 
   @override
@@ -509,6 +512,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   V2FocusItem? _selectedCase;
   bool _showCase = false;
   bool _checkingForUpdates = false;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -604,6 +608,17 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     }
   }
 
+  Future<void> _refreshWorkspace() async {
+    final refresh = widget.onRefresh;
+    if (refresh == null || _refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await refresh();
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   void _afterMenuClose(BuildContext menuContext, VoidCallback action) {
     Navigator.of(menuContext).pop();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -619,6 +634,25 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.onRefresh != null)
+              ListTile(
+                key: const Key('v2-menu-refresh'),
+                leading: _refreshing
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_outlined),
+                title: Text(_refreshing ? '正在刷新' : '刷新学情'),
+                subtitle: const Text('重新读取最新学生与学情记录'),
+                onTap: _refreshing
+                    ? null
+                    : () => _afterMenuClose(
+                        menuContext,
+                        () => _refreshWorkspace(),
+                      ),
+              ),
             if (widget.managementPageBuilder != null)
               ListTile(
                 leading: const Icon(Icons.admin_panel_settings_outlined),
@@ -673,7 +707,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('设置'),
+          title: const Text('更多'),
           content: SizedBox(width: 390, child: menu(dialogContext)),
         ),
       );
@@ -692,6 +726,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
         child: Builder(
           builder: (context) {
             final hasMenuActions =
+                widget.onRefresh != null ||
                 widget.managementPageBuilder != null ||
                 widget.updateService != null &&
                     widget.updateInstaller != null ||
@@ -734,6 +769,10 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                   onStudentSelected: _openStudent,
                   onOpenCase: _openCase,
                   onBackFromCase: _closeCase,
+                  onRefresh: widget.onRefresh == null
+                      ? null
+                      : () => _refreshWorkspace(),
+                  refreshing: _refreshing,
                   onManage: widget.managementPageBuilder == null
                       ? null
                       : () => _openManagement(context),
@@ -759,6 +798,8 @@ class _DesktopWorkspace extends StatelessWidget {
     required this.onOpenCase,
     required this.onBackFromCase,
     required this.onSettings,
+    required this.refreshing,
+    this.onRefresh,
     this.onManage,
   });
 
@@ -770,6 +811,8 @@ class _DesktopWorkspace extends StatelessWidget {
   final ValueChanged<V2Student> onStudentSelected;
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
+  final VoidCallback? onRefresh;
+  final bool refreshing;
   final VoidCallback? onManage;
   final VoidCallback onSettings;
 
@@ -785,6 +828,8 @@ class _DesktopWorkspace extends StatelessWidget {
               child: _NavigationRail(
                 selectedIndex: destination,
                 onSelected: onDestinationChanged,
+                onRefresh: onRefresh,
+                refreshing: refreshing,
                 onManage: onManage,
                 onSettings: onSettings,
               ),
@@ -931,11 +976,15 @@ class _NavigationRail extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.onSettings,
+    required this.refreshing,
+    this.onRefresh,
     this.onManage,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback? onRefresh;
+  final bool refreshing;
   final VoidCallback? onManage;
   final VoidCallback onSettings;
 
@@ -947,7 +996,14 @@ class _NavigationRail extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 18),
-          Icon(Icons.eco_outlined, color: scheme.primary, size: 27),
+          Text(
+            '学情',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: scheme.primary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
           const SizedBox(height: 22),
           for (final item in const [
             (Icons.today_outlined, '今日'),
@@ -961,6 +1017,13 @@ class _NavigationRail extends StatelessWidget {
               onTap: () => onSelected(item.$1),
             ),
           const Spacer(),
+          if (onRefresh != null)
+            _RailItem(
+              key: const Key('v2-workspace-refresh'),
+              icon: Icons.refresh_outlined,
+              tooltip: refreshing ? '正在刷新' : '刷新学情',
+              onTap: refreshing ? null : onRefresh,
+            ),
           if (onManage != null)
             _RailItem(
               icon: Icons.admin_panel_settings_outlined,
@@ -981,6 +1044,7 @@ class _NavigationRail extends StatelessWidget {
 
 class _RailItem extends StatelessWidget {
   const _RailItem({
+    super.key,
     required this.icon,
     required this.tooltip,
     this.selected = false,
@@ -1414,7 +1478,7 @@ class _StudentHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '学生  /  ${student.name}',
+          '学生 · ${student.name}',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 18),
@@ -2488,7 +2552,7 @@ class _EmptyWorkspacePreview extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     onOpenManagement == null
-                        ? '当你获得任课学生后，这里会自动出现。'
+                        ? '获得任课学生后，可在这里查看。'
                         : '当前还没有可查看的学生。可以先进入机构管理完成学生、学科和任课配置。',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,

@@ -46,12 +46,10 @@ void main() {
     expect(preview, isNot(contains('recordProgress(')));
     expect(loader, contains('widget.runtime?.learningRepository'));
     expect(loader, contains('V2WorkflowController('));
-    expect(
-      loader,
-      contains(
-        'onWorkspaceChanged: workflowController == null ? null : _retry',
-      ),
-    );
+    expect(loader, contains('Future<void> _softRefresh()'));
+    expect(loader, contains('onRefresh: _softRefresh'));
+    expect(loader, contains('onChanged: () => unawaited(_softRefresh())'));
+    expect(loader, contains(': () => unawaited(_softRefresh())'));
     expect(
       workspace,
       contains('operationId = controller == null ? null : createOperationId()'),

@@ -20,8 +20,8 @@ void main() {
     await tester.pumpWidget(app(() => completer.future));
     await tester.pump();
 
-    expect(find.text('正在读取学情…'), findsOneWidget);
-    expect(find.text('正在准备你的学生与成长记录。'), findsOneWidget);
+    expect(find.text('正在同步学情'), findsOneWidget);
+    expect(find.text('正在读取学生与学情记录。'), findsOneWidget);
 
     completer.complete(_workspace());
     await tester.pumpAndSettle();
@@ -92,6 +92,42 @@ void main() {
     expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
     expect(find.text('暂时没有任课学情'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('manual refresh keeps current data on failure and can recover', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var attempts = 0;
+
+    Future<TeacherWorkspace> loadWorkspace() async {
+      attempts++;
+      if (attempts == 2) throw StateError('offline');
+      if (attempts >= 3) {
+        return _workspace(students: const <WorkspaceStudent>[]);
+      }
+      return _workspace();
+    }
+
+    await tester.pumpWidget(app(loadWorkspace));
+    await tester.pumpAndSettle();
+    expect(find.text('真实学生'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('v2-workspace-refresh')));
+    await tester.pumpAndSettle();
+
+    expect(attempts, 2);
+    expect(find.text('真实学生'), findsWidgets);
+    expect(find.text('学情暂时无法读取'), findsNothing);
+    expect(find.textContaining('刷新失败，请检查网络后重试'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('v2-workspace-refresh')));
+    await tester.pumpAndSettle();
+
+    expect(attempts, 3);
+    expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+    expect(find.text('真实学生'), findsNothing);
   });
 }
 

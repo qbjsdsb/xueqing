@@ -4,10 +4,14 @@ class _ManagementHeader extends StatelessWidget {
   const _ManagementHeader({
     required this.organizationName,
     required this.roleLabel,
+    required this.refreshing,
+    required this.onRefresh,
   });
 
   final String organizationName;
   final String roleLabel;
+  final bool refreshing;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +21,28 @@ class _ManagementHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('机构管理', style: Theme.of(context).textTheme.headlineSmall),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '机构管理',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+              IconButton(
+                key: const Key('management-refresh'),
+                tooltip: refreshing ? '正在刷新' : '刷新机构数据',
+                onPressed: refreshing ? null : onRefresh,
+                icon: refreshing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_outlined),
+              ),
+            ],
+          ),
           const SizedBox(height: AppSpacing.xs),
           Wrap(
             spacing: AppSpacing.xs,

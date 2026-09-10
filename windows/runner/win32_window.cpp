@@ -15,6 +15,15 @@ namespace {
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+#ifndef DWMWA_BORDER_COLOR
+#define DWMWA_BORDER_COLOR 34
+#endif
+#ifndef DWMWA_CAPTION_COLOR
+#define DWMWA_CAPTION_COLOR 35
+#endif
+#ifndef DWMWA_TEXT_COLOR
+#define DWMWA_TEXT_COLOR 36
+#endif
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
@@ -214,6 +223,7 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
 
     case WM_DWMCOLORIZATIONCOLORCHANGED:
+    case WM_SETTINGCHANGE:
       UpdateTheme(hwnd);
       return 0;
   }
@@ -281,9 +291,26 @@ void Win32Window::UpdateTheme(HWND const window) {
                                &light_mode_size);
 
   if (result == ERROR_SUCCESS) {
-    BOOL enable_dark_mode = light_mode == 0;
+    const bool is_dark = light_mode == 0;
+    BOOL enable_dark_mode = is_dark;
     DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
                           &enable_dark_mode, sizeof(enable_dark_mode));
+
+    // Windows 11 can otherwise inherit the user's accent color here, which
+    // makes the native caption/border visually detach from the Flutter shell.
+    // Older Windows versions safely ignore unsupported DWM attributes.
+    const COLORREF caption_color =
+        is_dark ? RGB(21, 24, 22) : RGB(247, 248, 246);
+    const COLORREF border_color =
+        is_dark ? RGB(48, 54, 50) : RGB(217, 222, 218);
+    const COLORREF text_color =
+        is_dark ? RGB(231, 233, 230) : RGB(32, 40, 36);
+    DwmSetWindowAttribute(window, DWMWA_CAPTION_COLOR, &caption_color,
+                          sizeof(caption_color));
+    DwmSetWindowAttribute(window, DWMWA_BORDER_COLOR, &border_color,
+                          sizeof(border_color));
+    DwmSetWindowAttribute(window, DWMWA_TEXT_COLOR, &text_color,
+                          sizeof(text_color));
   }
 }
 

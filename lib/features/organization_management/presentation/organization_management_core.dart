@@ -3,6 +3,7 @@ part of 'organization_management_page.dart';
 mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
   late Future<_OrganizationManagementSnapshot> _snapshotFuture;
   bool _busy = false;
+  bool _manualRefreshing = false;
   String? _errorMessage;
 
   bool get _isOwner => widget.roles.contains('org_owner');
@@ -53,10 +54,26 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
   }
 
   Future<void> _refresh() async {
-    final next = _load();
+    final snapshot = await _load();
     if (!mounted) return;
-    setState(() => _snapshotFuture = next);
-    await next;
+    setState(() {
+      _snapshotFuture = Future<_OrganizationManagementSnapshot>.value(snapshot);
+    });
+  }
+
+  Future<void> _manualRefresh() async {
+    if (_manualRefreshing || _busy) return;
+    setState(() {
+      _manualRefreshing = true;
+      _errorMessage = null;
+    });
+    try {
+      await _refresh();
+    } catch (error) {
+      if (mounted) setState(() => _errorMessage = _describeError(error));
+    } finally {
+      if (mounted) setState(() => _manualRefreshing = false);
+    }
   }
 
   void _retryLoad() {
