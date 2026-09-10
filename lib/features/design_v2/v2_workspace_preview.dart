@@ -14,16 +14,23 @@ import 'v2_update_flow.dart';
 import 'v2_workflow_controller.dart';
 import 'v2_workspace_data.dart';
 
+typedef V2StudentExport = Future<void> Function(
+  BuildContext context,
+  V2Student student,
+);
+
 class _V2RuntimeScope extends InheritedWidget {
   const _V2RuntimeScope({
     required this.workflowController,
     required this.evidenceAttachmentRepository,
+    required this.studentExport,
     required this.onWorkspaceChanged,
     required super.child,
   });
 
   final V2WorkflowController? workflowController;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
+  final V2StudentExport? studentExport;
   final VoidCallback? onWorkspaceChanged;
 
   static _V2RuntimeScope? maybeOf(BuildContext context) =>
@@ -33,6 +40,7 @@ class _V2RuntimeScope extends InheritedWidget {
   bool updateShouldNotify(_V2RuntimeScope oldWidget) =>
       workflowController != oldWidget.workflowController ||
       evidenceAttachmentRepository != oldWidget.evidenceAttachmentRepository ||
+      studentExport != oldWidget.studentExport ||
       onWorkspaceChanged != oldWidget.onWorkspaceChanged;
 }
 
@@ -75,6 +83,76 @@ Future<void> _showV2QuickCaptureForStudent(
   if (saved && context.mounted) {
     runtime?.onWorkspaceChanged?.call();
   }
+}
+
+Future<void> _showV2QuickCaptureStudentPicker(BuildContext context) async {
+  final students = V2WorkspaceDataScope.of(context).students;
+  if (students.isEmpty) {
+    return;
+  }
+  if (students.length == 1) {
+    await _showV2QuickCaptureForStudent(context, students.single);
+    return;
+  }
+
+  Widget choices(BuildContext selectionContext) => ListView.separated(
+    shrinkWrap: true,
+    itemCount: students.length,
+    separatorBuilder: (_, _) => Divider(
+      height: 1,
+      color: Theme.of(selectionContext).colorScheme.outlineVariant,
+    ),
+    itemBuilder: (_, index) {
+      final student = students[index];
+      return ListTile(
+        title: Text(student.name),
+        subtitle: Text('${student.grade} · ${student.subjects.join(' / ')}'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(selectionContext).pop(student),
+      );
+    },
+  );
+
+  final compact = MediaQuery.sizeOf(context).width < 720;
+  final selected = compact
+      ? await showModalBottomSheet<V2Student>(
+          context: context,
+          useSafeArea: true,
+          showDragHandle: true,
+          builder: (sheetContext) => Padding(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '选择学生',
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 480),
+                  child: choices(sheetContext),
+                ),
+              ],
+            ),
+          ),
+        )
+      : await showDialog<V2Student>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('选择学生'),
+            content: SizedBox(
+              width: 420,
+              height: 480,
+              child: choices(dialogContext),
+            ),
+          ),
+        );
+  if (selected == null || !context.mounted) {
+    return;
+  }
+  await _showV2QuickCaptureForStudent(context, selected);
 }
 
 Future<void> _showV2CompleteCurrentAction(
@@ -194,6 +272,7 @@ Future<void> _showV2ProgressForCase(
     caseTitle: item.title,
     canCompleteCurrentAction:
         controller?.hasPendingPrimaryAction(item.id) ?? false,
+    businessDate: controller?.businessDate,
     onSave: controller == null
         ? null
         : (draft) async {
@@ -322,6 +401,7 @@ class V2WorkspacePreview extends StatefulWidget {
     this.data = v2FixtureWorkspaceData,
     this.workflowController,
     this.evidenceAttachmentRepository,
+    this.onExportStudent,
     this.managementPageBuilder,
     this.updateService,
     this.updateInstaller,
@@ -333,6 +413,7 @@ class V2WorkspacePreview extends StatefulWidget {
   final V2WorkspaceData data;
   final V2WorkflowController? workflowController;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
+  final V2StudentExport? onExportStudent;
   final WidgetBuilder? managementPageBuilder;
   final UpdateService? updateService;
   final UpdateInstaller? updateInstaller;
@@ -526,13 +607,26 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     return _V2RuntimeScope(
       workflowController: widget.workflowController,
       evidenceAttachmentRepository: widget.evidenceAttachmentRepository,
+      studentExport: widget.onExportStudent,
       onWorkspaceChanged: widget.onWorkspaceChanged,
       child: V2WorkspaceDataScope(
         data: widget.data,
         child: Builder(
           builder: (context) {
             if (widget.data.students.isEmpty) {
-              return const _EmptyWorkspacePreview();
+              final hasMenuActions =
+                  widget.managementPageBuilder != null ||
+                  widget.updateService != null &&
+                      widget.updateInstaller != null ||
+                  widget.onSignOut != null;
+              return _EmptyWorkspacePreview(
+                onOpenManagement: widget.managementPageBuilder == null
+                    ? null
+                    : () => _openManagement(context),
+                onOpenMore: hasMenuActions
+                    ? () => _showWorkspaceMenu(context)
+                    : null,
+              );
             }
             final selectedStudent =
                 _selectedStudent ?? widget.data.students.first;
@@ -884,7 +978,6 @@ class _StudentListPaneState extends State<_StudentListPane> {
             student.name,
             student.grade,
             ...student.subjects,
-            student.teacherSummary,
           ].join(' ').toLowerCase();
           return haystack.contains(query);
         })
@@ -922,7 +1015,7 @@ class _StudentListPaneState extends State<_StudentListPane> {
                   controller: _searchController,
                   onChanged: (value) => setState(() => _query = value),
                   decoration: InputDecoration(
-                    hintText: '搜索姓名、年级、学科或老师…',
+                    hintText: '搜索姓名、年级或学科…',
                     prefixIcon: const Icon(Icons.search, size: 19),
                     suffixIcon: _query.isEmpty
                         ? null
@@ -1178,6 +1271,7 @@ class _StudentHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = V2WorkspaceDataScope.of(context);
     final focusItems = data.focusItemsForStudent(student);
+    final exportStudent = _V2RuntimeScope.maybeOf(context)?.studentExport;
     final buttons = Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -1194,6 +1288,27 @@ class _StudentHeader extends StatelessWidget {
           icon: const Icon(Icons.edit_note_outlined, size: 18),
           label: const Text('记进展'),
         ),
+        if (exportStudent != null)
+          PopupMenuButton<String>(
+            key: const Key('v2-student-more-actions'),
+            tooltip: '更多操作',
+            icon: const Icon(Icons.more_horiz),
+            onSelected: (value) async {
+              if (value == 'export') {
+                await exportStudent(context, student);
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem<String>(
+                value: 'export',
+                child: ListTile(
+                  leading: Icon(Icons.download_outlined),
+                  title: Text('导出学情记录'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
       ],
     );
     return Column(
@@ -1211,11 +1326,13 @@ class _StudentHeader extends StatelessWidget {
             '${student.grade} · ${student.subjects.join(' / ')}',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
-          const SizedBox(height: 5),
-          Text(
-            student.teacherSummary,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          if (student.teacherSummary.trim().isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              student.teacherSummary,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 16),
           buttons,
         ] else
@@ -1235,11 +1352,13 @@ class _StudentHeader extends StatelessWidget {
                       '${student.grade} · ${student.subjects.join(' / ')}',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      student.teacherSummary,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    if (student.teacherSummary.trim().isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        student.teacherSummary,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1727,7 +1846,7 @@ class _CaseDetailPane extends StatelessWidget {
                               Icons.check_circle_outline,
                               size: 18,
                             ),
-                            label: const Text('完成提醒'),
+                            label: const Text('完成这一步'),
                           ),
                         OutlinedButton.icon(
                           key: ValueKey<String>('v2-reschedule-${item.id}'),
@@ -1779,17 +1898,25 @@ class _TodayPane extends StatelessWidget {
         .where(
           (item) =>
               data.studentForFocusItemOrNull(item) != null &&
-              item.actionTiming != null &&
-              item.actionTiming != V2ActionTiming.future,
+              item.actionTiming != null,
         )
         .toList(growable: false);
     final actionItems = validItems
-        .where((item) => !item.pendingVerification)
-        .take(4)
+        .where(
+          (item) =>
+              item.actionTiming != V2ActionTiming.future &&
+              !item.pendingVerification,
+        )
         .toList(growable: false);
     final verificationItems = validItems
-        .where((item) => item.pendingVerification)
-        .take(4)
+        .where(
+          (item) =>
+              item.actionTiming != V2ActionTiming.future &&
+              item.pendingVerification,
+        )
+        .toList(growable: false);
+    final futureItems = validItems
+        .where((item) => item.actionTiming == V2ActionTiming.future)
         .toList(growable: false);
 
     return SingleChildScrollView(
@@ -1800,11 +1927,33 @@ class _TodayPane extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('今日', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 5),
-              Text(
-                _todayLabel(data.businessDate),
-                style: Theme.of(context).textTheme.bodySmall,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '今日',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          _todayLabel(data.businessDate),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.tonalIcon(
+                    key: const Key('v2-today-quick-capture'),
+                    onPressed: () => _showV2QuickCaptureStudentPicker(context),
+                    icon: const Icon(Icons.note_add_outlined, size: 18),
+                    label: const Text('记录问题'),
+                  ),
+                ],
               ),
               const SizedBox(height: 28),
               if (actionItems.isEmpty && verificationItems.isEmpty)
@@ -1813,7 +1962,7 @@ class _TodayPane extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               if (actionItems.isNotEmpty) ...[
-                const _SectionTitle(title: '需要处理'),
+                _SectionTitle(title: '需要处理', count: actionItems.length),
                 const SizedBox(height: 8),
                 for (final item in actionItems)
                   _TodayAction(item: item, onOpenCase: onOpenCase),
@@ -1821,7 +1970,7 @@ class _TodayPane extends StatelessWidget {
               if (actionItems.isNotEmpty && verificationItems.isNotEmpty)
                 const SizedBox(height: 28),
               if (verificationItems.isNotEmpty) ...[
-                const _SectionTitle(title: '待验证'),
+                _SectionTitle(title: '待验证', count: verificationItems.length),
                 const SizedBox(height: 10),
                 for (final item in verificationItems)
                   _TodayAction(
@@ -1829,6 +1978,26 @@ class _TodayPane extends StatelessWidget {
                     onOpenCase: onOpenCase,
                     verification: true,
                   ),
+              ],
+              if (futureItems.isNotEmpty) ...[
+                const SizedBox(height: 28),
+                Divider(color: Theme.of(context).colorScheme.outlineVariant),
+                ExpansionTile(
+                  key: const Key('v2-today-future-section'),
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.event_outlined),
+                  title: const Text('近期安排'),
+                  subtitle: Text('${futureItems.length} 项已安排的后续行动'),
+                  children: [
+                    for (final item in futureItems)
+                      _TodayAction(
+                        item: item,
+                        onOpenCase: onOpenCase,
+                        verification: item.pendingVerification,
+                      ),
+                  ],
+                ),
               ],
             ],
           ),
@@ -2093,11 +2262,36 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
 }
 
 class _EmptyWorkspacePreview extends StatelessWidget {
-  const _EmptyWorkspacePreview();
+  const _EmptyWorkspacePreview({this.onOpenManagement, this.onOpenMore});
+
+  final VoidCallback? onOpenManagement;
+  final VoidCallback? onOpenMore;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: onOpenManagement == null && onOpenMore == null
+          ? null
+          : AppBar(
+              title: const Text('学情闭环'),
+              actions: [
+                if (onOpenManagement != null)
+                  IconButton(
+                    key: const Key('v2-empty-management'),
+                    tooltip: '机构管理',
+                    onPressed: onOpenManagement,
+                    icon: const Icon(Icons.admin_panel_settings_outlined),
+                  ),
+                if (onOpenMore != null)
+                  IconButton(
+                    key: const Key('v2-empty-more'),
+                    tooltip: '更多',
+                    onPressed: onOpenMore,
+                    icon: const Icon(Icons.more_horiz),
+                  ),
+                const SizedBox(width: 6),
+              ],
+            ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -2119,10 +2313,20 @@ class _EmptyWorkspacePreview extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '当你获得任课学生后，这里会自动出现。',
+                    onOpenManagement == null
+                        ? '当你获得任课学生后，这里会自动出现。'
+                        : '当前还没有可查看的学生。可以先进入机构管理完成学生、学科和任课配置。',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
+                  if (onOpenManagement != null) ...[
+                    const SizedBox(height: 20),
+                    FilledButton.tonalIcon(
+                      onPressed: onOpenManagement,
+                      icon: const Icon(Icons.admin_panel_settings_outlined),
+                      label: const Text('进入机构管理'),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -183,7 +183,12 @@ void main() {
       expect(find.byKey(const ValueKey('v2-media-remove-0')), findsOneWidget);
       expect(find.text('网络暂时不可用，当前文字和图片仍然保留，可以直接重试。'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, '记录问题'));
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+      expect(find.text('这条记录还没有确认保存'), findsOneWidget);
+      expect(find.text('概括题遗漏结果。'), findsOneWidget);
+
+      await tester.tap(find.text('重新保存'));
       await tester.pumpAndSettle();
 
       expect(attempts, 2);

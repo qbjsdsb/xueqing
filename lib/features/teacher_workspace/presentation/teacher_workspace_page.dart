@@ -901,7 +901,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
     final sizeClass = ResponsiveBreakpoints.classify(
       MediaQuery.sizeOf(context).width,
     );
-    final manager = _WorkspaceCaseTypeManager(
+    final manager = WorkspaceCaseTypeManager(
       organizationId: organizationId,
       caseTypes: workspace.caseTypes,
       repository: widget.repository,
@@ -1415,7 +1415,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       if (workspace.canManageCaseTypes && workspace.organizationId != null) {
         return _WorkspaceStatusScaffold(
           title: '机构问题类型',
-          child: _WorkspaceCaseTypeManager(
+          child: WorkspaceCaseTypeManager(
             organizationId: workspace.organizationId!,
             caseTypes: workspace.caseTypes,
             repository: widget.repository,
@@ -4672,8 +4672,9 @@ class _WorkspaceCaseTypeEditorDialogState
   }
 }
 
-class _WorkspaceCaseTypeManager extends StatefulWidget {
-  const _WorkspaceCaseTypeManager({
+class WorkspaceCaseTypeManager extends StatefulWidget {
+  const WorkspaceCaseTypeManager({
+    super.key,
     required this.organizationId,
     required this.caseTypes,
     required this.repository,
@@ -4688,11 +4689,11 @@ class _WorkspaceCaseTypeManager extends StatefulWidget {
   final bool showCloseButton;
 
   @override
-  State<_WorkspaceCaseTypeManager> createState() =>
+  State<WorkspaceCaseTypeManager> createState() =>
       _WorkspaceCaseTypeManagerState();
 }
 
-class _WorkspaceCaseTypeManagerState extends State<_WorkspaceCaseTypeManager> {
+class _WorkspaceCaseTypeManagerState extends State<WorkspaceCaseTypeManager> {
   late List<WorkspaceCaseType> _caseTypes;
   bool _busy = false;
   String? _error;

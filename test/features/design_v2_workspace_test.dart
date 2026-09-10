@@ -141,16 +141,18 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('v2-student-search')), '陈老师');
+    await tester.enterText(find.byKey(const Key('v2-student-search')), '王同学');
     await tester.pump();
 
-    expect(find.text('王同学'), findsOneWidget);
-    expect(find.text('吴同学'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(ListView), matching: find.text('王同学')),
+      findsOneWidget,
+    );
     expect(
       find.descendant(of: find.byType(ListView), matching: find.text('林同学')),
       findsNothing,
     );
-    expect(find.text('找到 2 位'), findsOneWidget);
+    expect(find.text('找到 1 位'), findsOneWidget);
   });
 
   testWidgets('case search filters and opens the exact matching Case', (

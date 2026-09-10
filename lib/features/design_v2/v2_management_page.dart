@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../cloud/learning_repository.dart';
 import '../organization_management/presentation/organization_management_page.dart';
+import '../teacher_workspace/presentation/teacher_workspace_page.dart';
 import '../teacher_workspace/workspace_runtime.dart';
 import 'v2_update_flow.dart';
 
@@ -37,6 +38,37 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
       );
     } finally {
       if (mounted) setState(() => _checkingForUpdates = false);
+    }
+  }
+
+  Future<void> _openCaseTypes() async {
+    final organizationId = widget.workspace.organizationId;
+    if (organizationId == null || !widget.workspace.canManageCaseTypes) {
+      return;
+    }
+    final manager = WorkspaceCaseTypeManager(
+      organizationId: organizationId,
+      caseTypes: widget.workspace.caseTypes,
+      repository: widget.runtime.learningRepository,
+      onChanged: () async {
+        widget.onChanged?.call();
+      },
+    );
+    if (MediaQuery.sizeOf(context).width < 720) {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
+        useSafeArea: true,
+        builder: (_) => manager,
+      );
+    } else {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => Dialog(child: manager),
+      );
     }
   }
 
@@ -94,7 +126,12 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
             organizationId: organizationId,
             organizationName: widget.workspace.organizationName,
             roles: widget.workspace.roles,
-            canManageCaseTypes: false,
+            canManageCaseTypes: widget.workspace.canManageCaseTypes,
+            onOpenCaseTypes: widget.workspace.canManageCaseTypes
+                ? () {
+                    _openCaseTypes();
+                  }
+                : null,
             onChanged: widget.onChanged,
           ),
         ),

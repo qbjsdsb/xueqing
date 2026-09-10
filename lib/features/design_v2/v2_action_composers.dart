@@ -141,7 +141,7 @@ class _V2CompleteActionComposerState extends State<V2CompleteActionComposer> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('刚才是否保存成功还不能确认'),
-        content: const Text('建议直接重新保存；系统会沿用这次操作，不会重复完成提醒。'),
+        content: const Text('建议直接重新保存；系统会沿用这次操作，不会重复完成这一步。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -170,7 +170,7 @@ class _V2CompleteActionComposerState extends State<V2CompleteActionComposer> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('完成提醒', style: Theme.of(context).textTheme.titleLarge),
+            Text('完成这一步', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
               widget.actionTitle,
@@ -208,7 +208,7 @@ class _V2CompleteActionComposerState extends State<V2CompleteActionComposer> {
                           ? '保存中…'
                           : _attempted
                           ? '重新保存'
-                          : '完成提醒',
+                          : '完成这一步',
                     ),
                   ),
                 ),
