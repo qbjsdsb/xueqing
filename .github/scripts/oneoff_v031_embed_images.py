@@ -1,0 +1,667 @@
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str) -> None:
+    p = Path(path)
+    text = p.read_text(encoding='utf-8')
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f'{path}: expected 1 occurrence, found {count}: {old[:100]!r}')
+    p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+
+def replace_count(path: str, old: str, new: str, expected: int) -> None:
+    p = Path(path)
+    text = p.read_text(encoding='utf-8')
+    count = text.count(old)
+    if count != expected:
+        raise SystemExit(f'{path}: expected {expected} occurrences, found {count}: {old[:100]!r}')
+    p.write_text(text.replace(old, new), encoding='utf-8')
+
+
+# Authenticated private-byte download. Storage RLS remains authoritative.
+replace_once(
+    'lib/cloud/evidence_attachment_repository.dart',
+    '  Future<String> createSignedUrl(String storagePath);\n',
+    '  Future<Uint8List> downloadBytes(String storagePath);\n\n'
+    '  Future<String> createSignedUrl(String storagePath);\n',
+)
+replace_once(
+    'lib/cloud/evidence_attachment_repository.dart',
+    '  @override\n  Future<String> createSignedUrl(String storagePath) async {\n',
+    '''  @override
+  Future<Uint8List> downloadBytes(String storagePath) async {
+    final normalizedPath = storagePath.trim();
+    if (normalizedPath.isEmpty) {
+      throw ArgumentError('storagePath cannot be empty.');
+    }
+    final authUser = _client.auth.currentUser;
+    if (authUser == null) {
+      throw const AuthException('No active session.');
+    }
+    final bytes = await _client.storage
+        .from(caseEvidenceAttachmentBucket)
+        .download(normalizedPath);
+    _assertSameSession(authUser.id);
+    return bytes;
+  }
+
+  @override
+  Future<String> createSignedUrl(String storagePath) async {
+''',
+)
+
+# Teacher export uses the attachment-aware RPC, matching student export.
+replace_once(
+    'lib/cloud/teacher_learning_record_repository.dart',
+    '    required this.attachmentCount,\n    required this.currentStatus,\n',
+    '    required this.attachmentCount,\n'
+    '    this.attachmentPaths = const <String>[],\n'
+    '    required this.currentStatus,\n',
+)
+replace_once(
+    'lib/cloud/teacher_learning_record_repository.dart',
+    '  final int attachmentCount;\n  final String currentStatus;\n',
+    '  final int attachmentCount;\n'
+    '  final List<String> attachmentPaths;\n'
+    '  final String currentStatus;\n',
+)
+replace_once(
+    'lib/cloud/teacher_learning_record_repository.dart',
+    "      attachmentCount: _requiredInt(\n        json['attachment_count'],\n        'attachment_count',\n      ),\n      currentStatus:",
+    "      attachmentCount: _requiredInt(\n        json['attachment_count'],\n        'attachment_count',\n      ),\n      attachmentPaths: _stringList(json['attachment_paths']),\n      currentStatus:",
+)
+replace_once(
+    'lib/cloud/teacher_learning_record_repository.dart',
+    "        'list_teacher_learning_records',\n",
+    "        'list_teacher_learning_records_with_attachments',\n",
+)
+replace_once(
+    'lib/cloud/teacher_learning_record_repository.dart',
+    'String _requiredString(Object? value, String field) {\n',
+    '''List<String> _stringList(Object? value) {
+  if (value == null) return const <String>[];
+  if (value is! List) {
+    throw const FormatException('Missing or invalid attachment_paths.');
+  }
+  return List<String>.unmodifiable([
+    for (final item in value)
+      if (item is String && item.trim().isNotEmpty) item.trim(),
+  ]);
+}
+
+String _requiredString(Object? value, String field) {
+''',
+)
+
+# Export rows carry private paths only in memory. Workbook embeds bytes, never URLs.
+replace_once(
+    'lib/export/learning_record_export.dart',
+    "import 'dart:io';\n",
+    "import 'dart:io';\nimport 'dart:math' as math;\n",
+)
+replace_once(
+    'lib/export/learning_record_export.dart',
+    "import '../cloud/learning_repository.dart';\n",
+    "import '../cloud/evidence_attachment_repository.dart';\n"
+    "import '../cloud/learning_repository.dart';\n",
+)
+replace_once(
+    'lib/export/learning_record_export.dart',
+    "import '../cloud/teacher_learning_record_repository.dart';\n\nclass LearningRecordExportRow {\n",
+    "import '../cloud/teacher_learning_record_repository.dart';\n"
+    "import '../media/evidence_image_processing.dart';\n\n"
+    '''class LearningRecordExportImage {
+  const LearningRecordExportImage({
+    required this.bytes,
+    required this.width,
+    required this.height,
+  });
+
+  final Uint8List bytes;
+  final int width;
+  final int height;
+}
+
+class LearningRecordExportImageException implements Exception {
+  LearningRecordExportImageException(this.cause);
+
+  final Object cause;
+
+  @override
+  String toString() => '学情记录中的图片无法下载或处理。';
+}
+
+String? learningRecordImageExportErrorMessage(Object error) =>
+    error is LearningRecordExportImageException
+    ? '记录已读取，但其中一张图片暂时无法下载或处理，请检查网络后重试。'
+    : null;
+
+class LearningRecordExportRow {
+''',
+)
+replace_once(
+    'lib/export/learning_record_export.dart',
+    '    this.teacherName,\n    this.attachmentNote,\n  });\n',
+    '    this.teacherName,\n'
+    '    this.attachmentNote,\n'
+    '    this.attachmentPaths = const <String>[],\n'
+    '    this.attachmentImages = const <LearningRecordExportImage>[],\n'
+    '  });\n',
+)
+replace_once(
+    'lib/export/learning_record_export.dart',
+    '  final String? attachmentNote;\n  final String status;\n}\n',
+    '''  final String? attachmentNote;
+  final List<String> attachmentPaths;
+  final List<LearningRecordExportImage> attachmentImages;
+  final String status;
+
+  LearningRecordExportRow copyWithAttachmentImages(
+    List<LearningRecordExportImage> images,
+  ) => LearningRecordExportRow(
+    occurredAt: occurredAt,
+    studentName: studentName,
+    subjectName: subjectName,
+    issueTitle: issueTitle,
+    recordType: recordType,
+    content: content,
+    status: status,
+    assessmentResult: assessmentResult,
+    nextStep: nextStep,
+    teacherName: teacherName,
+    attachmentNote: attachmentNote,
+    attachmentPaths: attachmentPaths,
+    attachmentImages: List<LearningRecordExportImage>.unmodifiable(images),
+  );
+}
+''',
+)
+replace_count(
+    'lib/export/learning_record_export.dart',
+    "          attachmentNote: record.attachmentCount <= 0\n              ? null\n              : '${record.attachmentCount} 个附件',\n          status:",
+    "          attachmentNote: record.attachmentCount <= 0\n              ? null\n              : '${record.attachmentCount} 个附件',\n          attachmentPaths: record.attachmentPaths,\n          status:",
+    2,
+)
+replace_once(
+    'lib/export/learning_record_export.dart',
+    '  static WorkspaceEvidence? _initialQuickCaptureEvidence(\n',
+    '''  static Future<List<LearningRecordExportRow>>
+  prepareRowsWithAttachmentImages({
+    required List<LearningRecordExportRow> rows,
+    required EvidenceAttachmentRepository? repository,
+  }) async {
+    final uniquePaths = <String>{
+      for (final row in rows) ...row.attachmentPaths,
+    }.toList(growable: false);
+    if (uniquePaths.isEmpty) {
+      return List<LearningRecordExportRow>.unmodifiable(rows);
+    }
+    if (repository == null) {
+      throw LearningRecordExportImageException(
+        StateError('Attachment repository is unavailable.'),
+      );
+    }
+
+    final cache = <String, LearningRecordExportImage>{};
+    const batchSize = 2;
+    for (var start = 0; start < uniquePaths.length; start += batchSize) {
+      final end = math.min(start + batchSize, uniquePaths.length);
+      final batch = uniquePaths.sublist(start, end);
+      final images = await Future.wait([
+        for (final path in batch) _loadExportImage(repository, path),
+      ]);
+      for (var index = 0; index < batch.length; index++) {
+        cache[batch[index]] = images[index];
+      }
+    }
+
+    return List<LearningRecordExportRow>.unmodifiable([
+      for (final row in rows)
+        if (row.attachmentPaths.isEmpty)
+          row
+        else
+          row.copyWithAttachmentImages([
+            for (final path in row.attachmentPaths) cache[path]!,
+          ]),
+    ]);
+  }
+
+  static Future<LearningRecordExportImage> _loadExportImage(
+    EvidenceAttachmentRepository repository,
+    String path,
+  ) async {
+    try {
+      final sourceBytes = await repository.downloadBytes(path);
+      final processed = await processEvidenceImageForExcel(sourceBytes);
+      return LearningRecordExportImage(
+        bytes: processed.bytes,
+        width: processed.width,
+        height: processed.height,
+      );
+    } catch (error) {
+      throw LearningRecordExportImageException(error);
+    }
+  }
+
+  static WorkspaceEvidence? _initialQuickCaptureEvidence(
+''',
+)
+replace_once(
+    'lib/export/learning_record_export.dart',
+    '''    for (final row in rows) {
+      sheet.appendRow(<CellValue?>[
+        TextCellValue(_formatDateTime(row.occurredAt)),
+        TextCellValue(row.studentName),
+        TextCellValue(row.subjectName),
+        TextCellValue(row.issueTitle),
+        TextCellValue(row.recordType),
+        TextCellValue(row.content),
+        TextCellValue(row.assessmentResult ?? ''),
+        TextCellValue(row.nextStep ?? ''),
+        TextCellValue(row.teacherName ?? ''),
+        TextCellValue(row.attachmentNote ?? ''),
+        TextCellValue(row.status),
+      ]);
+    }
+
+    const widths = <double>[20, 14, 12, 28, 16, 48, 14, 28, 14, 18, 14];
+''',
+    '''    for (var index = 0; index < rows.length; index++) {
+      final row = rows[index];
+      final sheetRow = index + 1;
+      sheet.appendRow(<CellValue?>[
+        TextCellValue(_formatDateTime(row.occurredAt)),
+        TextCellValue(row.studentName),
+        TextCellValue(row.subjectName),
+        TextCellValue(row.issueTitle),
+        TextCellValue(row.recordType),
+        TextCellValue(row.content),
+        TextCellValue(row.assessmentResult ?? ''),
+        TextCellValue(row.nextStep ?? ''),
+        TextCellValue(row.teacherName ?? ''),
+        TextCellValue(row.attachmentNote ?? ''),
+        TextCellValue(row.status),
+      ]);
+      _addAttachmentImages(sheet, sheetRow, row.attachmentImages);
+    }
+
+    const widths = <double>[20, 14, 12, 28, 16, 48, 14, 28, 14, 38, 14];
+''',
+)
+replace_once(
+    'lib/export/learning_record_export.dart',
+    '  static Future<String?> saveAsXlsx({\n',
+    '''  static void _addAttachmentImages(
+    Sheet sheet,
+    int rowIndex,
+    List<LearningRecordExportImage> images,
+  ) {
+    if (images.isEmpty) return;
+    const attachmentColumn = 9;
+    const topOffset = 22;
+
+    if (images.length == 1) {
+      final size = _fitImage(images.single, maxWidth: 220, maxHeight: 150);
+      sheet.addImage(
+        ExcelImage(
+          imageBytes: images.single.bytes,
+          imageType: ExcelImageType.jpeg,
+          anchor: ImageAnchor.fromPixels(
+            column: attachmentColumn,
+            row: rowIndex,
+            widthPixels: size.width,
+            heightPixels: size.height,
+            colOffsetPixels: 6,
+            rowOffsetPixels: topOffset,
+          ),
+        ),
+      );
+      final rowHeight = ((topOffset + size.height + 8) * 0.75)
+          .clamp(18.0, 409.0)
+          .toDouble();
+      sheet.setRowHeight(rowIndex, rowHeight);
+      return;
+    }
+
+    // Excel has a practical row-height limit. Keep every image visible by
+    // fitting all thumbnails into a bounded grid rather than silently dropping
+    // overflow attachments.
+    final columns = images.length <= 4 ? 2 : 3;
+    const cellWidth = 220;
+    const gutter = 4;
+    final rowsNeeded = (images.length + columns - 1) ~/ columns;
+    final maxGridHeight = 500 - topOffset - 8;
+    final tileWidth = math.max(
+      24,
+      ((cellWidth - (columns - 1) * gutter) / columns).floor(),
+    );
+    final tileHeight = math.max(
+      18,
+      ((maxGridHeight - (rowsNeeded - 1) * gutter) / rowsNeeded).floor(),
+    );
+    var maxBottom = topOffset;
+
+    for (var index = 0; index < images.length; index++) {
+      final image = images[index];
+      final size = _fitImage(
+        image,
+        maxWidth: tileWidth,
+        maxHeight: tileHeight,
+      );
+      final gridColumn = index % columns;
+      final gridRow = index ~/ columns;
+      final x = 6 + gridColumn * (tileWidth + gutter);
+      final y = topOffset + gridRow * (tileHeight + gutter);
+      sheet.addImage(
+        ExcelImage(
+          imageBytes: image.bytes,
+          imageType: ExcelImageType.jpeg,
+          anchor: ImageAnchor.fromPixels(
+            column: attachmentColumn,
+            row: rowIndex,
+            widthPixels: size.width,
+            heightPixels: size.height,
+            colOffsetPixels: x,
+            rowOffsetPixels: y,
+          ),
+        ),
+      );
+      maxBottom = math.max(maxBottom, y + size.height);
+    }
+
+    final rowHeight = ((maxBottom + 8) * 0.75)
+        .clamp(18.0, 409.0)
+        .toDouble();
+    sheet.setRowHeight(rowIndex, rowHeight);
+  }
+
+  static ({int width, int height}) _fitImage(
+    LearningRecordExportImage image, {
+    required int maxWidth,
+    required int maxHeight,
+  }) {
+    if (image.width <= 0 || image.height <= 0) {
+      return (width: 1, height: 1);
+    }
+    final scale = math.min(
+      1.0,
+      math.min(maxWidth / image.width, maxHeight / image.height),
+    );
+    return (
+      width: math.max(1, (image.width * scale).round()),
+      height: math.max(1, (image.height * scale).round()),
+    );
+  }
+
+  static Future<String?> saveAsXlsx({
+''',
+)
+
+# V2 direct student export prepares the embedded image bytes before saving.
+replace_once(
+    'lib/features/design_v2/v2_workspace_loader.dart',
+    '''      final rows = LearningRecordExport.rowsForStudentRecords(records);
+      if (!context.mounted) {
+''',
+    '''      final rows = LearningRecordExport.rowsForStudentRecords(records);
+      final preparedRows =
+          await LearningRecordExport.prepareRowsWithAttachmentImages(
+            rows: rows,
+            repository:
+                widget.runtime?.evidenceAttachmentRepository ??
+                widget.evidenceAttachmentRepository,
+          );
+      if (!context.mounted) {
+''',
+)
+replace_once(
+    'lib/features/design_v2/v2_workspace_loader.dart',
+    '''        fileNameWithoutExtension: LearningRecordExport.studentSubjectFileName(
+          profile,
+        ),
+        rows: rows,
+''',
+    '''        fileNameWithoutExtension: LearningRecordExport.studentSubjectFileName(
+          profile,
+        ),
+        rows: preparedRows,
+''',
+)
+replace_once(
+    'lib/features/design_v2/v2_workspace_loader.dart',
+    '''      final message =
+          studentLearningRecordExportErrorMessage(error) ??
+          '学情记录暂时无法读取，请检查网络后重试。';
+''',
+    '''      final message =
+          learningRecordImageExportErrorMessage(error) ??
+          studentLearningRecordExportErrorMessage(error) ??
+          '学情记录暂时无法读取，请检查网络后重试。';
+''',
+)
+
+# Organization management exports receive the authenticated attachment capability.
+replace_once(
+    'lib/features/organization_management/presentation/organization_management_page.dart',
+    "import '../../../cloud/learning_repository.dart';\n",
+    "import '../../../cloud/evidence_attachment_repository.dart';\n"
+    "import '../../../cloud/learning_repository.dart';\n",
+)
+replace_once(
+    'lib/features/organization_management/presentation/organization_management_page.dart',
+    '    this.provisioningRepository,\n    this.teacherLearningRecordRepository,\n',
+    '    this.provisioningRepository,\n'
+    '    this.evidenceAttachmentRepository,\n'
+    '    this.teacherLearningRecordRepository,\n',
+)
+replace_once(
+    'lib/features/organization_management/presentation/organization_management_page.dart',
+    '  final OrganizationMemberProvisioningRepository? provisioningRepository;\n  final TeacherLearningRecordRepository? teacherLearningRecordRepository;\n',
+    '  final OrganizationMemberProvisioningRepository? provisioningRepository;\n'
+    '  final EvidenceAttachmentRepository? evidenceAttachmentRepository;\n'
+    '  final TeacherLearningRecordRepository? teacherLearningRecordRepository;\n',
+)
+replace_once(
+    'lib/features/design_v2/v2_management_page.dart',
+    '            provisioningRepository: widget.runtime.memberProvisioningRepository,\n',
+    '            provisioningRepository: widget.runtime.memberProvisioningRepository,\n'
+    '            evidenceAttachmentRepository:\n'
+    '                widget.runtime.evidenceAttachmentRepository,\n',
+)
+
+# Both manager export flows prepare images before save.
+replace_count(
+    'lib/features/organization_management/presentation/organization_management_learning_actions.dart',
+    '      final savedPath = await LearningRecordExport.saveAsXlsx(\n',
+    '      final preparedRows =\n'
+    '          await LearningRecordExport.prepareRowsWithAttachmentImages(\n'
+    '            rows: rows,\n'
+    '            repository: widget.evidenceAttachmentRepository,\n'
+    '          );\n'
+    '      final savedPath = await LearningRecordExport.saveAsXlsx(\n',
+    2,
+)
+replace_count(
+    'lib/features/organization_management/presentation/organization_management_learning_actions.dart',
+    '        rows: rows,\n      );\n',
+    '        rows: preparedRows,\n      );\n',
+    2,
+)
+replace_once(
+    'lib/features/organization_management/presentation/organization_management_learning_actions.dart',
+    '''        _errorMessage =
+            studentLearningRecordExportErrorMessage(error) ??
+            '导出失败，请检查网络和账号状态后重试。';
+''',
+    '''        _errorMessage =
+            learningRecordImageExportErrorMessage(error) ??
+            studentLearningRecordExportErrorMessage(error) ??
+            '导出失败，请检查网络和账号状态后重试。';
+''',
+)
+replace_once(
+    'lib/features/organization_management/presentation/organization_management_learning_actions.dart',
+    '''        _errorMessage =
+            teacherLearningRecordExportErrorMessage(error) ??
+            '导出失败，请检查网络和账号状态后重试。';
+''',
+    '''        _errorMessage =
+            learningRecordImageExportErrorMessage(error) ??
+            teacherLearningRecordExportErrorMessage(error) ??
+            '导出失败，请检查网络和账号状态后重试。';
+''',
+)
+
+# Legacy management route, retained for dev/fallback, gets the same capability.
+replace_once(
+    'lib/features/teacher_workspace/presentation/teacher_workspace_page.dart',
+    '''      teacherLearningRecordRepository: widget.teacherLearningRecordRepository,
+      studentLearningRecordRepository: widget.studentLearningRecordRepository,
+''',
+    '''      teacherLearningRecordRepository: widget.teacherLearningRecordRepository,
+      studentLearningRecordRepository: widget.studentLearningRecordRepository,
+      evidenceAttachmentRepository: widget.evidenceAttachmentRepository,
+''',
+)
+
+# Parser regression coverage.
+replace_once(
+    'test/cloud/teacher_learning_record_repository_test.dart',
+    "      'attachment_count': 2,\n      'current_status': 'confirmed',\n",
+    "      'attachment_count': 2,\n"
+    "      'attachment_paths': <String>['org/demo/a.jpg'],\n"
+    "      'current_status': 'confirmed',\n",
+)
+replace_once(
+    'test/cloud/teacher_learning_record_repository_test.dart',
+    "    expect(record.attachmentCount, 2);\n",
+    "    expect(record.attachmentCount, 2);\n"
+    "    expect(record.attachmentPaths, <String>['org/demo/a.jpg']);\n",
+)
+replace_once(
+    'test/cloud/student_learning_record_repository_test.dart',
+    "      'attachment_count': 2,\n      'current_status': 'confirmed',\n",
+    "      'attachment_count': 2,\n"
+    "      'attachment_paths': <String>['org/demo/a.jpg'],\n"
+    "      'current_status': 'confirmed',\n",
+)
+replace_once(
+    'test/cloud/student_learning_record_repository_test.dart',
+    "    expect(record.attachmentCount, 2);\n",
+    "    expect(record.attachmentCount, 2);\n"
+    "    expect(record.attachmentPaths, <String>['org/demo/a.jpg']);\n",
+)
+
+Path('test/export/learning_record_export_images_test.dart').write_text(r'''import 'dart:typed_data';
+
+import 'package:excel_community/excel_community.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:xueqing/cloud/evidence_attachment_repository.dart';
+import 'package:xueqing/export/learning_record_export.dart';
+
+void main() {
+  test('embeds private evidence bytes and downloads each path once', () async {
+    final source = img.Image(width: 320, height: 180);
+    final bytes = Uint8List.fromList(img.encodeJpg(source, quality: 90));
+    final repository = _DownloadOnlyEvidenceAttachmentRepository(bytes);
+    final rows = <LearningRecordExportRow>[
+      LearningRecordExportRow(
+        occurredAt: DateTime(2026, 9, 10, 18),
+        studentName: '示例学生',
+        subjectName: '语文',
+        issueTitle: '阅读题漏看限制词',
+        recordType: '学生表现',
+        content: '虚构课堂观察。',
+        status: '跟进中',
+        attachmentNote: '1 个附件',
+        attachmentPaths: const <String>['org/demo/shared.jpg'],
+      ),
+      LearningRecordExportRow(
+        occurredAt: DateTime(2026, 9, 10, 18, 5),
+        studentName: '示例学生',
+        subjectName: '语文',
+        issueTitle: '阅读题漏看限制词',
+        recordType: '学生表现',
+        content: '同一张图的第二条虚构投影。',
+        status: '跟进中',
+        attachmentNote: '1 个附件',
+        attachmentPaths: const <String>['org/demo/shared.jpg'],
+      ),
+    ];
+
+    final prepared = await LearningRecordExport.prepareRowsWithAttachmentImages(
+      rows: rows,
+      repository: repository,
+    );
+
+    expect(repository.downloadCount, 1);
+    expect(prepared, hasLength(2));
+    expect(prepared.first.attachmentImages, hasLength(1));
+    expect(prepared.last.attachmentImages, hasLength(1));
+    expect(
+      identical(
+        prepared.first.attachmentImages.single,
+        prepared.last.attachmentImages.single,
+      ),
+      isTrue,
+    );
+
+    final workbookBytes = LearningRecordExport.buildWorkbook(rows: prepared);
+    final zipIndex = String.fromCharCodes(workbookBytes);
+    expect(zipIndex, contains('xl/media/image1.jpeg'));
+    expect(zipIndex, contains('xl/drawings/drawing1.xml'));
+
+    final workbook = Excel.decodeBytes(workbookBytes);
+    final sheet = workbook.tables['全部记录'];
+    expect(sheet, isNotNull);
+    expect(sheet!.rows[1][9]?.value.toString(), '1 个附件');
+    expect(sheet.rows[2][9]?.value.toString(), '1 个附件');
+  });
+
+  test('fails explicitly instead of silently dropping images', () async {
+    final rows = <LearningRecordExportRow>[
+      LearningRecordExportRow(
+        occurredAt: DateTime(2026, 9, 10, 18),
+        studentName: '示例学生',
+        subjectName: '语文',
+        issueTitle: '图片导出',
+        recordType: '学生表现',
+        content: '虚构记录。',
+        status: '跟进中',
+        attachmentNote: '1 个附件',
+        attachmentPaths: const <String>['org/demo/missing.jpg'],
+      ),
+    ];
+
+    await expectLater(
+      LearningRecordExport.prepareRowsWithAttachmentImages(
+        rows: rows,
+        repository: null,
+      ),
+      throwsA(isA<LearningRecordExportImageException>()),
+    );
+    expect(
+      learningRecordImageExportErrorMessage(
+        LearningRecordExportImageException(StateError('missing')),
+      ),
+      '记录已读取，但其中一张图片暂时无法下载或处理，请检查网络后重试。',
+    );
+  });
+}
+
+class _DownloadOnlyEvidenceAttachmentRepository extends Fake
+    implements EvidenceAttachmentRepository {
+  _DownloadOnlyEvidenceAttachmentRepository(this.bytes);
+
+  final Uint8List bytes;
+  int downloadCount = 0;
+
+  @override
+  Future<Uint8List> downloadBytes(String storagePath) async {
+    downloadCount += 1;
+    return bytes;
+  }
+}
+''', encoding='utf-8')
