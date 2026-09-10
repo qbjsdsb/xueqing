@@ -18,4 +18,17 @@ void main() {
       expect(pubspec, isNot(contains('bitsdojo_window:')));
     },
   );
+
+  test('Windows opens the main window centered in the usable work area', () {
+    final source = File('windows/runner/main.cpp').readAsStringSync();
+
+    expect(source, contains('CenterWindowInWorkArea'));
+    expect(source, contains('MonitorFromWindow'));
+    expect(source, contains('GetMonitorInfo'));
+    expect(source, contains('window.GetHandle()'));
+    expect(
+      source,
+      contains('SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE'),
+    );
+  });
 }
