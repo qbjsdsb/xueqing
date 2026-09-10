@@ -42,7 +42,6 @@ jobs:
           dart format --output=none --set-exit-if-changed .
           flutter analyze
           flutter test test/features/v2_visual_polish_contract_test.dart
-          flutter test test/features/v2_composers_test.dart
           flutter test
           git diff --check
 
