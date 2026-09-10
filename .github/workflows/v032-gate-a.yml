@@ -1,0 +1,66 @@
+name: v0.3.2 real-device UX Gate A
+
+on:
+  push:
+    branches:
+      - hotfix/v0.3.2-real-device-ux
+    paths:
+      - tools/v032_gate_a.py
+      - .github/workflows/v032-gate-a.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v6
+        with:
+          ref: hotfix/v0.3.2-real-device-ux
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply isolated patch
+        run: python3 tools/v032_gate_a.py
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Verify lockfile unchanged
+        run: git diff --exit-code -- pubspec.lock
+
+      - name: Format changed Dart
+        run: dart format lib test
+
+      - name: Diff hygiene
+        run: git diff --check
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused regressions
+        run: flutter test test/features/v032_real_device_ux_contract_test.dart
+
+      - name: Full Flutter tests
+        run: flutter test
+
+      - name: Commit verified product changes and remove harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm tools/v032_gate_a.py .github/workflows/v032-gate-a.yml
+          git add lib test
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Fix v0.3.2 real-device navigation export and update UX"
+          git push origin HEAD:hotfix/v0.3.2-real-device-ux
