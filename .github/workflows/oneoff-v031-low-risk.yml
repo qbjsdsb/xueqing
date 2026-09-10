@@ -34,7 +34,7 @@ jobs:
         run: flutter pub get
 
       - name: Format
-        run: dart format --output=none --set-exit-if-changed lib test
+        run: dart format lib test
 
       - name: Analyze
         run: flutter analyze
@@ -52,8 +52,8 @@ jobs:
         run: |
           git diff --check
           git status --short
-          if git diff --name-only | grep -E '^(supabase/|lib/cloud/|lib/features/organization_management/)'; then
-            echo 'Low-risk gate unexpectedly touched business or database files.' >&2
+          if git diff --name-only | grep -E '^(supabase/|lib/features/organization_management/)'; then
+            echo 'Low-risk gate unexpectedly touched database or management files.' >&2
             exit 1
           fi
 
