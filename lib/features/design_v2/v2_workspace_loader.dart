@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../cloud/composer_draft_store.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
@@ -284,8 +285,19 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
                 sessionUserId: widget.runtime?.sessionUserId,
               )
             : null;
+        final composerDraftStore = runtime?.composerDraftStore;
+        final sessionUserId = runtime?.sessionUserId;
+        final composerDraftScopeKey =
+            composerDraftStore != null && sessionUserId != null
+            ? quickCaptureComposerScopeKey(
+                sessionUserId: sessionUserId,
+                organizationId: workspace.organizationId,
+              )
+            : null;
         return V2WorkspacePreview(
           data: snapshotData.workspaceData,
+          composerDraftStore: composerDraftStore,
+          composerDraftScopeKey: composerDraftScopeKey,
           workflowController: workflowController,
           evidenceAttachmentRepository: evidenceAttachmentRepository,
           onExportStudent: runtime?.studentLearningRecordRepository == null

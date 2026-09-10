@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_motion.dart';
@@ -5,6 +7,7 @@ import '../../app/theme/app_motion.dart';
 import '../../update/update_installer.dart';
 import '../../update/update_service.dart';
 
+import '../../cloud/composer_draft_store.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
@@ -47,6 +50,8 @@ class _V2RuntimeScope extends InheritedWidget {
   const _V2RuntimeScope({
     required this.workflowController,
     required this.evidenceAttachmentRepository,
+    required this.composerDraftStore,
+    required this.composerDraftScopeKey,
     required this.studentExport,
     required this.onWorkspaceChanged,
     required super.child,
@@ -54,6 +59,8 @@ class _V2RuntimeScope extends InheritedWidget {
 
   final V2WorkflowController? workflowController;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
+  final ComposerDraftStore? composerDraftStore;
+  final String? composerDraftScopeKey;
   final V2StudentExport? studentExport;
   final VoidCallback? onWorkspaceChanged;
 
@@ -64,17 +71,35 @@ class _V2RuntimeScope extends InheritedWidget {
   bool updateShouldNotify(_V2RuntimeScope oldWidget) =>
       workflowController != oldWidget.workflowController ||
       evidenceAttachmentRepository != oldWidget.evidenceAttachmentRepository ||
+      composerDraftStore != oldWidget.composerDraftStore ||
+      composerDraftScopeKey != oldWidget.composerDraftScopeKey ||
       studentExport != oldWidget.studentExport ||
       onWorkspaceChanged != oldWidget.onWorkspaceChanged;
 }
 
 Future<void> _showV2QuickCaptureForStudent(
   BuildContext context,
-  V2Student student,
-) async {
+  V2Student student, {
+  ComposerDraftSnapshot? initialDraft,
+}) async {
   final runtime = _V2RuntimeScope.maybeOf(context);
   final controller = runtime?.workflowController;
-  final operationId = controller == null ? null : createOperationId();
+  final storedOperationId = initialDraft?.state['operation_id'];
+  final operationId =
+      storedOperationId is String && storedOperationId.trim().isNotEmpty
+      ? storedOperationId
+      : createOperationId();
+  final draftStore = runtime?.composerDraftStore;
+  final draftScopeKey = runtime?.composerDraftScopeKey;
+  final persistence = draftStore != null && draftScopeKey != null
+      ? V2QuickCapturePersistence(
+          store: draftStore,
+          scopeKey: draftScopeKey,
+          studentId: student.id,
+          operationId: operationId,
+          initialDraft: initialDraft,
+        )
+      : null;
   final problemTypes = controller == null
       ? v2PreviewProblemTypeOptions
       : controller.caseTypeChoices
@@ -89,12 +114,13 @@ Future<void> _showV2QuickCaptureForStudent(
     studentName: student.name,
     subjects: student.subjects,
     problemTypes: problemTypes,
+    persistence: persistence,
     onSave: controller == null
         ? null
         : (draft) async {
             await controller.quickCapture(
               V2QuickCaptureWrite(
-                operationId: operationId!,
+                operationId: operationId,
                 studentId: student.id,
                 subject: draft.subject,
                 caseTypeKey: draft.caseTypeKey,
@@ -502,6 +528,8 @@ class V2WorkspacePreview extends StatefulWidget {
     super.key,
     this.data = v2FixtureWorkspaceData,
     this.workflowController,
+    this.composerDraftStore,
+    this.composerDraftScopeKey,
     this.evidenceAttachmentRepository,
     this.onExportStudent,
     this.managementPageBuilder,
@@ -515,6 +543,8 @@ class V2WorkspacePreview extends StatefulWidget {
 
   final V2WorkspaceData data;
   final V2WorkflowController? workflowController;
+  final ComposerDraftStore? composerDraftStore;
+  final String? composerDraftScopeKey;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final V2StudentExport? onExportStudent;
   final WidgetBuilder? managementPageBuilder;
@@ -536,6 +566,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   bool _showCase = false;
   bool _checkingForUpdates = false;
   bool _refreshing = false;
+  bool _quickCaptureDraftRecoveryScheduled = false;
 
   @override
   void initState() {
@@ -549,6 +580,73 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     if (!identical(oldWidget.data, widget.data)) {
       _reconcileSelection();
     }
+    if (oldWidget.composerDraftScopeKey != widget.composerDraftScopeKey ||
+        oldWidget.composerDraftStore != widget.composerDraftStore) {
+      _quickCaptureDraftRecoveryScheduled = false;
+    }
+  }
+
+  void _scheduleQuickCaptureDraftRecovery(BuildContext scopedContext) {
+    if (_quickCaptureDraftRecoveryScheduled ||
+        widget.composerDraftStore == null ||
+        widget.composerDraftScopeKey == null) {
+      return;
+    }
+    _quickCaptureDraftRecoveryScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && scopedContext.mounted) {
+        unawaited(_restoreQuickCaptureDraft(scopedContext));
+      }
+    });
+  }
+
+  Future<void> _restoreQuickCaptureDraft(BuildContext scopedContext) async {
+    final store = widget.composerDraftStore;
+    final scopeKey = widget.composerDraftScopeKey;
+    if (store == null || scopeKey == null) return;
+
+    ComposerDraftSnapshot? draft;
+    try {
+      draft = await store.load(scopeKey);
+    } catch (_) {
+      try {
+        await store.clear(scopeKey);
+      } catch (_) {}
+      return;
+    }
+    if (!mounted || !scopedContext.mounted || draft == null) return;
+
+    final operationId = draft.state['operation_id'];
+    if (draft.kind != 'quick_capture' ||
+        operationId is! String ||
+        operationId.trim().isEmpty) {
+      try {
+        await store.clear(scopeKey);
+      } catch (_) {}
+      return;
+    }
+
+    V2Student? student;
+    for (final candidate in widget.data.students) {
+      if (candidate.id == draft.studentId) {
+        student = candidate;
+        break;
+      }
+    }
+    final subject = draft.subject;
+    if (student == null ||
+        (subject != null && !student.subjects.contains(subject))) {
+      try {
+        await store.clear(scopeKey);
+      } catch (_) {}
+      return;
+    }
+    if (!mounted || !scopedContext.mounted) return;
+    await _showV2QuickCaptureForStudent(
+      scopedContext,
+      student,
+      initialDraft: draft,
+    );
   }
 
   void _reconcileSelection() {
@@ -779,12 +877,15 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     return _V2RuntimeScope(
       workflowController: widget.workflowController,
       evidenceAttachmentRepository: widget.evidenceAttachmentRepository,
+      composerDraftStore: widget.composerDraftStore,
+      composerDraftScopeKey: widget.composerDraftScopeKey,
       studentExport: widget.onExportStudent,
       onWorkspaceChanged: widget.onWorkspaceChanged,
       child: V2WorkspaceDataScope(
         data: widget.data,
         child: Builder(
           builder: (context) {
+            _scheduleQuickCaptureDraftRecovery(context);
             if (widget.data.students.isEmpty) {
               return _EmptyWorkspacePreview(
                 onOpenManagement: widget.managementPageBuilder == null
