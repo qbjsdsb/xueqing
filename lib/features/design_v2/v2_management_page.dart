@@ -25,7 +25,14 @@ class V2ManagementPage extends StatefulWidget {
 }
 
 class _V2ManagementPageState extends State<V2ManagementPage> {
+  final ScrollController _scrollController = ScrollController();
   bool _checkingForUpdates = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _checkForUpdates() async {
     if (_checkingForUpdates) return;
@@ -67,7 +74,12 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => Dialog(child: manager),
+        builder: (_) => Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
+            child: manager,
+          ),
+        ),
       );
     }
   }
@@ -82,10 +94,15 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
       );
     }
 
+    final desktop = MediaQuery.sizeOf(context).width >= 720;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.rootMode,
-        title: Text('机构管理 · ${widget.workspace.organizationName}'),
+        title: Text(
+          '机构管理 · ${widget.workspace.organizationName}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           if (_checkingForUpdates)
             const Padding(
@@ -115,26 +132,33 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
       ),
       body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          child: OrganizationManagementPage(
-            repository: repository,
-            provisioningRepository: widget.runtime.memberProvisioningRepository,
-            evidenceAttachmentRepository:
-                widget.runtime.evidenceAttachmentRepository,
-            teacherLearningRecordRepository:
-                widget.runtime.teacherLearningRecordRepository,
-            studentLearningRecordRepository:
-                widget.runtime.studentLearningRecordRepository,
-            organizationId: organizationId,
-            organizationName: widget.workspace.organizationName,
-            roles: widget.workspace.roles,
-            canManageCaseTypes: widget.workspace.canManageCaseTypes,
-            onOpenCaseTypes: widget.workspace.canManageCaseTypes
-                ? () {
-                    _openCaseTypes();
-                  }
-                : null,
-            onChanged: widget.onChanged,
+        child: Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: desktop,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: OrganizationManagementPage(
+              repository: repository,
+              provisioningRepository:
+                  widget.runtime.memberProvisioningRepository,
+              evidenceAttachmentRepository:
+                  widget.runtime.evidenceAttachmentRepository,
+              teacherLearningRecordRepository:
+                  widget.runtime.teacherLearningRecordRepository,
+              studentLearningRecordRepository:
+                  widget.runtime.studentLearningRecordRepository,
+              organizationId: organizationId,
+              organizationName: widget.workspace.organizationName,
+              roles: widget.workspace.roles,
+              canManageCaseTypes: widget.workspace.canManageCaseTypes,
+              onOpenCaseTypes: widget.workspace.canManageCaseTypes
+                  ? () {
+                      _openCaseTypes();
+                    }
+                  : null,
+              onChanged: widget.onChanged,
+            ),
           ),
         ),
       ),
