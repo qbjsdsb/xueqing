@@ -24,6 +24,27 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Replace legacy Excel package with image-capable maintained fork
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          pubspec = Path('pubspec.yaml')
+          text = pubspec.read_text()
+          text = text.replace('  excel: ^4.0.6\n', '  excel_community: 2.3.0\n')
+          pubspec.write_text(text)
+          for name in [
+              'lib/export/learning_record_export.dart',
+              'test/export/learning_record_export_test.dart',
+          ]:
+              path = Path(name)
+              text = path.read_text()
+              text = text.replace(
+                  "package:excel/excel.dart",
+                  "package:excel_community/excel_community.dart",
+              )
+              path.write_text(text)
+          PY
+
       - name: Resolve dependencies
         run: flutter pub get
 
@@ -32,17 +53,20 @@ jobs:
           dart format \
             lib/media/evidence_image_processing.dart \
             lib/features/teacher_workspace/presentation/evidence_attachment_picker.dart \
-            test/media/evidence_image_processing_test.dart
+            lib/export/learning_record_export.dart \
+            test/media/evidence_image_processing_test.dart \
+            test/export/learning_record_export_test.dart
 
       - name: Analyze
         run: flutter analyze
 
-      - name: Focused image tests
+      - name: Focused image and Excel compatibility tests
         run: |
           flutter test test/media/evidence_image_processing_test.dart
           flutter test test/features/evidence_attachment_picker_test.dart
           flutter test test/features/v2_quick_capture_recovery_test.dart
           flutter test test/features/v2_quick_capture_runtime_recovery_test.dart
+          flutter test test/export/learning_record_export_test.dart
 
       - name: Full tests
         run: flutter test
