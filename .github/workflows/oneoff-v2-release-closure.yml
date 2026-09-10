@@ -48,6 +48,26 @@ jobs:
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
           python .github/scripts/patch_v2_release_closure.py
+          python - <<'PY'
+          from pathlib import Path
+
+          loader = Path('lib/features/design_v2/v2_workspace_loader.dart')
+          text = loader.read_text(encoding='utf-8')
+          anchor = "import 'v2_management_page.dart';\n"
+          if "import 'v2_fixture.dart';" not in text:
+              if text.count(anchor) != 1:
+                  raise SystemExit('loader import anchor mismatch')
+              text = text.replace(anchor, "import 'v2_fixture.dart';\n" + anchor, 1)
+          loader.write_text(text, encoding='utf-8')
+
+          teacher = Path('lib/features/teacher_workspace/presentation/teacher_workspace_page.dart')
+          text = teacher.read_text(encoding='utf-8')
+          old = '  const WorkspaceCaseTypeManager({\n'
+          new = '  const WorkspaceCaseTypeManager({\n    super.key,\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'case type constructor anchor mismatch: {text.count(old)}')
+          teacher.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
 
       - name: Get packages
         run: flutter pub get
