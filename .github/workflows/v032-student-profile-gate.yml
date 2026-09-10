@@ -8,6 +8,7 @@ on:
       - ".github/workflows/v032-student-profile-gate.yml"
       - "tools/v032_student_profile_gate.py"
       - "tools/v032_student_profile_policy_patch.py"
+      - "tools/v032_student_profile_policy_runner.py"
 
 permissions:
   contents: write
@@ -36,10 +37,13 @@ jobs:
           flutter pub get
           git diff --exit-code -- pubspec.lock
 
+      - name: Prepare precise policy patch
+        run: python3 tools/v032_student_profile_policy_runner.py
+
       - name: Apply guarded profile implementation
         run: |
           python3 tools/v032_student_profile_gate.py
-          python3 tools/v032_student_profile_policy_patch.py
+          python3 /tmp/v032_student_profile_policy_patch.py
 
       - name: Format and inspect patch boundary
         shell: bash
@@ -88,13 +92,20 @@ jobs:
 
       - name: Stop local Supabase
         if: always()
-        run: supabase stop
+        shell: bash
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop
+          else
+            echo 'Supabase CLI was not installed; nothing to stop.'
+          fi
 
       - name: Commit only after every gate is green
         shell: bash
         run: |
           rm -f tools/v032_student_profile_gate.py
           rm -f tools/v032_student_profile_policy_patch.py
+          rm -f tools/v032_student_profile_policy_runner.py
           rm -f .github/workflows/v032-student-profile-gate.yml
           git add -A
           git diff --cached --check
