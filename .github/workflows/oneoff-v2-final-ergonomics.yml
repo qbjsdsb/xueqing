@@ -1,0 +1,113 @@
+name: One-off V2 final ergonomics
+
+on:
+  push:
+    branches:
+      - ui/v2-final-ergonomics
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ui/v2-final-ergonomics
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Apply final ergonomics patch
+        run: |
+          python3 .github/scripts/patch_v2_final_ergonomics.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lib/features/design_v2/v2_workspace_preview.dart')
+          text = path.read_text()
+          old = """          builder: (context) {
+            if (widget.data.students.isEmpty) {
+              final hasMenuActions =
+                  widget.managementPageBuilder != null ||
+                  widget.updateService != null &&
+                      widget.updateInstaller != null ||
+                  widget.onSignOut != null;
+              return _EmptyWorkspacePreview(
+"""
+          new = """          builder: (context) {
+            final hasMenuActions =
+                widget.managementPageBuilder != null ||
+                widget.updateService != null && widget.updateInstaller != null ||
+                widget.onSignOut != null;
+            if (widget.data.students.isEmpty) {
+              return _EmptyWorkspacePreview(
+"""
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one hasMenuActions block, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Format changed Dart files
+        run: |
+          dart format \
+            lib/features/organization_management/presentation/organization_invitation_join_page.dart \
+            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
+            lib/features/organization_management/presentation/organization_management_areas.dart \
+            lib/features/design_v2/v2_fixture.dart \
+            lib/features/design_v2/v2_read_model_adapter.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/v2_shell_production_capabilities_test.dart \
+            test/features/organization_invitation_join_page_test.dart \
+            test/features/v2_final_ergonomics_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run focused ergonomics tests
+        run: |
+          flutter test test/features/organization_invitation_acceptance_card_test.dart
+          flutter test test/features/organization_invitation_join_page_test.dart
+          flutter test test/features/v2_final_ergonomics_test.dart
+          flutter test test/features/design_v2_workspace_test.dart
+          flutter test test/features/design_v2_workspace_loader_test.dart
+          flutter test test/features/v2_shell_production_capabilities_test.dart
+          flutter test test/features/organization_management_page_test.dart
+
+      - name: Run full Flutter test suite
+        run: flutter test
+
+      - name: Check patch whitespace
+        run: git diff --check
+
+      - name: Commit validated product changes and remove one-off machinery
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            lib/features/organization_management/presentation/organization_invitation_join_page.dart \
+            lib/features/teacher_workspace/presentation/teacher_workspace_page.dart \
+            lib/features/organization_management/presentation/organization_management_areas.dart \
+            lib/features/design_v2/v2_fixture.dart \
+            lib/features/design_v2/v2_read_model_adapter.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/v2_shell_production_capabilities_test.dart \
+            test/features/organization_invitation_join_page_test.dart \
+            test/features/v2_final_ergonomics_test.dart
+          git rm -f .github/scripts/patch_v2_final_ergonomics.py
+          git rm -f .github/workflows/oneoff-v2-final-ergonomics.yml
+          git diff --cached --check
+          git commit -m 'UI V2: tighten membership gate and daily ergonomics'
+          git push origin HEAD:ui/v2-final-ergonomics
