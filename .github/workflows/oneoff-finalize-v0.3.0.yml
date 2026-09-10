@@ -20,11 +20,19 @@ jobs:
       EXPECTED_OLD_SHA: da5ca994ed265664e441dcc4bebd2fd52a3cd704
       RELEASE_TAG: v0.3.0
       APP_VERSION: 0.3.0+8
+      PUBLIC_SUPABASE_URL: https://czuctoulgnfytcfonkhc.supabase.co
+      PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI
+      PUBLIC_SUPABASE_ALLOWED_HOSTS: czuctoulgnfytcfonkhc.supabase.co
     steps:
-      - name: Verify release preconditions
+      - name: Verify release and signing preconditions
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -48,7 +56,7 @@ jobs:
               raise SystemExit('v0.3.0 release is immutable')
           assets = release.get('assets') or []
           if assets:
-              raise SystemExit(f'v0.3.0 already has {len(assets)} asset(s); refusing to retarget')
+              raise SystemExit(f'v0.3.0 already has {len(assets)} asset(s); refusing to republish')
           PY
 
           current_tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
@@ -57,7 +65,74 @@ jobs:
             exit 1
           fi
 
-      - name: Retarget empty staging tag to frozen main
+          required_names=(
+            XUEQING_ANDROID_CERT_SHA256
+            XUEQING_ANDROID_KEYSTORE_BASE64
+            XUEQING_ANDROID_KEYSTORE_PASSWORD
+            XUEQING_ANDROID_KEY_ALIAS
+            XUEQING_ANDROID_KEY_PASSWORD
+          )
+          missing=()
+          for name in "${required_names[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing permanent Android release configuration: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+          cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Pinned Android certificate fingerprint is malformed."
+            exit 1
+          fi
+
+      - name: Restore and verify non-secret Stable repository variables
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          upsert_variable() {
+            local name="$1"
+            local value="$2"
+            if gh api "repos/$GITHUB_REPOSITORY/actions/variables/$name" >/dev/null 2>&1; then
+              gh api --silent --method PATCH \
+                "repos/$GITHUB_REPOSITORY/actions/variables/$name" \
+                -f name="$name" \
+                -f value="$value"
+            else
+              gh api --silent --method POST \
+                "repos/$GITHUB_REPOSITORY/actions/variables" \
+                -f name="$name" \
+                -f value="$value"
+            fi
+          }
+
+          upsert_variable XUEQING_SUPABASE_URL "$PUBLIC_SUPABASE_URL"
+          upsert_variable XUEQING_SUPABASE_PUBLISHABLE_KEY "$PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          upsert_variable XUEQING_SUPABASE_ALLOWED_HOSTS "$PUBLIC_SUPABASE_ALLOWED_HOSTS"
+
+          verify_variable() {
+            local name="$1"
+            local expected="$2"
+            local actual
+            actual="$(gh api "repos/$GITHUB_REPOSITORY/actions/variables/$name" --jq '.value')"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "Repository variable verification failed for $name."
+              exit 1
+            fi
+            echo "$name configured and verified."
+          }
+
+          verify_variable XUEQING_SUPABASE_URL "$PUBLIC_SUPABASE_URL"
+          verify_variable XUEQING_SUPABASE_PUBLISHABLE_KEY "$PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          verify_variable XUEQING_SUPABASE_ALLOWED_HOSTS "$PUBLIC_SUPABASE_ALLOWED_HOSTS"
+
+      - name: Verify tag remains on frozen main
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -74,7 +149,7 @@ jobs:
 
           tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
           if [[ "$tag_sha" != "$FINAL_SHA" ]]; then
-            echo "v0.3.0 retarget verification failed: $tag_sha"
+            echo "v0.3.0 tag is not on frozen main: $tag_sha"
             exit 1
           fi
 
@@ -84,19 +159,12 @@ jobs:
             -f target_commitish="$FINAL_SHA" \
             >/dev/null
 
-          release_json="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
-          RELEASE_JSON="$release_json" python3 - <<'PY'
-          import json
-          import os
-
-          release = json.loads(os.environ['RELEASE_JSON'])
-          if release.get('target_commitish') != os.environ['FINAL_SHA']:
-              raise SystemExit('release target_commitish did not move to frozen main')
-          if not release.get('prerelease'):
-              raise SystemExit('release stopped being a prerelease during retarget')
-          if release.get('assets'):
-              raise SystemExit('release gained assets during retarget')
-          PY
+          release_assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.assets | length')"
+          release_prerelease="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.prerelease')"
+          if [[ "$release_assets" != "0" || "$release_prerelease" != "true" ]]; then
+            echo "release state changed before dispatch; refusing to publish"
+            exit 1
+          fi
 
       - name: Dispatch signed Stable publisher
         shell: bash
@@ -104,20 +172,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          notes=$'新版学情工作台正式启用，围绕“发现问题 → 跟进 → 验证 → 下一步”进一步收口\n优化 Today、学生与问题闭环，以及已结束问题的完整历史与安全重新跟进\n待办支持直接完成与改期，图片记录在成长时间线聚合呈现\n完成正式应用图标、Reduced Motion、移动端触控与发布前可用性打磨\n管理、成员、学科、任课交接、导出与应用内更新继续复用成熟能力'
-          jq -n \
-            --arg ref main \
-            --arg tag "$RELEASE_TAG" \
-            --arg version "$APP_VERSION" \
-            --arg notes "$notes" \
-            '{ref:$ref,inputs:{release_tag:$tag,app_version:$version,release_notes:$notes}}' \
-            > /tmp/dispatch.json
 
-          gh api --method POST \
-            "repos/$GITHUB_REPOSITORY/actions/workflows/publish-release-assets.yml/dispatches" \
-            --input /tmp/dispatch.json
+          before_id="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow publish-release-assets.yml \
+            --event workflow_dispatch \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId // 0')"
+          echo "PUBLISH_BEFORE_ID=$before_id" >> "$GITHUB_ENV"
 
-      - name: Verify Stable publisher is queued for frozen main
+          gh workflow run publish-release-assets.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_tag="$RELEASE_TAG" \
+            -f app_version="$APP_VERSION" \
+            -f release_notes=$'新版学情工作台正式启用，围绕“发现问题 → 跟进 → 验证 → 下一步”进一步收口\n优化 Today、学生与问题闭环，以及已结束问题的完整历史与安全重新跟进\n待办支持直接完成与改期，图片记录在成长时间线聚合呈现\n完成正式应用图标、Reduced Motion、移动端触控与发布前可用性打磨\n管理、成员、学科、任课交接、导出与应用内更新继续复用成熟能力'
+
+      - name: Verify new Stable publisher is queued for frozen main
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -131,7 +203,10 @@ jobs:
               --event workflow_dispatch \
               --limit 10 \
               --json databaseId,headSha,status,conclusion,url,createdAt)"
-            found="$(printf '%s' "$runs" | jq -c --arg sha "$FINAL_SHA" 'map(select(.headSha == $sha)) | .[0] // empty')"
+            found="$(printf '%s' "$runs" | jq -c \
+              --arg sha "$FINAL_SHA" \
+              --argjson before "$PUBLISH_BEFORE_ID" \
+              'map(select(.headSha == $sha and .databaseId > $before)) | .[0] // empty')"
             if [[ -n "$found" ]]; then
               printf '%s\n' "$found"
               break
@@ -139,6 +214,6 @@ jobs:
             sleep 2
           done
           if [[ -z "$found" ]]; then
-            echo "Stable publisher dispatch for frozen SHA was not observed"
+            echo "New Stable publisher dispatch for frozen SHA was not observed"
             exit 1
           fi
