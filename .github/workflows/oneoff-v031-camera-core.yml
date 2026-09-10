@@ -27,6 +27,25 @@ jobs:
       - name: Apply camera draft recovery core
         run: python3 .github/scripts/apply_v031_camera_core.py
 
+      - name: Guard picker context after durable save
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lib/features/design_v2/v2_composers.dart')
+          text = path.read_text(encoding='utf-8')
+          old = """    }
+              try {
+                final picked = await widget.attachmentPicker(context);"""
+          new = """    }
+              if (!mounted) return;
+              try {
+                final picked = await widget.attachmentPicker(context);"""
+          if old not in text:
+              raise SystemExit('camera picker context marker not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Resolve dependencies
         run: flutter pub get
 
