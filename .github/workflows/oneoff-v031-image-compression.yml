@@ -1,0 +1,61 @@
+name: One-off v0.3.1 evidence image compression
+
+on:
+  push:
+    branches:
+      - hotfix/v0.3.1-reliability-mobile
+    paths:
+      - .github/workflows/oneoff-v031-image-compression.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/v0.3.1-reliability-mobile
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Format focused changes
+        run: |
+          dart format \
+            lib/media/evidence_image_processing.dart \
+            lib/features/teacher_workspace/presentation/evidence_attachment_picker.dart \
+            test/media/evidence_image_processing_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused image tests
+        run: |
+          flutter test test/media/evidence_image_processing_test.dart
+          flutter test test/features/evidence_attachment_picker_test.dart
+          flutter test test/features/v2_quick_capture_recovery_test.dart
+          flutter test test/features/v2_quick_capture_runtime_recovery_test.dart
+
+      - name: Full tests
+        run: flutter test
+
+      - name: Verify diff
+        run: git diff --check
+
+      - name: Commit verified dependency lock and formatting
+        run: |
+          rm -f .github/workflows/oneoff-v031-image-compression.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m 'Compress evidence images before draft persistence and upload'
+          git push origin HEAD:hotfix/v0.3.1-reliability-mobile
