@@ -90,6 +90,13 @@ void main() {
       const Key('onboarding-confirm-password'),
     );
 
+    expect(find.byType(AutofillGroup), findsOneWidget);
+    expect(
+      tester
+          .widget<SingleChildScrollView>(find.byType(SingleChildScrollView))
+          .keyboardDismissBehavior,
+      ScrollViewKeyboardDismissBehavior.onDrag,
+    );
     expect(_isObscured(tester, passwordField), isTrue);
     expect(_isObscured(tester, confirmationField), isTrue);
 
