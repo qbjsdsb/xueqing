@@ -33,6 +33,18 @@ void main() {
     );
   });
 
+  test('V2 core workflow keeps teacher attention on next actions', () {
+    final source = File('lib/features/design_v2/v2_workspace_preview.dart')
+        .readAsStringSync();
+
+    expect(source, contains("'v2-case-next-step-\${item.id}'"));
+    expect(source, contains("'v2-case-more-\${item.id}'"));
+    expect(source, contains("title: '待安排下一步'"));
+    expect(source, contains('!widget.compact &&'));
+    expect(source, contains('final expandedRail = width >= 1280;'));
+    expect(source, isNot(contains("label: const Text('删除问题')")));
+  });
+
   test('V2 composers keep release-safe motion and touch targets', () {
     final source = File('lib/features/design_v2/v2_composers.dart')
         .readAsStringSync();

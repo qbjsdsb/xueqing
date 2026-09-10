@@ -41,6 +41,10 @@ void main() {
     expect(find.text('函数应用题思路不清'), findsOneWidget);
     expect(find.text('成长过程'), findsOneWidget);
     expect(find.text('再练 2 道同类题'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('v2-case-next-step-case-lin-function')),
+      findsOneWidget,
+    );
     expect(find.textContaining('数量关系先画成简图'), findsOneWidget);
   });
 
@@ -192,6 +196,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('化学方程式配平不稳'), findsOneWidget);
+    expect(find.text('周同学 · 化学'), findsOneWidget);
+    expect(find.text('基础反应能完成，遇到系数稍复杂时容易反复试错。'), findsNothing);
     expect(find.text('阅读概括不完整'), findsNothing);
     expect(find.text('找到 1 个问题'), findsOneWidget);
 
