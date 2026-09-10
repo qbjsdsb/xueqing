@@ -50,6 +50,49 @@ if count != 1:
         f'policy runner expected one broad grade-parameter matcher, found {count}'
     )
 patched = text.replace(old, new, 1)
+patched += r'''
+
+# The existing widget fixture uses 初二 / 一班 / 本部. Keep the prefill
+# assertion tied to the fixture instead of introducing unrelated sample data.
+replace_once(
+    feature_test,
+    """      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('student-edit-class-field')),
+          )
+          .controller
+          ?.text,
+      'A班',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('student-edit-campus-field')),
+          )
+          .controller
+          ?.text,
+      '思明校区',
+""",
+    """      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('student-edit-class-field')),
+          )
+          .controller
+          ?.text,
+      '一班',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('student-edit-campus-field')),
+          )
+          .controller
+          ?.text,
+      '本部',
+""",
+    'student profile prefill fixture values',
+)
+'''
 target = Path('/tmp/v032_student_profile_policy_patch.py')
 target.write_text(patched, encoding='utf-8')
 print(f'prepared RPC-scoped policy patch at {target}')
