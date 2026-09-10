@@ -1,0 +1,88 @@
+name: v0.3.3 core workflow polish runner
+
+on:
+  push:
+    branches:
+      - ux/v0.3.3-cross-platform-polish
+    paths:
+      - .github/workflows/v033-core-workflow-polish-run.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/v0.3.3-cross-platform-polish
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply deterministic polish
+        run: python tools/v033_core_workflow_polish.py
+
+      - name: Escape literal Dart interpolation in source-contract test
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('test/features/v2_visual_polish_contract_test.dart')
+          source = path.read_text()
+          source = source.replace('${item.id}', r'\${item.id}')
+          path.write_text(source)
+
+      - name: Format focused files
+        run: >-
+          dart format
+          lib/features/design_v2/v2_workspace_preview.dart
+          test/features/v2_final_ergonomics_test.dart
+          test/features/design_v2_workspace_test.dart
+          test/features/v2_visual_polish_contract_test.dart
+
+      - name: Analyze focused source and tests
+        run: >-
+          flutter analyze
+          lib/features/design_v2/v2_workspace_preview.dart
+          test/features/v2_final_ergonomics_test.dart
+          test/features/design_v2_workspace_test.dart
+          test/features/v2_visual_polish_contract_test.dart
+
+      - name: Run focused ergonomics tests
+        run: >-
+          flutter test
+          test/features/v2_final_ergonomics_test.dart
+          test/features/design_v2_workspace_test.dart
+          test/features/v2_student_focus_presentation_test.dart
+          test/features/v2_visual_polish_contract_test.dart
+
+      - name: Remove temporary runner assets
+        run: |
+          rm .github/workflows/v033-core-workflow-polish.yml
+          rm .github/workflows/v033-core-workflow-polish-fix.yml
+          rm .github/workflows/v033-core-workflow-polish-run.yml
+          rm tools/v033_core_workflow_polish.py
+
+      - name: Verify diff
+        run: |
+          git diff --check
+          git status --short
+
+      - name: Commit polished teacher workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Polish teacher core workflow hierarchy"
+          git push origin HEAD:ux/v0.3.3-cross-platform-polish
