@@ -2,8 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../cloud/evidence_attachment_repository.dart';
 import '../../../app/theme/app_spacing.dart';
+import '../../../cloud/evidence_attachment_repository.dart';
+import '../../../media/evidence_image_processing.dart';
 
 class PickedEvidenceAttachment {
   const PickedEvidenceAttachment({
@@ -75,7 +76,8 @@ final EvidenceAttachmentLostDataRecovery _defaultLostDataRecovery =
     EvidenceAttachmentLostDataRecovery(_retrieveLostEvidenceAttachment);
 
 /// Call once during application startup. This deliberately does not await the
-/// plugin so a large recovered image cannot block the first frame.
+/// plugin so a recovered image cannot block the first frame. Image decoding
+/// and compression itself also runs off the UI isolate.
 void primeLostEvidenceAttachmentRecovery() {
   if (defaultTargetPlatform == TargetPlatform.android) {
     _defaultLostDataRecovery.prime();
@@ -93,7 +95,7 @@ String describeEvidenceAttachmentError(
   if (detail.contains('10 mb') ||
       detail.contains('too large') ||
       detail.contains('file_size_limit')) {
-    return '图片不能超过 10 MB。';
+    return '图片处理后仍然过大，请换一张图片后重试。';
   }
   if (detail.contains('invalid_live_session') ||
       detail.contains('session') ||
@@ -125,8 +127,9 @@ String describeEvidenceAttachmentError(
       detail.contains('format') ||
       detail.contains('content type') ||
       detail.contains('mime') ||
-      detail.contains('extension')) {
-    return '目前只支持 JPG、PNG 或 WEBP 图片。';
+      detail.contains('extension') ||
+      detail.contains('无法读取')) {
+    return '目前只支持可正常读取的 JPG、PNG 或 WEBP 图片。';
   }
   if (duringUpload) {
     return '图片上传失败，请点击重试；文字记录已保留。';
@@ -144,9 +147,12 @@ Future<PickedEvidenceAttachment?> pickEvidenceAttachment(
   return _readPickedFile(
     await ImagePicker().pickImage(
       source: source,
-      imageQuality: 85,
-      maxWidth: 2048,
-      maxHeight: 2048,
+      // This first pass prevents enormous camera files from stressing the
+      // picker boundary. A deterministic second pass below normalizes every
+      // platform and Android lost-data path before the image enters a draft.
+      imageQuality: 92,
+      maxWidth: 2560,
+      maxHeight: 2560,
       requestFullMetadata: false,
     ),
   );
@@ -206,15 +212,20 @@ Future<PickedEvidenceAttachment?> _readPickedFile(XFile? file) async {
   if (contentType == null) {
     throw const FormatException('目前只支持 JPG、PNG 或 WEBP 图片。');
   }
-  final bytes = await file.readAsBytes();
-  if (bytes.isEmpty || bytes.length > maxCaseEvidenceAttachmentBytes) {
-    throw const FormatException('图片不能为空，且大小不能超过 10 MB。');
+  final sourceBytes = await file.readAsBytes();
+  if (sourceBytes.isEmpty) {
+    throw const FormatException('图片不能为空。');
+  }
+  final processed = await processEvidenceImageForUpload(sourceBytes);
+  if (processed.bytes.isEmpty ||
+      processed.bytes.length > maxCaseEvidenceAttachmentBytes) {
+    throw const FormatException('图片处理后仍然过大。');
   }
   return PickedEvidenceAttachment(
     attachmentId: createCaseEvidenceAttachmentId(),
-    bytes: bytes,
-    fileName: file.name,
-    contentType: contentType,
+    bytes: processed.bytes,
+    fileName: evidenceJpegFileName(file.name),
+    contentType: 'image/jpeg',
   );
 }
 
