@@ -39,16 +39,16 @@ jobs:
           flutter pub get
           git diff --exit-code -- pubspec.lock
 
-      - name: Apply guarded compact-back fix
+      - name: Apply guarded release fixes
         run: python3 tools/v032_comprehensive_gate_patch.py
 
       - name: Format and inspect patch boundary
         shell: bash
         run: |
-          dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+          dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart test/features/organization_management_test.dart test/features/v032_real_device_ux_contract_test.dart test/flutter_test_config.dart
           git diff --check
           changed="$(git diff --name-only | sort)"
-          expected=$'lib/features/design_v2/v2_workspace_preview.dart\ntest/features/design_v2_workspace_test.dart'
+          expected=$'.gitignore\nlib/features/design_v2/v2_workspace_preview.dart\ntest/features/design_v2_workspace_test.dart\ntest/features/organization_management_test.dart\ntest/features/v032_real_device_ux_contract_test.dart\ntest/flutter_test_config.dart'
           if [ "$changed" != "$expected" ]; then
             echo 'Unexpected product patch boundary:'
             echo "$changed"
@@ -60,6 +60,12 @@ jobs:
 
       - name: Run compact navigation regression
         run: flutter test test/features/design_v2_workspace_test.dart
+
+      - name: Run management regression with fatal hit-test warnings
+        run: flutter test test/features/organization_management_test.dart
+
+      - name: Run real-device contract regression
+        run: flutter test test/features/v032_real_device_ux_contract_test.dart
 
       - name: Run full Flutter suite
         run: flutter test
@@ -131,17 +137,17 @@ jobs:
           git diff --exit-code -- pubspec.lock
           if ($LASTEXITCODE -ne 0) { throw "pubspec.lock changed during pub get." }
 
-      - name: Apply guarded compact-back fix
+      - name: Apply guarded release fixes
         run: python tools/v032_comprehensive_gate_patch.py
 
       - name: Format and inspect patch boundary
         shell: pwsh
         run: |
-          dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+          dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart test/features/organization_management_test.dart test/features/v032_real_device_ux_contract_test.dart test/flutter_test_config.dart
           git diff --check
           if ($LASTEXITCODE -ne 0) { throw "Patch contains whitespace errors." }
           $changed = @(git diff --name-only | Sort-Object)
-          $expected = @('lib/features/design_v2/v2_workspace_preview.dart','test/features/design_v2_workspace_test.dart')
+          $expected = @('.gitignore','lib/features/design_v2/v2_workspace_preview.dart','test/features/design_v2_workspace_test.dart','test/features/organization_management_test.dart','test/features/v032_real_device_ux_contract_test.dart','test/flutter_test_config.dart')
           if ((Compare-Object $changed $expected).Count -ne 0) { throw "Unexpected product patch boundary: $($changed -join ', ')" }
 
       - name: Analyze Flutter on Windows
@@ -249,18 +255,20 @@ jobs:
       - name: Apply exact verified patch
         run: |
           python3 tools/v032_comprehensive_gate_patch.py
-          dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+          dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart test/features/organization_management_test.dart test/features/v032_real_device_ux_contract_test.dart test/flutter_test_config.dart
           git diff --check
 
-      - name: Remove one-time Gate scaffolding and commit
+      - name: Remove one-time Gate scaffolding and local CLI state, then commit
         shell: bash
         run: |
           rm -f tools/v032_comprehensive_gate_patch.py
           rm -f .github/workflows/v032-comprehensive-cross-platform-gate.yml
+          rm -f .github/workflows/v032-flutter-failure-diagnostic.yml
+          rm -f supabase/.branches/_current_branch
           git add -A
           git diff --cached --check
           staged="$(git diff --cached --name-only | sort)"
-          expected=$'.github/workflows/v032-comprehensive-cross-platform-gate.yml\nlib/features/design_v2/v2_workspace_preview.dart\ntest/features/design_v2_workspace_test.dart\ntools/v032_comprehensive_gate_patch.py'
+          expected=$'.github/workflows/v032-comprehensive-cross-platform-gate.yml\n.github/workflows/v032-flutter-failure-diagnostic.yml\n.gitignore\nlib/features/design_v2/v2_workspace_preview.dart\nsupabase/.branches/_current_branch\ntest/features/design_v2_workspace_test.dart\ntest/features/organization_management_test.dart\ntest/features/v032_real_device_ux_contract_test.dart\ntest/flutter_test_config.dart\ntools/v032_comprehensive_gate_patch.py'
           if [ "$staged" != "$expected" ]; then
             echo 'Unexpected staged files:'
             echo "$staged"
@@ -268,5 +276,5 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Fix compact workspace system back navigation'
+          git commit -m 'Fix compact back navigation and harden release regressions'
           git push origin HEAD:hotfix/v0.3.2-real-device-ux
