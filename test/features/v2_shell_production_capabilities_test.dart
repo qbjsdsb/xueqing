@@ -64,6 +64,11 @@ void main() {
     expect(management, contains('studentLearningRecordRepository:'));
     expect(management, contains("tooltip: '检查更新'"));
     expect(management, contains("tooltip: '退出登录'"));
+    expect(management, contains("Key('v2-management-more')"));
+    expect(management, contains('PopupMenuButton<_ManagementPageAction>'));
+    expect(management, contains("title: const Text('检查更新')"));
+    expect(management, contains("title: Text('退出登录')"));
+    expect(management, contains("Text('当前版本 \${widget.runtime.appVersion}')"));
     expect(
       management,
       contains('canManageCaseTypes: widget.workspace.canManageCaseTypes'),
