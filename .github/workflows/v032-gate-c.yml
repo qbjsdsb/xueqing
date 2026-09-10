@@ -7,6 +7,7 @@ on:
     paths:
       - tools/v032_gate_c.py
       - tools/v032_gate_c_fix.py
+      - tools/v032_gate_c_test_fix.py
       - .github/workflows/v032-gate-c.yml
 
 permissions:
@@ -34,6 +35,7 @@ jobs:
         run: |
           python3 tools/v032_gate_c.py
           python3 tools/v032_gate_c_fix.py
+          python3 tools/v032_gate_c_test_fix.py
 
       - name: Get packages
         run: flutter pub get
@@ -64,7 +66,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git rm tools/v032_gate_c.py tools/v032_gate_c_fix.py .github/workflows/v032-gate-c.yml
+          git rm tools/v032_gate_c.py tools/v032_gate_c_fix.py tools/v032_gate_c_test_fix.py .github/workflows/v032-gate-c.yml
           git add lib test
           git diff --cached --check
           git config user.name "github-actions[bot]"
