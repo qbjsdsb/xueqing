@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_motion.dart';
+
 import '../../update/update_installer.dart';
 import '../../update/update_service.dart';
 
@@ -814,6 +816,48 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   }
 }
 
+class _QuietPaneTransition extends StatelessWidget {
+  const _QuietPaneTransition({
+    required this.transitionKey,
+    required this.child,
+  });
+
+  final Object transitionKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final enterDuration = AppMotion.effectiveDuration(
+      context,
+      AppMotion.standard,
+    );
+    final exitDuration = AppMotion.effectiveDuration(context, AppMotion.quick);
+    return AnimatedSwitcher(
+      duration: enterDuration,
+      reverseDuration: exitDuration,
+      switchInCurve: AppMotion.enter,
+      switchOutCurve: AppMotion.exit,
+      transitionBuilder: (child, animation) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: AppMotion.enter,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.012),
+              end: Offset.zero,
+            ).animate(curved),
+            child: child,
+          ),
+        );
+      },
+      child: KeyedSubtree(key: ValueKey<Object>(transitionKey), child: child),
+    );
+  }
+}
+
 class _DesktopWorkspace extends StatelessWidget {
   const _DesktopWorkspace({
     required this.destination,
@@ -872,16 +916,21 @@ class _DesktopWorkspace extends StatelessWidget {
               ),
               VerticalDivider(width: 1, color: border),
               Expanded(
-                child: showCase && selectedCase != null
-                    ? _CaseDetailPane(
-                        student: selectedStudent,
-                        item: selectedCase!,
-                        onBack: onBackFromCase,
-                      )
-                    : _StudentDetailPane(
-                        student: selectedStudent,
-                        onOpenCase: onOpenCase,
-                      ),
+                child: _QuietPaneTransition(
+                  transitionKey: showCase && selectedCase != null
+                      ? 'case-${selectedCase!.id}'
+                      : 'student-${selectedStudent.id}',
+                  child: showCase && selectedCase != null
+                      ? _CaseDetailPane(
+                          student: selectedStudent,
+                          item: selectedCase!,
+                          onBack: onBackFromCase,
+                        )
+                      : _StudentDetailPane(
+                          student: selectedStudent,
+                          onOpenCase: onOpenCase,
+                        ),
+                ),
               ),
             ] else if (destination == 0) ...[
               Expanded(child: _TodayPane(onOpenCase: onOpenCase)),
@@ -966,8 +1015,16 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       );
     }
 
+    final transitionKey = widget.showCase && widget.selectedCase != null
+        ? 'case-${widget.selectedCase!.id}'
+        : widget.destination == 1 && _studentOpen
+        ? 'student-${widget.selectedStudent.id}'
+        : 'destination-${widget.destination}';
+
     return Scaffold(
-      body: SafeArea(child: body),
+      body: SafeArea(
+        child: _QuietPaneTransition(transitionKey: transitionKey, child: body),
+      ),
       bottomNavigationBar: widget.showCase || _studentOpen
           ? null
           : NavigationBar(
@@ -1090,21 +1147,28 @@ class _RailItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 10),
       child: Tooltip(
         message: tooltip,
-        child: Material(
-          color: selected ? scheme.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(7),
-            onTap: onTap,
-            child: SizedBox(
-              width: 48,
-              height: 48,
-              child: Icon(
-                icon,
-                size: 20,
-                color: selected
-                    ? scheme.onPrimaryContainer
-                    : scheme.onSurfaceVariant,
+        child: AnimatedContainer(
+          duration: AppMotion.effectiveDuration(context, AppMotion.quick),
+          curve: AppMotion.enter,
+          decoration: BoxDecoration(
+            color: selected ? scheme.primaryContainer : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(9),
+              onTap: onTap,
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: selected
+                      ? scheme.onPrimaryContainer
+                      : scheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -1273,56 +1337,65 @@ class _StudentRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      child: Material(
-        color: selected
-            ? scheme.primary.withValues(alpha: 0.07)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(7),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(7),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                _InitialMark(name: student.name),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      child: AnimatedContainer(
+        duration: AppMotion.effectiveDuration(context, AppMotion.quick),
+        curve: AppMotion.enter,
+        decoration: BoxDecoration(
+          color: selected
+              ? scheme.primary.withValues(alpha: 0.07)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(9),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  _InitialMark(name: student.name),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          student.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${student.grade} · ${student.subjects.join(' / ')}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        student.name,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${student.grade} · ${student.subjects.join(' / ')}',
+                        student.openCaseCount == 0
+                            ? '暂无进行中'
+                            : '${student.openCaseCount} 个问题',
                         style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        student.updatedLabel,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant.withValues(
+                            alpha: 0.72,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      student.openCaseCount == 0
-                          ? '暂无进行中'
-                          : '${student.openCaseCount} 个问题',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      student.updatedLabel,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant.withValues(alpha: 0.72),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1591,6 +1664,7 @@ class _FocusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
+      borderRadius: BorderRadius.circular(10),
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -2269,6 +2343,7 @@ class _TodayAction extends StatelessWidget {
     final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
     final pendingAction = controller?.pendingActionFor(item.id);
     return InkWell(
+      borderRadius: BorderRadius.circular(10),
       onTap: () => onOpenCase(item),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 15),
