@@ -65,9 +65,10 @@ void main() {
       contains('V[0-9.]+ Signer: certificate SHA-256 digest:'),
     );
     expect(
-      workflow,
-      contains(r'''if [[ "$actual_cert_sha" != "$expected_cert_sha" ]]; then''')
-          .replaceAll(r'\"', '"'),
+      RegExp(
+        r'if \[\[ "\$actual_cert_sha" != "\$expected_cert_sha" \]\]; then',
+      ).hasMatch(workflow),
+      isTrue,
     );
     expect(
       workflow,
