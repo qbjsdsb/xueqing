@@ -16,18 +16,17 @@ void main() {
   });
 
   test('V2 composers keep release-safe motion and touch targets', () {
-    final source = File(
-      'lib/features/design_v2/v2_composers.dart',
-    ).readAsStringSync();
+    final source = File('lib/features/design_v2/v2_composers.dart')
+        .readAsStringSync();
 
     expect(
       source,
       isNot(contains('duration: const Duration(milliseconds: 180),')),
     );
     expect(
-      RegExp(
-        r'AppMotion\.effectiveDuration\(context\)',
-      ).allMatches(source).length,
+      RegExp(r'AppMotion\.effectiveDuration\(context\)')
+          .allMatches(source)
+          .length,
       4,
     );
     expect(
