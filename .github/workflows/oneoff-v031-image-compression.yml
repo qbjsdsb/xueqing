@@ -1,6 +1,6 @@
 name: One-off v0.3.1 evidence image compression
 
-# Gate revision 3: run from the latest hotfix head after attachment-export work.
+# Gate revision 4: normalize corrupt-image decoder failures before validation.
 on:
   push:
     branches:
