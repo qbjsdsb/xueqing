@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xueqing/app/app.dart';
 import 'package:xueqing/app/theme/app_theme.dart';
@@ -63,5 +64,27 @@ void main() {
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(materialApp.themeMode, ThemeMode.system);
     expect(materialApp.darkTheme, isNotNull);
+  });
+
+  testWidgets('keeps Android system bars aligned with the active app theme', (
+    tester,
+  ) async {
+    final config = AppConfig.fromValues(
+      environmentValue: 'development',
+      appVersion: '0.1.0+1',
+    );
+    await tester.pumpWidget(XueqingApp(config: config));
+
+    final lightSurface = AppTheme.light().colorScheme.surface;
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is AnnotatedRegion<SystemUiOverlayStyle> &&
+            widget.value.statusBarColor == Colors.transparent &&
+            widget.value.systemNavigationBarColor == lightSurface &&
+            widget.value.systemNavigationBarIconBrightness == Brightness.dark,
+      ),
+      findsAtLeastNWidgets(1),
+    );
   });
 }
