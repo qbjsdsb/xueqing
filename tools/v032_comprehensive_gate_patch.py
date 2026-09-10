@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 
@@ -179,6 +180,11 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
 }
 """,
     encoding='utf-8',
+)
+# Intent-to-add makes the boundary check inspect the new file without staging content.
+subprocess.run(
+    ['git', 'add', '-N', 'test/flutter_test_config.dart'],
+    check=True,
 )
 
 # 6. Keep Supabase CLI local branch state out of version control permanently.
