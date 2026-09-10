@@ -11,15 +11,35 @@ old = '''replace_once(
 '''
 new = '''replace_once(
     repo_path,
-    """        'p_student_code': _nullableText(studentCode),
+    """    final response = await _call(
+      'update_organization_student_profile',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_id': studentId,
+        'p_expected_student_version': expectedStudentVersion,
+        'p_name': name.trim(),
+        'p_student_code': _nullableText(studentCode),
         'p_grade': _nullableText(grade),
         'p_class_name': _nullableText(className),
         'p_campus': _nullableText(campus),
+      },
+    );
 """,
-    """        'p_student_code': _nullableText(studentCode),
+    """    final response = await _call(
+      'update_organization_student_profile',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_id': studentId,
+        'p_expected_student_version': expectedStudentVersion,
+        'p_name': name.trim(),
+        'p_student_code': _nullableText(studentCode),
         'p_grade': grade.trim(),
         'p_class_name': _nullableText(className),
         'p_campus': _nullableText(campus),
+      },
+    );
 """,
     'Supabase profile grade parameter',
 )
@@ -32,4 +52,4 @@ if count != 1:
 patched = text.replace(old, new, 1)
 target = Path('/tmp/v032_student_profile_policy_patch.py')
 target.write_text(patched, encoding='utf-8')
-print(f'prepared precise policy patch at {target}')
+print(f'prepared RPC-scoped policy patch at {target}')
