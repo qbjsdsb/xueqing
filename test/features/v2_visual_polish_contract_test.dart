@@ -15,6 +15,24 @@ void main() {
     expect(AppMotion.settle, const Duration(milliseconds: 240));
   });
 
+  test('V2 desktop scrollbar exposes hover and drag affordance', () {
+    final theme = V2Theme.light();
+    final thickness = theme.scrollbarTheme.thickness!;
+    final thumbColor = theme.scrollbarTheme.thumbColor!;
+
+    expect(thickness.resolve(<WidgetState>{}), 4);
+    expect(thickness.resolve(<WidgetState>{WidgetState.hovered}), 6);
+    expect(thickness.resolve(<WidgetState>{WidgetState.dragged}), 6);
+    expect(
+      thumbColor.resolve(<WidgetState>{WidgetState.hovered}),
+      isNot(thumbColor.resolve(<WidgetState>{})),
+    );
+    expect(
+      thumbColor.resolve(<WidgetState>{WidgetState.dragged}),
+      isNot(thumbColor.resolve(<WidgetState>{WidgetState.hovered})),
+    );
+  });
+
   test('V2 composers keep release-safe motion and touch targets', () {
     final source = File('lib/features/design_v2/v2_composers.dart')
         .readAsStringSync();
