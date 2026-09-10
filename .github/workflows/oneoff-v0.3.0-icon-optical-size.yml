@@ -1,0 +1,148 @@
+name: One-off v0.3.0 icon optical sizing
+
+on:
+  push:
+    branches:
+      - release/v0.3.0-icon-optical-size
+
+permissions:
+  contents: write
+
+jobs:
+  refine-and-validate:
+    if: ${{ !contains(github.event.head_commit.message, '[icon-optical-generated]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/v0.3.0-icon-optical-size
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refine icon optical size
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pillow
+          python <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+
+          GREEN = (45, 106, 91, 255)   # #2D6A5B
+          CREAM = (248, 246, 239, 255)  # #F8F6EF
+          # 52 x ~49 dp visual mark centered in the 108 dp adaptive-icon canvas.
+          # This is deliberately inside Android's 66 dp safe zone while avoiding
+          # the undersized ~43 x 40.5 dp mark used by the first release candidate.
+          LEFT = [(50.9, 34.2), (50.9, 78.1), (28.0, 70.4), (28.0, 29.2)]
+          RIGHT = [(57.1, 34.2), (57.1, 78.1), (80.0, 70.4), (80.0, 29.2)]
+
+          def scaled(poly, size, supersample=4):
+              factor = size * supersample / 108.0
+              return [(round(x * factor), round(y * factor)) for x, y in poly]
+
+          def redraw_center(source: Path, target_size: int):
+              im = Image.open(source).convert('RGBA')
+              if im.size != (target_size, target_size):
+                  raise SystemExit(f'{source}: unexpected size {im.size}')
+              ss = 4
+              large = im.resize((target_size * ss, target_size * ss), Image.Resampling.NEAREST)
+              draw = ImageDraw.Draw(large)
+              # The book mark lives well inside this center box. Restoring it to
+              # the known brand background preserves the existing outer mask/
+              # transparency of round and Windows icons.
+              pad = round(target_size * ss * 0.20)
+              draw.rectangle(
+                  [pad, pad, target_size * ss - pad, target_size * ss - pad],
+                  fill=GREEN,
+              )
+              draw.polygon(scaled(LEFT, target_size, ss), fill=CREAM)
+              draw.polygon(scaled(RIGHT, target_size, ss), fill=CREAM)
+              return large.resize((target_size, target_size), Image.Resampling.LANCZOS)
+
+          android_sizes = {
+              'mdpi': 48,
+              'hdpi': 72,
+              'xhdpi': 96,
+              'xxhdpi': 144,
+              'xxxhdpi': 192,
+          }
+          for density, size in android_sizes.items():
+              base = Path(f'android/app/src/main/res/mipmap-{density}')
+              for name in ('ic_launcher.png', 'ic_launcher_round.png'):
+                  path = base / name
+                  redraw_center(path, size).save(path, format='PNG', optimize=True)
+
+          ico_path = Path('windows/runner/resources/app_icon.ico')
+          source_ico = Image.open(ico_path)
+          master = source_ico.ico.getimage((256, 256)).convert('RGBA')
+          master_path = Path('/tmp/xueqing-icon-master.png')
+          master.save(master_path)
+          refined_master = redraw_center(master_path, 256)
+          ico_sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
+          refined_master.save(
+              ico_path,
+              format='ICO',
+              sizes=[(s, s) for s in ico_sizes],
+          )
+
+          vector_path = Path('android/app/src/main/res/drawable/ic_launcher_foreground.xml')
+          vector = vector_path.read_text(encoding='utf-8')
+          old = 'M51.4,37.6 L51.4,73.9 L32.5,67.5 L32.5,33.4 Z M56.6,37.6 L56.6,73.9 L75.5,67.5 L75.5,33.4 Z'
+          new = 'M50.9,34.2 L50.9,78.1 L28.0,70.4 L28.0,29.2 Z M57.1,34.2 L57.1,78.1 L80.0,70.4 L80.0,29.2 Z'
+          if old not in vector:
+              raise SystemExit('Expected adaptive foreground path was not found')
+          vector_path.write_text(vector.replace(old, new), encoding='utf-8')
+
+          test_path = Path('test/release_app_icon_contract_test.dart')
+          test_text = test_path.read_text(encoding='utf-8')
+          anchor = "    expect(foreground, contains('#F8F6EF'));\n"
+          extra = (
+              anchor
+              + "    expect(foreground, contains('M50.9,34.2'));\n"
+              + "    expect(foreground, contains('L80.0,29.2'));\n"
+          )
+          if anchor not in test_text:
+              raise SystemExit('Expected app icon contract anchor was not found')
+          test_path.write_text(test_text.replace(anchor, extra), encoding='utf-8')
+          PY
+
+      - name: Validate product tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format --output=none --set-exit-if-changed .
+          flutter analyze
+          flutter test test/release_app_icon_contract_test.dart
+          flutter test test/features/v2_visual_polish_contract_test.dart
+          flutter test
+          git diff --check
+
+      - name: Commit validated optical correction and remove one-off workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/oneoff-v0.3.0-icon-optical-size.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No generated changes to commit.'
+            exit 1
+          fi
+          git commit -m 'fix: refine app icon optical size [icon-optical-generated]'
+          git push origin HEAD:release/v0.3.0-icon-optical-size
