@@ -59,17 +59,14 @@ void main() {
     expect(workflow, contains('XUEQING_ANDROID_CERT_SHA256'));
     expect(workflow, contains('apksigner'));
     expect(workflow, contains('verify --verbose --print-certs'));
-    expect(
-      workflow,
-      contains('Signer #1 certificate SHA-256 digest:'),
-    );
+    expect(workflow, contains('Signer #1 certificate SHA-256 digest:'));
     expect(
       workflow,
       contains('V[0-9.]+ Signer: certificate SHA-256 digest:'),
     );
     expect(
       workflow,
-      contains(r'if [[ "$actual_cert_sha" != "$expected_cert_sha" ]]; then'),
+      contains(r'if [[ "$actual_cert_sha" != "$expected_cert_sha" ]]; then'.replaceAll(r'\"', '"')),
     );
     expect(
       workflow,
