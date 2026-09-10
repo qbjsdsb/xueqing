@@ -19,6 +19,39 @@ void main() {
     );
   });
 
+  test('stable publisher supports explicit public config fallback', () {
+    final workflow = File('.github/workflows/publish-release-assets.yml')
+        .readAsStringSync();
+
+    expect(workflow, contains('supabase_url:'));
+    expect(workflow, contains('supabase_publishable_key:'));
+    expect(workflow, contains('supabase_allowed_hosts:'));
+    expect(
+      workflow,
+      contains(
+        r'XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || inputs.supabase_url }}',
+      ),
+    );
+    expect(
+      workflow,
+      contains(
+        r'XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || inputs.supabase_publishable_key }}',
+      ),
+    );
+    expect(
+      workflow,
+      contains(
+        r'XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || inputs.supabase_allowed_hosts }}',
+      ),
+    );
+    expect(
+      workflow,
+      contains(
+        'Stable production releases require Supabase URL, publishable key, and allowed hosts.',
+      ),
+    );
+  });
+
   test('stable publisher verifies the permanent Android signing identity', () {
     final workflow = File('.github/workflows/publish-release-assets.yml')
         .readAsStringSync();
@@ -26,6 +59,13 @@ void main() {
     expect(workflow, contains('XUEQING_ANDROID_CERT_SHA256'));
     expect(workflow, contains('apksigner'));
     expect(workflow, contains('verify --verbose --print-certs'));
+    expect(workflow, contains('Signer #1 certificate SHA-256 digest:'));
+    expect(workflow, contains('V[0-9.]+ Signer: certificate SHA-256 digest:'));
+    expect(
+      RegExp(r'if \[\[ "\$actual_cert_sha" != "\$expected_cert_sha" \]\]; then')
+          .hasMatch(workflow),
+      isTrue,
+    );
     expect(
       workflow,
       contains(
