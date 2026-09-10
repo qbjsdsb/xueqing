@@ -1,0 +1,232 @@
+name: One-off v0.3.0 final ergonomics closure
+
+on:
+  push:
+    branches:
+      - release/v0.3.0-icon-optical-size
+
+permissions:
+  contents: write
+
+jobs:
+  refine-and-validate:
+    if: ${{ !contains(github.event.head_commit.message, '[final-ergonomics-generated]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/v0.3.0-icon-optical-size
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Apply narrow production V2 ergonomics fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/features/design_v2/v2_composers.dart')
+          text = path.read_text(encoding='utf-8')
+
+          import_anchor = "import 'package:flutter/material.dart';\n\n"
+          if "../../app/theme/app_motion.dart" not in text:
+              if import_anchor not in text:
+                  raise SystemExit('Flutter import anchor missing')
+              text = text.replace(
+                  import_anchor,
+                  import_anchor + "import '../../app/theme/app_motion.dart';\n\n",
+                  1,
+              )
+
+          fixed_duration = 'duration: const Duration(milliseconds: 180),'
+          count = text.count(fixed_duration)
+          if count != 3:
+              raise SystemExit(f'Expected exactly 3 fixed V2 composer motion durations, found {count}')
+          text = text.replace(
+              fixed_duration,
+              'duration: AppMotion.effectiveDuration(context),',
+          )
+
+          selector_old = """              child: Container(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 7),
+                decoration: BoxDecoration("""
+          selector_new = """              child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 7),
+                decoration: BoxDecoration("""
+          if selector_old not in text:
+              raise SystemExit('Inline selector target missing')
+          text = text.replace(selector_old, selector_new, 1)
+
+          radio_old = """      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 16,
+              height: 16,"""
+          radio_new = """      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 16,
+                height: 16,"""
+          if radio_old not in text:
+              raise SystemExit('Quiet radio row target missing')
+          text = text.replace(radio_old, radio_new, 1)
+
+          radio_tail_old = """            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class"""
+          radio_tail_new = """              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class"""
+          # Limit this structural closure to the final _QuietRadioRow before the next class.
+          idx = text.find('class _QuietRadioRow')
+          if idx < 0:
+              raise SystemExit('Quiet radio class missing')
+          head, tail = text[:idx], text[idx:]
+          if radio_tail_old not in tail:
+              raise SystemExit('Quiet radio row closure target missing')
+          tail = tail.replace(radio_tail_old, radio_tail_new, 1)
+          text = head + tail
+
+          media_old = """                    Positioned(
+                      right: -7,
+                      top: -7,
+                      child: Material(
+                        color: scheme.surfaceContainerHighest,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          key: ValueKey('v2-media-remove-$index'),
+                          customBorder: const CircleBorder(),
+                          onTap: () => onRemove(index),
+                          child: const SizedBox(
+                            width: 26,
+                            height: 26,
+                            child: Icon(Icons.close, size: 15),
+                          ),
+                        ),
+                      ),
+                    ),"""
+          media_new = """                    Positioned(
+                      right: -7,
+                      top: -7,
+                      child: Material(
+                        color: Colors.transparent,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          key: ValueKey('v2-media-remove-$index'),
+                          customBorder: const CircleBorder(),
+                          onTap: () => onRemove(index),
+                          child: SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: Container(
+                                width: 26,
+                                height: 26,
+                                decoration: BoxDecoration(
+                                  color: scheme.surfaceContainerHighest,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 15),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),"""
+          if media_old not in text:
+              raise SystemExit('Media remove target missing')
+          text = text.replace(media_old, media_new, 1)
+          path.write_text(text, encoding='utf-8')
+
+          test_path = Path('test/features/v2_visual_polish_contract_test.dart')
+          test_text = test_path.read_text(encoding='utf-8')
+          if not test_text.startswith("import 'dart:io';"):
+              test_text = "import 'dart:io';\n\n" + test_text
+          anchor = """  testWidgets('motion respects the platform reduced-motion preference', ("""
+          extra = """  test('V2 composers keep motion and touch targets release-safe', () {
+    final source = File('lib/features/design_v2/v2_composers.dart')
+        .readAsStringSync();
+    expect(
+      source,
+      isNot(contains('duration: const Duration(milliseconds: 180),')),
+    );
+    expect(
+      RegExp(r'AppMotion\\.effectiveDuration\\(context\\)')
+          .allMatches(source)
+          .length,
+      greaterThanOrEqualTo(3),
+    );
+    expect(
+      RegExp(r'BoxConstraints\\(minHeight: 44\\)').allMatches(source).length,
+      greaterThanOrEqualTo(2),
+    );
+    expect(source, contains('width: 44'));
+    expect(source, contains('height: 44'));
+  });
+
+"""
+          if extra.strip() not in test_text:
+              if anchor not in test_text:
+                  raise SystemExit('Visual polish test anchor missing')
+              test_text = test_text.replace(anchor, extra + anchor, 1)
+          test_path.write_text(test_text, encoding='utf-8')
+          PY
+          dart format lib/features/design_v2/v2_composers.dart test/features/v2_visual_polish_contract_test.dart
+
+      - name: Validate product tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format --output=none --set-exit-if-changed .
+          flutter analyze
+          flutter test test/features/v2_visual_polish_contract_test.dart
+          flutter test test/features/v2_composers_test.dart
+          flutter test
+          git diff --check
+
+      - name: Commit validated ergonomics fixes and remove one-off workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/oneoff-v0.3.0-final-ergonomics.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No validated changes to commit.'
+            exit 1
+          fi
+          git commit -m 'fix: close final V2 motion and touch ergonomics [final-ergonomics-generated]'
+          git push origin HEAD:release/v0.3.0-icon-optical-size
