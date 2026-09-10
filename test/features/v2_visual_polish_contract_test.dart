@@ -42,6 +42,11 @@ void main() {
     expect(source, contains("title: '待安排下一步'"));
     expect(source, contains('!widget.compact &&'));
     expect(source, contains('final expandedRail = width >= 1280;'));
+    expect(
+      source,
+      contains('final studentPaneWidth = width < 900 ? 288.0 : 320.0;'),
+    );
+    expect(source, contains("student.updatedLabel != '暂无记录'"));
     expect(source, isNot(contains("label: const Text('删除问题')")));
   });
 
