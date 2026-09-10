@@ -31,6 +31,12 @@ jobs:
       - name: Get packages
         run: flutter pub get
 
+      - name: Apply exact Gate E compact-back patch
+        run: |
+          python3 tools/v032_comprehensive_gate_patch.py
+          dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+          git diff --check
+
       - name: Run full Flutter suite with captured output
         shell: bash
         run: |
@@ -41,7 +47,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v032-flutter-test-expanded-log
+          name: v032-flutter-test-expanded-log-with-back-patch
           path: flutter-test-expanded.log
           if-no-files-found: error
           retention-days: 1
