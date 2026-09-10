@@ -72,6 +72,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 300));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
+    const actionTitle = '一条较长的后续检查事项，用于验证横屏和小高度窗口仍然可以完整操作';
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -80,7 +81,7 @@ void main() {
               key: const Key('open-complete-action'),
               onPressed: () => showV2CompleteActionComposer(
                 context,
-                actionTitle: '一条较长的后续检查事项，用于验证横屏和小高度窗口仍然可以完整操作',
+                actionTitle: actionTitle,
                 onSave: () async {},
               ),
               child: const Text('打开'),
@@ -93,7 +94,7 @@ void main() {
     await tester.tap(find.byKey(const Key('open-complete-action')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.text(actionTitle), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsWidgets);
     await tester.ensureVisible(
       find.byKey(const Key('v2-complete-action-save')),
