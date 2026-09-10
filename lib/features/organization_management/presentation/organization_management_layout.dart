@@ -25,9 +25,8 @@ class _ManagementHeader extends StatelessWidget {
       children: [
         Text(
           organizationName,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         Container(
           padding: const EdgeInsets.symmetric(
@@ -40,9 +39,8 @@ class _ManagementHeader extends StatelessWidget {
           ),
           child: Text(
             roleLabel,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-            ),
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(color: colorScheme.onPrimaryContainer),
           ),
         ),
       ],
@@ -431,10 +429,7 @@ class _ManagementErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off_outlined, size: 40),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              '机构管理暂时无法加载',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('机构管理暂时无法加载', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.xs),
             const Text('请检查网络和账号状态后重试。'),
             const SizedBox(height: AppSpacing.md),
