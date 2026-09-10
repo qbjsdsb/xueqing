@@ -99,8 +99,10 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
       repository: repository,
       provisioningRepository: widget.runtime.memberProvisioningRepository,
       evidenceAttachmentRepository: widget.runtime.evidenceAttachmentRepository,
-      teacherLearningRecordRepository: widget.runtime.teacherLearningRecordRepository,
-      studentLearningRecordRepository: widget.runtime.studentLearningRecordRepository,
+      teacherLearningRecordRepository:
+          widget.runtime.teacherLearningRecordRepository,
+      studentLearningRecordRepository:
+          widget.runtime.studentLearningRecordRepository,
       organizationId: organizationId,
       organizationName: widget.workspace.organizationName,
       roles: widget.workspace.roles,
