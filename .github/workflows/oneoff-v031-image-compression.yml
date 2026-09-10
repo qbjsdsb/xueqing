@@ -1,6 +1,6 @@
 name: One-off v0.3.1 evidence image compression
 
-# Gate revision 4: normalize corrupt-image decoder failures before validation.
+# Gate revision 5: preserve the established concise image guidance.
 on:
   push:
     branches:
@@ -25,7 +25,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Replace legacy Excel package with image-capable maintained fork
+      - name: Apply compatible dependency and wording updates
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -44,6 +44,13 @@ jobs:
                   "package:excel_community/excel_community.dart",
               )
               path.write_text(text)
+          picker = Path('lib/features/teacher_workspace/presentation/evidence_attachment_picker.dart')
+          text = picker.read_text()
+          text = text.replace(
+              '目前只支持可正常读取的 JPG、PNG 或 WEBP 图片。',
+              '目前只支持 JPG、PNG 或 WEBP 图片。',
+          )
+          picker.write_text(text)
           PY
 
       - name: Resolve dependencies
