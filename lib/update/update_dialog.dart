@@ -46,8 +46,7 @@ class UpdateDialog extends StatelessWidget {
       ),
       UpdateCheckState.unsupportedPlatform => _StatusMessage(
         icon: Icons.info_outline,
-        message:
-            '服务器已有 ${result.manifest.version}，但当前平台暂未提供可安装的更新包。',
+        message: '服务器已有 ${result.manifest.version}，但当前平台暂未提供可安装的更新包。',
       ),
       UpdateCheckState.available => _availableContent(context),
     };
@@ -102,9 +101,8 @@ class UpdateDialog extends StatelessWidget {
                 Expanded(
                   child: Text(
                     '当前版本已低于服务端声明的最低支持版本，建议现在更新以避免后续功能不兼容。',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onErrorContainer,
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: scheme.onErrorContainer),
                   ),
                 ),
               ],
@@ -161,10 +159,7 @@ class _VersionLine extends StatelessWidget {
       children: [
         SizedBox(
           width: 72,
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
         ),
         Expanded(
           child: Text(
