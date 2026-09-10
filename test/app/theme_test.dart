@@ -81,8 +81,10 @@ void main() {
         (widget) =>
             widget is AnnotatedRegion<SystemUiOverlayStyle> &&
             widget.value.statusBarColor == Colors.transparent &&
+            widget.value.systemStatusBarContrastEnforced == false &&
             widget.value.systemNavigationBarColor == lightSurface &&
-            widget.value.systemNavigationBarIconBrightness == Brightness.dark,
+            widget.value.systemNavigationBarIconBrightness == Brightness.dark &&
+            widget.value.systemNavigationBarContrastEnforced == false,
       ),
       findsAtLeastNWidgets(1),
     );
