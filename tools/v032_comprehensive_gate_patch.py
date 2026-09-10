@@ -197,3 +197,25 @@ gitignore = replace_once(
     'Supabase local tooling ignore block',
 )
 gitignore_path.write_text(gitignore, encoding='utf-8')
+
+# 7. Stabilize Supabase client typing under current Deno/Supabase JS.
+# ReturnType<typeof createClient> loses the function's generic defaults in
+# Supabase JS 2.116 and collapses RPC/database types to never. Derive the
+# concrete untyped client from a non-generic wrapper instead; this changes
+# compile-time typing only and leaves all runtime authorization behavior intact.
+edge_path = Path('supabase/functions/organization-member-credentials/index.ts')
+edge = edge_path.read_text(encoding='utf-8')
+edge = replace_once(
+    edge,
+    "type JsonObject = Record<string, unknown>;\n",
+    "type JsonObject = Record<string, unknown>;\n\n"
+    "const inferDatabaseClient = () => createClient('', '');\n"
+    "type DatabaseClient = ReturnType<typeof inferDatabaseClient>;\n",
+    'edge database client type alias',
+)
+old_client_type = 'ReturnType<typeof createClient>'
+client_type_count = edge.count(old_client_type)
+if client_type_count == 0:
+    raise SystemExit('edge database client signatures: no generic ReturnType markers found')
+edge = edge.replace(old_client_type, 'DatabaseClient')
+edge_path.write_text(edge, encoding='utf-8')
