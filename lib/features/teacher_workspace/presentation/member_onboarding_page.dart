@@ -174,7 +174,9 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                             border: Border.all(
                               color: theme.colorScheme.outlineVariant,
                             ),
-                            borderRadius: BorderRadius.circular(AppRadii.medium),
+                            borderRadius: BorderRadius.circular(
+                              AppRadii.medium,
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,7 +221,8 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                               onPressed: _busy
                                   ? null
                                   : () => setState(
-                                      () => _obscurePassword = !_obscurePassword,
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
                                     ),
                               icon: Icon(
                                 _obscurePassword
@@ -258,7 +261,9 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                               key: const Key(
                                 'onboarding-confirm-password-visibility',
                               ),
-                              tooltip: _obscureConfirmation ? '显示确认密码' : '隐藏确认密码',
+                              tooltip: _obscureConfirmation
+                                  ? '显示确认密码'
+                                  : '隐藏确认密码',
                               onPressed: _busy
                                   ? null
                                   : () => setState(
@@ -272,7 +277,8 @@ class _MemberOnboardingPageState extends State<MemberOnboardingPage> {
                               ),
                             ),
                           ),
-                          validator: (value) => value != _passwordController.text
+                          validator: (value) =>
+                              value != _passwordController.text
                               ? '两次输入的密码不一致。'
                               : null,
                         ),
