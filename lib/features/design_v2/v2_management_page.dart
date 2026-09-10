@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../cloud/learning_repository.dart';
@@ -5,6 +7,8 @@ import '../organization_management/presentation/organization_management_page.dar
 import '../teacher_workspace/presentation/teacher_workspace_page.dart';
 import '../teacher_workspace/workspace_runtime.dart';
 import 'v2_update_flow.dart';
+
+enum _ManagementPageAction { checkUpdate, signOut }
 
 class V2ManagementPage extends StatefulWidget {
   const V2ManagementPage({
@@ -95,6 +99,7 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
     }
 
     final desktop = MediaQuery.sizeOf(context).width >= 720;
+    final canSignOut = widget.rootMode && widget.runtime.onSignOut != null;
     final managementContent = OrganizationManagementPage(
       repository: repository,
       provisioningRepository: widget.runtime.memberProvisioningRepository,
@@ -124,29 +129,77 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          if (_checkingForUpdates)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+          if (desktop) ...[
+            if (_checkingForUpdates)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
+              )
+            else
+              IconButton(
+                tooltip: '检查更新',
+                onPressed: _checkForUpdates,
+                icon: const Icon(Icons.system_update_alt_outlined),
               ),
-            )
-          else
-            IconButton(
-              tooltip: '检查更新',
-              onPressed: _checkForUpdates,
-              icon: const Icon(Icons.system_update_alt_outlined),
-            ),
-          if (widget.rootMode && widget.runtime.onSignOut != null)
-            IconButton(
-              tooltip: '退出登录',
-              onPressed: widget.runtime.onSignOut,
-              icon: const Icon(Icons.logout_outlined),
-            ),
+            if (canSignOut)
+              IconButton(
+                tooltip: '退出登录',
+                onPressed: widget.runtime.onSignOut,
+                icon: const Icon(Icons.logout_outlined),
+              ),
+          ] else ...[
+            if (_checkingForUpdates)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else
+              PopupMenuButton<_ManagementPageAction>(
+                key: const Key('v2-management-more'),
+                tooltip: '更多操作',
+                icon: const Icon(Icons.more_vert),
+                onSelected: (action) {
+                  switch (action) {
+                    case _ManagementPageAction.checkUpdate:
+                      unawaited(_checkForUpdates());
+                    case _ManagementPageAction.signOut:
+                      widget.runtime.onSignOut?.call();
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem<_ManagementPageAction>(
+                    value: _ManagementPageAction.checkUpdate,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.system_update_alt_outlined),
+                      title: const Text('检查更新'),
+                      subtitle: Text('当前版本 ${widget.runtime.appVersion}'),
+                    ),
+                  ),
+                  if (canSignOut)
+                    const PopupMenuItem<_ManagementPageAction>(
+                      value: _ManagementPageAction.signOut,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.logout_outlined),
+                        title: Text('退出登录'),
+                      ),
+                    ),
+                ],
+              ),
+          ],
           const SizedBox(width: 6),
         ],
       ),
