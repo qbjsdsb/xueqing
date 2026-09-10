@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/oneoff-v030-visual-polish.yml
       - tools/oneoff_v030_visual_polish.py
+      - tools/oneoff_v030_visual_fix.py
 
 permissions:
   contents: write
@@ -23,7 +24,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply focused visual patch and generate icon assets
-        run: python3 tools/oneoff_v030_visual_polish.py
+        run: |
+          python3 tools/oneoff_v030_visual_polish.py
+          python3 tools/oneoff_v030_visual_fix.py
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -54,7 +57,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm .github/workflows/oneoff-v030-visual-polish.yml tools/oneoff_v030_visual_polish.py
+          rm .github/workflows/oneoff-v030-visual-polish.yml tools/oneoff_v030_visual_polish.py tools/oneoff_v030_visual_fix.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
