@@ -6,6 +6,7 @@ on:
       - hotfix/v0.3.2-real-device-ux
     paths:
       - tools/v032_gate_a.py
+      - tools/v032_gate_a_fix.py
       - .github/workflows/v032-gate-a.yml
 
 permissions:
@@ -30,7 +31,9 @@ jobs:
           cache: true
 
       - name: Apply isolated patch
-        run: python3 tools/v032_gate_a.py
+        run: |
+          python3 tools/v032_gate_a.py
+          python3 tools/v032_gate_a_fix.py
 
       - name: Get packages
         run: flutter pub get
@@ -57,7 +60,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git rm tools/v032_gate_a.py .github/workflows/v032-gate-a.yml
+          git rm tools/v032_gate_a.py tools/v032_gate_a_fix.py .github/workflows/v032-gate-a.yml
           git add lib test
           git diff --cached --check
           git config user.name "github-actions[bot]"
