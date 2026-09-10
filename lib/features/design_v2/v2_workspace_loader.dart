@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../cloud/evidence_attachment_repository.dart';
@@ -56,6 +58,34 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
     setState(() {
       _workspaceFuture = nextWorkspace;
     });
+  }
+
+  bool _softRefreshRunning = false;
+  bool _softRefreshQueued = false;
+
+  Future<void> _softRefresh() async {
+    if (_softRefreshRunning) {
+      _softRefreshQueued = true;
+      return;
+    }
+    do {
+      _softRefreshQueued = false;
+      _softRefreshRunning = true;
+      try {
+        final workspace = await widget.loadWorkspace();
+        if (!mounted) return;
+        setState(() {
+          _workspaceFuture = Future<TeacherWorkspace>.value(workspace);
+        });
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('刷新失败，请检查网络后重试；当前页面和已保存记录不会受影响。')),
+        );
+      } finally {
+        _softRefreshRunning = false;
+      }
+    } while (_softRefreshQueued && mounted);
   }
 
   Future<WorkspaceStudent?> _pickStudentSubjectProfile(
@@ -182,11 +212,12 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
     return FutureBuilder<TeacherWorkspace>(
       future: _workspaceFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+        if (!snapshot.hasData &&
+            snapshot.connectionState != ConnectionState.done) {
           return const _V2LoaderStatus(
             icon: Icons.sync,
-            title: '正在读取学情…',
-            message: '正在准备你的学生与成长记录。',
+            title: '正在同步学情',
+            message: '正在读取学生与学情记录。',
           );
         }
 
@@ -213,7 +244,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
             ? (_) => V2ManagementPage(
                 workspace: workspace,
                 runtime: runtime!,
-                onChanged: _retry,
+                onChanged: () => unawaited(_softRefresh()),
               )
             : null;
 
@@ -223,13 +254,13 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
               workspace: workspace,
               runtime: runtime!,
               rootMode: true,
-              onChanged: _retry,
+              onChanged: () => unawaited(_softRefresh()),
             );
           }
           return const _V2LoaderStatus(
             icon: Icons.person_off_outlined,
             title: '暂时没有任课学情',
-            message: '当前账号暂时没有可查看的任课学生；获得任课关系后，这里会自动出现。',
+            message: '当前账号暂时没有可查看的任课学生；获得任课关系后可在这里查看。',
           );
         }
 
@@ -266,7 +297,10 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           updateInstaller: runtime?.updateInstaller,
           appVersion: runtime?.appVersion,
           onSignOut: runtime?.onSignOut,
-          onWorkspaceChanged: workflowController == null ? null : _retry,
+          onRefresh: _softRefresh,
+          onWorkspaceChanged: workflowController == null
+              ? null
+              : () => unawaited(_softRefresh()),
         );
       },
     );

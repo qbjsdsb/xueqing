@@ -86,6 +86,8 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
               _ManagementHeader(
                 organizationName: widget.organizationName,
                 roleLabel: _roleSummary(widget.roles),
+                refreshing: _manualRefreshing,
+                onRefresh: _busy ? null : _manualRefresh,
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: AppSpacing.md),
