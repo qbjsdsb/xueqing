@@ -10,17 +10,30 @@ int _be32(List<int> bytes, int offset) =>
 
 void main() {
   test('Android and Windows ship the real 学情 app icon', () {
-    final manifest = File('android/app/src/main/AndroidManifest.xml')
-        .readAsStringSync();
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
     expect(manifest, contains('android:icon="@mipmap/ic_launcher"'));
     expect(manifest, contains('android:roundIcon="@mipmap/ic_launcher_round"'));
 
-    final adaptive = File(
+    final adaptive26 = File(
       'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
     ).readAsStringSync();
-    expect(adaptive, contains('@color/ic_launcher_background'));
-    expect(adaptive, contains('@drawable/ic_launcher_foreground'));
-    expect(adaptive, contains('<monochrome'));
+    expect(adaptive26, contains('@color/ic_launcher_background'));
+    expect(adaptive26, contains('@drawable/ic_launcher_foreground'));
+    expect(adaptive26, isNot(contains('<monochrome')));
+
+    final foreground = File(
+      'android/app/src/main/res/drawable/ic_launcher_foreground.xml',
+    ).readAsStringSync();
+    expect(foreground, contains('android:viewportWidth="108"'));
+    expect(foreground, contains('#F8F6EF'));
+
+    final adaptive33 = File(
+      'android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml',
+    ).readAsStringSync();
+    expect(adaptive33, contains('<monochrome'));
+    expect(adaptive33, contains('@drawable/ic_launcher_foreground'));
 
     const androidIcons = <String, int>{
       'mdpi': 48,
@@ -51,7 +64,9 @@ void main() {
         r'IDI_APP_ICON            ICON                    "resources\\app_icon.ico"',
       ),
     );
-    final installer = File('installer/windows/xueqing.iss').readAsStringSync();
+    final installer = File(
+      'installer/windows/xueqing.iss',
+    ).readAsStringSync();
     expect(
       installer,
       contains(r'SetupIconFile=..\..\windows\runner\resources\app_icon.ico'),
