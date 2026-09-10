@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'app_motion.dart';
 import 'app_spacing.dart';
 
 abstract final class AppTheme {
@@ -25,6 +26,10 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: colorScheme.surface,
       fontFamilyFallback: fontFallback,
       textTheme: textTheme,
+      splashFactory: InkRipple.splashFactory,
+      hoverColor: colorScheme.primary.withValues(alpha: isDark ? 0.08 : 0.045),
+      focusColor: colorScheme.primary.withValues(alpha: isDark ? 0.12 : 0.08),
+      highlightColor: Colors.transparent,
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -66,6 +71,7 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          animationDuration: AppMotion.quick,
           minimumSize: const Size(0, AppSpacing.touchTarget),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           foregroundColor: colorScheme.onPrimary,
@@ -79,6 +85,7 @@ abstract final class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          animationDuration: AppMotion.quick,
           minimumSize: const Size(0, AppSpacing.touchTarget),
           foregroundColor: colorScheme.primary,
           side: BorderSide(color: colorScheme.outline),
@@ -158,6 +165,7 @@ abstract final class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          animationDuration: AppMotion.quick,
           minimumSize: const Size(0, AppSpacing.touchTarget),
           foregroundColor: colorScheme.primary,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
@@ -181,6 +189,30 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.medium),
         ),
+      ),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 350),
+        showDuration: const Duration(seconds: 2),
+        preferBelow: false,
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: colorScheme.inverseSurface,
+          borderRadius: BorderRadius.circular(AppRadii.small),
+        ),
+        textStyle: textTheme.bodySmall?.copyWith(
+          color: colorScheme.onInverseSurface,
+          fontSize: 12,
+        ),
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        radius: const Radius.circular(AppRadii.pill),
+        thickness: WidgetStateProperty.resolveWith((states) {
+          return states.contains(WidgetState.dragged) ? 6 : 4;
+        }),
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          final alpha = states.contains(WidgetState.dragged) ? 0.52 : 0.30;
+          return colorScheme.onSurfaceVariant.withValues(alpha: alpha);
+        }),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

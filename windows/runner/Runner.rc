@@ -52,7 +52,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-// Application icon intentionally deferred until the visual foundation phase.
+IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
 
 
 /////////////////////////////////////////////////////////////////////////////

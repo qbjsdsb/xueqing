@@ -38,6 +38,7 @@ OutputBaseFilename=xueqing-setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\..\windows\runner\resources\app_icon.ico
 Uninstallable=yes
 UninstallDisplayIcon={app}\{#AppExeName}
 CloseApplications=yes

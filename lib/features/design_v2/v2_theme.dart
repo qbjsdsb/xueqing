@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_motion.dart';
+
 abstract final class V2Palette {
   static const canvas = Color(0xFFF7F8F6);
   static const surface = Color(0xFFFFFFFF);
@@ -61,6 +63,9 @@ abstract final class V2Theme {
       scaffoldBackgroundColor: scheme.surface,
       fontFamilyFallback: const ['Microsoft YaHei', 'Noto Sans CJK SC'],
       splashFactory: InkRipple.splashFactory,
+      hoverColor: scheme.primary.withValues(alpha: isDark ? 0.08 : 0.045),
+      focusColor: scheme.primary.withValues(alpha: isDark ? 0.12 : 0.08),
+      highlightColor: Colors.transparent,
       visualDensity: VisualDensity.standard,
     );
 
@@ -78,6 +83,11 @@ abstract final class V2Theme {
       ),
       titleMedium: base.textTheme.titleMedium?.copyWith(
         fontSize: 16,
+        height: 1.45,
+        fontWeight: FontWeight.w600,
+      ),
+      titleSmall: base.textTheme.titleSmall?.copyWith(
+        fontSize: 14,
         height: 1.45,
         fontWeight: FontWeight.w600,
       ),
@@ -115,35 +125,38 @@ abstract final class V2Theme {
           vertical: 13,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(9),
           borderSide: BorderSide(color: scheme.outlineVariant),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(9),
           borderSide: BorderSide(color: scheme.outlineVariant),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(9),
           borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          animationDuration: AppMotion.quick,
           minimumSize: const Size(0, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          animationDuration: AppMotion.quick,
           minimumSize: const Size(0, 44),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           side: BorderSide(color: scheme.outlineVariant),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          animationDuration: AppMotion.quick,
           minimumSize: const Size(0, 44),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
@@ -152,13 +165,13 @@ abstract final class V2Theme {
       dialogTheme: DialogThemeData(
         backgroundColor: scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
       cardTheme: CardThemeData(
@@ -167,7 +180,7 @@ abstract final class V2Theme {
         color: scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: scheme.outlineVariant),
         ),
       ),
@@ -178,6 +191,65 @@ abstract final class V2Theme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
+      ),
+      appBarTheme: AppBarTheme(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: scheme.onSurface,
+        centerTitle: false,
+        titleTextStyle: textTheme.titleLarge,
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: scheme.onSurfaceVariant,
+        textColor: scheme.onSurface,
+        minVerticalPadding: 10,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 350),
+        showDuration: const Duration(seconds: 2),
+        preferBelow: false,
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: scheme.inverseSurface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: textTheme.bodySmall?.copyWith(
+          color: scheme.onInverseSurface,
+          fontSize: 12,
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        elevation: 1,
+        backgroundColor: scheme.inverseSurface,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: scheme.onInverseSurface,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: scheme.primary,
+        circularTrackColor: scheme.surfaceContainerHigh,
+        linearTrackColor: scheme.surfaceContainerHigh,
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        radius: const Radius.circular(999),
+        thickness: WidgetStateProperty.resolveWith((states) {
+          return states.contains(WidgetState.dragged) ? 6 : 4;
+        }),
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          final alpha = states.contains(WidgetState.dragged) ? 0.52 : 0.30;
+          return scheme.onSurfaceVariant.withValues(alpha: alpha);
+        }),
+      ),
+      expansionTileTheme: ExpansionTileThemeData(
+        iconColor: scheme.onSurfaceVariant,
+        collapsedIconColor: scheme.onSurfaceVariant,
+        shape: const Border(),
+        collapsedShape: const Border(),
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: 64,

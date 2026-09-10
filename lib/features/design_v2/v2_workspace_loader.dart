@@ -322,6 +322,7 @@ class _V2LoaderStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -332,10 +333,21 @@ class _V2LoaderStatus extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    icon,
-                    size: 34,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  Container(
+                    width: 54,
+                    height: 54,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: icon == Icons.sync
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2.2),
+                          )
+                        : Icon(icon, size: 26, color: scheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 16),
                   Text(
