@@ -1,0 +1,108 @@
+name: v0.3.2 grade-first student profile Gate D
+
+on:
+  push:
+    branches:
+      - hotfix/v0.3.2-real-device-ux
+    paths:
+      - ".github/workflows/v032-student-profile-gate.yml"
+      - "tools/v032_student_profile_gate.py"
+      - "tools/v032_student_profile_policy_patch.py"
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: hotfix/v0.3.2-real-device-ux
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages and protect lockfile
+        run: |
+          flutter pub get
+          git diff --exit-code -- pubspec.lock
+
+      - name: Apply guarded profile implementation
+        run: |
+          python3 tools/v032_student_profile_gate.py
+          python3 tools/v032_student_profile_policy_patch.py
+
+      - name: Format and inspect patch boundary
+        shell: bash
+        run: |
+          dart format lib test
+          git diff --check
+          allowed='^(lib/cloud/organization_management_repository\.dart|lib/features/organization_management/presentation/organization_student_setup_dialog\.dart|lib/features/organization_management/presentation/organization_student_edit_dialog\.dart|lib/features/organization_management/presentation/organization_management_learning_actions\.dart|test/features/organization_management_test\.dart|test/cloud/organization_management_repository_test\.dart|supabase/migrations/20260910140000_organization_student_profile_edit\.sql|supabase/tests/organization_student_profile_edit_test\.sql|supabase/tests/organization_student_profile_history_test\.sql)$'
+          unexpected="$(git status --short | sed -E 's/^.. //' | grep -Ev "$allowed" || true)"
+          if [ -n "$unexpected" ]; then
+            echo 'Unexpected product changes:'
+            echo "$unexpected"
+            exit 1
+          fi
+          git status --short
+
+      - name: Analyze Flutter
+        run: flutter analyze
+
+      - name: Run focused profile regressions
+        run: |
+          flutter test test/cloud/organization_management_repository_test.dart
+          flutter test test/features/organization_management_test.dart
+
+      - name: Run full Flutter suite
+        run: flutter test
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.116.0
+
+      - name: Check shell security test syntax
+        run: bash -n supabase/tests/old_token_security.sh supabase/tests/remote_security_spike.sh
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Rebuild database from migrations and seed
+        run: supabase db reset
+
+      - name: Run full pgTAP and RLS suite
+        run: supabase test db
+
+      - name: Run old-token security regression
+        run: bash supabase/tests/old_token_security.sh
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop
+
+      - name: Commit only after every gate is green
+        shell: bash
+        run: |
+          rm -f tools/v032_student_profile_gate.py
+          rm -f tools/v032_student_profile_policy_patch.py
+          rm -f .github/workflows/v032-student-profile-gate.yml
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'Nothing to commit.'
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Implement grade-first student profile editing and preserve enrollment history'
+          git push origin HEAD:hotfix/v0.3.2-real-device-ux
