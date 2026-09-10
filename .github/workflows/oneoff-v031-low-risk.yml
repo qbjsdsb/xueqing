@@ -33,7 +33,7 @@ jobs:
       - name: Resolve Flutter dependencies
         run: flutter pub get
 
-      - name: Format
+      - name: Format verified changes
         run: dart format lib test
 
       - name: Analyze
@@ -43,6 +43,7 @@ jobs:
         run: |
           flutter test test/export/learning_record_export_test.dart
           flutter test test/features/design_v2_workspace_test.dart
+          flutter test test/release_app_icon_contract_test.dart
 
       - name: Full tests
         run: flutter test
