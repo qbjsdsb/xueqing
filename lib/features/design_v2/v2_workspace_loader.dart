@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
+import '../../cloud/student_learning_record_repository.dart';
+import '../../export/learning_record_export.dart';
 import '../teacher_workspace/workspace_runtime.dart';
+import 'v2_fixture.dart';
 import 'v2_management_page.dart';
 import 'v2_read_model_adapter.dart';
 import 'v2_workflow_controller.dart';
@@ -53,6 +56,125 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
     setState(() {
       _workspaceFuture = nextWorkspace;
     });
+  }
+
+  Future<WorkspaceStudent?> _pickStudentSubjectProfile(
+    BuildContext context,
+    List<WorkspaceStudent> profiles,
+  ) async {
+    if (profiles.isEmpty) {
+      return null;
+    }
+    if (profiles.length == 1) {
+      return profiles.single;
+    }
+    final sorted = List<WorkspaceStudent>.of(profiles)
+      ..sort((left, right) => left.subject.compareTo(right.subject));
+
+    Widget choices(BuildContext selectionContext) => ListView.separated(
+      shrinkWrap: true,
+      itemCount: sorted.length,
+      separatorBuilder: (_, _) => Divider(
+        height: 1,
+        color: Theme.of(selectionContext).colorScheme.outlineVariant,
+      ),
+      itemBuilder: (_, index) {
+        final profile = sorted[index];
+        return ListTile(
+          title: Text(profile.subject),
+          subtitle: Text('${profile.name} · ${profile.grade}'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(selectionContext).pop(profile),
+        );
+      },
+    );
+
+    if (MediaQuery.sizeOf(context).width < 720) {
+      return showModalBottomSheet<WorkspaceStudent>(
+        context: context,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) => Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '选择要导出的学科',
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 420),
+                child: choices(sheetContext),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return showDialog<WorkspaceStudent>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('选择要导出的学科'),
+        content: SizedBox(width: 420, child: choices(dialogContext)),
+      ),
+    );
+  }
+
+  Future<void> _exportStudentRecords(
+    BuildContext context,
+    TeacherWorkspace workspace,
+    V2Student student,
+  ) async {
+    final repository = widget.runtime?.studentLearningRecordRepository;
+    if (repository == null) {
+      return;
+    }
+    final profiles = workspace.students
+        .where((profile) => profile.id == student.id)
+        .toList(growable: false);
+    final profile = await _pickStudentSubjectProfile(context, profiles);
+    if (profile == null || !context.mounted) {
+      return;
+    }
+
+    try {
+      final records = await repository.listStudentSubjectRecords(
+        profileId: profile.profileId,
+      );
+      final rows = LearningRecordExport.rowsForStudentRecords(records);
+      if (!context.mounted) {
+        return;
+      }
+      if (rows.isEmpty) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('当前没有可导出的记录。')));
+        return;
+      }
+      final savedPath = await LearningRecordExport.saveAsXlsx(
+        fileNameWithoutExtension: LearningRecordExport.studentSubjectFileName(
+          profile,
+        ),
+        rows: rows,
+      );
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(savedPath == null ? '已取消导出。' : '学情记录表已生成。')),
+      );
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      final message =
+          studentLearningRecordExportErrorMessage(error) ??
+          '学情记录暂时无法读取，请检查网络后重试。';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   @override
@@ -135,6 +257,10 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           data: snapshotData.workspaceData,
           workflowController: workflowController,
           evidenceAttachmentRepository: evidenceAttachmentRepository,
+          onExportStudent: runtime?.studentLearningRecordRepository == null
+              ? null
+              : (context, student) =>
+                    _exportStudentRecords(context, workspace, student),
           managementPageBuilder: managementPageBuilder,
           updateService: runtime?.updateService,
           updateInstaller: runtime?.updateInstaller,

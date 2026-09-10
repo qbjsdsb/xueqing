@@ -141,6 +141,7 @@ Future<bool> showV2ProgressComposer(
   required String subject,
   required String caseTitle,
   bool canCompleteCurrentAction = false,
+  DateTime? businessDate,
   V2ProgressSave? onSave,
   V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,
 }) async {
@@ -152,6 +153,7 @@ Future<bool> showV2ProgressComposer(
           subject: subject,
           caseTitle: caseTitle,
           canCompleteCurrentAction: canCompleteCurrentAction,
+          businessDate: businessDate,
           onSave: onSave,
           attachmentPicker: attachmentPicker,
         ),
@@ -194,6 +196,46 @@ String _describeV2SaveError(Object error) {
     return '网络暂时不可用，当前文字和图片仍然保留，可以直接重试。';
   }
   return '暂时保存失败，当前输入没有清空，请重试。';
+}
+
+enum _V2DraftCloseAction { keepEditing, retry, discard }
+
+Future<_V2DraftCloseAction?> _showV2DraftCloseDialog(
+  BuildContext context, {
+  required bool saveFailed,
+}) {
+  return showDialog<_V2DraftCloseAction>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(saveFailed ? '这条记录还没有确认保存' : '放弃这段记录？'),
+      content: Text(
+        saveFailed
+            ? '当前文字和图片仍然保留。建议直接重新保存；如果放弃，这段未确认保存的内容会丢失。'
+            : '当前输入还没有保存。确定放弃后，这段文字和图片不会进入学生成长记录。',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(_V2DraftCloseAction.keepEditing),
+          child: const Text('继续编辑'),
+        ),
+        if (saveFailed)
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_V2DraftCloseAction.discard),
+            child: const Text('放弃记录'),
+          ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(
+            saveFailed
+                ? _V2DraftCloseAction.retry
+                : _V2DraftCloseAction.discard,
+          ),
+          child: Text(saveFailed ? '重新保存' : '放弃记录'),
+        ),
+      ],
+    ),
+  );
 }
 
 Future<T?> _showAdaptiveComposer<T>(
@@ -291,6 +333,9 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     }
   }
 
+  bool get _hasDraft =>
+      _controller.text.trim().isNotEmpty || _attachments.isNotEmpty;
+
   bool get _canSave =>
       !_saving &&
       _selectedSubject != null &&
@@ -330,6 +375,30 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     }
   }
 
+  Future<void> _close() async {
+    if (_saving) {
+      return;
+    }
+    if (!_hasDraft) {
+      Navigator.of(context).pop(false);
+      return;
+    }
+    final action = await _showV2DraftCloseDialog(
+      context,
+      saveFailed: _saveError != null,
+    );
+    if (!mounted ||
+        action == null ||
+        action == _V2DraftCloseAction.keepEditing) {
+      return;
+    }
+    if (action == _V2DraftCloseAction.retry) {
+      await _save();
+      return;
+    }
+    Navigator.of(context).pop(false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return _ComposerScaffold(
@@ -337,7 +406,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       contextLine: _selectedSubject == null
           ? widget.studentName
           : '${widget.studentName} · $_selectedSubject',
-      onClose: _saving ? null : () => Navigator.of(context).pop(false),
+      onClose: _saving ? null : _close,
       footer: _ComposerFooter(
         primaryLabel: '记录问题',
         onPrimary: _canSave ? _save : null,
@@ -437,6 +506,7 @@ class V2ProgressComposer extends StatefulWidget {
     required this.caseTitle,
     required this.attachmentPicker,
     this.canCompleteCurrentAction = false,
+    this.businessDate,
     this.onSave,
     super.key,
   });
@@ -446,6 +516,7 @@ class V2ProgressComposer extends StatefulWidget {
   final String caseTitle;
   final V2AttachmentPicker attachmentPicker;
   final bool canCompleteCurrentAction;
+  final DateTime? businessDate;
   final V2ProgressSave? onSave;
 
   @override
@@ -495,12 +566,17 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   }
 
   Future<void> _chooseReminderDate() async {
-    final now = DateTime.now();
+    final referenceDate = widget.businessDate ?? DateTime.now();
+    final today = DateTime(
+      referenceDate.year,
+      referenceDate.month,
+      referenceDate.day,
+    );
     final selected = await showDatePicker(
       context: context,
-      initialDate: _reminderDate ?? now,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(now.year + 2, 12, 31),
+      initialDate: _reminderDate ?? today,
+      firstDate: today,
+      lastDate: DateTime(today.year + 2, 12, 31),
       helpText: '选择再次检查日期',
       cancelText: '取消',
       confirmText: '确定',
@@ -509,6 +585,16 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
       setState(() => _reminderDate = selected);
     }
   }
+
+  bool get _hasDraft =>
+      _controller.text.trim().isNotEmpty ||
+      _attachments.isNotEmpty ||
+      _kind != V2ProgressKind.observation ||
+      _nextStep != V2NextStep.continueTracking ||
+      _assessmentResult != null ||
+      _reminderController.text.trim().isNotEmpty ||
+      _reminderDate != null ||
+      _completeCurrentAction;
 
   bool get _canSave {
     if (_saving || _controller.text.trim().isEmpty) {
@@ -566,13 +652,37 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
     }
   }
 
+  Future<void> _close() async {
+    if (_saving) {
+      return;
+    }
+    if (!_hasDraft) {
+      Navigator.of(context).pop(false);
+      return;
+    }
+    final action = await _showV2DraftCloseDialog(
+      context,
+      saveFailed: _saveError != null,
+    );
+    if (!mounted ||
+        action == null ||
+        action == _V2DraftCloseAction.keepEditing) {
+      return;
+    }
+    if (action == _V2DraftCloseAction.retry) {
+      await _save();
+      return;
+    }
+    Navigator.of(context).pop(false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return _ComposerScaffold(
       title: '记录进展',
       contextLine:
           '${widget.studentName} · ${widget.subject}\n${widget.caseTitle}',
-      onClose: _saving ? null : () => Navigator.of(context).pop(false),
+      onClose: _saving ? null : _close,
       footer: _ComposerFooter(
         primaryLabel: '保存进展',
         onPrimary: _canSave ? _save : null,
@@ -917,7 +1027,15 @@ class _ComposerScaffold extends StatelessWidget {
         ),
       ),
     );
-    return PopScope(canPop: onClose != null, child: body);
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          onClose?.call();
+        }
+      },
+      child: body,
+    );
   }
 }
 

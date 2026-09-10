@@ -114,10 +114,7 @@ class V2ReadModelAdapter {
           subjects: List<String>.unmodifiable(subjects),
           openCaseCount: openCaseCount,
           updatedLabel: hasLearningHistory ? '已有更新' : '暂无记录',
-          teacherSummary: _workspaceSummary(
-            viewerName: workspace.viewerName,
-            subjects: subjects,
-          ),
+          teacherSummary: '',
         ),
       );
     }
@@ -231,24 +228,6 @@ class V2ReadModelAdapter {
     }
     final date = action.businessDueDate ?? action.dueAt;
     return date == null ? '待安排' : _dateLabel(date);
-  }
-
-  static String _workspaceSummary({
-    required String viewerName,
-    required List<String> subjects,
-  }) {
-    final viewer = viewerName.trim();
-    final subjectText = subjects.join('、');
-    if (viewer.isEmpty && subjectText.isEmpty) {
-      return '当前工作区';
-    }
-    if (viewer.isEmpty) {
-      return '当前工作区 · $subjectText';
-    }
-    if (subjectText.isEmpty) {
-      return '当前工作区 · $viewer';
-    }
-    return '当前工作区 · $viewer · $subjectText';
   }
 
   static String _dateLabel(DateTime value) => '${value.month} 月 ${value.day} 日';
