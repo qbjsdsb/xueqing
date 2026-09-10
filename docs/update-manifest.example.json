@@ -1,26 +1,26 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.0+8",
-  "minimum_supported": "0.1.0+1",
+  "version": "0.3.1+9",
   "notes": [
-    "新版学情工作台正式启用，学生、问题与后续行动更清晰",
-    "完善已结束问题的历史查看、重新跟进与提醒改期流程"
+    "提升 Android 快速记录与拍照恢复可靠性",
+    "图片统一压缩后上传，降低流量与存储占用",
+    "学员、批量学员与按老师导出的 Excel 支持直接嵌入学情图片"
   ],
   "platforms": {
     "windows": {
-      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.3.0/xueqing-v0.3.0-windows.zip",
+      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.3.1/xueqing-v0.3.1-windows.zip",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size_bytes": 123456789,
       "format": "zip",
-      "file_name": "xueqing-v0.3.0-windows.zip"
+      "file_name": "xueqing-v0.3.1-windows.zip"
     },
     "android": {
-      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.3.0/xueqing-v0.3.0-android.apk",
+      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.3.1/xueqing-v0.3.1-android.apk",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size_bytes": 45678901,
       "format": "apk",
-      "file_name": "xueqing-v0.3.0-android.apk"
+      "file_name": "xueqing-v0.3.1-android.apk"
     }
   }
 }
