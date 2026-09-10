@@ -10,9 +10,8 @@ int _be32(List<int> bytes, int offset) =>
 
 void main() {
   test('Android and Windows ship the real 学情 app icon', () {
-    final manifest = File(
-      'android/app/src/main/AndroidManifest.xml',
-    ).readAsStringSync();
+    final manifest = File('android/app/src/main/AndroidManifest.xml')
+        .readAsStringSync();
     expect(manifest, contains('android:icon="@mipmap/ic_launcher"'));
     expect(manifest, contains('android:roundIcon="@mipmap/ic_launcher_round"'));
 
@@ -64,9 +63,7 @@ void main() {
         r'IDI_APP_ICON            ICON                    "resources\\app_icon.ico"',
       ),
     );
-    final installer = File(
-      'installer/windows/xueqing.iss',
-    ).readAsStringSync();
+    final installer = File('installer/windows/xueqing.iss').readAsStringSync();
     expect(
       installer,
       contains(r'SetupIconFile=..\..\windows\runner\resources\app_icon.ico'),
