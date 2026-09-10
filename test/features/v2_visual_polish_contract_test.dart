@@ -47,6 +47,11 @@ void main() {
       contains('final studentPaneWidth = width < 900 ? 288.0 : 320.0;'),
     );
     expect(source, contains("student.updatedLabel != '暂无记录'"));
+    expect(source, contains('!item.pendingVerification'));
+    expect(
+      source,
+      contains("if (item.actionTiming == null) return '待验证';"),
+    );
     expect(source, isNot(contains("label: const Text('删除问题')")));
   });
 
