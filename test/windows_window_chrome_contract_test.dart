@@ -19,13 +19,17 @@ void main() {
     },
   );
 
-  test('Windows opens the main window centered in the usable work area', () {
+  test('Windows fits and centers the first window inside the work area', () {
     final source = File('windows/runner/main.cpp').readAsStringSync();
 
-    expect(source, contains('CenterWindowInWorkArea'));
+    expect(source, contains('FitAndCenterWindowInWorkArea'));
     expect(source, contains('MonitorFromWindow'));
     expect(source, contains('GetMonitorInfo'));
     expect(source, contains('window.GetHandle()'));
-    expect(source, contains('SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE'));
+    expect(source, contains('std::min(window_width, max_width)'));
+    expect(source, contains('std::min(window_height, max_height)'));
+    expect(source, contains('target_width, target_height'));
+    expect(source, contains('SWP_NOZORDER | SWP_NOACTIVATE'));
+    expect(source, isNot(contains('SWP_NOSIZE')));
   });
 }
