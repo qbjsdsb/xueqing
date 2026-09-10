@@ -48,14 +48,8 @@ void main() {
     expect(loader, contains('V2WorkflowController('));
     expect(loader, contains('Future<void> _softRefresh()'));
     expect(loader, contains('onRefresh: _softRefresh'));
-    expect(
-      loader,
-      contains('onChanged: () => unawaited(_softRefresh())'),
-    );
-    expect(
-      loader,
-      contains(': () => unawaited(_softRefresh())'),
-    );
+    expect(loader, contains('onChanged: () => unawaited(_softRefresh())'));
+    expect(loader, contains(': () => unawaited(_softRefresh())'));
     expect(
       workspace,
       contains('operationId = controller == null ? null : createOperationId()'),
