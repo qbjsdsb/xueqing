@@ -22,6 +22,27 @@ typedef V2StudentExport = Future<void> Function(
 );
 typedef V2WorkspaceRefresh = Future<void> Function();
 
+const int _studentFocusPreviewLimit = 3;
+
+String _visualContentKey(String value) => value.trim().toLowerCase().replaceAll(
+  RegExp('[\\s，。！？、；：,.!?;:"“”‘’（）()\\[\\]【】《》—–\\-·…]+'),
+  '',
+);
+
+bool _shouldShowCaseSummary(V2FocusItem item) {
+  final summary = item.summary.trim();
+  if (summary.isEmpty) return false;
+  return _visualContentKey(summary) != _visualContentKey(item.title);
+}
+
+String _displayNextStep(String value) {
+  final trimmed = value.trim();
+  if (_visualContentKey(trimmed) == _visualContentKey('待安排下一步')) {
+    return '待安排';
+  }
+  return trimmed;
+}
+
 class _V2RuntimeScope extends InheritedWidget {
   const _V2RuntimeScope({
     required this.workflowController,
@@ -1420,7 +1441,7 @@ class _InitialMark extends StatelessWidget {
   }
 }
 
-class _StudentDetailPane extends StatelessWidget {
+class _StudentDetailPane extends StatefulWidget {
   const _StudentDetailPane({
     required this.student,
     required this.onOpenCase,
@@ -1434,12 +1455,32 @@ class _StudentDetailPane extends StatelessWidget {
   final VoidCallback? onBack;
 
   @override
+  State<_StudentDetailPane> createState() => _StudentDetailPaneState();
+}
+
+class _StudentDetailPaneState extends State<_StudentDetailPane> {
+  bool _showAllFocusItems = false;
+
+  @override
+  void didUpdateWidget(covariant _StudentDetailPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.student.id != widget.student.id) {
+      _showAllFocusItems = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final data = V2WorkspaceDataScope.of(context);
-    final focusItems = data.focusItemsForStudent(student);
-    final closedItems = data.closedItemsForStudent(student);
-    final timelineEntries = data.timelineForStudent(student);
+    final focusItems = data.focusItemsForStudent(widget.student);
+    final visibleFocusItems = _showAllFocusItems
+        ? focusItems
+        : focusItems.take(_studentFocusPreviewLimit).toList(growable: false);
+    final hasAdditionalFocusItems =
+        focusItems.length > _studentFocusPreviewLimit;
+    final closedItems = data.closedItemsForStudent(widget.student);
+    final timelineEntries = data.timelineForStudent(widget.student);
     return ColoredBox(
       color: scheme.surface,
       child: CustomScrollView(
@@ -1450,25 +1491,31 @@ class _StudentDetailPane extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: 900),
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
-                    compact ? 18 : 32,
+                    widget.compact ? 18 : 32,
                     22,
-                    compact ? 18 : 32,
+                    widget.compact ? 18 : 32,
                     48,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (onBack != null) ...[
+                      if (widget.onBack != null) ...[
                         IconButton(
                           tooltip: '返回学生列表',
-                          onPressed: onBack,
+                          onPressed: widget.onBack,
                           icon: const Icon(Icons.arrow_back),
                         ),
                         const SizedBox(height: 4),
                       ],
-                      _StudentHeader(student: student, compact: compact),
+                      _StudentHeader(
+                        student: widget.student,
+                        compact: widget.compact,
+                      ),
                       const SizedBox(height: 30),
-                      _SectionTitle(title: '现在最重要', count: focusItems.length),
+                      _SectionTitle(
+                        title: _showAllFocusItems ? '全部问题' : '现在最重要',
+                        count: visibleFocusItems.length,
+                      ),
                       const SizedBox(height: 8),
                       if (focusItems.isEmpty)
                         Padding(
@@ -1478,15 +1525,37 @@ class _StudentDetailPane extends StatelessWidget {
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         )
-                      else
-                        for (var i = 0; i < focusItems.length; i++) ...[
+                      else ...[
+                        for (var i = 0; i < visibleFocusItems.length; i++) ...[
                           _FocusRow(
-                            item: focusItems[i],
-                            onTap: () => onOpenCase(focusItems[i]),
+                            item: visibleFocusItems[i],
+                            onTap: () =>
+                                widget.onOpenCase(visibleFocusItems[i]),
                           ),
-                          if (i < focusItems.length - 1)
+                          if (i < visibleFocusItems.length - 1)
                             Divider(height: 1, color: scheme.outlineVariant),
                         ],
+                        if (hasAdditionalFocusItems) ...[
+                          const SizedBox(height: 6),
+                          TextButton.icon(
+                            key: const Key('v2-student-focus-toggle'),
+                            onPressed: () => setState(
+                              () => _showAllFocusItems = !_showAllFocusItems,
+                            ),
+                            icon: Icon(
+                              _showAllFocusItems
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
+                              size: 18,
+                            ),
+                            label: Text(
+                              _showAllFocusItems
+                                  ? '只看重点'
+                                  : '查看全部 ${focusItems.length} 个',
+                            ),
+                          ),
+                        ],
+                      ],
                       if (closedItems.isNotEmpty) ...[
                         const SizedBox(height: 34),
                         _SectionTitle(title: '历史问题', count: closedItems.length),
@@ -1494,7 +1563,7 @@ class _StudentDetailPane extends StatelessWidget {
                         for (var i = 0; i < closedItems.length; i++) ...[
                           _FocusRow(
                             item: closedItems[i],
-                            onTap: () => onOpenCase(closedItems[i]),
+                            onTap: () => widget.onOpenCase(closedItems[i]),
                           ),
                           if (i < closedItems.length - 1)
                             Divider(height: 1, color: scheme.outlineVariant),
@@ -1677,14 +1746,18 @@ class _FocusRow extends StatelessWidget {
                     item.title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.summary,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                  if (_shouldShowCaseSummary(item)) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.summary,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Text(
-                    item.closed ? item.nextStep : '下一步  ${item.nextStep}',
+                    item.closed
+                        ? _displayNextStep(item.nextStep)
+                        : '下一步  ${_displayNextStep(item.nextStep)}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -2043,11 +2116,13 @@ class _CaseDetailPane extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    item.summary,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
+                  if (_shouldShowCaseSummary(item)) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      item.summary,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
                   const SizedBox(height: 28),
                   Text(
                     item.closed ? '状态' : '下一步',
@@ -2064,7 +2139,7 @@ class _CaseDetailPane extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          item.nextStep,
+                          _displayNextStep(item.nextStep),
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ),
