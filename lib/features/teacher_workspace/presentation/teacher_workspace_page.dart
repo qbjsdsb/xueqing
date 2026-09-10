@@ -21,6 +21,7 @@ import '../../../cloud/teacher_learning_record_repository.dart';
 import '../../../cloud/student_learning_record_repository.dart';
 import '../../../config/app_config.dart';
 import '../../organization_management/presentation/organization_invitation_acceptance_card.dart';
+import '../../organization_management/presentation/organization_invitation_join_page.dart';
 import '../../organization_management/presentation/organization_management_page.dart';
 import '../workspace_runtime.dart';
 import 'member_onboarding_page.dart';
@@ -424,6 +425,15 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
               message: '当前账号已被机构负责人停用，请联系负责人处理。',
               onRetry: () => unawaited(_signOut()),
             ),
+          );
+        }
+        if (membershipState?.status == 'none') {
+          return OrganizationInvitationJoinPage(
+            key: ValueKey('join-organization-$_activeUserId'),
+            repository: _invitationAcceptanceRepository,
+            email: _authRepository!.currentUser?.email,
+            onJoined: _loadMembershipState,
+            onSignOut: _busy ? null : () => unawaited(_signOut()),
           );
         }
         final authenticatedWorkspaceBuilder =

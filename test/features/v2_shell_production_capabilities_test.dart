@@ -39,7 +39,8 @@ void main() {
     expect(preview, isNot(contains("label: '课程'")));
     expect(preview, isNot(contains('课程入口将在')));
     expect(preview, isNot(contains('Icons.menu_book_outlined')));
-    expect(preview, contains("label: '更多'"));
+    expect(preview, isNot(contains("label: '更多'")));
+    expect(preview, contains("Key('v2-compact-more')"));
     expect(preview, contains("tooltip: '管理'"));
     expect(preview, contains("tooltip: '设置'"));
     expect(preview, contains("title: const Text('检查更新')"));
@@ -51,6 +52,8 @@ void main() {
     expect(preview, contains("Key('v2-student-more-actions')"));
 
     expect(loader, contains('workspace.canManageOrganization'));
+    expect(teacherWorkspace, contains("membershipState?.status == 'none'"));
+    expect(teacherWorkspace, contains('OrganizationInvitationJoinPage('));
     expect(loader, contains('rootMode: true'));
     expect(loader, contains('managementPageBuilder: managementPageBuilder'));
     expect(loader, contains('onExportStudent:'));
