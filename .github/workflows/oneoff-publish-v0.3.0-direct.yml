@@ -1,0 +1,440 @@
+name: One-off publish Xueqing v0.3.0 Stable
+
+on:
+  push:
+    branches:
+      - release/v0.3.0-staging
+    paths:
+      - .github/workflows/oneoff-publish-v0.3.0-direct.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-v0.3.0-stable-direct
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: v0.3.0
+  RELEASE_VERSION: 0.3.0+8
+  RELEASE_COMMIT: 1b0edef9ba0c54848ce18bb3359ea1833b67a8cf
+  XUEQING_ENV: production
+  XUEQING_SUPABASE_URL: https://czuctoulgnfytcfonkhc.supabase.co
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI
+  XUEQING_SUPABASE_ALLOWED_HOSTS: czuctoulgnfytcfonkhc.supabase.co
+  XUEQING_ALLOW_DEVELOPMENT_RELEASE: "false"
+  XUEQING_SHOW_DEV_TOOLS: "false"
+  XUEQING_REQUIRE_RELEASE_SIGNING: "true"
+  XUEQING_ANDROID_CERT_SHA256: BF:3D:01:CE:73:E5:EF:C0:06:D1:B0:23:15:9C:5B:8D:F5:15:A6:D7:C8:76:C1:E5:58:B7:4C:D5:75:E3:56:55
+
+jobs:
+  validate:
+    name: Validate frozen Stable target
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version_name: ${{ steps.guard.outputs.version_name }}
+      build_number: ${{ steps.guard.outputs.build_number }}
+    steps:
+      - name: Verify tag, main, release state, and signing configuration
+        id: guard
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          if [[ "$main_sha" != "$RELEASE_COMMIT" || "$tag_sha" != "$RELEASE_COMMIT" ]]; then
+            echo "Frozen v0.3.0 commit mismatch: main=$main_sha tag=$tag_sha expected=$RELEASE_COMMIT"
+            exit 1
+          fi
+
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('v0.3.0 must still be a published Pre-release staging Release')
+          if release['assets']:
+              raise SystemExit('v0.3.0 already has assets; refusing duplicate publication')
+          PY
+
+          for required in XUEQING_ANDROID_KEYSTORE_BASE64 XUEQING_ANDROID_KEYSTORE_PASSWORD XUEQING_ANDROID_KEY_ALIAS XUEQING_ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!required:-}" ]]; then
+              echo "Missing required permanent Android signing secret: $required"
+              exit 1
+            fi
+          done
+
+          version_name="${RELEASE_VERSION%%+*}"
+          build_number="${RELEASE_VERSION##*+}"
+          if [[ "$RELEASE_TAG" != "v$version_name" || ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\+[1-9][0-9]*$ ]]; then
+            echo "Release version/tag contract failed"
+            exit 1
+          fi
+          cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Pinned Android certificate fingerprint is malformed"
+            exit 1
+          fi
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+
+  android-release:
+    name: Build and verify permanently signed Android APK
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout frozen release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_COMMIT }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Configure permanent Android signing
+        shell: bash
+        env:
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$XUEQING_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-keystore.jks
+          {
+            printf 'storeFile=release-keystore.jks\n'
+            printf 'storePassword=%s\n' "$XUEQING_ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$XUEQING_ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$XUEQING_ANDROID_KEY_PASSWORD"
+          } > android/key.properties
+          chmod 600 android/release-keystore.jks android/key.properties
+
+      - name: Build production Android release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release \
+            --build-name="${{ needs.validate.outputs.version_name }}" \
+            --build-number="${{ needs.validate.outputs.build_number }}" \
+            --dart-define="XUEQING_ENV=$XUEQING_ENV" \
+            --dart-define="XUEQING_APP_VERSION=$RELEASE_VERSION" \
+            --dart-define="XUEQING_SUPABASE_URL=$XUEQING_SUPABASE_URL" \
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            --dart-define="XUEQING_SUPABASE_ALLOWED_HOSTS=$XUEQING_SUPABASE_ALLOWED_HOSTS" \
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$XUEQING_ALLOW_DEVELOPMENT_RELEASE" \
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$XUEQING_SHOW_DEV_TOOLS"
+
+      - name: Verify APK certificate fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          apksigner="$(find "$sdk_root/build-tools" -maxdepth 2 -type f -name apksigner -print | sort -V | tail -n 1)"
+          test -x "$apksigner"
+          apk="build/app/outputs/flutter-apk/app-release.apk"
+          verify_output="$("$apksigner" verify --verbose --print-certs "$apk")"
+          printf '%s\n' "$verify_output"
+          actual="$(printf '%s\n' "$verify_output" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1 | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          expected="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "Android release certificate mismatch"
+            exit 1
+          fi
+
+      - name: Upload signed APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: v030-android-signed-${{ github.run_id }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -f android/key.properties android/release-keystore.jks
+
+  windows-release:
+    name: Build Windows release bundle and Setup EXE
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout frozen release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_COMMIT }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build production Windows release bundle
+        shell: pwsh
+        run: |
+          flutter build windows --release `
+            --dart-define="XUEQING_ENV=$env:XUEQING_ENV" `
+            --dart-define="XUEQING_APP_VERSION=$env:RELEASE_VERSION" `
+            --dart-define="XUEQING_SUPABASE_URL=$env:XUEQING_SUPABASE_URL" `
+            --dart-define="XUEQING_SUPABASE_PUBLISHABLE_KEY=$env:XUEQING_SUPABASE_PUBLISHABLE_KEY" `
+            --dart-define="XUEQING_SUPABASE_ALLOWED_HOSTS=$env:XUEQING_SUPABASE_ALLOWED_HOSTS" `
+            --dart-define="XUEQING_ALLOW_DEVELOPMENT_RELEASE=$env:XUEQING_ALLOW_DEVELOPMENT_RELEASE" `
+            --dart-define="XUEQING_SHOW_DEV_TOOLS=$env:XUEQING_SHOW_DEV_TOOLS"
+          if ($LASTEXITCODE -ne 0) { throw "Windows release build failed" }
+
+      - name: Bundle Visual C++ release runtime
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          if (-not (Test-Path $vswhere)) { throw "Visual Studio locator was not found" }
+          $vsPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if ([string]::IsNullOrWhiteSpace($vsPath)) { throw "Visual C++ toolset was not found" }
+          $releaseDir = Join-Path $pwd "build/windows/x64/runner/Release"
+          $redistRoot = Join-Path $vsPath "VC/Redist/MSVC"
+          $runtimeDir = Get-ChildItem -Path $redistRoot -Directory -Recurse |
+            Where-Object {
+              $_.Name -eq "Microsoft.VC143.CRT" -and
+              (Test-Path (Join-Path $_.FullName "msvcp140.dll")) -and
+              (Test-Path (Join-Path $_.FullName "vcruntime140.dll")) -and
+              (Test-Path (Join-Path $_.FullName "vcruntime140_1.dll"))
+            } | Select-Object -First 1
+          if ($null -eq $runtimeDir) { throw "Visual C++ release runtime directory was not found" }
+          foreach ($runtimeName in @("msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll")) {
+            Copy-Item -Path (Join-Path $runtimeDir.FullName $runtimeName) -Destination $releaseDir -Force
+          }
+          $dumpbin = Get-ChildItem -Path (Join-Path $vsPath "VC/Tools/MSVC") -Filter "dumpbin.exe" -File -Recurse | Select-Object -First 1
+          if ($null -eq $dumpbin) { throw "dumpbin.exe was not found" }
+          $deps = (& $dumpbin.FullName /DEPENDENTS (Join-Path $releaseDir "xueqing.exe") 2>&1) -join "`n"
+          if ($deps -match "(?i)MSVCP140D\.dll|VCRUNTIME140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
+            throw "Release binary depends on Debug Visual C++ runtime"
+          }
+
+      - name: Build and test updater helper
+        shell: pwsh
+        working-directory: tools/windows_updater
+        run: |
+          dart pub get
+          dart analyze
+          if ($LASTEXITCODE -ne 0) { throw "Updater analyze failed" }
+          dart test
+          if ($LASTEXITCODE -ne 0) { throw "Updater tests failed" }
+          $releaseDir = Join-Path $env:GITHUB_WORKSPACE "build/windows/x64/runner/Release"
+          dart compile exe bin/xueqing_updater.dart -o (Join-Path $releaseDir "xueqing_updater.exe")
+          dart compile exe bin/xueqing_updater.dart -o (Join-Path $releaseDir "xueqing_updater_bootstrap.exe")
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE/tools/windows_installer/build_installer.ps1" -AppVersion "${{ needs.validate.outputs.version_name }}"
+          if ($LASTEXITCODE -ne 0) { throw "Windows installer build failed" }
+
+      - name: Upload Windows bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: v030-windows-bundle-${{ github.run_id }}
+          path: build/windows/x64/runner/Release
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: v030-windows-installer-${{ github.run_id }}
+          path: build/windows/installer/xueqing-setup-${{ needs.validate.outputs.version_name }}.exe
+          if-no-files-found: error
+          retention-days: 1
+
+  package-and-publish:
+    name: Verify assets and promote v0.3.0 to Stable
+    needs: [validate, android-release, windows-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download signed Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: v030-android-signed-${{ github.run_id }}
+          path: release-input/android
+
+      - name: Download Windows bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: v030-windows-bundle-${{ github.run_id }}
+          path: release-input/windows
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: v030-windows-installer-${{ github.run_id }}
+          path: release-input/installer
+
+      - name: Package release assets, Stable manifest, and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          android_asset="xueqing-${RELEASE_TAG}-android.apk"
+          windows_asset="xueqing-${RELEASE_TAG}-windows.zip"
+          windows_installer_asset="xueqing-${RELEASE_TAG}-windows-setup.exe"
+          cp release-input/android/app-release.apk "release-assets/$android_asset"
+          test -f release-input/windows/xueqing.exe
+          test -f release-input/windows/xueqing_updater.exe
+          test -f release-input/windows/xueqing_updater_bootstrap.exe
+          installer_path="release-input/installer/xueqing-setup-${RELEASE_VERSION%%+*}.exe"
+          test -s "$installer_path"
+          cp "$installer_path" "release-assets/$windows_installer_asset"
+          (cd release-input/windows && zip -q -r "$GITHUB_WORKSPACE/release-assets/$windows_asset" .)
+          ANDROID_ASSET="$android_asset" WINDOWS_ASSET="$windows_asset" python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('release-assets')
+          repository = os.environ['GITHUB_REPOSITORY']
+          tag = os.environ['RELEASE_TAG']
+          version = os.environ['RELEASE_VERSION']
+          notes = [
+              '新版学情工作台正式启用，教师工作流进一步收口',
+              '优化 Today、学生、问题历史与安全重新跟进',
+              '完善图片记录、待办处理、移动端触控与 Reduced Motion',
+              '继续支持管理、成员、学科、任课交接、导出与应用内更新',
+          ]
+          def artifact(name, format_name):
+              path = root / name
+              return {
+                  'url': f'https://github.com/{repository}/releases/download/{tag}/{name}',
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                  'size_bytes': path.stat().st_size,
+                  'format': format_name,
+                  'file_name': name,
+              }
+          manifest = {
+              'schema': 1,
+              'channel': 'stable',
+              'version': version,
+              'notes': notes,
+              'platforms': {
+                  'android': artifact(os.environ['ANDROID_ASSET'], 'apk'),
+                  'windows': artifact(os.environ['WINDOWS_ASSET'], 'zip'),
+              },
+          }
+          (root / 'update-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+          (cd release-assets && sha256sum *.apk *.zip *.exe update-manifest.json | sort) > release-assets/SHA256SUMS.txt
+
+      - name: Verify local asset hashes and sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('release-assets')
+          manifest = json.loads((root / 'update-manifest.json').read_text(encoding='utf-8'))
+          if manifest['version'] != '0.3.0+8' or manifest['channel'] != 'stable':
+              raise SystemExit('Stable manifest version/channel mismatch')
+          for artifact in manifest['platforms'].values():
+              path = root / artifact['file_name']
+              if path.stat().st_size != artifact['size_bytes']:
+                  raise SystemExit(f'Size mismatch: {path}')
+              if hashlib.sha256(path.read_bytes()).hexdigest() != artifact['sha256']:
+                  raise SystemExit(f'SHA-256 mismatch: {path}')
+          installer = next(root.glob('*-windows-setup.exe'), None)
+          if installer is None or installer.stat().st_size <= 0:
+              raise SystemExit('Windows installer is missing or empty')
+          PY
+
+      - name: Re-verify staging Release before upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          [[ "$tag_sha" == "$RELEASE_COMMIT" ]]
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease'] or release['assets']:
+              raise SystemExit('Staging Release state changed; refusing upload')
+          PY
+
+      - name: Upload immutable v0.3.0 assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY"
+
+      - name: Verify uploaded Release asset set
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('Release left Pre-release state before final verification')
+          assets = {item['name']: item for item in release['assets']}
+          expected = {
+              'xueqing-v0.3.0-android.apk',
+              'xueqing-v0.3.0-windows.zip',
+              'xueqing-v0.3.0-windows-setup.exe',
+              'update-manifest.json',
+              'SHA256SUMS.txt',
+          }
+          missing = sorted(expected - set(assets))
+          if missing:
+              raise SystemExit(f'Missing Release assets: {missing}')
+          empty = sorted(name for name in expected if int(assets[name].get('size', 0)) <= 0)
+          if empty:
+              raise SystemExit(f'Empty Release assets: {empty}')
+          PY
+
+      - name: Promote v0.3.0 from Pre-release to Stable latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+
+      - name: Verify final Stable Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,url,isDraft,isPrerelease,assets)"
+          printf '%s\n' "$release_json"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['tagName'] != 'v0.3.0' or release['isDraft'] or release['isPrerelease']:
+              raise SystemExit('Stable promotion did not complete')
+          expected = {'xueqing-v0.3.0-android.apk','xueqing-v0.3.0-windows.zip','xueqing-v0.3.0-windows-setup.exe','update-manifest.json','SHA256SUMS.txt'}
+          names = {item['name'] for item in release['assets']}
+          if not expected.issubset(names):
+              raise SystemExit('Final Stable asset verification failed')
+          PY
