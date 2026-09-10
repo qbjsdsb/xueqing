@@ -30,9 +30,11 @@ class XueqingApp extends StatelessWidget {
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: iconBrightness,
           statusBarBrightness: brightness,
+          systemStatusBarContrastEnforced: false,
           systemNavigationBarColor: theme.colorScheme.surface,
           systemNavigationBarDividerColor: Colors.transparent,
           systemNavigationBarIconBrightness: iconBrightness,
+          systemNavigationBarContrastEnforced: false,
         );
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: overlayStyle,
