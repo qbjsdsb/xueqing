@@ -15,13 +15,13 @@ void main() {
     final runtime = AuthenticatedWorkspaceRuntime(
       learningRepository: _FakeLearningRepository(),
       updateService: UpdateService(
-        currentVersion: '0.3.1+9',
+        currentVersion: '0.3.2+10',
         platform: UpdatePlatform.android,
         manifestLoader: (_) async => '{}',
       ),
       updateInstaller: _FakeUpdateInstaller(),
       caseReopenDraftStore: _FakeCaseReopenDraftStore(),
-      appVersion: '0.3.1+9',
+      appVersion: '0.3.2+10',
       sessionUserId: 'user-1',
     );
 

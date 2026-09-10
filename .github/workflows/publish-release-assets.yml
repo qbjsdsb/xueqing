@@ -4,20 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing published Pre-release staging tag, for example v0.3.1"
+        description: "Existing published Pre-release staging tag, for example v0.3.2"
         required: true
         type: string
-        default: v0.3.1
+        default: v0.3.2
       app_version:
-        description: "Stable semantic app version including Android build, for example 0.3.1+9"
+        description: "Stable semantic app version including Android build, for example 0.3.2+10"
         required: true
         type: string
-        default: 0.3.1+9
+        default: 0.3.2+10
       release_notes:
         description: "One update note per line; optional"
         required: false
         type: string
-        default: "稳定性与更新流程改进"
+        default: "修复 Android 返回层级；完善学员资料编辑与年级历史；强化更新与安装可靠性"
       supabase_url:
         description: "Public production Supabase URL; used only when the repository variable is unset"
         required: false

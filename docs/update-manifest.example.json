@@ -1,26 +1,26 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "0.3.1+9",
+  "version": "0.3.2+10",
   "notes": [
-    "提升 Android 快速记录与拍照恢复可靠性",
-    "图片统一压缩后上传，降低流量与存储占用",
-    "学员、批量学员与按老师导出的 Excel 支持直接嵌入学情图片"
+    "修复 Android 系统返回与侧滑返回层级，避免在二级工作区直接退出应用",
+    "完善学员资料编辑与年级历史连续性",
+    "强化更新下载进度、Windows 安装更新与发布回归验证"
   ],
   "platforms": {
     "windows": {
-      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.3.1/xueqing-v0.3.1-windows.zip",
+      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.3.2/xueqing-v0.3.2-windows.zip",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size_bytes": 123456789,
       "format": "zip",
-      "file_name": "xueqing-v0.3.1-windows.zip"
+      "file_name": "xueqing-v0.3.2-windows.zip"
     },
     "android": {
-      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.3.1/xueqing-v0.3.1-android.apk",
+      "url": "https://github.com/qbjsdsb/xueqing/releases/download/v0.3.2/xueqing-v0.3.2-android.apk",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "size_bytes": 45678901,
       "format": "apk",
-      "file_name": "xueqing-v0.3.1-android.apk"
+      "file_name": "xueqing-v0.3.2-android.apk"
     }
   }
 }

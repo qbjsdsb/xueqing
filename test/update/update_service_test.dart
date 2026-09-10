@@ -56,6 +56,15 @@ void main() {
     );
   });
 
+  test('equal parsed versions have identical structural hash codes', () {
+    final left = AppVersion.parse('1.2.3-beta.2+4');
+    final right = AppVersion.parse('1.2.3-beta.2+4');
+
+    expect(left, right);
+    expect(left.hashCode, right.hashCode);
+    expect(<AppVersion>{left, right}, hasLength(1));
+  });
+
   test('rejects malformed artifact security fields', () {
     expect(
       () => UpdateManifest.fromJson(
