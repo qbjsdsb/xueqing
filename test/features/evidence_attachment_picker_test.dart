@@ -86,6 +86,30 @@ void main() {
   });
 
   test(
+    'lost-data recovery refreshes a stale startup null for a protected draft',
+    () async {
+      var calls = 0;
+      final recovered = PickedEvidenceAttachment(
+        attachmentId: '00000000-0000-4000-8000-000000000009',
+        bytes: Uint8List.fromList(<int>[9, 8, 7]),
+        fileName: '相机恢复.jpg',
+        contentType: 'image/jpeg',
+      );
+      final recovery = EvidenceAttachmentLostDataRecovery(() async {
+        calls++;
+        return calls == 1 ? null : recovered;
+      });
+
+      recovery.prime();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(await recovery.take(refreshIfEmpty: true), same(recovered));
+      expect(calls, 2);
+      expect(await recovery.take(refreshIfEmpty: true), isNull);
+    },
+  );
+
+  test(
     'startup recovery errors are deferred until the result is consumed',
     () async {
       var calls = 0;

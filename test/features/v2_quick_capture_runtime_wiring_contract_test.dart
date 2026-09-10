@@ -20,7 +20,9 @@ void main() {
     expect(runtime, contains('final ComposerDraftStore? composerDraftStore;'));
     expect(loader, contains('quickCaptureComposerScopeKey('));
     expect(loader, contains('organizationId: workspace.organizationId'));
-    expect(preview, contains('_restoreQuickCaptureDraft'));
+    expect(preview, contains('_restoreComposerDraft'));
+    expect(preview, contains("draft.kind == 'quick_capture'"));
+    expect(preview, contains("draft.kind == 'progress'"));
     expect(preview, contains('initialDraft: draft'));
   });
 }

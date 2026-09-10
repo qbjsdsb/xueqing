@@ -37,7 +37,7 @@ class EvidenceAttachmentLostDataRecovery {
     _pending ??= _loadSafely();
   }
 
-  Future<PickedEvidenceAttachment?> take() async {
+  Future<PickedEvidenceAttachment?> take({bool refreshIfEmpty = false}) async {
     if (_consumed) {
       return null;
     }
@@ -47,7 +47,14 @@ class EvidenceAttachmentLostDataRecovery {
     if (result.error != null) {
       Error.throwWithStackTrace(result.error!, result.stackTrace!);
     }
-    return result.attachment;
+    if (result.attachment != null || !refreshIfEmpty) {
+      return result.attachment;
+    }
+    final refreshed = await _loadSafely();
+    if (refreshed.error != null) {
+      Error.throwWithStackTrace(refreshed.error!, refreshed.stackTrace!);
+    }
+    return refreshed.attachment;
   }
 
   Future<_LostDataRecoveryResult> _loadSafely() async {
@@ -162,7 +169,7 @@ Future<PickedEvidenceAttachment?> recoverLostEvidenceAttachment() async {
   if (defaultTargetPlatform != TargetPlatform.android) {
     return null;
   }
-  return _defaultLostDataRecovery.take();
+  return _defaultLostDataRecovery.take(refreshIfEmpty: true);
 }
 
 Future<PickedEvidenceAttachment?> _retrieveLostEvidenceAttachment() async {

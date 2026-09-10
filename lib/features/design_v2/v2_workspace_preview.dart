@@ -483,14 +483,45 @@ Future<bool> _showV2VoidCase(
 Future<void> _showV2ProgressForCase(
   BuildContext context,
   V2Student student,
-  V2FocusItem item,
-) async {
+  V2FocusItem item, {
+  ComposerDraftSnapshot? initialDraft,
+}) async {
   final runtime = _V2RuntimeScope.maybeOf(context);
   final controller = runtime?.workflowController;
-  final operationId = controller == null ? null : createOperationId();
-  final photoEvidenceOperationId = controller == null
+  final storedOperationId = initialDraft?.state['operation_id'];
+  final storedPhotoOperationId =
+      initialDraft?.state['photo_evidence_operation_id'];
+  final operationId =
+      storedOperationId is String && storedOperationId.trim().isNotEmpty
+      ? storedOperationId
+      : controller == null
       ? null
       : createOperationId();
+  final photoEvidenceOperationId =
+      storedPhotoOperationId is String &&
+          storedPhotoOperationId.trim().isNotEmpty
+      ? storedPhotoOperationId
+      : controller == null
+      ? null
+      : createOperationId();
+  final store = runtime?.composerDraftStore;
+  final scopeKey = runtime?.composerDraftScopeKey;
+  final persistence =
+      store != null &&
+          scopeKey != null &&
+          operationId != null &&
+          photoEvidenceOperationId != null
+      ? V2ProgressPersistence(
+          store: store,
+          scopeKey: scopeKey,
+          studentId: student.id,
+          subject: item.subject,
+          caseId: item.id,
+          operationId: operationId,
+          photoEvidenceOperationId: photoEvidenceOperationId,
+          initialDraft: initialDraft,
+        )
+      : null;
   final saved = await showV2ProgressComposer(
     context,
     studentName: student.name,
@@ -499,6 +530,7 @@ Future<void> _showV2ProgressForCase(
     canCompleteCurrentAction:
         controller?.hasPendingPrimaryAction(item.id) ?? false,
     businessDate: controller?.businessDate,
+    persistence: persistence,
     onSave: controller == null
         ? null
         : (draft) async {
@@ -666,7 +698,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   bool _showCase = false;
   bool _checkingForUpdates = false;
   bool _refreshing = false;
-  bool _quickCaptureDraftRecoveryScheduled = false;
+  bool _composerDraftRecoveryScheduled = false;
 
   @override
   void initState() {
@@ -682,25 +714,34 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     }
     if (oldWidget.composerDraftScopeKey != widget.composerDraftScopeKey ||
         oldWidget.composerDraftStore != widget.composerDraftStore) {
-      _quickCaptureDraftRecoveryScheduled = false;
+      _composerDraftRecoveryScheduled = false;
     }
   }
 
-  void _scheduleQuickCaptureDraftRecovery(BuildContext scopedContext) {
-    if (_quickCaptureDraftRecoveryScheduled ||
+  void _scheduleComposerDraftRecovery(BuildContext scopedContext) {
+    if (_composerDraftRecoveryScheduled ||
         widget.composerDraftStore == null ||
         widget.composerDraftScopeKey == null) {
       return;
     }
-    _quickCaptureDraftRecoveryScheduled = true;
+    _composerDraftRecoveryScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && scopedContext.mounted) {
-        unawaited(_restoreQuickCaptureDraft(scopedContext));
+        unawaited(_restoreComposerDraft(scopedContext));
       }
     });
   }
 
-  Future<void> _restoreQuickCaptureDraft(BuildContext scopedContext) async {
+  Future<void> _clearComposerDraft() async {
+    final store = widget.composerDraftStore;
+    final scopeKey = widget.composerDraftScopeKey;
+    if (store == null || scopeKey == null) return;
+    try {
+      await store.clear(scopeKey);
+    } catch (_) {}
+  }
+
+  Future<void> _restoreComposerDraft(BuildContext scopedContext) async {
     final store = widget.composerDraftStore;
     final scopeKey = widget.composerDraftScopeKey;
     if (store == null || scopeKey == null) return;
@@ -709,22 +750,10 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     try {
       draft = await store.load(scopeKey);
     } catch (_) {
-      try {
-        await store.clear(scopeKey);
-      } catch (_) {}
+      await _clearComposerDraft();
       return;
     }
     if (!mounted || !scopedContext.mounted || draft == null) return;
-
-    final operationId = draft.state['operation_id'];
-    if (draft.kind != 'quick_capture' ||
-        operationId is! String ||
-        operationId.trim().isEmpty) {
-      try {
-        await store.clear(scopeKey);
-      } catch (_) {}
-      return;
-    }
 
     V2Student? student;
     for (final candidate in widget.data.students) {
@@ -733,20 +762,71 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
         break;
       }
     }
-    final subject = draft.subject;
-    if (student == null ||
-        (subject != null && !student.subjects.contains(subject))) {
-      try {
-        await store.clear(scopeKey);
-      } catch (_) {}
+    if (student == null) {
+      await _clearComposerDraft();
       return;
     }
-    if (!mounted || !scopedContext.mounted) return;
-    await _showV2QuickCaptureForStudent(
-      scopedContext,
-      student,
-      initialDraft: draft,
-    );
+
+    final operationId = draft.state['operation_id'];
+    if (operationId is! String || operationId.trim().isEmpty) {
+      await _clearComposerDraft();
+      return;
+    }
+
+    if (draft.kind == 'quick_capture') {
+      final subject = draft.subject;
+      if (subject != null && !student.subjects.contains(subject)) {
+        await _clearComposerDraft();
+        return;
+      }
+      if (!mounted || !scopedContext.mounted) return;
+      await _showV2QuickCaptureForStudent(
+        scopedContext,
+        student,
+        initialDraft: draft,
+      );
+      return;
+    }
+
+    if (draft.kind == 'progress') {
+      final subject = draft.subject;
+      final caseId = draft.caseId;
+      final photoOperationId = draft.state['photo_evidence_operation_id'];
+      if (subject == null ||
+          !student.subjects.contains(subject) ||
+          caseId == null ||
+          photoOperationId is! String ||
+          photoOperationId.trim().isEmpty) {
+        await _clearComposerDraft();
+        return;
+      }
+      V2FocusItem? item;
+      for (final candidate in widget.data.focusItems) {
+        if (candidate.id == caseId &&
+            candidate.studentId == student.id &&
+            candidate.subject == subject &&
+            !candidate.closed) {
+          item = candidate;
+          break;
+        }
+      }
+      if (item == null) {
+        await _clearComposerDraft();
+        return;
+      }
+      _openCase(item);
+      await Future<void>.delayed(Duration.zero);
+      if (!mounted || !scopedContext.mounted) return;
+      await _showV2ProgressForCase(
+        scopedContext,
+        student,
+        item,
+        initialDraft: draft,
+      );
+      return;
+    }
+
+    await _clearComposerDraft();
   }
 
   void _reconcileSelection() {
@@ -996,7 +1076,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
         data: widget.data,
         child: Builder(
           builder: (context) {
-            _scheduleQuickCaptureDraftRecovery(context);
+            _scheduleComposerDraftRecovery(context);
             if (widget.data.students.isEmpty) {
               return _EmptyWorkspacePreview(
                 onOpenManagement: widget.managementPageBuilder == null

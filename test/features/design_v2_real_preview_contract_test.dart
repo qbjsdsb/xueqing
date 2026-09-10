@@ -50,10 +50,14 @@ void main() {
     expect(loader, contains('onRefresh: _softRefresh'));
     expect(loader, contains('onChanged: () => unawaited(_softRefresh())'));
     expect(loader, contains(': () => unawaited(_softRefresh())'));
+    expect(workspace, contains("initialDraft?.state['operation_id']"));
     expect(
       workspace,
-      contains('operationId = controller == null ? null : createOperationId()'),
+      contains("initialDraft?.state['photo_evidence_operation_id']"),
     );
+    expect(workspace, contains('storedOperationId.trim().isNotEmpty'));
+    expect(workspace, contains('storedPhotoOperationId.trim().isNotEmpty'));
+    expect(workspace, contains(': createOperationId();'));
     expect(workspace, contains('await controller.quickCapture('));
     expect(workspace, contains('await controller.recordProgress('));
     expect(workspace, contains('widget.repository.listForEvidence('));

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_motion.dart';
@@ -123,6 +125,30 @@ class V2QuickCapturePersistence {
   final EvidenceAttachmentLostDataLoader? lostAttachmentLoader;
 }
 
+class V2ProgressPersistence {
+  const V2ProgressPersistence({
+    required this.store,
+    required this.scopeKey,
+    required this.studentId,
+    required this.subject,
+    required this.caseId,
+    required this.operationId,
+    required this.photoEvidenceOperationId,
+    this.initialDraft,
+    this.lostAttachmentLoader,
+  });
+
+  final ComposerDraftStore store;
+  final String scopeKey;
+  final String studentId;
+  final String subject;
+  final String caseId;
+  final String operationId;
+  final String photoEvidenceOperationId;
+  final ComposerDraftSnapshot? initialDraft;
+  final EvidenceAttachmentLostDataLoader? lostAttachmentLoader;
+}
+
 Future<bool> showV2QuickCapture(
   BuildContext context, {
   required String studentName,
@@ -166,6 +192,7 @@ Future<bool> showV2ProgressComposer(
   DateTime? businessDate,
   V2ProgressSave? onSave,
   V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,
+  V2ProgressPersistence? persistence,
 }) async {
   final saved =
       await _showAdaptiveComposer<bool>(
@@ -178,6 +205,7 @@ Future<bool> showV2ProgressComposer(
           businessDate: businessDate,
           onSave: onSave,
           attachmentPicker: attachmentPicker,
+          persistence: persistence,
         ),
       ) ??
       false;
@@ -692,6 +720,7 @@ class V2ProgressComposer extends StatefulWidget {
     this.canCompleteCurrentAction = false,
     this.businessDate,
     this.onSave,
+    this.persistence,
     super.key,
   });
 
@@ -702,6 +731,7 @@ class V2ProgressComposer extends StatefulWidget {
   final bool canCompleteCurrentAction;
   final DateTime? businessDate;
   final V2ProgressSave? onSave;
+  final V2ProgressPersistence? persistence;
 
   @override
   State<V2ProgressComposer> createState() => _V2ProgressComposerState();
@@ -722,6 +752,160 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    final initialDraft = widget.persistence?.initialDraft;
+    if (initialDraft != null) {
+      _applyInitialDraft(initialDraft);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_restoreLostAttachment());
+      });
+    }
+  }
+
+  void _applyInitialDraft(ComposerDraftSnapshot snapshot) {
+    final persistence = widget.persistence;
+    if (persistence == null ||
+        snapshot.kind != 'progress' ||
+        snapshot.studentId != persistence.studentId ||
+        snapshot.subject != persistence.subject ||
+        snapshot.caseId != persistence.caseId ||
+        snapshot.state['operation_id'] != persistence.operationId ||
+        snapshot.state['photo_evidence_operation_id'] !=
+            persistence.photoEvidenceOperationId) {
+      return;
+    }
+
+    final body = snapshot.state['body'];
+    if (body is String) _controller.text = body;
+    final reminderTitle = snapshot.state['reminder_title'];
+    if (reminderTitle is String) _reminderController.text = reminderTitle;
+
+    final kindName = snapshot.state['kind'];
+    for (final value in V2ProgressKind.values) {
+      if (value.name == kindName) _kind = value;
+    }
+    final assessmentName = snapshot.state['assessment_result'];
+    _assessmentResult = null;
+    for (final value in V2AssessmentResult.values) {
+      if (value.name == assessmentName) _assessmentResult = value;
+    }
+    final nextStepName = snapshot.state['next_step'];
+    for (final value in V2NextStep.values) {
+      if (value.name == nextStepName) _nextStep = value;
+    }
+    final closeReasonName = snapshot.state['close_reason'];
+    for (final value in V2CloseReason.values) {
+      if (value.name == closeReasonName) _closeReason = value;
+    }
+    final reminderDate = snapshot.state['reminder_date'];
+    if (reminderDate is String) {
+      _reminderDate = DateTime.tryParse(reminderDate)?.toLocal();
+    }
+    final complete = snapshot.state['complete_current_action'];
+    _completeCurrentAction =
+        widget.canCompleteCurrentAction && complete == true;
+
+    _attachments
+      ..clear()
+      ..addAll(
+        snapshot.attachments
+            .take(3)
+            .map(
+              (attachment) => PickedEvidenceAttachment(
+                attachmentId: attachment.attachmentId,
+                bytes: attachment.bytes,
+                fileName: attachment.fileName,
+                contentType: attachment.contentType,
+              ),
+            ),
+      );
+  }
+
+  ComposerDraftSnapshot _draftSnapshot() {
+    final persistence = widget.persistence!;
+    return ComposerDraftSnapshot(
+      kind: 'progress',
+      studentId: persistence.studentId,
+      subject: persistence.subject,
+      caseId: persistence.caseId,
+      state: <String, dynamic>{
+        'operation_id': persistence.operationId,
+        'photo_evidence_operation_id': persistence.photoEvidenceOperationId,
+        'body': _controller.text,
+        'kind': _kind.name,
+        'assessment_result': _assessmentResult?.name,
+        'next_step': _nextStep.name,
+        'reminder_title': _reminderController.text,
+        'reminder_date': _reminderDate?.toIso8601String(),
+        'close_reason': _closeReason.name,
+        'complete_current_action': _completeCurrentAction,
+      },
+      attachments: _attachments
+          .map(
+            (attachment) => ComposerDraftAttachment(
+              attachmentId: attachment.attachmentId,
+              bytes: attachment.bytes,
+              fileName: attachment.fileName,
+              contentType: attachment.contentType,
+            ),
+          )
+          .toList(growable: false),
+      savedAt: DateTime.now(),
+    );
+  }
+
+  Future<void> _persistDraft() async {
+    final persistence = widget.persistence;
+    if (persistence == null) return;
+    await persistence.store.save(persistence.scopeKey, _draftSnapshot());
+  }
+
+  Future<void> _persistDraftSilently() async {
+    try {
+      await _persistDraft();
+    } catch (_) {
+      // External-picker boundaries use the strict variant below. Other state
+      // changes are best effort so UI interaction never blocks on disk I/O.
+    }
+  }
+
+  Future<void> _clearPersistedDraft() async {
+    final persistence = widget.persistence;
+    if (persistence == null) return;
+    try {
+      await persistence.store.clear(persistence.scopeKey);
+    } catch (_) {
+      // A confirmed server write remains success even if local cleanup fails.
+      // Stable operation ids keep a stale retry idempotent.
+    }
+  }
+
+  Future<void> _restoreLostAttachment() async {
+    final persistence = widget.persistence;
+    if (persistence?.initialDraft == null || _attachments.length >= 3) return;
+    try {
+      final loader =
+          persistence?.lostAttachmentLoader ?? recoverLostEvidenceAttachment;
+      final recovered = await loader();
+      if (!mounted || recovered == null) return;
+      if (_attachments.any(
+        (attachment) => attachment.attachmentId == recovered.attachmentId,
+      )) {
+        return;
+      }
+      setState(() {
+        _attachments.add(recovered);
+        _mediaError = null;
+      });
+      await _persistDraftSilently();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _mediaError = describeEvidenceAttachmentError(error));
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     _reminderController.dispose();
@@ -729,24 +913,38 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   }
 
   Future<void> _pickAttachment() async {
-    if (_saving || _attachments.length >= 3) {
-      return;
-    }
-    try {
-      final picked = await widget.attachmentPicker(context);
-      if (!mounted || picked == null) {
+    if (_saving || _attachments.length >= 3) return;
+    if (widget.persistence != null) {
+      try {
+        // Strictly persist every field before leaving Flutter for camera/gallery.
+        await _persistDraft();
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _mediaError = '暂时无法保护当前草稿，请稍后再拍照；已经输入的进展仍在当前窗口。';
+          });
+        }
         return;
       }
+    }
+    if (!mounted) return;
+    try {
+      final picked = await widget.attachmentPicker(context);
+      if (!mounted || picked == null) return;
       setState(() {
         _attachments.add(picked);
         _mediaError = null;
       });
+      await _persistDraftSilently();
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() => _mediaError = describeEvidenceAttachmentError(error));
     }
+  }
+
+  void _removeAttachment(int index) {
+    setState(() => _attachments.removeAt(index));
+    unawaited(_persistDraftSilently());
   }
 
   Future<void> _chooseReminderDate() async {
@@ -767,6 +965,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
     );
     if (selected != null && mounted) {
       setState(() => _reminderDate = selected);
+      unawaited(_persistDraftSilently());
     }
   }
 
@@ -799,7 +998,8 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
     }
     final onSave = widget.onSave;
     if (onSave == null) {
-      Navigator.of(context).pop(true);
+      await _clearPersistedDraft();
+      if (mounted) Navigator.of(context).pop(true);
       return;
     }
     final reminderTitle = _reminderController.text.trim();
@@ -822,11 +1022,14 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
       _saveError = null;
     });
     try {
+      await _persistDraftSilently();
       await onSave(draft);
+      await _clearPersistedDraft();
       if (mounted) {
         Navigator.of(context).pop(true);
       }
     } catch (error) {
+      await _persistDraftSilently();
       if (mounted) {
         setState(() {
           _saving = false;
@@ -841,7 +1044,8 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
       return;
     }
     if (!_hasDraft) {
-      Navigator.of(context).pop(false);
+      await _clearPersistedDraft();
+      if (mounted) Navigator.of(context).pop(false);
       return;
     }
     final action = await _showV2DraftCloseDialog(
@@ -857,7 +1061,8 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
       await _save();
       return;
     }
-    Navigator.of(context).pop(false);
+    await _clearPersistedDraft();
+    if (mounted) Navigator.of(context).pop(false);
   }
 
   @override
@@ -897,7 +1102,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
             V2MediaDraftStrip(
               attachments: _attachments,
               onAdd: _pickAttachment,
-              onRemove: (index) => setState(() => _attachments.removeAt(index)),
+              onRemove: _removeAttachment,
             ),
             if (_mediaError != null) ...[
               const SizedBox(height: 8),
@@ -915,12 +1120,15 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
               value: _kind,
               values: V2ProgressKind.values,
               label: (value) => value.label,
-              onChanged: (value) => setState(() {
-                _kind = value;
-                if (value != V2ProgressKind.assessment) {
-                  _assessmentResult = null;
-                }
-              }),
+              onChanged: (value) {
+                setState(() {
+                  _kind = value;
+                  if (value != V2ProgressKind.assessment) {
+                    _assessmentResult = null;
+                  }
+                });
+                unawaited(_persistDraftSilently());
+              },
             ),
             AnimatedSize(
               duration: AppMotion.effectiveDuration(context),
@@ -932,8 +1140,10 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                         value: _assessmentResult,
                         values: V2AssessmentResult.values,
                         label: (value) => value.label,
-                        onChanged: (value) =>
-                            setState(() => _assessmentResult = value),
+                        onChanged: (value) {
+                          setState(() => _assessmentResult = value);
+                          unawaited(_persistDraftSilently());
+                        },
                       ),
                     )
                   : const SizedBox.shrink(),
@@ -944,9 +1154,13 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                 key: const Key('v2-complete-current-action'),
                 onTap: _nextStep == V2NextStep.close
                     ? null
-                    : () => setState(
-                        () => _completeCurrentAction = !_completeCurrentAction,
-                      ),
+                    : () {
+                        setState(
+                          () =>
+                              _completeCurrentAction = !_completeCurrentAction,
+                        );
+                        unawaited(_persistDraftSilently());
+                      },
                 borderRadius: BorderRadius.circular(5),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -958,9 +1172,12 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                             : _completeCurrentAction,
                         onChanged: _nextStep == V2NextStep.close
                             ? null
-                            : (value) => setState(
-                                () => _completeCurrentAction = value ?? false,
-                              ),
+                            : (value) {
+                                setState(
+                                  () => _completeCurrentAction = value ?? false,
+                                );
+                                unawaited(_persistDraftSilently());
+                              },
                       ),
                       const SizedBox(width: 4),
                       const Expanded(child: Text('同时完成当前待办')),
@@ -977,12 +1194,15 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                 key: ValueKey('v2-next-step-${step.name}'),
                 label: step.label,
                 selected: _nextStep == step,
-                onTap: () => setState(() {
-                  _nextStep = step;
-                  if (step == V2NextStep.close) {
-                    _completeCurrentAction = false;
-                  }
-                }),
+                onTap: () {
+                  setState(() {
+                    _nextStep = step;
+                    if (step == V2NextStep.close) {
+                      _completeCurrentAction = false;
+                    }
+                  });
+                  unawaited(_persistDraftSilently());
+                },
               ),
             AnimatedSize(
               duration: AppMotion.effectiveDuration(context),
@@ -1037,6 +1257,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                     onChanged: (value) {
                       if (value != null) {
                         setState(() => _closeReason = value);
+                        unawaited(_persistDraftSilently());
                       }
                     },
                   ),
