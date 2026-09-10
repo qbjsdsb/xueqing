@@ -1,0 +1,73 @@
+name: One-off V2 release closure
+
+on:
+  push:
+    branches:
+      - ui/v2-release-closure
+
+permissions:
+  contents: write
+
+jobs:
+  patch-validate:
+    name: Patch, validate, and commit closure
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply audited closure patch
+        run: |
+          set -euo pipefail
+          python .github/scripts/patch_v2_release_closure.py
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Verify lockfile is current
+        run: git diff --exit-code -- pubspec.lock
+
+      - name: Format
+        run: dart format .
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run focused closure tests
+        run: |
+          flutter test \
+            test/features/design_v2_workspace_data_injection_test.dart \
+            test/features/design_v2_workspace_test.dart \
+            test/features/design_v2_composers_test.dart \
+            test/features/v2_shell_production_capabilities_test.dart \
+            test/features/design_v2_workspace_loader_test.dart
+
+      - name: Run full test suite
+        run: flutter test
+
+      - name: Remove one-off patch machinery
+        run: |
+          set -euo pipefail
+          rm .github/scripts/patch_v2_release_closure.py
+          rm .github/workflows/oneoff-v2-release-closure.yml
+
+      - name: Commit validated product changes
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No validated changes to commit."
+            exit 1
+          fi
+          git commit -m "UI V2: close release workflow gaps"
+          git push origin HEAD:ui/v2-release-closure
