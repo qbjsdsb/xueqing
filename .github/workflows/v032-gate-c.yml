@@ -1,0 +1,70 @@
+name: v0.3.2 durable Android composer recovery Gate C
+
+on:
+  push:
+    branches:
+      - hotfix/v0.3.2-real-device-ux
+    paths:
+      - tools/v032_gate_c.py
+      - .github/workflows/v032-gate-c.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v6
+        with:
+          ref: hotfix/v0.3.2-real-device-ux
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply isolated patch
+        run: python3 tools/v032_gate_c.py
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Verify lockfile unchanged
+        run: git diff --exit-code -- pubspec.lock
+
+      - name: Format changed Dart
+        run: dart format lib test
+
+      - name: Diff hygiene
+        run: git diff --check
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused recovery regressions
+        run: |
+          flutter test test/features/evidence_attachment_picker_test.dart
+          flutter test test/features/v2_quick_capture_recovery_test.dart
+          flutter test test/features/v2_quick_capture_runtime_recovery_test.dart
+          flutter test test/features/v032_progress_recovery_test.dart
+
+      - name: Full Flutter tests
+        run: flutter test
+
+      - name: Commit verified product changes and remove harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm tools/v032_gate_c.py .github/workflows/v032-gate-c.yml
+          git add lib test
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Protect Android camera drafts for quick capture and progress"
+          git push origin HEAD:hotfix/v0.3.2-real-device-ux
