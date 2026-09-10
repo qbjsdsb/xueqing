@@ -26,9 +26,6 @@ void main() {
     expect(source, contains('MonitorFromWindow'));
     expect(source, contains('GetMonitorInfo'));
     expect(source, contains('window.GetHandle()'));
-    expect(
-      source,
-      contains('SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE'),
-    );
+    expect(source, contains('SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE'));
   });
 }
