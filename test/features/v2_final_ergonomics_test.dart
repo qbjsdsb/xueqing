@@ -147,7 +147,40 @@ void main() {
 
       await tester.tap(find.byKey(const Key('v2-compact-more')));
       await tester.pumpAndSettle();
+      expect(find.text('操作指南'), findsOneWidget);
       expect(find.text('退出登录'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'operation guide stays reachable without optional account actions',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const data = V2WorkspaceData(
+        students: _students,
+        focusItems: [],
+        timeline: [],
+      );
+
+      await tester.pumpWidget(_app(data));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('v2-compact-more')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('v2-compact-more')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-menu-operation-guide')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('v2-menu-operation-guide')));
+      await tester.pumpAndSettle();
+      expect(find.text('操作指南'), findsOneWidget);
+      expect(find.text('先看今日'), findsOneWidget);
+      expect(find.text('记录问题'), findsOneWidget);
+      expect(find.text('继续跟进'), findsOneWidget);
+      expect(find.text('历史与复发'), findsOneWidget);
+      expect(find.text('管理与导出'), findsOneWidget);
+      expect(find.text('刷新与更新'), findsOneWidget);
+      expect(find.text('记录事实 → 跟进 → 验证 → 下一步'), findsOneWidget);
     },
   );
 }

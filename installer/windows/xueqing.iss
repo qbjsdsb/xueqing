@@ -14,7 +14,7 @@
 #define OutputDir "..\..\build\windows\installer"
 #endif
 
-#define AppName "Xueqing"
+#define AppName "学情"
 #define AppPublisher "Xueqing project"
 #define AppExeName "xueqing.exe"
 #define AppId "{{9B18D3F1-4E17-4C2E-9D71-2E8C0A1E5B4A}"
