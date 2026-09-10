@@ -31,7 +31,9 @@ jobs:
         run: flutter pub get
 
       - name: Apply refresh and window polish patch
-        run: python3 .github/scripts/patch_v2_refresh_window_polish.py
+        run: |
+          python3 .github/scripts/prepare_v2_refresh_window_polish_patch.py
+          python3 .github/scripts/patch_v2_refresh_window_polish.py
 
       - name: Format changed Dart files
         run: |
@@ -70,6 +72,7 @@ jobs:
             lib/features/design_v2/v2_theme.dart \
             windows/runner/win32_window.cpp \
             test/features/v2_refresh_window_polish_test.dart
+          git rm -f .github/scripts/prepare_v2_refresh_window_polish_patch.py
           git rm -f .github/scripts/patch_v2_refresh_window_polish.py
           git rm -f .github/workflows/oneoff-v2-refresh-window-polish.yml
           git diff --cached --check
