@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   validate:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -33,31 +32,7 @@ jobs:
       - name: Apply final ergonomics patch
         run: |
           python3 .github/scripts/patch_v2_final_ergonomics.py
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('lib/features/design_v2/v2_workspace_preview.dart')
-          text = path.read_text()
-          old = """          builder: (context) {
-            if (widget.data.students.isEmpty) {
-              final hasMenuActions =
-                  widget.managementPageBuilder != null ||
-                  widget.updateService != null &&
-                      widget.updateInstaller != null ||
-                  widget.onSignOut != null;
-              return _EmptyWorkspacePreview(
-"""
-          new = """          builder: (context) {
-            final hasMenuActions =
-                widget.managementPageBuilder != null ||
-                widget.updateService != null && widget.updateInstaller != null ||
-                widget.onSignOut != null;
-            if (widget.data.students.isEmpty) {
-              return _EmptyWorkspacePreview(
-"""
-          if text.count(old) != 1:
-              raise SystemExit(f'expected one hasMenuActions block, found {text.count(old)}')
-          path.write_text(text.replace(old, new, 1))
-          PY
+          python3 .github/scripts/patch_v2_final_ergonomics_followup.py
 
       - name: Format changed Dart files
         run: |
@@ -107,6 +82,7 @@ jobs:
             test/features/organization_invitation_join_page_test.dart \
             test/features/v2_final_ergonomics_test.dart
           git rm -f .github/scripts/patch_v2_final_ergonomics.py
+          git rm -f .github/scripts/patch_v2_final_ergonomics_followup.py
           git rm -f .github/workflows/oneoff-v2-final-ergonomics.yml
           git diff --cached --check
           git commit -m 'UI V2: tighten membership gate and daily ergonomics'
