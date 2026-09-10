@@ -73,29 +73,25 @@ jobs:
           tail = tail.replace(radio_old, radio_new, 1)
           text = head + tail
 
-          media_old = """                          child: const SizedBox(
-                            width: 26,
-                            height: 26,
-                            child: Icon(Icons.close, size: 15),
-                          ),"""
-          media_new = """                          child: SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Center(
-                              child: Container(
-                                width: 26,
-                                height: 26,
-                                decoration: BoxDecoration(
-                                  color: scheme.surfaceContainerHighest,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.close, size: 15),
-                              ),
-                            ),
-                          ),"""
-          if media_old not in text:
-              raise SystemExit('media remove target missing')
-          text = text.replace(media_old, media_new, 1)
+          media_key = "key: ValueKey('v2-media-remove-$index')"
+          media_at = text.find(media_key)
+          if media_at < 0:
+              raise SystemExit('media remove key missing')
+          media_end = min(len(text), media_at + 1000)
+          segment = text[media_at:media_end]
+          if 'color: scheme.surfaceContainerHighest,' not in segment:
+              raise SystemExit('media remove material color missing')
+          segment = segment.replace(
+              'color: scheme.surfaceContainerHighest,',
+              'color: Colors.transparent,',
+              1,
+          )
+          media_old = "child: const SizedBox(\n                            width: 26,\n                            height: 26,\n                            child: Icon(Icons.close, size: 15),\n                          ),"
+          media_new = "child: SizedBox(\n                            width: 44,\n                            height: 44,\n                            child: Center(\n                              child: Container(\n                                width: 26,\n                                height: 26,\n                                decoration: BoxDecoration(\n                                  color: scheme.surfaceContainerHighest,\n                                  shape: BoxShape.circle,\n                                ),\n                                child: const Icon(Icons.close, size: 15),\n                              ),\n                            ),\n                          ),"
+          if media_old not in segment:
+              raise SystemExit('media remove child target missing')
+          segment = segment.replace(media_old, media_new, 1)
+          text = text[:media_at] + segment + text[media_end:]
 
           if 'duration: const Duration(milliseconds: 180),' in text:
               raise SystemExit('fixed composer duration remains')
@@ -108,7 +104,6 @@ jobs:
 
           path.write_text(text, encoding='utf-8')
           PY
-
           dart format lib/features/design_v2/v2_composers.dart
 
       - name: Validate focused and full Flutter tree
