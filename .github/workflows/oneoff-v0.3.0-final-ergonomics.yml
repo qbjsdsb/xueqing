@@ -74,11 +74,14 @@ jobs:
           text = head + tail
 
           media_key = "key: ValueKey('v2-media-remove-$index')"
-          media_at = text.find(media_key)
-          if media_at < 0:
+          media_key_at = text.find(media_key)
+          if media_key_at < 0:
               raise SystemExit('media remove key missing')
-          media_end = min(len(text), media_at + 1000)
-          segment = text[media_at:media_end]
+          media_start = text.rfind('                    Positioned(', 0, media_key_at)
+          if media_start < 0:
+              raise SystemExit('media remove Positioned block missing')
+          media_end = min(len(text), media_key_at + 1000)
+          segment = text[media_start:media_end]
           if 'color: scheme.surfaceContainerHighest,' not in segment:
               raise SystemExit('media remove material color missing')
           segment = segment.replace(
@@ -91,7 +94,7 @@ jobs:
           if media_old not in segment:
               raise SystemExit('media remove child target missing')
           segment = segment.replace(media_old, media_new, 1)
-          text = text[:media_at] + segment + text[media_end:]
+          text = text[:media_start] + segment + text[media_end:]
 
           if 'duration: const Duration(milliseconds: 180),' in text:
               raise SystemExit('fixed composer duration remains')
