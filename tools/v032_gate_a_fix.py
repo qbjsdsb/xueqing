@@ -24,5 +24,11 @@ replace_once(
     "    expect(feedback, contains('保存位置：$savedPath'));\n",
     "    expect(feedback, contains(r'保存位置：$savedPath'));\n",
 )
+replace_once(
+    'test/features/v2_shell_production_capabilities_test.dart',
+    "    expect(updateFlow, contains('service.download(result)'));\n",
+    "    expect(updateFlow, contains('service.download('));\n"
+    "    expect(updateFlow, contains('onProgress:'));\n",
+)
 
-print('Gate A analyzer fixes applied')
+print('Gate A analyzer and contract fixes applied')
