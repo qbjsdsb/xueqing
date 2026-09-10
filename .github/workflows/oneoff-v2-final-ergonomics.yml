@@ -58,7 +58,6 @@ jobs:
           flutter test test/features/design_v2_workspace_test.dart
           flutter test test/features/design_v2_workspace_loader_test.dart
           flutter test test/features/v2_shell_production_capabilities_test.dart
-          flutter test test/features/organization_management_page_test.dart
 
       - name: Run full Flutter test suite
         run: flutter test
