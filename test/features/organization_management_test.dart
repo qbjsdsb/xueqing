@@ -945,7 +945,15 @@ Future<void> _selectManagementArea(WidgetTester tester, String label) async {
   final target = find.byKey(key);
   expect(target, findsOneWidget);
   await tester.ensureVisible(target);
-  await tester.tap(target);
+  final compactChip = find.ancestor(
+    of: target,
+    matching: find.byType(ChoiceChip),
+  );
+  if (compactChip.evaluate().isNotEmpty) {
+    await tester.tap(compactChip);
+  } else {
+    await tester.tap(target);
+  }
   await tester.pumpAndSettle();
 }
 
@@ -1281,8 +1289,9 @@ void main() {
 
     final addStudent = find.widgetWithText(FilledButton, '添加学生');
     await tester.ensureVisible(addStudent);
-    await tester.tap(addStudent);
-    await tester.tap(addStudent);
+    final addStudentButton = tester.widget<FilledButton>(addStudent);
+    addStudentButton.onPressed!();
+    addStudentButton.onPressed!();
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('学生姓名 *'), findsOneWidget);
@@ -1292,8 +1301,9 @@ void main() {
     await _selectManagementArea(tester, '设置');
     final addSubject = find.widgetWithText(TextButton, '添加学科');
     await tester.ensureVisible(addSubject);
-    await tester.tap(addSubject);
-    await tester.tap(addSubject);
+    final addSubjectButton = tester.widget<TextButton>(addSubject);
+    addSubjectButton.onPressed!();
+    addSubjectButton.onPressed!();
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('添加学科'), findsWidgets);
@@ -1303,8 +1313,9 @@ void main() {
     await _selectManagementArea(tester, '成员');
     final configureTeacherSubjects = find.widgetWithText(TextButton, '配置');
     await tester.ensureVisible(configureTeacherSubjects);
-    await tester.tap(configureTeacherSubjects);
-    await tester.tap(configureTeacherSubjects);
+    final configureButton = tester.widget<TextButton>(configureTeacherSubjects);
+    configureButton.onPressed!();
+    configureButton.onPressed!();
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('保存配置'), findsOneWidget);

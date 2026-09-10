@@ -25,6 +25,7 @@ linux/flutter/ephemeral/
 
 # Supabase local tooling
 supabase/.temp/
+supabase/.branches/
 
 # Environment and secrets
 .env

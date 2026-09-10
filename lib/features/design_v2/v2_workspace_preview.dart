@@ -1329,8 +1329,9 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
     }
 
     final hasInternalHistory = widget.showCase || _studentOpen;
+    final handlesSystemBack = hasInternalHistory || widget.destination != 0;
     return PopScope<void>(
-      canPop: !hasInternalHistory,
+      canPop: !handlesSystemBack,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         if (widget.showCase) {
@@ -1339,6 +1340,10 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         }
         if (_studentOpen) {
           setState(() => _studentOpen = false);
+          return;
+        }
+        if (widget.destination != 0) {
+          widget.onDestinationChanged(0);
         }
       },
       child: Scaffold(

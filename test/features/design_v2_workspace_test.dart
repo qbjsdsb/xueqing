@@ -132,6 +132,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('compact system back returns secondary destination to Today', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    var navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(navigation.selectedIndex, 1);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationBar), findsOneWidget);
+    navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(navigation.selectedIndex, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('student search filters real people without changing identity', (
     tester,
   ) async {

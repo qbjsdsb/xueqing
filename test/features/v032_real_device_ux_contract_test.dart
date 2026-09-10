@@ -7,9 +7,12 @@ void main() {
     final source = File('lib/features/design_v2/v2_workspace_preview.dart')
         .readAsStringSync();
     expect(source, contains('PopScope<void>('));
-    expect(source, contains('canPop: !hasInternalHistory'));
+    expect(source, contains('final handlesSystemBack ='));
+    expect(source, contains('hasInternalHistory || widget.destination != 0'));
+    expect(source, contains('canPop: !handlesSystemBack'));
     expect(source, contains('widget.onBackFromCase();'));
     expect(source, contains('setState(() => _studentOpen = false)'));
+    expect(source, contains('widget.onDestinationChanged(0);'));
   });
 
   test('compact student canvas no longer mixes list and scaffold surfaces', () {

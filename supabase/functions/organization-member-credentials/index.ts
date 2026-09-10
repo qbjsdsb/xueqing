@@ -55,6 +55,9 @@ class ProvisioningError extends Error {
 
 type JsonObject = Record<string, unknown>;
 
+const inferDatabaseClient = () => createClient('', '');
+type DatabaseClient = ReturnType<typeof inferDatabaseClient>;
+
 type Actor = {
   authUserId: string;
   sessionId: string;
@@ -250,7 +253,7 @@ async function authenticate(
   url: string,
   key: string,
   request: Request
-): Promise<{ actor: Actor; userClient: ReturnType<typeof createClient> }> {
+): Promise<{ actor: Actor; userClient: DatabaseClient }> {
   const header = request.headers.get("Authorization") ?? "";
   if (!header.toLowerCase().startsWith("bearer ")) {
     throw new ProvisioningError("invalid_live_session");
@@ -271,7 +274,7 @@ async function authenticate(
 }
 
 async function callUserRpc(
-  userClient: ReturnType<typeof createClient>,
+  userClient: DatabaseClient,
   name: string,
   params: JsonObject
 ): Promise<JsonObject> {
@@ -283,7 +286,7 @@ async function callUserRpc(
 }
 
 async function callServiceRpc(
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   name: string,
   params: JsonObject
 ): Promise<JsonObject> {
@@ -308,7 +311,7 @@ type CommittedProvisioning = {
 };
 
 async function readCommittedProvisioning(
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   invitationId: string,
   organizationId: string,
   email: string,
@@ -400,7 +403,7 @@ async function readCommittedProvisioning(
 }
 
 async function reconcileCommittedProvisioning(
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   invitationId: string,
   organizationId: string,
   email: string,
@@ -458,7 +461,7 @@ function isMarkedProvisioningUser(
 }
 
 async function findAuthUserByEmail(
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   email: string
 ): Promise<JsonObject | null> {
   for (let page = 1; page <= 100; page += 1) {
@@ -479,7 +482,7 @@ async function findAuthUserByEmail(
 }
 
 async function createAuthUser(
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   email: string,
   organizationId: string,
   invitationId: string
@@ -505,7 +508,7 @@ async function createAuthUser(
 }
 
 async function resetProvisioningAuthUser(
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   user: JsonObject,
   organizationId: string,
   invitationId: string
@@ -537,7 +540,7 @@ async function resetProvisioningAuthUser(
 
 async function provisionBusinessMember(
   actor: Actor,
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   invitationId: string,
   displayName: string | null,
   targetAuthUserId: string
@@ -584,7 +587,7 @@ function temporaryPasswordResult(
 
 async function recoverMarkedProvisioningUser(
   actor: Actor,
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   invitation: JsonObject,
   existingUser: JsonObject,
   displayName: string | null
@@ -659,7 +662,7 @@ async function recoverMarkedProvisioningUser(
 
 async function provisionInvitation(
   actor: Actor,
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   invitation: JsonObject,
   displayName: string | null
 ): Promise<JsonObject> {
@@ -756,8 +759,8 @@ async function provisionInvitation(
 
 async function provisionFromExistingInvitation(
   actor: Actor,
-  userClient: ReturnType<typeof createClient>,
-  adminClient: ReturnType<typeof createClient>,
+  userClient: DatabaseClient,
+  adminClient: DatabaseClient,
   invitationId: string,
   displayName: string | null
 ): Promise<JsonObject> {
@@ -771,7 +774,7 @@ async function provisionFromExistingInvitation(
 
 async function reissueMemberCredential(
   actor: Actor,
-  adminClient: ReturnType<typeof createClient>,
+  adminClient: DatabaseClient,
   organizationId: string,
   membershipId: string
 ): Promise<JsonObject> {
