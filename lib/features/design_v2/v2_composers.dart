@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_motion.dart';
 import '../teacher_workspace/presentation/evidence_attachment_picker.dart';
 import 'v2_workflow_controller.dart';
 
@@ -467,7 +468,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
               label: Text(_showMore ? '收起更多选项' : '更多选项'),
             ),
             AnimatedSize(
-              duration: const Duration(milliseconds: 180),
+              duration: AppMotion.effectiveDuration(context),
               alignment: Alignment.topCenter,
               child: _showMore
                   ? Padding(
@@ -739,7 +740,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
               }),
             ),
             AnimatedSize(
-              duration: const Duration(milliseconds: 180),
+              duration: AppMotion.effectiveDuration(context),
               child: _kind == V2ProgressKind.assessment
                   ? Padding(
                       padding: const EdgeInsets.only(top: 14),
@@ -801,7 +802,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                 }),
               ),
             AnimatedSize(
-              duration: const Duration(milliseconds: 180),
+              duration: AppMotion.effectiveDuration(context),
               alignment: Alignment.topCenter,
               child: switch (_nextStep) {
                 V2NextStep.continueTracking => const SizedBox.shrink(),
@@ -929,16 +930,26 @@ class V2MediaDraftStrip extends StatelessWidget {
                       right: -7,
                       top: -7,
                       child: Material(
-                        color: scheme.surfaceContainerHighest,
+                        color: Colors.transparent,
                         shape: const CircleBorder(),
                         child: InkWell(
                           key: ValueKey('v2-media-remove-$index'),
                           customBorder: const CircleBorder(),
                           onTap: () => onRemove(index),
-                          child: const SizedBox(
-                            width: 26,
-                            height: 26,
-                            child: Icon(Icons.close, size: 15),
+                          child: SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(
+                              child: Container(
+                                width: 26,
+                                height: 26,
+                                decoration: BoxDecoration(
+                                  color: scheme.surfaceContainerHighest,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 15),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -972,7 +983,7 @@ class _ComposerScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final body = AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
+      duration: AppMotion.effectiveDuration(context),
       padding: EdgeInsets.only(bottom: bottomInset),
       child: SafeArea(
         top: false,
@@ -1139,6 +1150,7 @@ class _InlineSelector<T> extends StatelessWidget {
               onTap: () => onChanged(option),
               borderRadius: BorderRadius.circular(5),
               child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 7),
                 decoration: BoxDecoration(
                   border: Border(
@@ -1184,7 +1196,8 @@ class _QuietRadioRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(5),
-      child: Padding(
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [

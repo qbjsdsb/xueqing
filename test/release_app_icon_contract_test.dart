@@ -27,6 +27,8 @@ void main() {
     ).readAsStringSync();
     expect(foreground, contains('android:viewportWidth="108"'));
     expect(foreground, contains('#F8F6EF'));
+    expect(foreground, contains('M50.9,34.2'));
+    expect(foreground, contains('L80.0,29.2'));
 
     final adaptive33 = File(
       'android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml',
