@@ -129,7 +129,7 @@ String describeEvidenceAttachmentError(
       detail.contains('mime') ||
       detail.contains('extension') ||
       detail.contains('无法读取')) {
-    return '目前只支持可正常读取的 JPG、PNG 或 WEBP 图片。';
+    return '目前只支持 JPG、PNG 或 WEBP 图片。';
   }
   if (duringUpload) {
     return '图片上传失败，请点击重试；文字记录已保留。';
