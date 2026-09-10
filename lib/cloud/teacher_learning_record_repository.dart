@@ -10,6 +10,7 @@ class TeacherLearningRecord {
     required this.recordKind,
     required this.content,
     required this.attachmentCount,
+    this.attachmentPaths = const <String>[],
     required this.currentStatus,
     this.assessmentResult,
   });
@@ -23,6 +24,7 @@ class TeacherLearningRecord {
   final String content;
   final String? assessmentResult;
   final int attachmentCount;
+  final List<String> attachmentPaths;
   final String currentStatus;
 
   factory TeacherLearningRecord.fromJson(Map<String, dynamic> json) {
@@ -39,6 +41,7 @@ class TeacherLearningRecord {
         json['attachment_count'],
         'attachment_count',
       ),
+      attachmentPaths: _stringList(json['attachment_paths']),
       currentStatus: _requiredString(json['current_status'], 'current_status'),
     );
   }
@@ -79,7 +82,7 @@ class SupabaseTeacherLearningRecordRepository
     while (true) {
       _assertSameSession(expectedUserId);
       final response = await _client.rpc(
-        'list_teacher_learning_records',
+        'list_teacher_learning_records_with_attachments',
         params: <String, dynamic>{
           'p_organization_id': organizationId,
           'p_membership_id': membershipId,
@@ -142,6 +145,17 @@ String? teacherLearningRecordExportErrorMessage(Object error) {
       '登录账号刚刚发生变化，请重新进入后再导出。',
     _ => null,
   };
+}
+
+List<String> _stringList(Object? value) {
+  if (value == null) return const <String>[];
+  if (value is! List) {
+    throw const FormatException('Missing or invalid attachment_paths.');
+  }
+  return List<String>.unmodifiable([
+    for (final item in value)
+      if (item is String && item.trim().isNotEmpty) item.trim(),
+  ]);
 }
 
 String _requiredString(Object? value, String field) {

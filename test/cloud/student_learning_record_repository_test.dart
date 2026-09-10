@@ -16,6 +16,7 @@ void main() {
       'teacher_name': '王老师',
       'next_step': '下节课再检查一次',
       'attachment_count': 2,
+      'attachment_paths': <String>['org/demo/a.jpg'],
       'current_status': 'confirmed',
     });
 
@@ -24,6 +25,7 @@ void main() {
     expect(record.nextStep, '下节课再检查一次');
     expect(record.recordKind, 'evidence');
     expect(record.attachmentCount, 2);
+    expect(record.attachmentPaths, <String>['org/demo/a.jpg']);
     expect(record.occurredAt.toUtc(), DateTime.utc(2026, 9, 9, 10, 30));
   });
 

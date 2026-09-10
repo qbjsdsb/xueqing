@@ -1,13 +1,42 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:excel_community/excel_community.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../cloud/evidence_attachment_repository.dart';
 import '../cloud/learning_repository.dart';
 import '../cloud/student_learning_record_repository.dart';
 import '../cloud/teacher_learning_record_repository.dart';
+import '../media/evidence_image_processing.dart';
+
+class LearningRecordExportImage {
+  const LearningRecordExportImage({
+    required this.bytes,
+    required this.width,
+    required this.height,
+  });
+
+  final Uint8List bytes;
+  final int width;
+  final int height;
+}
+
+class LearningRecordExportImageException implements Exception {
+  LearningRecordExportImageException(this.cause);
+
+  final Object cause;
+
+  @override
+  String toString() => '学情记录中的图片无法下载或处理。';
+}
+
+String? learningRecordImageExportErrorMessage(Object error) =>
+    error is LearningRecordExportImageException
+    ? '记录已读取，但其中一张图片暂时无法下载或处理，请检查网络后重试。'
+    : null;
 
 class LearningRecordExportRow {
   const LearningRecordExportRow({
@@ -22,6 +51,8 @@ class LearningRecordExportRow {
     this.nextStep,
     this.teacherName,
     this.attachmentNote,
+    this.attachmentPaths = const <String>[],
+    this.attachmentImages = const <LearningRecordExportImage>[],
   });
 
   final DateTime occurredAt;
@@ -34,7 +65,27 @@ class LearningRecordExportRow {
   final String? nextStep;
   final String? teacherName;
   final String? attachmentNote;
+  final List<String> attachmentPaths;
+  final List<LearningRecordExportImage> attachmentImages;
   final String status;
+
+  LearningRecordExportRow copyWithAttachmentImages(
+    List<LearningRecordExportImage> images,
+  ) => LearningRecordExportRow(
+    occurredAt: occurredAt,
+    studentName: studentName,
+    subjectName: subjectName,
+    issueTitle: issueTitle,
+    recordType: recordType,
+    content: content,
+    status: status,
+    assessmentResult: assessmentResult,
+    nextStep: nextStep,
+    teacherName: teacherName,
+    attachmentNote: attachmentNote,
+    attachmentPaths: attachmentPaths,
+    attachmentImages: List<LearningRecordExportImage>.unmodifiable(images),
+  );
 }
 
 class LearningRecordExport {
@@ -162,6 +213,7 @@ class LearningRecordExport {
           attachmentNote: record.attachmentCount <= 0
               ? null
               : '${record.attachmentCount} 个附件',
+          attachmentPaths: record.attachmentPaths,
           status: _wireStatusLabel(record.currentStatus),
         ),
     ];
@@ -189,11 +241,68 @@ class LearningRecordExport {
           attachmentNote: record.attachmentCount <= 0
               ? null
               : '${record.attachmentCount} 个附件',
+          attachmentPaths: record.attachmentPaths,
           status: _wireStatusLabel(record.currentStatus),
         ),
     ];
     rows.sort((left, right) => left.occurredAt.compareTo(right.occurredAt));
     return List<LearningRecordExportRow>.unmodifiable(rows);
+  }
+
+  static Future<List<LearningRecordExportRow>> prepareRowsWithAttachmentImages({
+    required List<LearningRecordExportRow> rows,
+    required EvidenceAttachmentRepository? repository,
+  }) async {
+    final uniquePaths = <String>{for (final row in rows) ...row.attachmentPaths}
+        .toList(growable: false);
+    if (uniquePaths.isEmpty) {
+      return List<LearningRecordExportRow>.unmodifiable(rows);
+    }
+    if (repository == null) {
+      throw LearningRecordExportImageException(
+        StateError('Attachment repository is unavailable.'),
+      );
+    }
+
+    final cache = <String, LearningRecordExportImage>{};
+    const batchSize = 2;
+    for (var start = 0; start < uniquePaths.length; start += batchSize) {
+      final end = math.min(start + batchSize, uniquePaths.length);
+      final batch = uniquePaths.sublist(start, end);
+      final images = await Future.wait([
+        for (final path in batch) _loadExportImage(repository, path),
+      ]);
+      for (var index = 0; index < batch.length; index++) {
+        cache[batch[index]] = images[index];
+      }
+    }
+
+    return List<LearningRecordExportRow>.unmodifiable([
+      for (final row in rows)
+        if (row.attachmentPaths.isEmpty)
+          row
+        else
+          row.copyWithAttachmentImages([
+            for (final path in row.attachmentPaths) cache[path]!,
+          ]),
+    ]);
+  }
+
+  static Future<LearningRecordExportImage> _loadExportImage(
+    EvidenceAttachmentRepository repository,
+    String path,
+  ) async {
+    try {
+      final sourceBytes = await repository.downloadBytes(path);
+      final processed = await processEvidenceImageForExcel(sourceBytes);
+      return LearningRecordExportImage(
+        bytes: processed.bytes,
+        width: processed.width,
+        height: processed.height,
+      );
+    } catch (error) {
+      throw LearningRecordExportImageException(error);
+    }
   }
 
   static WorkspaceEvidence? _initialQuickCaptureEvidence(
@@ -234,7 +343,9 @@ class LearningRecordExport {
       cell.cellStyle = headerStyle;
     }
 
-    for (final row in rows) {
+    for (var index = 0; index < rows.length; index++) {
+      final row = rows[index];
+      final sheetRow = index + 1;
       sheet.appendRow(<CellValue?>[
         TextCellValue(_formatDateTime(row.occurredAt)),
         TextCellValue(row.studentName),
@@ -248,9 +359,10 @@ class LearningRecordExport {
         TextCellValue(row.attachmentNote ?? ''),
         TextCellValue(row.status),
       ]);
+      _addAttachmentImages(sheet, sheetRow, row.attachmentImages);
     }
 
-    const widths = <double>[20, 14, 12, 28, 16, 48, 14, 28, 14, 18, 14];
+    const widths = <double>[20, 14, 12, 28, 16, 48, 14, 28, 14, 38, 14];
     for (var column = 0; column < widths.length; column++) {
       sheet.setColumnWidth(column, widths[column]);
     }
@@ -272,6 +384,102 @@ class LearningRecordExport {
       throw StateError('学情记录表生成失败。');
     }
     return Uint8List.fromList(bytes);
+  }
+
+  static void _addAttachmentImages(
+    Sheet sheet,
+    int rowIndex,
+    List<LearningRecordExportImage> images,
+  ) {
+    if (images.isEmpty) return;
+    const attachmentColumn = 9;
+    const topOffset = 22;
+
+    if (images.length == 1) {
+      final size = _fitImage(images.single, maxWidth: 220, maxHeight: 150);
+      sheet.addImage(
+        ExcelImage(
+          imageBytes: images.single.bytes,
+          imageType: ExcelImageType.jpeg,
+          anchor: ImageAnchor.fromPixels(
+            column: attachmentColumn,
+            row: rowIndex,
+            widthPixels: size.width,
+            heightPixels: size.height,
+            colOffsetPixels: 6,
+            rowOffsetPixels: topOffset,
+          ),
+        ),
+      );
+      final rowHeight = ((topOffset + size.height + 8) * 0.75)
+          .clamp(18.0, 409.0)
+          .toDouble();
+      sheet.setRowHeight(rowIndex, rowHeight);
+      return;
+    }
+
+    // Excel has a practical row-height limit. Keep every image visible by
+    // fitting all thumbnails into a bounded grid rather than silently dropping
+    // overflow attachments.
+    final columns = images.length <= 4 ? 2 : 3;
+    const cellWidth = 220;
+    const gutter = 4;
+    final rowsNeeded = (images.length + columns - 1) ~/ columns;
+    final maxGridHeight = 500 - topOffset - 8;
+    final tileWidth = math.max(
+      24,
+      ((cellWidth - (columns - 1) * gutter) / columns).floor(),
+    );
+    final tileHeight = math.max(
+      18,
+      ((maxGridHeight - (rowsNeeded - 1) * gutter) / rowsNeeded).floor(),
+    );
+    var maxBottom = topOffset;
+
+    for (var index = 0; index < images.length; index++) {
+      final image = images[index];
+      final size = _fitImage(image, maxWidth: tileWidth, maxHeight: tileHeight);
+      final gridColumn = index % columns;
+      final gridRow = index ~/ columns;
+      final x = 6 + gridColumn * (tileWidth + gutter);
+      final y = topOffset + gridRow * (tileHeight + gutter);
+      sheet.addImage(
+        ExcelImage(
+          imageBytes: image.bytes,
+          imageType: ExcelImageType.jpeg,
+          anchor: ImageAnchor.fromPixels(
+            column: attachmentColumn,
+            row: rowIndex,
+            widthPixels: size.width,
+            heightPixels: size.height,
+            colOffsetPixels: x,
+            rowOffsetPixels: y,
+          ),
+        ),
+      );
+      maxBottom = math.max(maxBottom, y + size.height);
+    }
+
+    final rowHeight = ((maxBottom + 8) * 0.75).clamp(18.0, 409.0).toDouble();
+    sheet.setRowHeight(rowIndex, rowHeight);
+  }
+
+  static ({int width, int height}) _fitImage(
+    LearningRecordExportImage image, {
+    required int maxWidth,
+    required int maxHeight,
+  }) {
+    if (image.width <= 0 || image.height <= 0) {
+      return (width: 1, height: 1);
+    }
+    final scale = math.min(
+      1.0,
+      math.min(maxWidth / image.width, maxHeight / image.height),
+    );
+    return (
+      width: math.max(1, (image.width * scale).round()),
+      height: math.max(1, (image.height * scale).round()),
+    );
   }
 
   static Future<String?> saveAsXlsx({

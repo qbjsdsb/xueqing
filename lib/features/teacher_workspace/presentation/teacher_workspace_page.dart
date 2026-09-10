@@ -1512,6 +1512,7 @@ class _TeacherWorkspacePageState extends State<TeacherWorkspacePage> {
       provisioningRepository: widget.memberProvisioningRepository,
       teacherLearningRecordRepository: widget.teacherLearningRecordRepository,
       studentLearningRecordRepository: widget.studentLearningRecordRepository,
+      evidenceAttachmentRepository: widget.evidenceAttachmentRepository,
       organizationId: organizationId,
       organizationName: workspace.organizationName,
       roles: workspace.roles,

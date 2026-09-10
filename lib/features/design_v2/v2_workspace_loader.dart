@@ -176,6 +176,13 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         profileId: profile.profileId,
       );
       final rows = LearningRecordExport.rowsForStudentRecords(records);
+      final preparedRows =
+          await LearningRecordExport.prepareRowsWithAttachmentImages(
+            rows: rows,
+            repository:
+                widget.runtime?.evidenceAttachmentRepository ??
+                widget.evidenceAttachmentRepository,
+          );
       if (!context.mounted) {
         return;
       }
@@ -188,7 +195,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         fileNameWithoutExtension: LearningRecordExport.studentSubjectFileName(
           profile,
         ),
-        rows: rows,
+        rows: preparedRows,
       );
       if (!context.mounted) {
         return;
@@ -201,6 +208,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         return;
       }
       final message =
+          learningRecordImageExportErrorMessage(error) ??
           studentLearningRecordExportErrorMessage(error) ??
           '学情记录暂时无法读取，请检查网络后重试。';
       ScaffoldMessenger.of(context)
