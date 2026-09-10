@@ -48,7 +48,7 @@ jobs:
           dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart test/features/organization_management_test.dart test/features/v032_real_device_ux_contract_test.dart test/flutter_test_config.dart
           git diff --check
           changed="$(git diff --name-only | sort)"
-          expected=$'.gitignore\nlib/features/design_v2/v2_workspace_preview.dart\ntest/features/design_v2_workspace_test.dart\ntest/features/organization_management_test.dart\ntest/features/v032_real_device_ux_contract_test.dart\ntest/flutter_test_config.dart'
+          expected=$'.gitignore\nlib/features/design_v2/v2_workspace_preview.dart\nsupabase/functions/organization-member-credentials/index.ts\ntest/features/design_v2_workspace_test.dart\ntest/features/organization_management_test.dart\ntest/features/v032_real_device_ux_contract_test.dart\ntest/flutter_test_config.dart'
           if [ "$changed" != "$expected" ]; then
             echo 'Unexpected product patch boundary:'
             echo "$changed"
@@ -147,7 +147,7 @@ jobs:
           git diff --check
           if ($LASTEXITCODE -ne 0) { throw "Patch contains whitespace errors." }
           $changed = @(git diff --name-only | Sort-Object)
-          $expected = @('.gitignore','lib/features/design_v2/v2_workspace_preview.dart','test/features/design_v2_workspace_test.dart','test/features/organization_management_test.dart','test/features/v032_real_device_ux_contract_test.dart','test/flutter_test_config.dart')
+          $expected = @('.gitignore','lib/features/design_v2/v2_workspace_preview.dart','supabase/functions/organization-member-credentials/index.ts','test/features/design_v2_workspace_test.dart','test/features/organization_management_test.dart','test/features/v032_real_device_ux_contract_test.dart','test/flutter_test_config.dart')
           if ((Compare-Object $changed $expected).Count -ne 0) { throw "Unexpected product patch boundary: $($changed -join ', ')" }
 
       - name: Analyze Flutter on Windows
@@ -264,11 +264,12 @@ jobs:
           rm -f tools/v032_comprehensive_gate_patch.py
           rm -f .github/workflows/v032-comprehensive-cross-platform-gate.yml
           rm -f .github/workflows/v032-flutter-failure-diagnostic.yml
+          rm -f .github/workflows/v032-deno-diagnostic.yml
           rm -f supabase/.branches/_current_branch
           git add -A
           git diff --cached --check
           staged="$(git diff --cached --name-only | sort)"
-          expected=$'.github/workflows/v032-comprehensive-cross-platform-gate.yml\n.github/workflows/v032-flutter-failure-diagnostic.yml\n.gitignore\nlib/features/design_v2/v2_workspace_preview.dart\nsupabase/.branches/_current_branch\ntest/features/design_v2_workspace_test.dart\ntest/features/organization_management_test.dart\ntest/features/v032_real_device_ux_contract_test.dart\ntest/flutter_test_config.dart\ntools/v032_comprehensive_gate_patch.py'
+          expected=$'.github/workflows/v032-comprehensive-cross-platform-gate.yml\n.github/workflows/v032-deno-diagnostic.yml\n.github/workflows/v032-flutter-failure-diagnostic.yml\n.gitignore\nlib/features/design_v2/v2_workspace_preview.dart\nsupabase/.branches/_current_branch\nsupabase/functions/organization-member-credentials/index.ts\ntest/features/design_v2_workspace_test.dart\ntest/features/organization_management_test.dart\ntest/features/v032_real_device_ux_contract_test.dart\ntest/flutter_test_config.dart\ntools/v032_comprehensive_gate_patch.py'
           if [ "$staged" != "$expected" ]; then
             echo 'Unexpected staged files:'
             echo "$staged"
