@@ -6,6 +6,7 @@ on:
       - hotfix/v0.3.2-real-device-ux
     paths:
       - ".github/workflows/v032-deno-diagnostic.yml"
+      - "tools/v032_comprehensive_gate_patch.py"
 
 permissions:
   contents: read
@@ -19,6 +20,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Apply guarded candidate fixes
+        run: python3 tools/v032_comprehensive_gate_patch.py
       - name: Capture Deno check output
         shell: bash
         run: |
