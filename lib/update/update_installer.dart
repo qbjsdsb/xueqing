@@ -145,7 +145,9 @@ class PlatformUpdateInstaller implements UpdateInstaller {
         <String, Object?>{'path': update.file.path},
       );
       if (status == 'permission_required') {
-        throw const UpdateInstallException('系统已打开“允许安装未知应用”设置，请允许本应用后返回重试。');
+        throw const UpdateInstallException(
+          '尚未允许学情安装更新。请在系统设置中允许后，再点击检查更新重试安装。',
+        );
       }
       if (status != 'started') {
         throw UpdateInstallException(
