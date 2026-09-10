@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../cloud/learning_repository.dart';
@@ -5,6 +7,8 @@ import '../organization_management/presentation/organization_management_page.dar
 import '../teacher_workspace/presentation/teacher_workspace_page.dart';
 import '../teacher_workspace/workspace_runtime.dart';
 import 'v2_update_flow.dart';
+
+enum _ManagementPageAction { checkUpdate, signOut }
 
 class V2ManagementPage extends StatefulWidget {
   const V2ManagementPage({
@@ -25,7 +29,14 @@ class V2ManagementPage extends StatefulWidget {
 }
 
 class _V2ManagementPageState extends State<V2ManagementPage> {
+  final ScrollController _scrollController = ScrollController();
   bool _checkingForUpdates = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _checkForUpdates() async {
     if (_checkingForUpdates) return;
@@ -67,7 +78,12 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => Dialog(child: manager),
+        builder: (_) => Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
+            child: manager,
+          ),
+        ),
       );
     }
   }
@@ -82,59 +98,120 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
       );
     }
 
+    final desktop = MediaQuery.sizeOf(context).width >= 720;
+    final canSignOut = widget.rootMode && widget.runtime.onSignOut != null;
+    final managementContent = OrganizationManagementPage(
+      repository: repository,
+      provisioningRepository: widget.runtime.memberProvisioningRepository,
+      evidenceAttachmentRepository: widget.runtime.evidenceAttachmentRepository,
+      teacherLearningRecordRepository:
+          widget.runtime.teacherLearningRecordRepository,
+      studentLearningRecordRepository:
+          widget.runtime.studentLearningRecordRepository,
+      organizationId: organizationId,
+      organizationName: widget.workspace.organizationName,
+      roles: widget.workspace.roles,
+      canManageCaseTypes: widget.workspace.canManageCaseTypes,
+      onOpenCaseTypes: widget.workspace.canManageCaseTypes
+          ? () {
+              _openCaseTypes();
+            }
+          : null,
+      onChanged: widget.onChanged,
+      showHeaderTitle: false,
+    );
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.rootMode,
-        title: Text('机构管理 · ${widget.workspace.organizationName}'),
+        title: const Text('机构管理'),
         actions: [
-          if (_checkingForUpdates)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+          if (desktop) ...[
+            if (_checkingForUpdates)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
+              )
+            else
+              IconButton(
+                tooltip: '检查更新',
+                onPressed: _checkForUpdates,
+                icon: const Icon(Icons.system_update_alt_outlined),
               ),
-            )
-          else
-            IconButton(
-              tooltip: '检查更新',
-              onPressed: _checkForUpdates,
-              icon: const Icon(Icons.system_update_alt_outlined),
-            ),
-          if (widget.rootMode && widget.runtime.onSignOut != null)
-            IconButton(
-              tooltip: '退出登录',
-              onPressed: widget.runtime.onSignOut,
-              icon: const Icon(Icons.logout_outlined),
-            ),
+            if (canSignOut)
+              IconButton(
+                tooltip: '退出登录',
+                onPressed: widget.runtime.onSignOut,
+                icon: const Icon(Icons.logout_outlined),
+              ),
+          ] else ...[
+            if (_checkingForUpdates)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else
+              PopupMenuButton<_ManagementPageAction>(
+                key: const Key('v2-management-more'),
+                tooltip: '更多操作',
+                icon: const Icon(Icons.more_vert),
+                onSelected: (action) {
+                  switch (action) {
+                    case _ManagementPageAction.checkUpdate:
+                      unawaited(_checkForUpdates());
+                    case _ManagementPageAction.signOut:
+                      widget.runtime.onSignOut?.call();
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem<_ManagementPageAction>(
+                    value: _ManagementPageAction.checkUpdate,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.system_update_alt_outlined),
+                      title: const Text('检查更新'),
+                      subtitle: Text('当前版本 ${widget.runtime.appVersion}'),
+                    ),
+                  ),
+                  if (canSignOut)
+                    const PopupMenuItem<_ManagementPageAction>(
+                      value: _ManagementPageAction.signOut,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.logout_outlined),
+                        title: Text('退出登录'),
+                      ),
+                    ),
+                ],
+              ),
+          ],
           const SizedBox(width: 6),
         ],
       ),
       body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          child: OrganizationManagementPage(
-            repository: repository,
-            provisioningRepository: widget.runtime.memberProvisioningRepository,
-            evidenceAttachmentRepository:
-                widget.runtime.evidenceAttachmentRepository,
-            teacherLearningRecordRepository:
-                widget.runtime.teacherLearningRecordRepository,
-            studentLearningRecordRepository:
-                widget.runtime.studentLearningRecordRepository,
-            organizationId: organizationId,
-            organizationName: widget.workspace.organizationName,
-            roles: widget.workspace.roles,
-            canManageCaseTypes: widget.workspace.canManageCaseTypes,
-            onOpenCaseTypes: widget.workspace.canManageCaseTypes
-                ? () {
-                    _openCaseTypes();
-                  }
-                : null,
-            onChanged: widget.onChanged,
+        child: Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: desktop,
+          interactive: desktop,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: desktop
+                ? SelectionArea(child: managementContent)
+                : managementContent,
           ),
         ),
       ),

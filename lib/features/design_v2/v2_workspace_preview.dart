@@ -1203,14 +1203,18 @@ class _DesktopWorkspace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final border = Theme.of(context).colorScheme.outlineVariant;
+    final width = MediaQuery.sizeOf(context).width;
+    final expandedRail = width >= 1280;
+    final studentPaneWidth = width < 900 ? 288.0 : 320.0;
     return Scaffold(
       body: SafeArea(
         child: Row(
           children: [
             SizedBox(
-              width: 72,
+              width: expandedRail ? 132 : 72,
               child: _NavigationRail(
                 selectedIndex: destination,
+                expanded: expandedRail,
                 onSelected: onDestinationChanged,
                 onRefresh: onRefresh,
                 refreshing: refreshing,
@@ -1221,7 +1225,7 @@ class _DesktopWorkspace extends StatelessWidget {
             VerticalDivider(width: 1, color: border),
             if (destination == 1) ...[
               SizedBox(
-                width: 336,
+                width: studentPaneWidth,
                 child: _StudentListPane(
                   selectedStudent: selectedStudent,
                   onSelected: onStudentSelected,
@@ -1387,11 +1391,13 @@ class _NavigationRail extends StatelessWidget {
     required this.onSelected,
     required this.onSettings,
     required this.refreshing,
+    this.expanded = false,
     this.onRefresh,
     this.onManage,
   });
 
   final int selectedIndex;
+  final bool expanded;
   final ValueChanged<int> onSelected;
   final VoidCallback? onRefresh;
   final bool refreshing;
@@ -1425,6 +1431,7 @@ class _NavigationRail extends StatelessWidget {
               tooltip: item.$2.$2,
               selected: selectedIndex == item.$1,
               onTap: () => onSelected(item.$1),
+              expanded: expanded,
             ),
           const Spacer(),
           if (onRefresh != null)
@@ -1433,17 +1440,20 @@ class _NavigationRail extends StatelessWidget {
               icon: Icons.refresh_outlined,
               tooltip: refreshing ? '正在刷新' : '刷新学情',
               onTap: refreshing ? null : onRefresh,
+              expanded: expanded,
             ),
           if (onManage != null)
             _RailItem(
               icon: Icons.admin_panel_settings_outlined,
               tooltip: '管理',
               onTap: onManage,
+              expanded: expanded,
             ),
           _RailItem(
             icon: Icons.settings_outlined,
             tooltip: '设置',
             onTap: onSettings,
+            expanded: expanded,
           ),
           const SizedBox(height: 12),
         ],
@@ -1458,17 +1468,22 @@ class _RailItem extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     this.selected = false,
+    this.expanded = false,
     this.onTap,
   });
 
   final IconData icon;
   final String tooltip;
   final bool selected;
+  final bool expanded;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final foreground = selected
+        ? scheme.onPrimaryContainer
+        : scheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 10),
       child: Tooltip(
@@ -1486,14 +1501,34 @@ class _RailItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(9),
               onTap: onTap,
               child: SizedBox(
-                width: 48,
+                width: expanded ? 108 : 48,
                 height: 48,
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: selected
-                      ? scheme.onPrimaryContainer
-                      : scheme.onSurfaceVariant,
+                child: Row(
+                  mainAxisAlignment: expanded
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.center,
+                  children: [
+                    if (expanded) const SizedBox(width: 12),
+                    Icon(icon, size: 20, color: foreground),
+                    if (expanded) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          tooltip,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: foreground,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -1636,7 +1671,9 @@ class _StudentListPaneState extends State<_StudentListPane> {
                       final student = visibleStudents[index];
                       return _StudentRow(
                         student: student,
-                        selected: student.id == widget.selectedStudent.id,
+                        selected:
+                            !widget.compact &&
+                            student.id == widget.selectedStudent.id,
                         onTap: () => widget.onSelected(student),
                       );
                     },
@@ -1707,18 +1744,21 @@ class _StudentRow extends StatelessWidget {
                       Text(
                         student.openCaseCount == 0
                             ? '暂无进行中'
-                            : '${student.openCaseCount} 个问题',
+                            : '${student.openCaseCount} 个进行中',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        student.updatedLabel,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant.withValues(
-                            alpha: 0.72,
-                          ),
+                      if (student.updatedLabel != '暂无记录') ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          student.updatedLabel,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: scheme.onSurfaceVariant.withValues(
+                                  alpha: 0.72,
+                                ),
+                              ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ],
@@ -2058,9 +2098,18 @@ class _FocusRow extends StatelessWidget {
                 children: [
                   Text(
                     item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  if (_shouldShowCaseSummary(item)) ...[
+                  if (studentName != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '$studentName · ${item.subject}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                  if (studentName == null && _shouldShowCaseSummary(item)) ...[
                     const SizedBox(height: 4),
                     Text(
                       item.summary,
@@ -2072,28 +2121,35 @@ class _FocusRow extends StatelessWidget {
                     item.closed
                         ? _displayNextStep(item.nextStep)
                         : '下一步  ${_displayNextStep(item.nextStep)}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  studentName == null
-                      ? item.subject
-                      : '$studentName · ${item.subject}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 17),
-                Text(
-                  item.dueLabel,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
+            if (studentName == null) ...[
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    item.subject,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 17),
+                  Text(
+                    item.dueLabel,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ] else if (!item.closed &&
+                item.dueLabel.trim().isNotEmpty &&
+                item.dueLabel != '待安排') ...[
+              const SizedBox(width: 12),
+              Text(item.dueLabel, style: Theme.of(context).textTheme.bodySmall),
+            ],
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 20),
           ],
@@ -2520,13 +2576,56 @@ class _CaseDetailPane extends StatelessWidget {
                         ),
                       ),
                       if (!item.closed) ...[
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         FilledButton.icon(
                           onPressed: () =>
                               _showV2ProgressForCase(context, student, item),
                           icon: const Icon(Icons.edit_note_outlined, size: 18),
                           label: const Text('记进展'),
                         ),
+                        if (controller != null) ...[
+                          const SizedBox(width: 4),
+                          PopupMenuButton<String>(
+                            key: ValueKey<String>('v2-case-more-${item.id}'),
+                            tooltip: '更多操作',
+                            icon: const Icon(Icons.more_vert),
+                            onSelected: (value) async {
+                              if (value != 'delete') return;
+                              final removed = await _showV2VoidCase(
+                                context,
+                                student,
+                                item,
+                              );
+                              if (removed && context.mounted) onBack();
+                            },
+                            itemBuilder: (menuContext) => [
+                              PopupMenuItem<String>(
+                                key: ValueKey<String>('v2-void-${item.id}'),
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: Theme.of(menuContext)
+                                          .colorScheme
+                                          .error,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      '删除问题',
+                                      style: TextStyle(
+                                        color: Theme.of(menuContext)
+                                            .colorScheme
+                                            .error,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -2537,32 +2636,82 @@ class _CaseDetailPane extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ],
-                  const SizedBox(height: 28),
-                  Text(
-                    item.closed ? '状态' : '下一步',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.arrow_forward,
-                        size: 17,
-                        color: scheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _displayNextStep(item.nextStep),
-                          style: Theme.of(context).textTheme.bodyMedium,
+                  const SizedBox(height: 24),
+                  if (item.closed) ...[
+                    Text('状态', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          size: 18,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _displayNextStep(item.nextStep),
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else
+                    Container(
+                      key: ValueKey<String>('v2-case-next-step-${item.id}'),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer.withValues(alpha: 0.28),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: scheme.primary.withValues(alpha: 0.18),
                         ),
                       ),
-                      Text(
-                        item.dueLabel,
-                        style: Theme.of(context).textTheme.bodySmall,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '下一步',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium,
+                                ),
+                              ),
+                              Text(
+                                item.dueLabel,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Icon(
+                                  Icons.arrow_forward,
+                                  size: 18,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _displayNextStep(item.nextStep),
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
                   if (canReopen) ...[
                     const SizedBox(height: 16),
                     FilledButton.tonalIcon(
@@ -2609,25 +2758,6 @@ class _CaseDetailPane extends StatelessWidget {
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                  if (!item.closed && controller != null) ...[
-                    const SizedBox(height: 14),
-                    TextButton.icon(
-                      key: ValueKey<String>('v2-void-${item.id}'),
-                      onPressed: () async {
-                        final removed = await _showV2VoidCase(
-                          context,
-                          student,
-                          item,
-                        );
-                        if (removed && context.mounted) onBack();
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor: scheme.error,
-                      ),
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('删除问题'),
                     ),
                   ],
                   const SizedBox(height: 30),
@@ -2688,16 +2818,20 @@ class _TodayPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = V2WorkspaceDataScope.of(context);
     final validItems = data.focusItems
-        .where(
-          (item) =>
-              data.studentForFocusItemOrNull(item) != null &&
-              item.actionTiming != null,
-        )
+        .where((item) => data.studentForFocusItemOrNull(item) != null)
         .toList(growable: false);
+    final unplannedItems =
+        validItems
+            .where(
+              (item) => item.actionTiming == null && !item.pendingVerification,
+            )
+            .toList(growable: true)
+          ..sort(_compare);
     final actionItems =
         validItems
             .where(
               (item) =>
+                  item.actionTiming != null &&
                   item.actionTiming != V2ActionTiming.future &&
                   !item.pendingVerification,
             )
@@ -2764,7 +2898,9 @@ class _TodayPane extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 28),
-              if (actionItems.isEmpty && verificationItems.isEmpty)
+              if (actionItems.isEmpty &&
+                  verificationItems.isEmpty &&
+                  unplannedItems.isEmpty)
                 Text(
                   '今天没有需要处理的学情事项',
                   style: Theme.of(context).textTheme.bodyMedium,
@@ -2786,6 +2922,20 @@ class _TodayPane extends StatelessWidget {
                     onOpenCase: onOpenCase,
                     verification: true,
                   ),
+              ],
+              if ((actionItems.isNotEmpty || verificationItems.isNotEmpty) &&
+                  unplannedItems.isNotEmpty)
+                const SizedBox(height: 28),
+              if (unplannedItems.isNotEmpty) ...[
+                _SectionTitle(title: '待安排下一步', count: unplannedItems.length),
+                const SizedBox(height: 6),
+                Text(
+                  '这些问题还没有明确的后续行动，先补上下一步，避免从跟进中掉出去。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 6),
+                for (final item in unplannedItems)
+                  _TodayAction(item: item, onOpenCase: onOpenCase),
               ],
               if (futureItems.isNotEmpty) ...[
                 const SizedBox(height: 28),
@@ -2842,6 +2992,7 @@ class _TodayAction extends StatelessWidget {
     }
     final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
     final pendingAction = controller?.pendingActionFor(item.id);
+    final status = _todayActionStatus(item, verification: verification);
     return InkWell(
       borderRadius: BorderRadius.circular(10),
       onTap: () => onOpenCase(item),
@@ -2871,7 +3022,9 @@ class _TodayAction extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    verification ? '等待确认是否已经稳定' : '下一步 · ${item.nextStep}',
+                    verification
+                        ? '等待确认是否已经稳定'
+                        : '下一步 · ${_displayNextStep(item.nextStep)}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (pendingAction != null) ...[
@@ -2919,11 +3072,10 @@ class _TodayAction extends StatelessWidget {
                 ],
               ),
             ),
-            Text(
-              _todayActionStatus(item, verification: verification),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(width: 4),
+            if (status.isNotEmpty) ...[
+              Text(status, style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(width: 4),
+            ],
             const Icon(Icons.chevron_right, size: 20),
           ],
         ),
@@ -2934,8 +3086,10 @@ class _TodayAction extends StatelessWidget {
 
 String _todayActionStatus(V2FocusItem item, {required bool verification}) {
   if (verification) {
+    if (item.actionTiming == null) return '待验证';
     return item.actionTiming == V2ActionTiming.overdue ? '待验证 · 已逾期' : '待验证';
   }
+  if (item.actionTiming == null) return '';
   if (item.actionTiming == V2ActionTiming.overdue) {
     return item.dueLabel == '待安排' ? '已逾期' : '逾期 · ${item.dueLabel}';
   }

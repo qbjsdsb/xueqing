@@ -121,8 +121,9 @@ void main() {
     expect(find.text('真实学生'), findsWidgets);
     expect(find.text('学情暂时无法读取'), findsNothing);
     expect(find.textContaining('刷新失败，请检查网络后重试'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('v2-workspace-refresh')));
+    await tester.tap(find.text('重试'));
     await tester.pumpAndSettle();
 
     expect(attempts, 3);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../config/app_config.dart';
 import 'router/app_router.dart';
@@ -19,6 +20,27 @@ class XueqingApp extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
+      builder: (context, child) {
+        final theme = Theme.of(context);
+        final brightness = theme.brightness;
+        final iconBrightness = brightness == Brightness.dark
+            ? Brightness.light
+            : Brightness.dark;
+        final overlayStyle = SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: iconBrightness,
+          statusBarBrightness: brightness,
+          systemStatusBarContrastEnforced: false,
+          systemNavigationBarColor: theme.colorScheme.surface,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarIconBrightness: iconBrightness,
+          systemNavigationBarContrastEnforced: false,
+        );
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: overlayStyle,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       // Always start from the root route. The router decides whether that
       // root renders developer bootstrap tools or the teacher workspace.
       // Using /teacher-workspace as initialRoute makes Flutter also create

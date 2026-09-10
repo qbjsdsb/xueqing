@@ -48,7 +48,7 @@ void main() {
   });
 
   testWidgets(
-    'Today separates future from current work and uses business date',
+    'Today separates future and unplanned work and uses business date',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -81,7 +81,7 @@ void main() {
             id: 'fact-only-case',
             studentId: 'real-student',
             title: '仅记录事实',
-            summary: '没有 Action 的新记录不是今日任务。',
+            summary: '没有 Action 的开放问题仍需安排下一步。',
             nextStep: '待安排下一步',
             dueLabel: '待安排',
             subject: '语文',
@@ -97,9 +97,10 @@ void main() {
 
       expect(find.text('9 月 12 日 · 周六'), findsOneWidget);
       expect(find.text('今天处理'), findsOneWidget);
+      expect(find.text('待安排下一步'), findsOneWidget);
+      expect(find.text('仅记录事实'), findsOneWidget);
       expect(find.text('近期安排'), findsOneWidget);
       expect(find.text('未来处理'), findsNothing);
-      expect(find.text('仅记录事实'), findsNothing);
 
       await tester.tap(find.text('近期安排'));
       await tester.pumpAndSettle();

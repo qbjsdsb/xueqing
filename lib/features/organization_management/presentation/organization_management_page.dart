@@ -43,6 +43,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.evidenceAttachmentRepository,
     this.teacherLearningRecordRepository,
     this.studentLearningRecordRepository,
+    this.showHeaderTitle = true,
     super.key,
   });
 
@@ -57,6 +58,7 @@ class OrganizationManagementPage extends StatefulWidget {
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final TeacherLearningRecordRepository? teacherLearningRecordRepository;
   final StudentLearningRecordRepository? studentLearningRecordRepository;
+  final bool showHeaderTitle;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -77,117 +79,133 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
           WindowSizeClass.medium => AppSpacing.lg,
           WindowSizeClass.expanded => AppSpacing.xl,
         };
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            AppSpacing.md,
-            horizontalPadding,
-            AppSpacing.xxl,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ManagementHeader(
-                organizationName: widget.organizationName,
-                roleLabel: _roleSummary(widget.roles),
-                refreshing: _manualRefreshing,
-                onRefresh: _busy ? null : _manualRefresh,
-              ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: AppSpacing.md),
-                _ManagementErrorText(message: _errorMessage!),
-              ],
-              const SizedBox(height: AppSpacing.md),
-              FutureBuilder<_OrganizationManagementSnapshot>(
-                future: _snapshotFuture,
-                builder: (context, snapshotState) {
-                  if (!snapshotState.hasData &&
-                      snapshotState.connectionState != ConnectionState.done) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: AppSpacing.xxl),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  if (snapshotState.hasError || !snapshotState.hasData) {
-                    return _ManagementErrorState(onRetry: _retryLoad);
-                  }
-                  final hasProvisioningRepository =
-                      widget.provisioningRepository != null;
-                  final canManageMemberAccounts =
-                      _isOwner && hasProvisioningRepository;
-                  final canEditMemberName =
-                      hasProvisioningRepository &&
-                      widget.roles.any(
-                        (role) => role == 'org_owner' || role == 'org_admin',
-                      );
-                  final canExportTeacherRecords =
-                      widget.teacherLearningRecordRepository != null &&
-                      widget.roles.any(
-                        (role) => role == 'org_owner' || role == 'org_admin',
-                      );
-                  final canExportStudentRecords =
-                      widget.studentLearningRecordRepository != null &&
-                      widget.roles.any(
-                        (role) => role == 'org_owner' || role == 'org_admin',
-                      );
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 2,
-                        child:
-                            snapshotState.connectionState !=
-                                ConnectionState.done
-                            ? const LinearProgressIndicator(minHeight: 2)
-                            : null,
-                      ),
-                      _ManagementOverview(
-                        snapshot: snapshotState.data!,
-                        isOwner: _isOwner,
-                        busy: _busy,
-                        canInvite: _inviteRoles.isNotEmpty,
-                        canEditMemberName: canEditMemberName,
-                        onAddStudent: _addStudent,
-                        onAddStudentSubject: _addStudentSubject,
-                        onToggleStudentSubjectService:
-                            _toggleStudentSubjectService,
-                        onToggleStudentTeaching: _toggleStudentTeaching,
-                        onToggleStudentArchive: _toggleStudentArchive,
-                        onInviteMember: _inviteMember,
-                        onExportTeacherRecords: canExportTeacherRecords
-                            ? _exportTeacherRecords
-                            : null,
-                        onExportStudentRecords: canExportStudentRecords
-                            ? _exportStudentRecords
-                            : null,
-                        onApprove: _approveInvitation,
-                        onRevoke: _revokeInvitation,
-                        onProvisionInvitation: canManageMemberAccounts
-                            ? _provisionExistingInvitation
-                            : null,
-                        onEditMemberName: canEditMemberName
-                            ? _editMemberDisplayName
-                            : null,
-                        onEditStudent: _editStudent,
-                        onToggleMemberStatus: _toggleMemberStatus,
-                        onReissueMemberCredential: canManageMemberAccounts
-                            ? _reissueMemberCredential
-                            : null,
-                        onAddSubject: _addSubject,
-                        onAddTeacherScope: _addTeacherScope,
-                        onToggleTeacherScope: _toggleTeacherScope,
-                        onTransferStudentTeacherAssignment:
-                            _transferStudentTeacherAssignment,
-                        canManageCaseTypes:
-                            widget.canManageCaseTypes &&
-                            widget.onOpenCaseTypes != null,
-                        onOpenCaseTypes: widget.onOpenCaseTypes,
-                      ),
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1180),
+            child: SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  AppSpacing.md,
+                  horizontalPadding,
+                  AppSpacing.xxl,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ManagementHeader(
+                      organizationName: widget.organizationName,
+                      roleLabel: _roleSummary(widget.roles),
+                      refreshing: _manualRefreshing,
+                      onRefresh: _busy ? null : _manualRefresh,
+                      showTitle: widget.showHeaderTitle,
+                    ),
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _ManagementErrorText(message: _errorMessage!),
                     ],
-                  );
-                },
+                    const SizedBox(height: AppSpacing.md),
+                    FutureBuilder<_OrganizationManagementSnapshot>(
+                      future: _snapshotFuture,
+                      builder: (context, snapshotState) {
+                        if (!snapshotState.hasData &&
+                            snapshotState.connectionState !=
+                                ConnectionState.done) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: AppSpacing.xxl,
+                            ),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        if (snapshotState.hasError || !snapshotState.hasData) {
+                          return _ManagementErrorState(onRetry: _retryLoad);
+                        }
+                        final hasProvisioningRepository =
+                            widget.provisioningRepository != null;
+                        final canManageMemberAccounts =
+                            _isOwner && hasProvisioningRepository;
+                        final canEditMemberName =
+                            hasProvisioningRepository &&
+                            widget.roles.any(
+                              (role) =>
+                                  role == 'org_owner' || role == 'org_admin',
+                            );
+                        final canExportTeacherRecords =
+                            widget.teacherLearningRecordRepository != null &&
+                            widget.roles.any(
+                              (role) =>
+                                  role == 'org_owner' || role == 'org_admin',
+                            );
+                        final canExportStudentRecords =
+                            widget.studentLearningRecordRepository != null &&
+                            widget.roles.any(
+                              (role) =>
+                                  role == 'org_owner' || role == 'org_admin',
+                            );
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              height: 2,
+                              child:
+                                  snapshotState.connectionState !=
+                                      ConnectionState.done
+                                  ? const LinearProgressIndicator(minHeight: 2)
+                                  : null,
+                            ),
+                            _ManagementOverview(
+                              snapshot: snapshotState.data!,
+                              isOwner: _isOwner,
+                              busy: _busy,
+                              canInvite: _inviteRoles.isNotEmpty,
+                              canEditMemberName: canEditMemberName,
+                              onAddStudent: _addStudent,
+                              onAddStudentSubject: _addStudentSubject,
+                              onToggleStudentSubjectService:
+                                  _toggleStudentSubjectService,
+                              onToggleStudentTeaching: _toggleStudentTeaching,
+                              onToggleStudentArchive: _toggleStudentArchive,
+                              onInviteMember: _inviteMember,
+                              onExportTeacherRecords: canExportTeacherRecords
+                                  ? _exportTeacherRecords
+                                  : null,
+                              onExportStudentRecords: canExportStudentRecords
+                                  ? _exportStudentRecords
+                                  : null,
+                              onApprove: _approveInvitation,
+                              onRevoke: _revokeInvitation,
+                              onProvisionInvitation: canManageMemberAccounts
+                                  ? _provisionExistingInvitation
+                                  : null,
+                              onEditMemberName: canEditMemberName
+                                  ? _editMemberDisplayName
+                                  : null,
+                              onEditStudent: _editStudent,
+                              onToggleMemberStatus: _toggleMemberStatus,
+                              onReissueMemberCredential: canManageMemberAccounts
+                                  ? _reissueMemberCredential
+                                  : null,
+                              onAddSubject: _addSubject,
+                              onAddTeacherScope: _addTeacherScope,
+                              onToggleTeacherScope: _toggleTeacherScope,
+                              onTransferStudentTeacherAssignment:
+                                  _transferStudentTeacherAssignment,
+                              canManageCaseTypes:
+                                  widget.canManageCaseTypes &&
+                                  widget.onOpenCaseTypes != null,
+                              onOpenCaseTypes: widget.onOpenCaseTypes,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         );
       },

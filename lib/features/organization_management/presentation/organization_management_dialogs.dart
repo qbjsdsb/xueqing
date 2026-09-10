@@ -57,71 +57,78 @@ class _InviteMemberDialogState extends State<_InviteMemberDialog> {
       title: const Text('邀请成员'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('填写姓名、登录邮箱和身份。姓名会显示在机构内，邮箱用于登录；系统会根据账号状态完成开通或邀请。'),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _displayNameController,
-                  autofocus: true,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: '姓名 *',
-                    hintText: '例如：王老师',
+        child: AutofillGroup(
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('填写姓名、登录邮箱和身份。姓名会显示在机构内，邮箱用于登录；系统会根据账号状态完成开通或邀请。'),
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    controller: _displayNameController,
+                    autofocus: true,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const <String>[AutofillHints.name],
+                    decoration: const InputDecoration(
+                      labelText: '姓名 *',
+                      hintText: '例如：王老师',
+                    ),
+                    validator: _validateDisplayName,
                   ),
-                  validator: _validateDisplayName,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: '登录邮箱 *',
-                    hintText: 'name@example.com',
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    textCapitalization: TextCapitalization.none,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    autofillHints: const <String>[AutofillHints.email],
+                    decoration: const InputDecoration(
+                      labelText: '登录邮箱 *',
+                      hintText: 'name@example.com',
+                    ),
+                    validator: (value) {
+                      final email = value?.trim() ?? '';
+                      if (email.isEmpty) return '请输入邮箱。';
+                      if (email.length > 320 ||
+                          !email.contains('@') ||
+                          email.startsWith('@') ||
+                          email.endsWith('@')) {
+                        return '请输入有效邮箱。';
+                      }
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    final email = value?.trim() ?? '';
-                    if (email.isEmpty) return '请输入邮箱。';
-                    if (email.length > 320 ||
-                        !email.contains('@') ||
-                        email.startsWith('@') ||
-                        email.endsWith('@')) {
-                      return '请输入有效邮箱。';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSpacing.md),
-                DropdownButtonFormField<OrganizationInvitationRole>(
-                  initialValue: _selectedRole,
-                  decoration: const InputDecoration(labelText: '身份 *'),
-                  items: [
-                    for (final role in widget.roles)
-                      DropdownMenuItem<OrganizationInvitationRole>(
-                        value: role,
-                        child: Text(role.label),
-                      ),
-                  ],
-                  onChanged: (role) {
-                    if (role != null) setState(() => _selectedRole = role);
-                  },
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(switch (_selectedRole) {
-                  OrganizationInvitationRole.owner =>
-                    '负责人拥有成员账号和机构设置权限，请只授予确实需要承担机构责任的人。',
-                  OrganizationInvitationRole.admin =>
-                    '管理员可以管理机构教学与学生信息，但不能邀请、停用或恢复成员账号。',
-                  OrganizationInvitationRole.teacher =>
-                    '老师只处理教学工作；能看到哪些学生仍由可教学科和任课关系决定。',
-                }, style: Theme.of(context).textTheme.bodySmall),
-              ],
+                  const SizedBox(height: AppSpacing.md),
+                  DropdownButtonFormField<OrganizationInvitationRole>(
+                    initialValue: _selectedRole,
+                    decoration: const InputDecoration(labelText: '身份 *'),
+                    items: [
+                      for (final role in widget.roles)
+                        DropdownMenuItem<OrganizationInvitationRole>(
+                          value: role,
+                          child: Text(role.label),
+                        ),
+                    ],
+                    onChanged: (role) {
+                      if (role != null) setState(() => _selectedRole = role);
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(switch (_selectedRole) {
+                    OrganizationInvitationRole.owner =>
+                      '负责人拥有成员账号和机构设置权限，请只授予确实需要承担机构责任的人。',
+                    OrganizationInvitationRole.admin =>
+                      '管理员可以管理机构教学与学生信息，但不能邀请、停用或恢复成员账号。',
+                    OrganizationInvitationRole.teacher =>
+                      '老师只处理教学工作；能看到哪些学生仍由可教学科和任课关系决定。',
+                  }, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
             ),
           ),
         ),
@@ -185,26 +192,29 @@ class _MemberNameDialogState extends State<_MemberNameDialog> {
       title: Text(widget.title),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.description),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _controller,
-                autofocus: true,
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _submit(),
-                decoration: const InputDecoration(
-                  labelText: '姓名 *',
-                  hintText: '例如：王老师',
+        child: AutofillGroup(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.description),
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: _controller,
+                  autofocus: true,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const <String>[AutofillHints.name],
+                  onFieldSubmitted: (_) => _submit(),
+                  decoration: const InputDecoration(
+                    labelText: '姓名 *',
+                    hintText: '例如：王老师',
+                  ),
+                  validator: _validateDisplayName,
                 ),
-                validator: _validateDisplayName,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

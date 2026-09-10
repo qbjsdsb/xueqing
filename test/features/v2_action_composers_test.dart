@@ -65,4 +65,79 @@ void main() {
     await tester.pumpAndSettle();
     expect(calls, 2);
   });
+
+  testWidgets('compact action sheet stays usable in a short viewport', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 300));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    const actionTitle = '一条较长的后续检查事项，用于验证横屏和小高度窗口仍然可以完整操作';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              key: const Key('open-complete-action'),
+              onPressed: () => showV2CompleteActionComposer(
+                context,
+                actionTitle: actionTitle,
+                onSave: () async {},
+              ),
+              child: const Text('打开'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('open-complete-action')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(actionTitle), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsWidgets);
+    await tester.ensureVisible(
+      find.byKey(const Key('v2-complete-action-save')),
+    );
+    expect(find.byKey(const Key('v2-complete-action-save')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('desktop action dialog stays usable in a short window', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 360));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              key: const Key('open-reschedule-action'),
+              onPressed: () => showV2RescheduleActionComposer(
+                context,
+                actionTitle: '一条较长的后续检查事项，用于验证桌面小窗口仍然可以完整操作',
+                businessDate: DateTime(2026, 9, 10),
+                initialDueOn: DateTime(2026, 9, 12),
+                onSave: (_) async {},
+              ),
+              child: const Text('打开'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('open-reschedule-action')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsWidgets);
+    await tester.ensureVisible(
+      find.byKey(const Key('v2-reschedule-action-save')),
+    );
+    expect(find.byKey(const Key('v2-reschedule-action-save')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

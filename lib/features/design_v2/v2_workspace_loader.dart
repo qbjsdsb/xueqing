@@ -81,8 +81,16 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         });
       } catch (_) {
         if (!mounted) return;
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          const SnackBar(content: Text('刷新失败，请检查网络后重试；当前页面和已保存记录不会受影响。')),
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        messenger?.hideCurrentSnackBar();
+        messenger?.showSnackBar(
+          SnackBar(
+            content: const Text('刷新失败，请检查网络后重试；当前页面和已保存记录不会受影响。'),
+            action: SnackBarAction(
+              label: '重试',
+              onPressed: () => unawaited(_softRefresh()),
+            ),
+          ),
         );
       } finally {
         _softRefreshRunning = false;

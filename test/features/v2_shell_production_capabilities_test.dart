@@ -13,6 +13,10 @@ void main() {
         .readAsStringSync();
     final management = File('lib/features/design_v2/v2_management_page.dart')
         .readAsStringSync();
+    final managementLayout = File(
+      'lib/features/organization_management/presentation/'
+      'organization_management_layout.dart',
+    ).readAsStringSync();
     final updateFlow = File('lib/features/design_v2/v2_update_flow.dart')
         .readAsStringSync();
     final composers = File('lib/features/design_v2/v2_composers.dart')
@@ -62,12 +66,21 @@ void main() {
     expect(management, contains('OrganizationManagementPage('));
     expect(management, contains('teacherLearningRecordRepository:'));
     expect(management, contains('studentLearningRecordRepository:'));
+    expect(management, contains("title: const Text('机构管理')"));
+    expect(management, contains('showHeaderTitle: false'));
     expect(management, contains("tooltip: '检查更新'"));
     expect(management, contains("tooltip: '退出登录'"));
+    expect(management, contains("Key('v2-management-more')"));
+    expect(management, contains('PopupMenuButton<_ManagementPageAction>'));
+    expect(management, contains("title: const Text('检查更新')"));
+    expect(management, contains("title: Text('退出登录')"));
+    expect(management, contains("Text('当前版本 \${widget.runtime.appVersion}')"));
     expect(
       management,
       contains('canManageCaseTypes: widget.workspace.canManageCaseTypes'),
     );
+    expect(managementLayout, contains('Semantics('));
+    expect(managementLayout, contains('liveRegion: true'));
     expect(teacherWorkspace, contains('class WorkspaceCaseTypeManager'));
     expect(composers, contains('DateTime? businessDate'));
     expect(composers, contains('这条记录还没有确认保存'));

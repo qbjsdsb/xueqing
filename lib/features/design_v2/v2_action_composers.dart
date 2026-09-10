@@ -43,6 +43,11 @@ Future<T?> _showActionComposer<T>(
   BuildContext context, {
   required Widget child,
 }) {
+  Widget scrollable(Widget content) => SingleChildScrollView(
+    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+    child: content,
+  );
+
   if (MediaQuery.sizeOf(context).width < 720) {
     return showModalBottomSheet<T>(
       context: context,
@@ -50,16 +55,24 @@ Future<T?> _showActionComposer<T>(
       isScrollControlled: true,
       isDismissible: false,
       enableDrag: false,
-      builder: (_) => child,
+      builder: (sheetContext) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.90,
+        ),
+        child: scrollable(child),
+      ),
     );
   }
   return showDialog<T>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => Dialog(
+    builder: (dialogContext) => Dialog(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: child,
+        constraints: BoxConstraints(
+          maxWidth: 520,
+          maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.86,
+        ),
+        child: scrollable(child),
       ),
     ),
   );
