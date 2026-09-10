@@ -257,6 +257,65 @@ class V2WorkflowController {
     );
   }
 
+  Future<void> voidCase({
+    required String operationId,
+    required String caseId,
+  }) async {
+    final learningCase = _caseFor(caseId);
+    if (learningCase.status == LearningCaseStatus.closed) {
+      throw const V2WorkflowSaveException(
+        '这个问题已经结束，请刷新后再处理。',
+        recordMayBeSaved: false,
+      );
+    }
+    try {
+      await progressiveCaseRepository.endFollowUp(
+        EndCaseFollowUpCommand(
+          operationId: operationId,
+          caseId: learningCase.id,
+          expectedCaseVersion: learningCase.version,
+          reason: CaseClosureReason.notIssue,
+          note: '教师删除/作废误建或重复问题',
+        ),
+      );
+    } catch (error) {
+      final detail = error.toString().toLowerCase();
+      if (detail.contains('version_conflict') ||
+          detail.contains('case_already_closed')) {
+        throw V2WorkflowSaveException(
+          '这个问题刚刚有变化，请刷新后再删除。',
+          recordMayBeSaved: false,
+          cause: error,
+        );
+      }
+      if (detail.contains('owner_permission_required') ||
+          detail.contains('teaching_fact_gate') ||
+          detail.contains('permission') ||
+          detail.contains('forbidden')) {
+        throw V2WorkflowSaveException(
+          '你当前不能删除这个问题，请确认仍在负责这名学生后再试。',
+          recordMayBeSaved: false,
+          cause: error,
+        );
+      }
+      if (detail.contains('network') ||
+          detail.contains('socket') ||
+          detail.contains('timeout') ||
+          detail.contains('connection')) {
+        throw V2WorkflowSaveException(
+          '网络中断，删除结果暂时无法确认。当前操作编号已保留，可以直接重试。',
+          recordMayBeSaved: true,
+          cause: error,
+        );
+      }
+      throw V2WorkflowSaveException(
+        '这个问题暂时无法删除，请稍后重试。',
+        recordMayBeSaved: false,
+        cause: error,
+      );
+    }
+  }
+
   bool canReopenClosedCase(String caseId) {
     if (caseReopenDraftStore == null || _reopenDraftScopeKey(caseId) == null) {
       return false;

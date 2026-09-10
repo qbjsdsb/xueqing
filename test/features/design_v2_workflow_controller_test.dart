@@ -50,6 +50,28 @@ void main() {
       },
     );
 
+    test('teacher case delete is an audited not-issue closure', () async {
+      final progress = _FakeProgressiveCaseRepository();
+      final controller = V2WorkflowController(
+        workspace: _workspace(),
+        learningRepository: _FakeLearningRepository(),
+        progressiveCaseRepository: progress,
+      );
+
+      await controller.voidCase(
+        operationId: 'operation-void-case',
+        caseId: 'case-existing',
+      );
+
+      expect(progress.endCalls, hasLength(1));
+      final command = progress.endCalls.single;
+      expect(command.operationId, 'operation-void-case');
+      expect(command.caseId, 'case-existing');
+      expect(command.expectedCaseVersion, 3);
+      expect(command.reason, CaseClosureReason.notIssue);
+      expect(command.note, contains('删除/作废'));
+    });
+
     test('same-name students never replace stable student identity', () async {
       final learning = _FakeLearningRepository();
       final controller = V2WorkflowController(
@@ -758,6 +780,7 @@ class _FakeProgressiveCaseRepository extends Fake
 
   final List<String>? log;
   final calls = <RecordCaseProgressCommand>[];
+  final endCalls = <EndCaseFollowUpCommand>[];
   ProgressiveCaseReceipt receipt = const ProgressiveCaseReceipt(
     operationId: 'operation-progress',
     caseId: 'case-existing',
@@ -773,6 +796,21 @@ class _FakeProgressiveCaseRepository extends Fake
     calls.add(command);
     log?.add('progress');
     return receipt;
+  }
+
+  @override
+  Future<ProgressiveCaseReceipt> endFollowUp(
+    EndCaseFollowUpCommand command,
+  ) async {
+    endCalls.add(command);
+    log?.add('end-follow-up');
+    return ProgressiveCaseReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      status: 'closed',
+      caseVersion: command.expectedCaseVersion + 1,
+      eventId: 'event-void',
+    );
   }
 }
 

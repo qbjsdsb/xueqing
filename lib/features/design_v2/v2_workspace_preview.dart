@@ -383,6 +383,103 @@ Future<void> _showV2ReopenClosedCase(
   }
 }
 
+Future<bool> _showV2VoidCase(
+  BuildContext context,
+  V2Student student,
+  V2FocusItem item,
+) async {
+  final runtime = _V2RuntimeScope.maybeOf(context);
+  final controller = runtime?.workflowController;
+  if (controller == null || item.closed) return false;
+  final operationId = createOperationId();
+
+  final removed = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      var saving = false;
+      String? errorText;
+      return StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('删除这个问题？'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${student.name} · ${item.subject}\n${item.title}'),
+              const SizedBox(height: 12),
+              const Text('适合误建或重复的问题。删除后不会再作为进行中问题显示；已有成长记录会保留，方便以后追溯。'),
+              if (errorText != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  errorText!,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              key: const Key('v2-confirm-void-case'),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        saving = true;
+                        errorText = null;
+                      });
+                      try {
+                        await controller.voidCase(
+                          operationId: operationId,
+                          caseId: item.id,
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop(true);
+                        }
+                      } on V2WorkflowSaveException catch (error) {
+                        if (dialogContext.mounted) {
+                          setDialogState(() {
+                            saving = false;
+                            errorText = error.userMessage;
+                          });
+                        }
+                      } catch (_) {
+                        if (dialogContext.mounted) {
+                          setDialogState(() {
+                            saving = false;
+                            errorText = '这个问题暂时无法删除，请稍后重试。';
+                          });
+                        }
+                      }
+                    },
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('删除问题'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+
+  if (removed == true && context.mounted) {
+    runtime?.onWorkspaceChanged?.call();
+    return true;
+  }
+  return false;
+}
+
 Future<void> _showV2ProgressForCase(
   BuildContext context,
   V2Student student,
@@ -2041,6 +2138,92 @@ class _TimelineRow extends StatelessWidget {
   }
 }
 
+Future<void> _showV2EvidencePhotoPreview(
+  BuildContext context,
+  String signedUrl,
+) {
+  final compact = MediaQuery.sizeOf(context).width < 720;
+  return showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.86),
+    builder: (dialogContext) => Dialog(
+      insetPadding: EdgeInsets.all(compact ? 12 : 40),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: compact ? double.maxFinite : 900,
+        height: compact ? MediaQuery.sizeOf(dialogContext).height * 0.82 : 680,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ColoredBox(
+                color: Theme.of(dialogContext).colorScheme.surface,
+                child: Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 5,
+                    child: Image.network(
+                      signedUrl,
+                      key: const Key('v2-evidence-photo-preview-image'),
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        final expected = progress.expectedTotalBytes;
+                        final value = expected == null || expected <= 0
+                            ? null
+                            : progress.cumulativeBytesLoaded / expected;
+                        return Center(
+                          child: SizedBox(
+                            width: 34,
+                            height: 34,
+                            child: CircularProgressIndicator(value: value),
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, _, _) => Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.broken_image_outlined, size: 36),
+                            const SizedBox(height: 12),
+                            Text(
+                              '图片暂时无法打开，请返回后重试。',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(dialogContext)
+                                  .textTheme
+                                  .bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Material(
+                color: Theme.of(dialogContext)
+                    .colorScheme
+                    .surfaceContainerHighest,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  key: const Key('v2-evidence-photo-preview-close'),
+                  tooltip: '关闭图片',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 class _EvidencePhotoStrip extends StatefulWidget {
   const _EvidencePhotoStrip({
     required this.evidenceId,
@@ -2120,20 +2303,34 @@ class _EvidencePhotoStripState extends State<_EvidencePhotoStrip> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final url in urls)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: SizedBox(
-                  width: 96,
-                  height: 72,
-                  child: Image.network(
-                    url,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => ColoredBox(
-                      color: scheme.surfaceContainer,
-                      child: Icon(
-                        Icons.broken_image_outlined,
-                        color: scheme.onSurfaceVariant,
+            for (var index = 0; index < urls.length; index++)
+              Semantics(
+                button: true,
+                label: '查看图片 ${index + 1}',
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(7),
+                  child: InkWell(
+                    key: ValueKey<String>('v2-evidence-photo-$index'),
+                    borderRadius: BorderRadius.circular(7),
+                    onTap: () =>
+                        _showV2EvidencePhotoPreview(context, urls[index]),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(7),
+                      child: SizedBox(
+                        width: 96,
+                        height: 72,
+                        child: Image.network(
+                          urls[index],
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => ColoredBox(
+                            color: scheme.surfaceContainer,
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -2327,6 +2524,25 @@ class _CaseDetailPane extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                  ],
+                  if (!item.closed && controller != null) ...[
+                    const SizedBox(height: 14),
+                    TextButton.icon(
+                      key: ValueKey<String>('v2-void-${item.id}'),
+                      onPressed: () async {
+                        final removed = await _showV2VoidCase(
+                          context,
+                          student,
+                          item,
+                        );
+                        if (removed && context.mounted) onBack();
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: scheme.error,
+                      ),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('删除问题'),
                     ),
                   ],
                   const SizedBox(height: 30),
