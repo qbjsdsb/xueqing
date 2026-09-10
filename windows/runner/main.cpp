@@ -2,12 +2,14 @@
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 
+#include <algorithm>
+
 #include "flutter_window.h"
 #include "utils.h"
 
 namespace {
 
-void CenterWindowInWorkArea(HWND window) {
+void FitAndCenterWindowInWorkArea(HWND window) {
   if (window == nullptr) {
     return;
   }
@@ -29,15 +31,22 @@ void CenterWindowInWorkArea(HWND window) {
   const int work_width = monitor_info.rcWork.right - monitor_info.rcWork.left;
   const int work_height = monitor_info.rcWork.bottom - monitor_info.rcWork.top;
 
-  const int x = work_width > window_width
-                    ? monitor_info.rcWork.left + (work_width - window_width) / 2
-                    : monitor_info.rcWork.left;
-  const int y = work_height > window_height
-                    ? monitor_info.rcWork.top + (work_height - window_height) / 2
-                    : monitor_info.rcWork.top;
+  // Flutter's template scales the requested logical size by monitor DPI. On
+  // common 125%-150% Windows scaling, 1280x720 can therefore be larger than
+  // the usable work area. Keep a small margin and fit before centering so the
+  // title bar, actions, and bottom content are reachable on first launch.
+  const int horizontal_margin = work_width >= 900 ? 48 : 16;
+  const int vertical_margin = work_height >= 700 ? 36 : 12;
+  const int max_width = std::max(1, work_width - horizontal_margin * 2);
+  const int max_height = std::max(1, work_height - vertical_margin * 2);
+  const int target_width = std::min(window_width, max_width);
+  const int target_height = std::min(window_height, max_height);
 
-  ::SetWindowPos(window, nullptr, x, y, 0, 0,
-                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+  const int x = monitor_info.rcWork.left + (work_width - target_width) / 2;
+  const int y = monitor_info.rcWork.top + (work_height - target_height) / 2;
+
+  ::SetWindowPos(window, nullptr, x, y, target_width, target_height,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 }  // namespace
@@ -67,7 +76,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (!window.Create(L"\u5B66\u60C5", origin, size)) {
     return EXIT_FAILURE;
   }
-  CenterWindowInWorkArea(window.GetHandle());
+  FitAndCenterWindowInWorkArea(window.GetHandle());
   window.SetQuitOnClose(true);
 
   ::MSG msg;
