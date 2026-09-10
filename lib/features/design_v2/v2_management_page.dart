@@ -118,16 +118,13 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
             }
           : null,
       onChanged: widget.onChanged,
+      showHeaderTitle: false,
     );
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.rootMode,
-        title: Text(
-          '机构管理 · ${widget.workspace.organizationName}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: const Text('机构管理'),
         actions: [
           if (desktop) ...[
             if (_checkingForUpdates)

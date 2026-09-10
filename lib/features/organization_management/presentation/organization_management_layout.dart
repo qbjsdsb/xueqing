@@ -6,73 +6,87 @@ class _ManagementHeader extends StatelessWidget {
     required this.roleLabel,
     required this.refreshing,
     required this.onRefresh,
+    required this.showTitle,
   });
 
   final String organizationName;
   final String roleLabel;
   final bool refreshing;
   final VoidCallback? onRefresh;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final identity = Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xxs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          organizationName,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xs,
+            vertical: AppSpacing.xxs,
+          ),
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(AppRadii.pill),
+          ),
+          child: Text(
+            roleLabel,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ),
+      ],
+    );
+    final refreshButton = IconButton(
+      key: const Key('management-refresh'),
+      tooltip: refreshing ? '正在刷新' : '刷新机构数据',
+      onPressed: refreshing ? null : onRefresh,
+      icon: refreshing
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.refresh_outlined),
+    );
+
+    if (!showTitle) {
+      return Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '机构管理',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-              ),
-              IconButton(
-                key: const Key('management-refresh'),
-                tooltip: refreshing ? '正在刷新' : '刷新机构数据',
-                onPressed: refreshing ? null : onRefresh,
-                icon: refreshing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh_outlined),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xxs,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                organizationName,
-                style: Theme.of(context).textTheme.bodyMedium
-                    ?.copyWith(color: colorScheme.onSurfaceVariant),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xs,
-                  vertical: AppSpacing.xxs,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(AppRadii.pill),
-                ),
-                child: Text(
-                  roleLabel,
-                  style: Theme.of(context).textTheme.labelMedium
-                      ?.copyWith(color: colorScheme.onPrimaryContainer),
-                ),
-              ),
-            ],
-          ),
+          Expanded(child: identity),
+          const SizedBox(width: AppSpacing.xs),
+          refreshButton,
         ],
-      ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '机构管理',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            refreshButton,
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        identity,
+      ],
     );
   }
 }
@@ -417,7 +431,10 @@ class _ManagementErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off_outlined, size: 40),
             const SizedBox(height: AppSpacing.md),
-            Text('机构管理暂时无法加载', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              '机构管理暂时无法加载',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: AppSpacing.xs),
             const Text('请检查网络和账号状态后重试。'),
             const SizedBox(height: AppSpacing.md),
@@ -437,25 +454,28 @@ class _ManagementErrorText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(AppRadii.small),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.error_outline, color: colorScheme.onErrorContainer),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(color: colorScheme.onErrorContainer),
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(AppRadii.small),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline, color: colorScheme.onErrorContainer),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: colorScheme.onErrorContainer),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

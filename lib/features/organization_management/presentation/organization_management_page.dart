@@ -43,6 +43,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.evidenceAttachmentRepository,
     this.teacherLearningRecordRepository,
     this.studentLearningRecordRepository,
+    this.showHeaderTitle = true,
     super.key,
   });
 
@@ -57,6 +58,7 @@ class OrganizationManagementPage extends StatefulWidget {
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final TeacherLearningRecordRepository? teacherLearningRecordRepository;
   final StudentLearningRecordRepository? studentLearningRecordRepository;
+  final bool showHeaderTitle;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -98,6 +100,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                       roleLabel: _roleSummary(widget.roles),
                       refreshing: _manualRefreshing,
                       onRefresh: _busy ? null : _manualRefresh,
+                      showTitle: widget.showHeaderTitle,
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: AppSpacing.md),
