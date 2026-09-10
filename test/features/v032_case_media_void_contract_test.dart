@@ -37,8 +37,10 @@ void main() {
       expect(controller, contains('progressiveCaseRepository.endFollowUp('));
       expect(controller, contains('reason: CaseClosureReason.notIssue'));
       expect(controller, isNot(contains('deleteLearningCase')));
-      expect(preview, contains("label: const Text('删除问题')"));
+      expect(preview, contains("title: const Text('删除这个问题？')"));
       expect(preview, contains("key: const Key('v2-confirm-void-case')"));
+      expect(preview, contains("child: saving"));
+      expect(preview, contains(": const Text('删除问题')"));
     },
   );
 }
