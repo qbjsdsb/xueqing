@@ -92,11 +92,20 @@ Map<String, Object> _processEvidenceImageForExcel(Uint8List sourceBytes) {
 }
 
 img.Image _decodeAndOrient(Uint8List sourceBytes) {
-  final decoded = img.decodeImage(sourceBytes);
-  if (decoded == null || decoded.width <= 0 || decoded.height <= 0) {
+  try {
+    final decoded = img.decodeImage(sourceBytes);
+    if (decoded == null || decoded.width <= 0 || decoded.height <= 0) {
+      throw const FormatException('图片格式无法读取。');
+    }
+    return img.bakeOrientation(decoded);
+  } on FormatException {
+    rethrow;
+  } catch (_) {
+    // Some format probes in package:image throw RangeError/Error for severely
+    // truncated files. Keep that implementation detail away from teachers and
+    // expose one stable invalid-image contract to every picker/recovery path.
     throw const FormatException('图片格式无法读取。');
   }
-  return img.bakeOrientation(decoded);
 }
 
 img.Image _resizeLongestEdge(img.Image source, int maxDimension) {
