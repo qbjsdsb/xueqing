@@ -1,0 +1,111 @@
+name: v0.3.3 Workspace Polish Gate
+
+on:
+  push:
+    branches:
+      - optimize/v0.3.3-workspace-polish
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v033-workspace-polish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-gate:
+    name: Patch, Flutter, Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply idempotent polish patch
+        run: python tools/v033_workspace_polish_patch.py
+
+      - name: Format changed Dart
+        run: dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Verify lockfile and patch hygiene
+        run: |
+          git diff --exit-code -- pubspec.lock
+          git diff --check
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run responsive and v0.3.2 regression tests
+        run: |
+          flutter test test/features/design_v2_workspace_test.dart
+          flutter test test/features/v032_real_device_ux_contract_test.dart
+          flutter test test/features/v2_refresh_polish_test.dart
+          flutter test test/features/v2_shell_production_capabilities_test.dart
+
+      - name: Run full Flutter test suite
+        run: flutter test
+
+      - name: Build Android debug APK
+        run: flutter build apk --debug
+
+      - name: Commit verified product changes when needed
+        shell: bash
+        run: |
+          if git diff --quiet -- lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart; then
+            echo "No uncommitted product patch; this is a verification run."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+          git commit -m "Polish responsive workspace and growth timeline"
+          git push origin HEAD:${{ github.ref_name }}
+
+  windows-gate:
+    name: Windows full verification
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Verify lockfile and formatting
+        shell: pwsh
+        run: |
+          git diff --exit-code -- pubspec.lock
+          dart format --output=none --set-exit-if-changed lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run full Flutter test suite
+        run: flutter test
+
+      - name: Build Windows release
+        run: flutter build windows --release
