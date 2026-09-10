@@ -66,7 +66,7 @@ void main() {
     );
     expect(
       workflow,
-      contains(r'if [[ "$actual_cert_sha" != "$expected_cert_sha" ]]; then'.replaceAll(r'\"', '"')),
+      contains(r'''if [[ "$actual_cert_sha" != "$expected_cert_sha" ]]; then'''),
     );
     expect(
       workflow,
