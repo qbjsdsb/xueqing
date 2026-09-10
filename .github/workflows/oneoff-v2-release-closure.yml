@@ -68,6 +68,14 @@ jobs:
           if text.count(old) != 1:
               raise SystemExit(f'case type constructor anchor mismatch: {text.count(old)}')
           teacher.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          test = Path('test/features/design_v2_workspace_test.dart')
+          text = test.read_text(encoding='utf-8')
+          old = "    expect(find.text('王同学'), findsOneWidget);\n    expect(\n      find.descendant(of: find.byType(ListView), matching: find.text('林同学')),"
+          new = "    expect(\n      find.descendant(of: find.byType(ListView), matching: find.text('王同学')),\n      findsOneWidget,\n    );\n    expect(\n      find.descendant(of: find.byType(ListView), matching: find.text('林同学')) ,"
+          if text.count(old) != 1:
+              raise SystemExit(f'search finder anchor mismatch: {text.count(old)}')
+          test.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
 
       - name: Get packages
