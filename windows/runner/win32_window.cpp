@@ -15,6 +15,15 @@ namespace {
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+#ifndef DWMWA_BORDER_COLOR
+#define DWMWA_BORDER_COLOR 34
+#endif
+#ifndef DWMWA_CAPTION_COLOR
+#define DWMWA_CAPTION_COLOR 35
+#endif
+#ifndef DWMWA_TEXT_COLOR
+#define DWMWA_TEXT_COLOR 36
+#endif
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
@@ -214,6 +223,8 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
 
     case WM_DWMCOLORIZATIONCOLORCHANGED:
+    case WM_THEMECHANGED:
+    case WM_SETTINGCHANGE:
       UpdateTheme(hwnd);
       return 0;
   }
@@ -284,6 +295,26 @@ void Win32Window::UpdateTheme(HWND const window) {
     BOOL enable_dark_mode = light_mode == 0;
     DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
                           &enable_dark_mode, sizeof(enable_dark_mode));
+
+    // Keep the native Windows caption visually continuous with Xueqing's
+    // quiet workspace instead of inheriting the user's accent-blue caption.
+    // Windows versions that do not support these attributes simply ignore
+    // the calls and retain the normal system caption.
+    COLORREF caption_color = enable_dark_mode
+                                 ? RGB(21, 24, 22)
+                                 : RGB(247, 248, 246);
+    COLORREF text_color = enable_dark_mode
+                              ? RGB(231, 233, 230)
+                              : RGB(32, 40, 36);
+    COLORREF border_color = enable_dark_mode
+                                ? RGB(48, 54, 50)
+                                : RGB(217, 222, 218);
+    DwmSetWindowAttribute(window, DWMWA_CAPTION_COLOR, &caption_color,
+                          sizeof(caption_color));
+    DwmSetWindowAttribute(window, DWMWA_TEXT_COLOR, &text_color,
+                          sizeof(text_color));
+    DwmSetWindowAttribute(window, DWMWA_BORDER_COLOR, &border_color,
+                          sizeof(border_color));
   }
 }
 

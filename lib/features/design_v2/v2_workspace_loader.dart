@@ -36,6 +36,7 @@ class V2WorkspaceLoader extends StatefulWidget {
 
 class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
   late Future<TeacherWorkspace> _workspaceFuture;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -56,6 +57,20 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
     setState(() {
       _workspaceFuture = nextWorkspace;
     });
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      final workspace = await widget.loadWorkspace();
+      if (!mounted) return;
+      setState(() {
+        _workspaceFuture = Future<TeacherWorkspace>.value(workspace);
+      });
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   Future<WorkspaceStudent?> _pickStudentSubjectProfile(
@@ -214,6 +229,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
                 workspace: workspace,
                 runtime: runtime!,
                 onChanged: _retry,
+                onRefresh: _refresh,
               )
             : null;
 
@@ -224,6 +240,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
               runtime: runtime!,
               rootMode: true,
               onChanged: _retry,
+              onRefresh: _refresh,
             );
           }
           return const _V2LoaderStatus(
@@ -266,6 +283,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           updateInstaller: runtime?.updateInstaller,
           appVersion: runtime?.appVersion,
           onSignOut: runtime?.onSignOut,
+          onRefresh: _refresh,
           onWorkspaceChanged: workflowController == null ? null : _retry,
         );
       },

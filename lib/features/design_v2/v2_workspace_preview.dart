@@ -485,6 +485,7 @@ class V2WorkspacePreview extends StatefulWidget {
     this.updateInstaller,
     this.appVersion,
     this.onSignOut,
+    this.onRefresh,
     this.onWorkspaceChanged,
   });
 
@@ -497,6 +498,7 @@ class V2WorkspacePreview extends StatefulWidget {
   final UpdateInstaller? updateInstaller;
   final String? appVersion;
   final VoidCallback? onSignOut;
+  final Future<void> Function()? onRefresh;
   final VoidCallback? onWorkspaceChanged;
 
   @override
@@ -509,6 +511,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   V2FocusItem? _selectedCase;
   bool _showCase = false;
   bool _checkingForUpdates = false;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -585,6 +588,24 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     });
   }
 
+  Future<void> _refreshWorkspace(BuildContext context) async {
+    final refresh = widget.onRefresh;
+    if (refresh == null || _refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await refresh();
+      if (!mounted || !context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已刷新最新学情。')));
+    } catch (_) {
+      if (!mounted || !context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('刷新失败，请检查网络后重试。')));
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   Future<void> _openManagement(BuildContext context) async {
     final builder = widget.managementPageBuilder;
     if (builder == null) return;
@@ -619,6 +640,25 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.onRefresh != null)
+              ListTile(
+                key: const Key('v2-refresh-workspace'),
+                leading: _refreshing
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                title: Text(_refreshing ? '正在刷新…' : '刷新学情'),
+                subtitle: const Text('重新读取老师和管理员刚刚更新的数据'),
+                onTap: _refreshing
+                    ? null
+                    : () => _afterMenuClose(
+                        menuContext,
+                        () => _refreshWorkspace(context),
+                      ),
+              ),
             if (widget.managementPageBuilder != null)
               ListTile(
                 leading: const Icon(Icons.admin_panel_settings_outlined),
@@ -692,6 +732,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
         child: Builder(
           builder: (context) {
             final hasMenuActions =
+                widget.onRefresh != null ||
                 widget.managementPageBuilder != null ||
                 widget.updateService != null &&
                     widget.updateInstaller != null ||
@@ -734,6 +775,10 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                   onStudentSelected: _openStudent,
                   onOpenCase: _openCase,
                   onBackFromCase: _closeCase,
+                  onRefresh: widget.onRefresh == null
+                      ? null
+                      : () => _refreshWorkspace(context),
+                  refreshing: _refreshing,
                   onManage: widget.managementPageBuilder == null
                       ? null
                       : () => _openManagement(context),
@@ -759,6 +804,8 @@ class _DesktopWorkspace extends StatelessWidget {
     required this.onOpenCase,
     required this.onBackFromCase,
     required this.onSettings,
+    required this.refreshing,
+    this.onRefresh,
     this.onManage,
   });
 
@@ -770,6 +817,8 @@ class _DesktopWorkspace extends StatelessWidget {
   final ValueChanged<V2Student> onStudentSelected;
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
+  final VoidCallback? onRefresh;
+  final bool refreshing;
   final VoidCallback? onManage;
   final VoidCallback onSettings;
 
@@ -785,6 +834,8 @@ class _DesktopWorkspace extends StatelessWidget {
               child: _NavigationRail(
                 selectedIndex: destination,
                 onSelected: onDestinationChanged,
+                onRefresh: onRefresh,
+                refreshing: refreshing,
                 onManage: onManage,
                 onSettings: onSettings,
               ),
@@ -931,11 +982,15 @@ class _NavigationRail extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.onSettings,
+    required this.refreshing,
+    this.onRefresh,
     this.onManage,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+  final VoidCallback? onRefresh;
+  final bool refreshing;
   final VoidCallback? onManage;
   final VoidCallback onSettings;
 
@@ -961,6 +1016,13 @@ class _NavigationRail extends StatelessWidget {
               onTap: () => onSelected(item.$1),
             ),
           const Spacer(),
+          if (onRefresh != null)
+            _RailItem(
+              icon: Icons.refresh,
+              tooltip: refreshing ? '正在刷新' : '刷新学情',
+              onTap: refreshing ? null : onRefresh,
+              progress: refreshing,
+            ),
           if (onManage != null)
             _RailItem(
               icon: Icons.admin_panel_settings_outlined,
@@ -984,12 +1046,14 @@ class _RailItem extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     this.selected = false,
+    this.progress = false,
     this.onTap,
   });
 
   final IconData icon;
   final String tooltip;
   final bool selected;
+  final bool progress;
   final VoidCallback? onTap;
 
   @override
@@ -1008,13 +1072,19 @@ class _RailItem extends StatelessWidget {
             child: SizedBox(
               width: 48,
               height: 48,
-              child: Icon(
-                icon,
-                size: 20,
-                color: selected
-                    ? scheme.onPrimaryContainer
-                    : scheme.onSurfaceVariant,
-              ),
+              child: progress
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      icon,
+                      size: 20,
+                      color: selected
+                          ? scheme.onPrimaryContainer
+                          : scheme.onSurfaceVariant,
+                    ),
             ),
           ),
         ),

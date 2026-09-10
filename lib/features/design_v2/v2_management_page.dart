@@ -12,6 +12,7 @@ class V2ManagementPage extends StatefulWidget {
     required this.runtime,
     this.rootMode = false,
     this.onChanged,
+    this.onRefresh,
     super.key,
   });
 
@@ -19,6 +20,7 @@ class V2ManagementPage extends StatefulWidget {
   final AuthenticatedWorkspaceRuntime runtime;
   final bool rootMode;
   final VoidCallback? onChanged;
+  final Future<void> Function()? onRefresh;
 
   @override
   State<V2ManagementPage> createState() => _V2ManagementPageState();
@@ -26,6 +28,25 @@ class V2ManagementPage extends StatefulWidget {
 
 class _V2ManagementPageState extends State<V2ManagementPage> {
   bool _checkingForUpdates = false;
+  bool _refreshing = false;
+
+  Future<void> _refresh() async {
+    final refresh = widget.onRefresh;
+    if (refresh == null || _refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已刷新最新数据。')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('刷新失败，请检查网络后重试。')));
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
 
   Future<void> _checkForUpdates() async {
     if (_checkingForUpdates) return;
@@ -87,6 +108,19 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
         automaticallyImplyLeading: !widget.rootMode,
         title: Text('机构管理 · ${widget.workspace.organizationName}'),
         actions: [
+          if (widget.onRefresh != null)
+            IconButton(
+              key: const Key('v2-management-refresh'),
+              tooltip: _refreshing ? '正在刷新' : '刷新数据',
+              onPressed: _refreshing ? null : _refresh,
+              icon: _refreshing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+            ),
           if (_checkingForUpdates)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
