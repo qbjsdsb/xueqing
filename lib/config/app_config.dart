@@ -59,7 +59,7 @@ class AppConfig {
           : normalizedEnvironment,
       appVersion: const String.fromEnvironment(
         'XUEQING_APP_VERSION',
-        defaultValue: '0.3.0+8',
+        defaultValue: '0.3.1+9',
       ),
       cloudConfig: CloudConfig.fromDartDefines(),
       showDeveloperTools: showDeveloperTools,
@@ -77,7 +77,7 @@ class AppConfig {
 
   factory AppConfig.fromValues({
     String environmentValue = 'development',
-    String appVersion = '0.3.0+8',
+    String appVersion = '0.3.1+9',
     CloudConfig cloudConfig = const CloudConfig(),
     bool? showDeveloperTools,
   }) {
