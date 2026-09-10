@@ -42,7 +42,18 @@ jobs:
 
       - name: Apply guarded profile implementation
         run: |
-          python3 tools/v032_student_profile_gate.py
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('tools/v032_student_profile_gate.py').read_text(encoding='utf-8')
+          old = 'select plan(18);'
+          if source.count(old) != 1:
+              raise SystemExit(f'expected one stale pgTAP plan declaration, found {source.count(old)}')
+          Path('/tmp/v032_student_profile_gate.py').write_text(
+              source.replace(old, 'select plan(20);', 1),
+              encoding='utf-8',
+          )
+          PY
+          python3 /tmp/v032_student_profile_gate.py
           python3 /tmp/v032_student_profile_policy_patch.py
 
       - name: Format and inspect patch boundary
