@@ -105,6 +105,8 @@ guide_menu = r'''            ListTile(
 '''
 workspace = workspace.replace(management_marker, guide_menu + management_marker, 1)
 
+# The operation guide is always available, so the existing More surface no longer
+# depends on optional refresh/management/update/sign-out capabilities.
 old_gate = r'''            final hasMenuActions =
                 widget.onRefresh != null ||
                 widget.managementPageBuilder != null ||
@@ -112,13 +114,32 @@ old_gate = r'''            final hasMenuActions =
                     widget.updateInstaller != null ||
                 widget.onSignOut != null;
 '''
-new_gate = r'''            // The operation guide is always available, even before an account
-            // has management/update/sign-out actions to show.
-            const hasMenuActions = true;
-'''
 if workspace.count(old_gate) != 1:
     raise SystemExit("menu availability gate marker not unique")
-workspace = workspace.replace(old_gate, new_gate, 1)
+workspace = workspace.replace(old_gate, "", 1)
+
+empty_more = r'''                onOpenMore: hasMenuActions
+                    ? () => _showWorkspaceMenu(context)
+                    : null,
+'''
+if workspace.count(empty_more) != 1:
+    raise SystemExit("empty More gate marker not unique")
+workspace = workspace.replace(
+    empty_more,
+    "                onOpenMore: () => _showWorkspaceMenu(context),\n",
+    1,
+)
+compact_more = r'''                    onOpenMore: hasMenuActions
+                        ? () => _showWorkspaceMenu(context)
+                        : null,
+'''
+if workspace.count(compact_more) != 1:
+    raise SystemExit("compact More gate marker not unique")
+workspace = workspace.replace(
+    compact_more,
+    "                    onOpenMore: () => _showWorkspaceMenu(context),\n",
+    1,
+)
 
 empty_marker = "class _EmptyWorkspacePreview extends StatelessWidget {\n"
 if workspace.count(empty_marker) != 1:
