@@ -2822,7 +2822,9 @@ class _TodayPane extends StatelessWidget {
         .toList(growable: false);
     final unplannedItems =
         validItems
-            .where((item) => item.actionTiming == null)
+            .where(
+              (item) => item.actionTiming == null && !item.pendingVerification,
+            )
             .toList(growable: true)
           ..sort(_compare);
     final actionItems =
@@ -2839,7 +2841,6 @@ class _TodayPane extends StatelessWidget {
         validItems
             .where(
               (item) =>
-                  item.actionTiming != null &&
                   item.actionTiming != V2ActionTiming.future &&
                   item.pendingVerification,
             )
@@ -3084,10 +3085,11 @@ class _TodayAction extends StatelessWidget {
 }
 
 String _todayActionStatus(V2FocusItem item, {required bool verification}) {
-  if (item.actionTiming == null) return '';
   if (verification) {
+    if (item.actionTiming == null) return '待验证';
     return item.actionTiming == V2ActionTiming.overdue ? '待验证 · 已逾期' : '待验证';
   }
+  if (item.actionTiming == null) return '';
   if (item.actionTiming == V2ActionTiming.overdue) {
     return item.dueLabel == '待安排' ? '已逾期' : '逾期 · ${item.dueLabel}';
   }

@@ -122,6 +122,40 @@ void main() {
     expect(find.text('今天没有需要处理的学情事项'), findsNothing);
   });
 
+  testWidgets(
+    'Today keeps actionless verification cases in verification bucket',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const verification = V2FocusItem(
+        id: 'verification-no-action',
+        studentId: 's1',
+        title: '等待稳定性复查的问题',
+        summary: '本轮处理已经完成，等待复查是否稳定。',
+        nextStep: '待安排下一步',
+        dueLabel: '待安排',
+        subject: '语文',
+        pendingVerification: true,
+      );
+      const data = V2WorkspaceData(
+        students: _students,
+        focusItems: <V2FocusItem>[verification],
+        timeline: [],
+      );
+
+      await tester.pumpWidget(_app(data));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('今日'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('等待稳定性复查的问题'), findsOneWidget);
+      expect(find.text('等待确认是否已经稳定'), findsOneWidget);
+      expect(find.text('待验证'), findsNWidgets(2));
+      expect(find.text('待安排下一步'), findsNothing);
+      expect(find.text('今天没有需要处理的学情事项'), findsNothing);
+    },
+  );
+
   testWidgets('quick capture student picker searches name grade and subject', (
     tester,
   ) async {
