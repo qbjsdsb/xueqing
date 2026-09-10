@@ -32,7 +32,9 @@ jobs:
           cache: true
 
       - name: Apply idempotent polish patch
-        run: python tools/v033_workspace_polish_patch.py
+        run: |
+          python tools/v033_workspace_polish_patch.py
+          python -c "from pathlib import Path; p=Path('test/features/design_v2_workspace_test.dart'); s=p.read_text(encoding='utf-8'); s=s.replace('navigation.onDestinationSelected(0);', 'navigation.onDestinationSelected!(0);'); p.write_text(s, encoding='utf-8')"
 
       - name: Format changed Dart
         run: dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
