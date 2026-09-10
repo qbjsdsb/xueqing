@@ -95,6 +95,24 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
     }
 
     final desktop = MediaQuery.sizeOf(context).width >= 720;
+    final managementContent = OrganizationManagementPage(
+      repository: repository,
+      provisioningRepository: widget.runtime.memberProvisioningRepository,
+      evidenceAttachmentRepository: widget.runtime.evidenceAttachmentRepository,
+      teacherLearningRecordRepository: widget.runtime.teacherLearningRecordRepository,
+      studentLearningRecordRepository: widget.runtime.studentLearningRecordRepository,
+      organizationId: organizationId,
+      organizationName: widget.workspace.organizationName,
+      roles: widget.workspace.roles,
+      canManageCaseTypes: widget.workspace.canManageCaseTypes,
+      onOpenCaseTypes: widget.workspace.canManageCaseTypes
+          ? () {
+              _openCaseTypes();
+            }
+          : null,
+      onChanged: widget.onChanged,
+    );
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.rootMode,
@@ -117,7 +135,7 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
             )
           else
             IconButton(
-              tooltip: '检查更新 · 当前版本 ${widget.runtime.appVersion}',
+              tooltip: '检查更新',
               onPressed: _checkForUpdates,
               icon: const Icon(Icons.system_update_alt_outlined),
             ),
@@ -139,29 +157,9 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
           child: SingleChildScrollView(
             controller: _scrollController,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: SelectionArea(
-              child: OrganizationManagementPage(
-                repository: repository,
-                provisioningRepository:
-                    widget.runtime.memberProvisioningRepository,
-                evidenceAttachmentRepository:
-                    widget.runtime.evidenceAttachmentRepository,
-                teacherLearningRecordRepository:
-                    widget.runtime.teacherLearningRecordRepository,
-                studentLearningRecordRepository:
-                    widget.runtime.studentLearningRecordRepository,
-                organizationId: organizationId,
-                organizationName: widget.workspace.organizationName,
-                roles: widget.workspace.roles,
-                canManageCaseTypes: widget.workspace.canManageCaseTypes,
-                onOpenCaseTypes: widget.workspace.canManageCaseTypes
-                    ? () {
-                        _openCaseTypes();
-                      }
-                    : null,
-                onChanged: widget.onChanged,
-              ),
-            ),
+            child: desktop
+                ? SelectionArea(child: managementContent)
+                : managementContent,
           ),
         ),
       ),
