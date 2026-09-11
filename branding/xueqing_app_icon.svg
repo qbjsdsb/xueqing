@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FBFCFB"/>
+      <stop offset="0.55" stop-color="#F7F8F6"/>
+      <stop offset="1" stop-color="#EEF7F2"/>
+    </linearGradient>
+    <linearGradient id="head" x1="0.25" y1="0" x2="0.75" y2="1">
+      <stop offset="0" stop-color="#70C66D"/>
+      <stop offset="1" stop-color="#0D8E79"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2F8E79"/>
+      <stop offset="1" stop-color="#006A63"/>
+    </linearGradient>
+    <linearGradient id="right" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C9EBC4"/>
+      <stop offset="1" stop-color="#70C7A2"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#1E352D" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <!-- The tile stays quiet and warm like the Xueqing workspace. -->
+  <rect x="42" y="42" width="940" height="940" rx="205" fill="url(#bg)" filter="url(#softShadow)"/>
+
+  <!-- Learner / growth point. -->
+  <circle cx="512" cy="303" r="106" fill="url(#head)"/>
+
+  <!-- Two pages / leaves: understanding on the left, growth on the right. -->
+  <path d="M512 806
+           C451 746 377 718 286 695
+           C207 675 167 629 167 558
+           L167 395
+           C167 366 188 356 220 365
+           C363 401 466 484 512 594 Z"
+        fill="url(#left)"/>
+  <path d="M512 806
+           C573 746 647 718 738 695
+           C817 675 857 629 857 558
+           L857 404
+           C857 375 836 365 804 374
+           C661 413 558 489 512 594 Z"
+        fill="url(#right)"/>
+
+  <!-- Subtle overlap keeps the mark feeling like one continuous learning path. -->
+  <path d="M512 594 C478 665 455 735 443 771 C467 783 490 795 512 806 Z"
+        fill="#176C60" fill-opacity="0.70"/>
+</svg>
