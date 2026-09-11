@@ -64,8 +64,8 @@ select is(
 
 select is(
   public.xueqing_backend_compatibility()->>'schema_version',
-  '20260911190000',
-  'backend compatibility advances only after active-record paging is hardened'
+  '20260911193000',
+  'backend compatibility advances through the complete v0.3.6 integrity guard'
 );
 
 select is(
