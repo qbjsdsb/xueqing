@@ -22,7 +22,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply bounded UI and contract patch
-        run: python3 tool/v036_apply_ui_and_contracts.py
+        run: |
+          python3 tool/v036_apply_ui_and_contracts.py
+          python3 tool/v036_fix_after_analyze.py
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -44,6 +46,7 @@ jobs:
         run: |
           flutter test test/features/v032_case_media_void_contract_test.dart
           flutter test test/features/v036_learning_record_organization_contract_test.dart
+          flutter test test/features/design_v2_workflow_controller_test.dart
           flutter test test/export/student_learning_record_export_test.dart
 
       - name: Full Flutter tests
@@ -54,10 +57,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f tool/v036_apply_ui_and_contracts.py
+          rm -f tool/v036_apply_ui_and_contracts.py tool/v036_fix_after_analyze.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib test .github/workflows/publish-release-assets.yml tool/v036_apply_ui_and_contracts.py
+          git add lib test .github/workflows/publish-release-assets.yml tool/v036_apply_ui_and_contracts.py tool/v036_fix_after_analyze.py
           if git diff --cached --quiet; then
             echo "No implementation changes to commit."
             exit 0
