@@ -86,6 +86,23 @@ class LearningRecordExportRow {
     attachmentPaths: attachmentPaths,
     attachmentImages: List<LearningRecordExportImage>.unmodifiable(images),
   );
+
+  LearningRecordExportRow copyWithNextStep(String? value) =>
+      LearningRecordExportRow(
+        occurredAt: occurredAt,
+        studentName: studentName,
+        subjectName: subjectName,
+        issueTitle: issueTitle,
+        recordType: recordType,
+        content: content,
+        status: status,
+        assessmentResult: assessmentResult,
+        nextStep: value,
+        teacherName: teacherName,
+        attachmentNote: attachmentNote,
+        attachmentPaths: attachmentPaths,
+        attachmentImages: attachmentImages,
+      );
 }
 
 class LearningRecordExport {
@@ -99,7 +116,7 @@ class LearningRecordExport {
     '记录类型',
     '具体内容',
     '检查结果',
-    '下一步 / 提醒',
+    '当前下一步 / 提醒',
     '记录老师',
     '附件',
     '当前状态',
@@ -118,8 +135,9 @@ class LearningRecordExport {
         if (description != null && description.isNotEmpty) description,
         if (initialEvidence != null) '具体表现：${initialEvidence.summary}',
       ].join('\n');
+      final caseRows = <LearningRecordExportRow>[];
 
-      rows.add(
+      caseRows.add(
         LearningRecordExportRow(
           occurredAt: learningCase.firstObservedAt,
           studentName: student.name,
@@ -127,7 +145,6 @@ class LearningRecordExport {
           issueTitle: learningCase.title,
           recordType: '发现问题',
           content: _dedupeIssueContent(learningCase.title, initialContent),
-          nextStep: nextStep,
           status: status,
         ),
       );
@@ -136,7 +153,7 @@ class LearningRecordExport {
         if (evidence.id == initialEvidence?.id) {
           continue;
         }
-        rows.add(
+        caseRows.add(
           LearningRecordExportRow(
             occurredAt: evidence.observedAt,
             studentName: student.name,
@@ -147,7 +164,6 @@ class LearningRecordExport {
               learningCase.title,
               '${evidence.title}：${evidence.summary}',
             ),
-            nextStep: nextStep,
             status: status,
           ),
         );
@@ -155,7 +171,7 @@ class LearningRecordExport {
 
       for (final intervention in learningCase.interventions) {
         final notes = intervention.notes?.trim();
-        rows.add(
+        caseRows.add(
           LearningRecordExportRow(
             occurredAt: intervention.occurredAt,
             studentName: student.name,
@@ -165,7 +181,6 @@ class LearningRecordExport {
             content: notes == null || notes.isEmpty
                 ? intervention.strategy
                 : '${intervention.strategy}\n$notes',
-            nextStep: nextStep,
             status: status,
           ),
         );
@@ -174,7 +189,7 @@ class LearningRecordExport {
       for (final assessment in learningCase.assessments) {
         final result = _assessmentResultLabel(assessment.result);
         final notes = assessment.notes?.trim();
-        rows.add(
+        caseRows.add(
           LearningRecordExportRow(
             occurredAt: assessment.assessedAt,
             studentName: student.name,
@@ -185,11 +200,17 @@ class LearningRecordExport {
                 ? assessment.evidenceSummary
                 : '${assessment.evidenceSummary}\n$notes',
             assessmentResult: result,
-            nextStep: nextStep,
             status: status,
           ),
         );
       }
+
+      caseRows.sort((left, right) => left.occurredAt.compareTo(right.occurredAt));
+      if (nextStep != null && caseRows.isNotEmpty) {
+        final latestIndex = caseRows.length - 1;
+        caseRows[latestIndex] = caseRows[latestIndex].copyWithNextStep(nextStep);
+      }
+      rows.addAll(caseRows);
     }
 
     rows.sort((left, right) => left.occurredAt.compareTo(right.occurredAt));
@@ -199,6 +220,19 @@ class LearningRecordExport {
   static List<LearningRecordExportRow> rowsForStudentRecords(
     List<StudentLearningRecord> records,
   ) {
+    final latestRecordByCase = <String, StudentLearningRecord>{};
+    for (final record in records) {
+      final caseId = record.learningCaseId?.trim();
+      if (caseId == null || caseId.isEmpty) continue;
+      final current = latestRecordByCase[caseId];
+      if (current == null ||
+          record.occurredAt.isAfter(current.occurredAt) ||
+          (record.occurredAt.isAtSameMomentAs(current.occurredAt) &&
+              record.id.compareTo(current.id) > 0)) {
+        latestRecordByCase[caseId] = record;
+      }
+    }
+
     final rows = <LearningRecordExportRow>[
       for (final record in records)
         LearningRecordExportRow(
@@ -211,7 +245,13 @@ class LearningRecordExport {
           assessmentResult: record.assessmentResult == null
               ? null
               : _assessmentResultLabel(record.assessmentResult!),
-          nextStep: record.nextStep,
+          nextStep:
+              record.learningCaseId == null ||
+                  record.learningCaseId!.trim().isEmpty ||
+                  latestRecordByCase[record.learningCaseId!.trim()]?.id ==
+                      record.id
+              ? record.nextStep
+              : null,
           teacherName: record.teacherName,
           attachmentNote: record.attachmentCount <= 0
               ? null
@@ -330,6 +370,7 @@ class LearningRecordExport {
       workbook.rename(defaultSheet, sheetName);
     }
     final sheet = workbook[sheetName];
+    sheet.frozenRows = 1;
 
     sheet.appendRow(
       headers.map<CellValue>((value) => TextCellValue(value)).toList(),
@@ -350,7 +391,7 @@ class LearningRecordExport {
       final row = rows[index];
       final sheetRow = index + 1;
       sheet.appendRow(<CellValue?>[
-        TextCellValue(_formatDateTime(row.occurredAt)),
+        DateTimeCellValue.fromDateTime(row.occurredAt.toLocal()),
         TextCellValue(row.studentName),
         TextCellValue(row.subjectName),
         TextCellValue(row.issueTitle),
@@ -585,7 +626,8 @@ class LearningRecordExport {
   static String _semanticTextKey(String value) => value
       .trim()
       .toLowerCase()
-      .replaceAll(RegExp(r'[\s，。！？、；：,.!?;:"“”‘’（）()\[\]【】《》—–\-·…]+'), '');
+      .replaceAll('：', ':')
+      .replaceAll(RegExp(r'\s+'), '');
 
   static String _statusLabel(LearningCaseStatus status) {
     return switch (status) {
@@ -628,14 +670,9 @@ class LearningRecordExport {
     };
   }
 
-  static String _formatDateTime(DateTime value) {
-    final local = value.toLocal();
-    return '${_formatDate(local)} '
-        '${local.hour.toString().padLeft(2, '0')}:'
-        '${local.minute.toString().padLeft(2, '0')}';
-  }
+  static String _formatDate(String value) => value;
 
-  static String _formatDate(DateTime value) {
+  static String _formatDateValue(DateTime value) {
     return '${value.year.toString().padLeft(4, '0')}-'
         '${value.month.toString().padLeft(2, '0')}-'
         '${value.day.toString().padLeft(2, '0')}';
