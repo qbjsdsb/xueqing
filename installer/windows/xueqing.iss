@@ -58,13 +58,15 @@ VersionInfoProductTextVersion={#AppVersion}
 VersionInfoCopyright=Copyright (C) 2026 Xueqing project
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; build_installer.ps1 materializes this pinned translation before invoking ISCC.
+Name: "chinesesimplified"; MessagesFile: ".\languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加任务："; Flags: checkedonce
 
 [Files]
 Source: "{#BuildRoot}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "THIRD_PARTY_NOTICES.txt"; DestDir: "{app}\licenses"; DestName: "windows-installer-translation.txt"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
