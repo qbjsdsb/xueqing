@@ -1,6 +1,6 @@
 begin;
 
-select plan(20);
+select plan(26);
 
 select is(
   public.xueqing_backend_compatibility()->>'schema_version',
@@ -13,6 +13,14 @@ select is(
   true,
   'compatibility advertises the installed integrity guard'
 );
+
+set local role anon;
+select is(
+  (public.xueqing_backend_compatibility()->'capabilities'->>'voided_record_integrity_guard')::boolean,
+  true,
+  'public publishable-key role can read the data-free compatibility contract'
+);
+reset role;
 
 select is(
   (
@@ -103,6 +111,16 @@ select ok(
   'member disable handoff checks ignore voided open-status history'
 );
 
+select ok(
+  position(
+    'case_restore_context_inactive' in
+    pg_catalog.pg_get_functiondef(
+      'private.restore_learning_case_v2(uuid,uuid,integer)'::regprocedure
+    )
+  ) > 0,
+  'restore command requires an active student and subject service context'
+);
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
 select set_config(
@@ -135,6 +153,17 @@ select lives_ok(
 select set_config(
   'xueqing.integrity_case_id',
   (select id::text from public.learning_cases where title = '作废后禁止旧命令继续写入'),
+  true
+);
+select set_config(
+  'xueqing.integrity_evidence_id',
+  (
+    select id::text
+    from public.case_evidence
+    where learning_case_id = current_setting('xueqing.integrity_case_id')::uuid
+    order by created_at, id
+    limit 1
+  ),
   true
 );
 
@@ -237,12 +266,10 @@ select is(
 
 select is(
   (select private.can_write_case_evidence_attachment_v2(
-    (select id from public.case_evidence
-     where learning_case_id = current_setting('xueqing.integrity_case_id')::uuid
-     limit 1)
+    current_setting('xueqing.integrity_evidence_id')::uuid
   )),
   false,
-  'attachment authorization rejects a voided Case'
+  'attachment authorization rejects the real Evidence id of a voided Case'
 );
 
 select lives_ok(
@@ -262,6 +289,83 @@ select is(
   ),
   1,
   'restoring the Case makes the preserved Evidence readable again'
+);
+
+select lives_ok(
+  $$select public.void_learning_case(
+      '7f000000-0000-0000-0000-000000000006',
+      current_setting('xueqing.integrity_case_id')::uuid,
+      3,
+      'mistake',
+      '验证停科后不能直接恢复'
+    )$$,
+  'a restored Case can be explicitly voided again without destructive history changes'
+);
+
+reset role;
+update public.student_subject_profiles
+set status = 'inactive'
+where id = '67000000-0000-0000-0000-000000000001';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+
+select throws_ok(
+  $$select public.restore_learning_case(
+      '7f000000-0000-0000-0000-000000000007',
+      current_setting('xueqing.integrity_case_id')::uuid,
+      4
+    )$$,
+  'P0001',
+  'case_restore_context_inactive',
+  'restore refuses to reactivate a Case while its subject service is inactive'
+);
+
+reset role;
+update public.student_subject_profiles
+set status = 'active'
+where id = '67000000-0000-0000-0000-000000000001';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '20000000-0000-0000-0000-000000000001', true);
+select set_config(
+  'request.jwt.claims',
+  json_build_object(
+    'role', 'authenticated',
+    'sub', '20000000-0000-0000-0000-000000000001',
+    'iss', 'http://127.0.0.1:54321/auth/v1',
+    'session_id', '50000000-0000-0000-0000-000000000001'
+  )::text,
+  true
+);
+
+select lives_ok(
+  $$select public.restore_learning_case(
+      '7f000000-0000-0000-0000-000000000008',
+      current_setting('xueqing.integrity_case_id')::uuid,
+      4
+    )$$,
+  'restore succeeds after the subject service context is active again'
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.case_evidence
+    where learning_case_id = current_setting('xueqing.integrity_case_id')::uuid
+  ),
+  1,
+  'repeated void/restore cycles preserve the original Evidence exactly once'
 );
 
 select * from finish();
