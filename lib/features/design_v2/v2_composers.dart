@@ -846,45 +846,11 @@ class _ExistingCaseContinuationPanel extends StatelessWidget {
           const SizedBox(height: 8),
           for (var index = 0; index < items.length; index++) ...[
             if (index > 0) Divider(height: 1, color: scheme.outlineVariant),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          items[index].title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _existingCaseMeta(items[index]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton(
-                    key: ValueKey<String>(
-                      'v2-quick-capture-existing-${items[index].id}',
-                    ),
-                    onPressed: canContinue
-                        ? () => onContinue(items[index])
-                        : null,
-                    child: const Text('记到这个问题'),
-                  ),
-                ],
-              ),
+            _ExistingCaseContinuationRow(
+              item: items[index],
+              meta: _existingCaseMeta(items[index]),
+              canContinue: canContinue,
+              onContinue: onContinue,
             ),
           ],
           if (totalCount > items.length) ...[
@@ -905,6 +871,72 @@ class _ExistingCaseContinuationPanel extends StatelessWidget {
       return '${item.statusLabel} · 下一步待安排';
     }
     return '${item.statusLabel} · 下一步 ${item.nextStepLabel} · ${item.dueLabel}';
+  }
+}
+
+class _ExistingCaseContinuationRow extends StatelessWidget {
+  const _ExistingCaseContinuationRow({
+    required this.item,
+    required this.meta,
+    required this.canContinue,
+    required this.onContinue,
+  });
+
+  final V2ExistingCaseOption item;
+  final String meta;
+  final bool canContinue;
+  final ValueChanged<V2ExistingCaseOption> onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final copy = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          item.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          meta,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+    final action = TextButton(
+      key: ValueKey<String>('v2-quick-capture-existing-${item.id}'),
+      onPressed: canContinue ? () => onContinue(item) : null,
+      child: const Text('记到这个问题'),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 360) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [copy, const SizedBox(height: 4), action],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: copy),
+              const SizedBox(width: 8),
+              action,
+            ],
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -1541,7 +1573,10 @@ class V2MediaDraftStrip extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: 6,
+          runSpacing: 2,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             TextButton.icon(
               key: const Key('v2-media-add'),
@@ -1549,7 +1584,6 @@ class V2MediaDraftStrip extends StatelessWidget {
               icon: const Icon(Icons.photo_camera_outlined, size: 18),
               label: Text(attachments.isEmpty ? '拍照 / 相册' : '继续添加'),
             ),
-            const SizedBox(width: 6),
             Text(
               '${attachments.length}/3',
               style: Theme.of(context).textTheme.bodySmall,
@@ -1681,6 +1715,8 @@ class _ComposerScaffold extends StatelessWidget {
             ),
             Flexible(
               child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
                 child: child,
               ),
