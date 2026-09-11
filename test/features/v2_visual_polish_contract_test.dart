@@ -45,6 +45,8 @@ void main() {
     expect(source, contains("title: const Text('之后')"));
     expect(source, contains("const _SectionTitle(title: '最近学生')"));
     expect(source, contains('· 待复检'));
+    expect(source, contains("return '新记录';"));
+    expect(source, contains("return '暂时稳定';"));
     expect(source, contains("label: const Text('处理')"));
     expect(source, isNot(contains("title: '待安排下一步'")));
     expect(source, isNot(contains("return '待验证';")));
