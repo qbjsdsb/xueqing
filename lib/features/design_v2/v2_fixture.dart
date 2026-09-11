@@ -22,6 +22,15 @@ class V2Student {
 
 enum V2ActionTiming { overdue, today, future, undated }
 
+enum V2CaseStatus {
+  newCase,
+  confirmed,
+  intervening,
+  pendingVerification,
+  stable,
+  closed,
+}
+
 class V2FocusItem {
   const V2FocusItem({
     required this.id,
@@ -33,6 +42,7 @@ class V2FocusItem {
     required this.subject,
     this.actionTiming,
     this.dueOn,
+    this.caseStatus,
     this.pendingVerification = false,
     this.closed = false,
   });
@@ -46,8 +56,17 @@ class V2FocusItem {
   final String subject;
   final V2ActionTiming? actionTiming;
   final DateTime? dueOn;
+  final V2CaseStatus? caseStatus;
   final bool pendingVerification;
   final bool closed;
+
+  V2CaseStatus get effectiveStatus {
+    final status = caseStatus;
+    if (status != null) return status;
+    if (closed) return V2CaseStatus.closed;
+    if (pendingVerification) return V2CaseStatus.pendingVerification;
+    return V2CaseStatus.intervening;
+  }
 }
 
 class V2TimelineEntry {

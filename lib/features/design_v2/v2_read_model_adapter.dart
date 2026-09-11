@@ -155,6 +155,7 @@ class V2ReadModelAdapter {
           subject: profile.subject,
           actionTiming: closed ? null : _actionTiming(primaryAction),
           dueOn: closed ? null : _actionDueOn(primaryAction),
+          caseStatus: _caseStatus(learningCase.status),
           pendingVerification:
               !closed &&
               learningCase.status == LearningCaseStatus.pendingVerification,
@@ -245,8 +246,7 @@ class V2ReadModelAdapter {
       if (line.isEmpty) {
         continue;
       }
-      final key = _normalizedText(line);
-      if (key.isEmpty || !seen.add(key)) {
+      if (!seen.add(line)) {
         continue;
       }
       result.add(line);
@@ -275,6 +275,23 @@ class V2ReadModelAdapter {
 
   static bool _isActiveCase(WorkspaceCase learningCase) =>
       learningCase.status != LearningCaseStatus.closed;
+
+  static V2CaseStatus _caseStatus(LearningCaseStatus status) {
+    switch (status) {
+      case LearningCaseStatus.newCase:
+        return V2CaseStatus.newCase;
+      case LearningCaseStatus.confirmed:
+        return V2CaseStatus.confirmed;
+      case LearningCaseStatus.intervening:
+        return V2CaseStatus.intervening;
+      case LearningCaseStatus.pendingVerification:
+        return V2CaseStatus.pendingVerification;
+      case LearningCaseStatus.stable:
+        return V2CaseStatus.stable;
+      case LearningCaseStatus.closed:
+        return V2CaseStatus.closed;
+    }
+  }
 
   static V2ActionTiming? _actionTiming(WorkspaceAction? action) =>
       switch (action?.bucket) {
@@ -312,7 +329,10 @@ class V2ReadModelAdapter {
         _normalizedText(summary) == _normalizedText(learningCase.title);
     if (learningCase.status == LearningCaseStatus.pendingVerification) {
       final cleaned = _stripPendingVerificationSuffix(summary);
-      if (cleaned.isEmpty || repeatsTitle) {
+      final repeatsDisplayTitle =
+          _normalizedText(cleaned).isNotEmpty &&
+          _normalizedText(cleaned) == _normalizedText(_caseTitle(learningCase));
+      if (cleaned.isEmpty || repeatsTitle || repeatsDisplayTitle) {
         return '已完成当前阶段，尚需再次检查确认是否稳定掌握。';
       }
       return cleaned;
@@ -370,7 +390,8 @@ class V2ReadModelAdapter {
   static String _normalizedText(String value) => value
       .trim()
       .toLowerCase()
-      .replaceAll(RegExp(r'[\s，。！？、；：,.!?;:"“”‘’（）()\[\]【】《》—–\-·…]+'), '');
+      .replaceAll('：', ':')
+      .replaceAll(RegExp(r'\s+'), '');
 
   static String _dateLabel(DateTime value) => '${value.month} 月 ${value.day} 日';
 

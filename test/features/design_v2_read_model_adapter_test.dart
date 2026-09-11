@@ -37,6 +37,7 @@ void main() {
       );
       expect(stable.nextStep, '两周后复查');
       expect(stable.actionTiming?.name, 'future');
+      expect(stable.effectiveStatus.name, 'stable');
 
       final chinese = snapshot.focusItems.firstWhere(
         (item) => item.id == 'case-cn',
@@ -45,6 +46,7 @@ void main() {
       expect(chinese.subject, '语文');
       expect(chinese.nextStep, '周四再做一题');
       expect(chinese.dueLabel, '9 月 12 日');
+      expect(chinese.effectiveStatus.name, 'intervening');
 
       final chineseBinding = snapshot.bindingForCase('case-cn');
       expect(chineseBinding, isNotNull);
@@ -66,6 +68,7 @@ void main() {
       expect(closedBinding!.profileId, 'profile-cn');
       expect(closedBinding.caseVersion, 9);
       expect(snapshot.closedItems.single.closed, isTrue);
+      expect(snapshot.closedItems.single.effectiveStatus.name, 'closed');
       expect(snapshot.closedItems.single.nextStep, '跟进已结束');
     });
 
@@ -80,6 +83,7 @@ void main() {
       expect(math.nextStep, '安排一次复检');
       expect(math.dueLabel, '待安排');
       expect(math.pendingVerification, isTrue);
+      expect(math.effectiveStatus.name, 'pendingVerification');
       expect(
         snapshot
             .focusItemsForStudent('student-lin')
@@ -243,6 +247,51 @@ void main() {
       expect(item.pendingVerification, isTrue);
       expect(entry.kind, '建立跟进');
       expect(entry.body, '咏雪，陈太丘背诵完成，有待复检');
+    });
+
+    test('timeline deduplication never collapses distinct punctuation facts', () {
+      final workspace = TeacherWorkspace(
+        viewerName: '乔老师',
+        organizationName: '测试机构',
+        organizationTimeZone: 'Asia/Shanghai',
+        hasTeachingAccess: true,
+        loadedAt: DateTime(2026, 9, 11, 20),
+        students: [
+          WorkspaceStudent(
+            id: 'student-punctuation',
+            profileId: 'profile-punctuation',
+            profileVersion: 1,
+            name: '测试学生',
+            grade: '初三',
+            subject: '数学',
+            context: '',
+            positioning: null,
+            strengths: null,
+            cadenceNote: null,
+            cases: [
+              _case(
+                id: 'case-punctuation',
+                profileId: 'profile-punctuation',
+                title: '错题记录',
+                status: LearningCaseStatus.intervening,
+                version: 1,
+                timeline: [
+                  WorkspaceTimelineEvent(
+                    id: 'event-punctuation',
+                    occurredAt: DateTime(2026, 9, 11, 19),
+                    typeLabel: '新表现',
+                    text: '第 3-1 题错误\n第 31 题错误',
+                  ),
+                ],
+              ),
+            ],
+            recentFacts: const [],
+          ),
+        ],
+      );
+
+      final entry = V2ReadModelAdapter.fromWorkspace(workspace).timeline.single;
+      expect(entry.body, '第 3-1 题错误\n第 31 题错误');
     });
   });
 }

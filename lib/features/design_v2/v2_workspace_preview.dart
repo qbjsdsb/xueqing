@@ -2925,9 +2925,19 @@ class _CaseDetailPane extends StatelessWidget {
   final bool compact;
 
   String get _statusLabel {
-    if (item.closed) return '已结束';
-    if (item.pendingVerification) return '待复检';
-    return '跟进中';
+    switch (item.effectiveStatus) {
+      case V2CaseStatus.newCase:
+        return '新记录';
+      case V2CaseStatus.confirmed:
+      case V2CaseStatus.intervening:
+        return '跟进中';
+      case V2CaseStatus.pendingVerification:
+        return '待复检';
+      case V2CaseStatus.stable:
+        return '暂时稳定';
+      case V2CaseStatus.closed:
+        return '已结束';
+    }
   }
 
   String _primaryActionLabel(V2PendingActionSnapshot? pendingAction) {
@@ -3207,7 +3217,7 @@ class _CaseDetailPane extends StatelessWidget {
                             const SizedBox(height: 12),
                             Text(
                               item.pendingVerification
-                                  ? '还没有安排复检时间。需要稍后检查时，可在记录进展后设置再次检查提醒。'
+                                  ? '还没有安排复检时间。完成本次检查后如仍需继续关注，可在记录复检时设置下一次提醒。'
                                   : '还没有具体提醒。记录下一次进展时，可以顺手安排后续。',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
