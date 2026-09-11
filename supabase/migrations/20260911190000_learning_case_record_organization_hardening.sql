@@ -162,11 +162,14 @@ comment on function private.list_student_subject_learning_records_v2_with_attach
   'Teaching-gated active-record projection. Pagination is applied after voided Learning Cases are removed so short pages cannot truncate later valid history.';
 
 -- Advance the compatibility floor only after the pagination semantics are safe.
+-- This RPC is deliberately SECURITY INVOKER: it exposes only static schema
+-- capability metadata and public schema functions must never gain definer
+-- privileges.
 create or replace function public.xueqing_backend_compatibility()
 returns jsonb
 language sql
 stable
-security definer
+security invoker
 set search_path = ''
 as $function$
   select jsonb_build_object(
