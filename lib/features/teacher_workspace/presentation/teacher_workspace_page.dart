@@ -344,6 +344,16 @@ class _TeacherWorkspaceEntryPageState extends State<TeacherWorkspaceEntryPage> {
   }
 
   String _describeAuthError(Object error, {required String action}) {
+    final rawDetail = error.toString().trim().toLowerCase();
+    final looksLikeNetworkFailure =
+        rawDetail.contains('handshake') ||
+        rawDetail.contains('socket') ||
+        rawDetail.contains('connection') ||
+        rawDetail.contains('network') ||
+        rawDetail.contains('timeout');
+    if (looksLikeNetworkFailure) {
+      return '$action失败：暂时无法连接服务器，请检查网络后重试；如果当前 Wi-Fi 不稳定，可以尝试切换网络。';
+    }
     if (error is AuthException) {
       final detail = error.message.trim();
       if (detail.toLowerCase() == 'invalid login credentials') {

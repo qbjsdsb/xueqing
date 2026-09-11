@@ -7,6 +7,7 @@ import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
 import '../../cloud/student_learning_record_repository.dart';
+import '../../export/learning_record_case_picker.dart';
 import '../../export/learning_record_export.dart';
 import '../../export/learning_record_export_feedback.dart';
 import '../teacher_workspace/workspace_runtime.dart';
@@ -179,12 +180,59 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
     if (profile == null || !context.mounted) {
       return;
     }
+    if (profile.cases.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('当前学科没有可导出的有效学情。')));
+      return;
+    }
+
+    final selectedCaseIds = await showLearningRecordCasePicker(
+      context,
+      studentName: profile.name,
+      subjectName: profile.subject,
+      cases: profile.cases,
+    );
+    if (selectedCaseIds == null || !context.mounted) {
+      return;
+    }
+    if (selectedCaseIds.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('没有选择要导出的学情。')));
+      return;
+    }
 
     try {
       final records = await repository.listStudentSubjectRecords(
         profileId: profile.profileId,
       );
-      final rows = LearningRecordExport.rowsForStudentRecords(records);
+      final selectedRecords = records
+          .where(
+            (record) =>
+                record.learningCaseId != null &&
+                selectedCaseIds.contains(record.learningCaseId),
+          )
+          .toList(growable: false);
+      final exportedCaseIds = selectedRecords
+          .map((record) => record.learningCaseId)
+          .whereType<String>()
+          .toSet();
+      if (!context.mounted) {
+        return;
+      }
+      if (selectedRecords.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('所选学情目前没有可导出的记录，请刷新后重试。')));
+        return;
+      }
+      if (exportedCaseIds.length != selectedCaseIds.length ||
+          !exportedCaseIds.containsAll(selectedCaseIds)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('部分所选学情刚刚发生变化，请刷新后重新选择导出。')),
+        );
+        return;
+      }
+      final rows = LearningRecordExport.rowsForStudentRecords(selectedRecords);
       final preparedRows =
           await LearningRecordExport.prepareRowsWithAttachmentImages(
             rows: rows,
@@ -193,11 +241,6 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
                 widget.evidenceAttachmentRepository,
           );
       if (!context.mounted) {
-        return;
-      }
-      if (rows.isEmpty) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('当前没有可导出的记录。')));
         return;
       }
       final savedPath = await LearningRecordExport.saveAsXlsx(
@@ -213,7 +256,11 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('已取消导出。')));
       } else {
-        showLearningRecordExportSuccess(context, savedPath: savedPath);
+        showLearningRecordExportSuccess(
+          context,
+          savedPath: savedPath,
+          summary: '已导出 ${exportedCaseIds.length} 条学情',
+        );
       }
     } catch (error) {
       if (!context.mounted) {

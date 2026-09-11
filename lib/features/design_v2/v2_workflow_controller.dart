@@ -122,6 +122,32 @@ class V2PendingActionSnapshot {
   final bool canComplete;
 }
 
+class V2VoidedCaseItem {
+  const V2VoidedCaseItem({
+    required this.caseId,
+    required this.profileId,
+    required this.subject,
+    required this.title,
+    required this.caseStatus,
+    required this.caseVersion,
+    required this.reasonLabel,
+    required this.voidedAt,
+    required this.voidedByName,
+    this.note,
+  });
+
+  final String caseId;
+  final String profileId;
+  final String subject;
+  final String title;
+  final String caseStatus;
+  final int caseVersion;
+  final String reasonLabel;
+  final String? note;
+  final DateTime voidedAt;
+  final String voidedByName;
+}
+
 class V2WorkflowResult {
   const V2WorkflowResult({
     required this.caseId,
@@ -167,6 +193,11 @@ class V2WorkflowController {
   final CaseReopenDraftStore? caseReopenDraftStore;
   final String? sessionUserId;
   final DateTime Function() _now;
+
+  LearningCaseRecordRepository? get _recordRepository =>
+      progressiveCaseRepository is LearningCaseRecordRepository
+      ? progressiveCaseRepository as LearningCaseRecordRepository
+      : null;
 
   List<String> subjectsForStudent(String studentId) {
     final seen = <String>{};
@@ -260,56 +291,156 @@ class V2WorkflowController {
   Future<void> voidCase({
     required String operationId,
     required String caseId,
+    required CaseVoidReason reason,
+    String? note,
   }) async {
-    final learningCase = _caseFor(caseId);
-    if (learningCase.status == LearningCaseStatus.closed) {
+    final repository = _recordRepository;
+    if (repository == null) {
       throw const V2WorkflowSaveException(
-        '这个问题已经结束，请刷新后再处理。',
+        '当前版本暂时不能安全作废学情，请更新后重试。',
         recordMayBeSaved: false,
       );
     }
+    final learningCase = _caseFor(caseId);
     try {
-      await progressiveCaseRepository.endFollowUp(
-        EndCaseFollowUpCommand(
+      await repository.voidLearningCase(
+        VoidLearningCaseCommand(
           operationId: operationId,
           caseId: learningCase.id,
           expectedCaseVersion: learningCase.version,
-          reason: CaseClosureReason.notIssue,
-          note: '教师删除/作废误建或重复问题',
+          reason: reason,
+          note: _normalizedOptional(note),
         ),
       );
     } catch (error) {
       final detail = error.toString().toLowerCase();
       if (detail.contains('version_conflict') ||
-          detail.contains('case_already_closed')) {
+          detail.contains('case_already_voided') ||
+          detail.contains('case_record_voided')) {
         throw V2WorkflowSaveException(
-          '这个问题刚刚有变化，请刷新后再删除。',
+          '这条学情刚刚有变化，请刷新后再作废。',
           recordMayBeSaved: false,
           cause: error,
         );
       }
-      if (detail.contains('owner_permission_required') ||
-          detail.contains('teaching_fact_gate') ||
+      if (detail.contains('teaching_fact_gate') ||
+          detail.contains('manager_permission_required') ||
           detail.contains('permission') ||
           detail.contains('forbidden')) {
         throw V2WorkflowSaveException(
-          '你当前不能删除这个问题，请确认仍在负责这名学生后再试。',
+          '你当前不能作废这条学情，请确认仍在负责这名学生后再试。',
           recordMayBeSaved: false,
           cause: error,
         );
       }
-      if (detail.contains('network') ||
-          detail.contains('socket') ||
-          detail.contains('timeout') ||
-          detail.contains('connection')) {
+      if (_looksLikeNetworkError(detail)) {
         throw V2WorkflowSaveException(
-          '网络中断，删除结果暂时无法确认。当前操作编号已保留，可以直接重试。',
+          '网络中断，作废结果暂时无法确认。操作编号已经保留，可以直接重试。',
           recordMayBeSaved: true,
           cause: error,
         );
       }
       throw V2WorkflowSaveException(
-        '这个问题暂时无法删除，请稍后重试。',
+        '这条学情暂时无法作废，请稍后重试。',
+        recordMayBeSaved: false,
+        cause: error,
+      );
+    }
+  }
+
+  Future<List<V2VoidedCaseItem>> listVoidedCasesForStudent(
+    String studentId,
+  ) async {
+    final repository = _recordRepository;
+    if (repository == null) return const <V2VoidedCaseItem>[];
+    final result = <V2VoidedCaseItem>[];
+    for (final profile in workspace.students) {
+      if (profile.id != studentId) continue;
+      final rows = await repository.listVoidedLearningCases(
+        profileId: profile.profileId,
+      );
+      for (final row in rows) {
+        result.add(
+          V2VoidedCaseItem(
+            caseId: row.caseId,
+            profileId: row.profileId,
+            subject: profile.subject,
+            title: row.title,
+            caseStatus: row.caseStatus,
+            caseVersion: row.caseVersion,
+            reasonLabel: _voidReasonLabel(row.voidReason),
+            note: row.voidNote,
+            voidedAt: row.voidedAt,
+            voidedByName: row.voidedByName,
+          ),
+        );
+      }
+    }
+    result.sort((left, right) => right.voidedAt.compareTo(left.voidedAt));
+    return List<V2VoidedCaseItem>.unmodifiable(result);
+  }
+
+  Future<void> restoreVoidedCase({
+    required String operationId,
+    required V2VoidedCaseItem item,
+  }) async {
+    final repository = _recordRepository;
+    if (repository == null || !workspace.canManageOrganization) {
+      throw const V2WorkflowSaveException(
+        '只有负责人或管理员可以恢复已作废学情。',
+        recordMayBeSaved: false,
+      );
+    }
+    try {
+      await repository.restoreLearningCase(
+        RestoreLearningCaseCommand(
+          operationId: operationId,
+          caseId: item.caseId,
+          expectedCaseVersion: item.caseVersion,
+        ),
+      );
+    } catch (error) {
+      final detail = error.toString().toLowerCase();
+      if (detail.contains('version_conflict') ||
+          detail.contains('case_not_voided')) {
+        throw V2WorkflowSaveException(
+          '这条学情刚刚有变化，请刷新后再恢复。',
+          recordMayBeSaved: false,
+          cause: error,
+        );
+      }
+      if (detail.contains('case_restore_context_inactive')) {
+        throw V2WorkflowSaveException(
+          '这条学情所属的学生或学科服务已停用；请先恢复对应学科服务，再恢复学情。',
+          recordMayBeSaved: false,
+          cause: error,
+        );
+      }
+      if (detail.contains('case_restore_responsibility_unavailable')) {
+        throw V2WorkflowSaveException(
+          '暂时找不到可接手这条学情的有效责任人；请先检查成员和任课设置。',
+          recordMayBeSaved: false,
+          cause: error,
+        );
+      }
+      if (detail.contains('manager_permission_required') ||
+          detail.contains('permission') ||
+          detail.contains('forbidden')) {
+        throw V2WorkflowSaveException(
+          '只有负责人或管理员可以恢复已作废学情。',
+          recordMayBeSaved: false,
+          cause: error,
+        );
+      }
+      if (_looksLikeNetworkError(detail)) {
+        throw V2WorkflowSaveException(
+          '网络中断，恢复结果暂时无法确认。操作编号已经保留，可以直接重试。',
+          recordMayBeSaved: true,
+          cause: error,
+        );
+      }
+      throw V2WorkflowSaveException(
+        '这条学情暂时无法恢复，请稍后重试。',
         recordMayBeSaved: false,
         cause: error,
       );
@@ -831,6 +962,21 @@ class V2WorkflowController {
     CaseProgressKind.intervention => v2InterventionPhotoCompanionTitle,
     CaseProgressKind.assessment => v2AssessmentPhotoCompanionTitle,
   };
+
+  String _voidReasonLabel(String wire) => switch (wire) {
+    'mistake' => CaseVoidReason.mistake.label,
+    'duplicate' => CaseVoidReason.duplicate.label,
+    'wrong_student_subject' => CaseVoidReason.wrongStudentSubject.label,
+    'legacy_delete' => '旧版删除记录',
+    _ => CaseVoidReason.other.label,
+  };
+
+  bool _looksLikeNetworkError(String detail) =>
+      detail.contains('network') ||
+      detail.contains('socket') ||
+      detail.contains('timeout') ||
+      detail.contains('connection') ||
+      detail.contains('handshake');
 
   String? _normalizedOptional(String? value) {
     final normalized = value?.trim();

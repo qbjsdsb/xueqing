@@ -10,6 +10,7 @@ class StudentLearningRecord {
     required this.recordKind,
     required this.content,
     required this.teacherName,
+    this.learningCaseId,
     this.nextStep,
     required this.attachmentCount,
     this.attachmentPaths = const <String>[],
@@ -18,6 +19,7 @@ class StudentLearningRecord {
   });
 
   final String id;
+  final String? learningCaseId;
   final DateTime occurredAt;
   final String studentName;
   final String subjectName;
@@ -34,6 +36,7 @@ class StudentLearningRecord {
   factory StudentLearningRecord.fromJson(Map<String, dynamic> json) {
     return StudentLearningRecord(
       id: _requiredString(json['record_id'], 'record_id'),
+      learningCaseId: _optionalString(json['learning_case_id']),
       occurredAt: _requiredDateTime(json['occurred_at'], 'occurred_at'),
       studentName: _requiredString(json['student_name'], 'student_name'),
       subjectName: _requiredString(json['subject_name'], 'subject_name'),
@@ -86,7 +89,7 @@ class SupabaseStudentLearningRecordRepository
     while (true) {
       _assertSameSession(expectedUserId);
       final response = await _client.rpc(
-        'list_student_subject_learning_records_with_attachments',
+        'list_student_subject_learning_records_v2_with_attachments',
         params: <String, dynamic>{
           'p_profile_id': profileId,
           'p_limit': _pageSize,

@@ -57,9 +57,12 @@ void main() {
         .readAsStringSync();
 
     expect(workflow, contains('xueqing_backend_compatibility'));
-    expect(workflow, contains('20260911153000'));
+    expect(workflow, contains('20260911193000'));
     expect(workflow, contains('student_profile_edit'));
     expect(workflow, contains('learning_record_export_attachments'));
+    expect(workflow, contains('learning_case_record_organization'));
+    expect(workflow, contains('selective_learning_record_export'));
+    expect(workflow, contains('voided_record_integrity_guard'));
     expect(
       workflow,
       contains('Production backend is older than this client requires'),
