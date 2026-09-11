@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   generate:
-    if: github.event.head_commit.message == 'branding: generate selected icon assets'
+    if: github.event.head_commit.message == 'branding generate selected icon assets'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout icon branch
