@@ -11,47 +11,40 @@ permissions:
   contents: write
 
 jobs:
-  verify-and-finalize:
+  diagnose-full-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ux/v0.3.4-today-semantic-cleanup
           fetch-depth: 0
-
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
-      - name: Apply analyzer fixes
+      - name: Apply known analyzer fixes
         shell: bash
         run: |
           sed -i 's/<PickedEvidenceAttachment>//g' lib/features/design_v2/v2_workspace_preview.dart
           sed -i 's/lastActivityAt!/lastActivityAt/g' lib/features/design_v2/v2_read_model_adapter.dart
           dart format lib/features/design_v2/v2_workspace_preview.dart lib/features/design_v2/v2_read_model_adapter.dart
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Focused tests
-        run: flutter test test/features/design_v2_workspace_data_injection_test.dart test/features/v2_final_ergonomics_test.dart test/features/v2_action_composers_test.dart test/features/design_v2_read_model_adapter_test.dart test/features/design_v2_workflow_controller_test.dart
-
-      - name: Full Flutter tests
-        run: flutter test
-
-      - name: Finalize branch
+      - run: flutter pub get
+      - name: Capture full-test output
+        id: tests
+        continue-on-error: true
         shell: bash
         run: |
-          rm -f v034-analyze.txt
-          rm -f tool/v034_today_cleanup.py
-          rm -f .github/workflows/v034-today-semantic-cleanup.yml
+          set -o pipefail
+          flutter test 2>&1 | tee v034-full-test.txt
+      - name: Persist diagnostics
+        if: steps.tests.outcome == 'failure'
+        shell: bash
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --check
-          git commit -m "UX: make Today action-driven and teacher-readable"
+          git add v034-full-test.txt
+          git commit -m "chore: capture v0.3.4 full-test diagnostics"
           git push origin HEAD:ux/v0.3.4-today-semantic-cleanup
+      - name: Fail on test failure
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
