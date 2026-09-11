@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  apply-and-verify:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout work branch
@@ -21,49 +21,8 @@ jobs:
       - name: Apply focused polish
         run: python3 tool/_tmp_apply_final_teacher_flow_polish_v037.py
 
-      - name: Fix and instrument focused regression fixture
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('test/features/v037_final_teacher_flow_resilience_test.dart')
-          text = path.read_text()
-          old = """    const item = V2FocusItem(
-                id: 'case-existing',
-                studentId: student.id,
-          """
-          new = """    const item = V2FocusItem(
-                id: 'case-existing',
-                studentId: 's-existing',
-          """
-          if old not in text:
-              raise SystemExit('focused fixture target not found')
-          text = text.replace(old, new, 1)
-          text = text.replace(
-              """    await tester.pumpWidget(_app(data, textScale: 1.2));
-                await tester.pumpAndSettle();
-                await tester.tap(find.byKey(const Key('v2-today-quick-capture')));
-                await tester.pumpAndSettle();
-
-                final body = find.byKey(const Key('v2-quick-capture-body'));
-                await tester.enterText(body, '今天再次出现概括遗漏结果的情况。');
-                await tester.pump();
-""",
-              """    await tester.pumpWidget(_app(data, textScale: 1.2));
-                await tester.pumpAndSettle();
-                expect(tester.takeException(), isNull, reason: 'initial compact workspace');
-                await tester.tap(find.byKey(const Key('v2-today-quick-capture')));
-                await tester.pumpAndSettle();
-                expect(tester.takeException(), isNull, reason: 'opened Quick Capture');
-
-                final body = find.byKey(const Key('v2-quick-capture-body'));
-                await tester.enterText(body, '今天再次出现概括遗漏结果的情况。');
-                await tester.pump();
-                expect(tester.takeException(), isNull, reason: 'entered classroom fact');
-""",
-              1,
-          )
-          path.write_text(text)
-          PY
+      - name: Prepare diagnostic fixture
+        run: python3 tool/_tmp_diagnose_final_polish.py
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -85,5 +44,5 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
-      - name: Run focused regression tests
+      - name: Run narrow diagnostic test
         run: flutter test test/features/v037_final_teacher_flow_resilience_test.dart
