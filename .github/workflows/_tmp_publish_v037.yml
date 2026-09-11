@@ -1,0 +1,57 @@
+name: Temporary stage and publish v0.3.7
+
+on:
+  push:
+    branches:
+      - release/v0.3.7-version-freeze
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  stage-and-dispatch:
+    if: github.event.head_commit.message == 'release: stage and dispatch v0.3.7'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify frozen main and create staging Pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          expected_commit="e73faa37f8cdeda54c13d1b555602208e290fe9e"
+          actual_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          if [[ "$actual_commit" != "$expected_commit" ]]; then
+            echo "main moved after v0.3.7 freeze: $actual_commit"
+            exit 1
+          fi
+
+          pubspec_content="$(gh api "repos/$GITHUB_REPOSITORY/contents/pubspec.yaml?ref=$expected_commit" --jq '.content' | base64 --decode)"
+          grep -qx 'version: 0.3.7+15' <<< "$pubspec_content"
+
+          if gh release view v0.3.7 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v0.3.7 Release already exists; refusing to overwrite it."
+            exit 1
+          fi
+
+          gh release create v0.3.7 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$expected_commit" \
+            --title "学情 v0.3.7" \
+            --prerelease \
+            --notes $'v0.3.7 稳定发布候选。\n\n- 教师工作台进一步收口高频操作：单一问题直接记进展，多问题选择信息更清楚\n- 学生列表与成长时间线按真实最近活动与发生时间呈现，历史阅读更连续\n- Quick Capture 可由教师主动把课堂新表现续记到已有问题，减少重复建 Case\n- 续记时保留已输入事实与图片，待复检问题也不会被误判成检查结果\n- 针对 320px 窄屏与大字号中文完成最终布局打磨，修复图片入口横向溢出\n- 移动端记录窗口支持滚动收起键盘，今日任务、已有问题续记与图片记录更稳定'
+
+      - name: Dispatch signed stable release pipeline
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          notes=$'教师高频操作进一步收口，学生成长时间线按真实发生时间呈现\nQuick Capture 支持主动续记到已有问题并保留事实与图片\n优化 320px 窄屏、大字号中文、键盘与图片记录体验'
+          gh workflow run publish-release-assets.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_tag=v0.3.7 \
+            -f app_version=0.3.7+15 \
+            -f release_notes="$notes"
