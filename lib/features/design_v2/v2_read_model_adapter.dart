@@ -195,6 +195,12 @@ class V2ReadModelAdapter {
       }
     }
 
+    // Student detail only previews a few active cases. Keep that preview tied
+    // to teacher attention rather than database/id order so a newly recorded or
+    // verification-needed case cannot disappear behind older low-urgency work.
+    focusItems.sort(_compareFocusItems);
+    closedItems.sort((left, right) => left.title.compareTo(right.title));
+
     return V2ReadModelSnapshot(
       viewerName: workspace.viewerName,
       organizationName: workspace.organizationName,
@@ -205,6 +211,65 @@ class V2ReadModelAdapter {
       caseBindings: List<V2CaseBinding>.unmodifiable(bindings),
       businessDate: workspace.businessDate,
     );
+  }
+
+  static int _compareFocusItems(V2FocusItem left, V2FocusItem right) {
+    final priorityComparison = _focusPriority(left).compareTo(
+      _focusPriority(right),
+    );
+    if (priorityComparison != 0) {
+      return priorityComparison;
+    }
+
+    final dueComparison = switch ((left.dueOn, right.dueOn)) {
+      (final DateTime leftDate, final DateTime rightDate) =>
+        leftDate.compareTo(rightDate),
+      (null, final DateTime _) => 1,
+      (final DateTime _, null) => -1,
+      (null, null) => 0,
+    };
+    if (dueComparison != 0) {
+      return dueComparison;
+    }
+
+    final subjectComparison = left.subject.compareTo(right.subject);
+    if (subjectComparison != 0) {
+      return subjectComparison;
+    }
+    final titleComparison = left.title.compareTo(right.title);
+    if (titleComparison != 0) {
+      return titleComparison;
+    }
+    return left.id.compareTo(right.id);
+  }
+
+  static int _focusPriority(V2FocusItem item) {
+    switch (item.actionTiming) {
+      case V2ActionTiming.overdue:
+        return 0;
+      case V2ActionTiming.today:
+        return 1;
+      case V2ActionTiming.undated:
+        return 2;
+      case V2ActionTiming.future:
+      case null:
+        break;
+    }
+
+    switch (item.effectiveStatus) {
+      case V2CaseStatus.pendingVerification:
+        return 3;
+      case V2CaseStatus.newCase:
+        return 4;
+      case V2CaseStatus.intervening:
+        return item.actionTiming == V2ActionTiming.future ? 5 : 6;
+      case V2CaseStatus.confirmed:
+        return item.actionTiming == V2ActionTiming.future ? 5 : 7;
+      case V2CaseStatus.stable:
+        return item.actionTiming == V2ActionTiming.future ? 5 : 8;
+      case V2CaseStatus.closed:
+        return 9;
+    }
   }
 
   static String _timelineKind(WorkspaceTimelineEvent event) {
@@ -311,16 +376,25 @@ class V2ReadModelAdapter {
   }
 
   static String _caseSummary(WorkspaceCase learningCase) {
-    final description = learningCase.description?.trim();
-    String summary;
-    if (description != null && description.isNotEmpty) {
-      summary = description;
+    // “当前判断” should move with the student, not remain frozen at the first
+    // description. A later check is the strongest current signal, then a later
+    // observation, with the original description only as the final fallback.
+    String summary = '';
+    if (learningCase.assessments.isNotEmpty) {
+      final assessments = learningCase.assessments.toList(growable: false)
+        ..sort((a, b) => b.assessedAt.compareTo(a.assessedAt));
+      final latest = assessments.first;
+      final notes = latest.notes?.trim();
+      summary = <String>[
+        latest.evidenceSummary.trim(),
+        if (notes != null && notes.isNotEmpty) notes,
+      ].where((part) => part.isNotEmpty).join('\n');
     } else if (learningCase.evidence.isNotEmpty) {
       final evidence = learningCase.evidence.toList(growable: false)
         ..sort((a, b) => b.observedAt.compareTo(a.observedAt));
       summary = evidence.first.summary.trim();
     } else {
-      summary = '';
+      summary = learningCase.description?.trim() ?? '';
     }
 
     summary = _dedupeTimelineLines(summary);
