@@ -1,0 +1,64 @@
+name: Temporary final teacher flow polish
+
+on:
+  push:
+    branches:
+      - ux/final-teacher-flow-polish-v037
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: github.event.head_commit.message == 'chore: run final teacher flow polish'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout work branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/final-teacher-flow-polish-v037
+          fetch-depth: 0
+
+      - name: Apply focused polish
+        run: python3 tool/_tmp_apply_final_teacher_flow_polish_v037.py
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Format touched Dart files
+        run: |
+          dart format \
+            lib/features/design_v2/v2_composers.dart \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/v037_final_teacher_flow_resilience_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run focused regression tests
+        run: |
+          flutter test \
+            test/features/v037_final_teacher_flow_resilience_test.dart \
+            test/features/v037_existing_case_continuation_test.dart \
+            test/features/v2_final_ergonomics_test.dart
+
+      - name: Run full Flutter suite
+        run: flutter test
+
+      - name: Commit verified polish and remove temporary tooling
+        run: |
+          rm -f tool/_tmp_apply_final_teacher_flow_polish_v037.py
+          rm -f .github/workflows/_tmp_final_teacher_flow_polish_v037.yml
+          git config user.name "qbjsdsb"
+          git config user.email "3342513714@qq.com"
+          git add -A
+          git diff --cached --quiet && exit 1
+          git commit -m "UX: final polish for compact teacher flow"
+          git push origin HEAD:ux/final-teacher-flow-polish-v037
