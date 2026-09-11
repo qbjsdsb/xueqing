@@ -188,6 +188,7 @@ class V2ReadModelAdapter {
               body: _timelineBody(event),
               teacher: '',
               time: _timeLabel(event.occurredAt),
+              occurredAt: event.occurredAt,
               evidenceId: event.evidenceId,
             ),
           );

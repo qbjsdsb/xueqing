@@ -49,7 +49,7 @@ enum V2NextStep { continueTracking, remind, close }
 
 extension V2NextStepLabel on V2NextStep {
   String get label => switch (this) {
-    V2NextStep.continueTracking => '继续跟进',
+    V2NextStep.continueTracking => '继续观察，不设提醒',
     V2NextStep.remind => '安排再次检查',
     V2NextStep.close => '结束跟进',
   };

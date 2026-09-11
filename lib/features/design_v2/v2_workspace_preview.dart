@@ -47,6 +47,15 @@ String _displayNextStep(String value) {
   return trimmed;
 }
 
+String _caseStatusLabel(V2FocusItem item) => switch (item.effectiveStatus) {
+  V2CaseStatus.newCase => '新记录',
+  V2CaseStatus.confirmed => '已确认',
+  V2CaseStatus.intervening => '跟进中',
+  V2CaseStatus.pendingVerification => '待复检',
+  V2CaseStatus.stable => '暂时稳定',
+  V2CaseStatus.closed => '已结束',
+};
+
 class _V2RuntimeScope extends InheritedWidget {
   const _V2RuntimeScope({
     required this.workflowController,
@@ -876,6 +885,10 @@ Future<void> _showV2ProgressCasePicker(
   if (items.isEmpty) {
     return;
   }
+  if (items.length == 1) {
+    await _showV2ProgressForCase(context, student, items.single);
+    return;
+  }
 
   Widget choices(BuildContext sheetContext) => ListView.separated(
     shrinkWrap: true,
@@ -888,7 +901,13 @@ Future<void> _showV2ProgressCasePicker(
       final item = items[index];
       return ListTile(
         title: Text(item.title),
-        subtitle: Text(item.subject),
+        subtitle: Text(
+          '${item.subject} · ${_caseStatusLabel(item)}\n'
+          '下一步 ${_displayNextStep(item.nextStep)} · ${item.dueLabel}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        isThreeLine: true,
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(sheetContext).pop(item),
       );
@@ -968,7 +987,7 @@ class V2WorkspacePreview extends StatefulWidget {
 }
 
 class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
-  int _destination = 1;
+  int _destination = 0;
   V2Student? _selectedStudent;
   V2FocusItem? _selectedCase;
   bool _showCase = false;
@@ -1988,6 +2007,7 @@ class _StudentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final data = V2WorkspaceDataScope.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       child: AnimatedContainer(
@@ -2036,10 +2056,16 @@ class _StudentRow extends StatelessWidget {
                             : '${student.openCaseCount} 个进行中',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      if (student.updatedLabel != '暂无记录') ...[
+                      if (student.lastActivityAt != null ||
+                          student.updatedLabel != '暂无记录') ...[
                         const SizedBox(height: 3),
                         Text(
-                          student.updatedLabel,
+                          student.lastActivityAt == null
+                              ? student.updatedLabel
+                              : _recentActivityLabel(
+                                  student.lastActivityAt!,
+                                  data.businessDate,
+                                ),
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: scheme.onSurfaceVariant.withValues(
@@ -2103,12 +2129,16 @@ class _StudentDetailPane extends StatefulWidget {
 
 class _StudentDetailPaneState extends State<_StudentDetailPane> {
   bool _showAllFocusItems = false;
+  bool _showAllTimeline = false;
+  bool _showClosedItems = false;
 
   @override
   void didUpdateWidget(covariant _StudentDetailPane oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.student.id != widget.student.id) {
       _showAllFocusItems = false;
+      _showAllTimeline = false;
+      _showClosedItems = false;
     }
   }
 
@@ -2124,6 +2154,12 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
         focusItems.length > _studentFocusPreviewLimit;
     final closedItems = data.closedItemsForStudent(widget.student);
     final timelineEntries = data.timelineForStudent(widget.student);
+    final visibleTimelineEntries = _showAllTimeline
+        ? timelineEntries
+        : timelineEntries.take(5).toList(growable: false);
+    final hiddenTimelineCount = timelineEntries.length > 5
+        ? timelineEntries.length - 5
+        : 0;
     return ColoredBox(
       color: scheme.surface,
       child: CustomScrollView(
@@ -2200,22 +2236,65 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
                         ],
                       ],
                       if (closedItems.isNotEmpty) ...[
-                        const SizedBox(height: 34),
-                        _SectionTitle(title: '历史问题', count: closedItems.length),
-                        const SizedBox(height: 8),
-                        for (var i = 0; i < closedItems.length; i++) ...[
-                          _FocusRow(
-                            item: closedItems[i],
-                            onTap: () => widget.onOpenCase(closedItems[i]),
+                        const SizedBox(height: 26),
+                        TextButton.icon(
+                          key: const Key('v2-student-history-toggle'),
+                          onPressed: () => setState(
+                            () => _showClosedItems = !_showClosedItems,
                           ),
-                          if (i < closedItems.length - 1)
-                            Divider(height: 1, color: scheme.outlineVariant),
+                          icon: Icon(
+                            _showClosedItems
+                                ? Icons.expand_less
+                                : Icons.history_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _showClosedItems
+                                ? '收起历史问题'
+                                : '查看历史问题 ${closedItems.length} 个',
+                          ),
+                        ),
+                        if (_showClosedItems) ...[
+                          const SizedBox(height: 8),
+                          _SectionTitle(
+                            title: '历史问题',
+                            count: closedItems.length,
+                          ),
+                          const SizedBox(height: 8),
+                          for (var i = 0; i < closedItems.length; i++) ...[
+                            _FocusRow(
+                              item: closedItems[i],
+                              onTap: () => widget.onOpenCase(closedItems[i]),
+                            ),
+                            if (i < closedItems.length - 1)
+                              Divider(height: 1, color: scheme.outlineVariant),
+                          ],
                         ],
                       ],
                       const SizedBox(height: 34),
                       const _SectionTitle(title: '最近成长'),
                       const SizedBox(height: 14),
-                      _Timeline(entries: timelineEntries),
+                      _Timeline(entries: visibleTimelineEntries),
+                      if (hiddenTimelineCount > 0) ...[
+                        const SizedBox(height: 4),
+                        TextButton.icon(
+                          key: const Key('v2-student-timeline-toggle'),
+                          onPressed: () => setState(
+                            () => _showAllTimeline = !_showAllTimeline,
+                          ),
+                          icon: Icon(
+                            _showAllTimeline
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _showAllTimeline
+                                ? '收起更早记录'
+                                : '查看更早 $hiddenTimelineCount 条',
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

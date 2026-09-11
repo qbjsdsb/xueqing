@@ -47,6 +47,8 @@ void main() {
 
       await tester.pumpWidget(app(data));
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('学生'));
+      await tester.pumpAndSettle();
 
       expect(find.text('文言文翻译还得加强，测试不过关'), findsOneWidget);
       expect(find.text('  文言文翻译还得加强，测试不过关。 '), findsNothing);
@@ -75,6 +77,8 @@ void main() {
 
     await tester.pumpWidget(app(data));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('学生'));
+    await tester.pumpAndSettle();
 
     expect(find.text('不太会'), findsOneWidget);
     expect(find.text('还行，但独立完成时不稳定'), findsOneWidget);
@@ -100,6 +104,8 @@ void main() {
     ]);
 
     await tester.pumpWidget(app(data));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('学生'));
     await tester.pumpAndSettle();
 
     expect(find.text('现在最重要'), findsOneWidget);

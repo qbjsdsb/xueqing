@@ -166,8 +166,6 @@ void main() {
 
     await tester.pumpWidget(_app(data));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('今日'));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('v2-today-quick-capture')));
     await tester.pumpAndSettle();
 
@@ -237,7 +235,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('操作指南'), findsOneWidget);
       expect(find.text('先看今日'), findsOneWidget);
-      expect(find.text('记录问题'), findsOneWidget);
+      expect(find.text('记录问题'), findsWidgets);
       expect(find.text('继续跟进'), findsOneWidget);
       expect(find.text('历史与复发'), findsOneWidget);
       expect(find.text('管理与导出'), findsOneWidget);
