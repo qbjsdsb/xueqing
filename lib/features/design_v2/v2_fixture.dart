@@ -77,6 +77,7 @@ class V2TimelineEntry {
     required this.body,
     required this.teacher,
     required this.time,
+    this.occurredAt,
     this.photoCount = 0,
     this.evidenceId,
   });
@@ -87,6 +88,7 @@ class V2TimelineEntry {
   final String body;
   final String teacher;
   final String time;
+  final DateTime? occurredAt;
   final int photoCount;
   final String? evidenceId;
 }

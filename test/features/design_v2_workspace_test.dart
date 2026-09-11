@@ -7,23 +7,28 @@ void main() {
   Widget app() =>
       MaterialApp(theme: V2Theme.light(), home: const V2WorkspacePreview());
 
-  testWidgets('desktop starts with student master-detail workspace', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1440, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'desktop starts with Today and can enter student master-detail workspace',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
 
-    expect(find.text('学生'), findsWidgets);
-    expect(find.text('林同学'), findsWidgets);
-    expect(find.text('现在最重要'), findsOneWidget);
-    expect(find.text('最近成长'), findsOneWidget);
-    expect(find.text('阅读概括不完整'), findsOneWidget);
-    expect(find.text('函数应用题思路不清'), findsOneWidget);
-    expect(find.text('时态切换不稳定'), findsNothing);
-  });
+      expect(find.byKey(const Key('v2-today-quick-capture')), findsOneWidget);
+      await tester.tap(find.byTooltip('学生'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('学生'), findsWidgets);
+      expect(find.text('林同学'), findsWidgets);
+      expect(find.text('现在最重要'), findsOneWidget);
+      expect(find.text('最近成长'), findsOneWidget);
+      expect(find.text('阅读概括不完整'), findsOneWidget);
+      expect(find.text('函数应用题思路不清'), findsOneWidget);
+      expect(find.text('时态切换不稳定'), findsNothing);
+    },
+  );
 
   testWidgets('desktop can open the selected Case without leaving the shell', (
     tester,
@@ -56,6 +61,8 @@ void main() {
 
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('学生'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('王同学').first);
     await tester.pumpAndSettle();
@@ -79,6 +86,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('学生'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('李同学').first);
@@ -122,6 +131,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(NavigationBar), findsOneWidget);
+    await tester.tap(find.text('学生'));
+    await tester.pumpAndSettle();
     expect(find.text('林同学'), findsOneWidget);
 
     await tester.tap(find.text('林同学'));
@@ -146,6 +157,11 @@ void main() {
     await tester.pumpAndSettle();
 
     var navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(navigation.selectedIndex, 0);
+
+    await tester.tap(find.text('学生'));
+    await tester.pumpAndSettle();
+    navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
     expect(navigation.selectedIndex, 1);
 
     await tester.binding.handlePopRoute();
@@ -164,6 +180,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('学生'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('v2-student-search')), '王同学');

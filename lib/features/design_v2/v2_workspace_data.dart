@@ -46,18 +46,34 @@ class V2WorkspaceData {
     return student;
   }
 
-  List<V2TimelineEntry> timelineForCase(V2FocusItem item) => timeline
-      .where((entry) => entry.caseId == item.id)
-      .toList(growable: false);
+  List<V2TimelineEntry> timelineForCase(V2FocusItem item) =>
+      _orderedTimeline(timeline.where((entry) => entry.caseId == item.id));
 
   List<V2TimelineEntry> timelineForStudent(V2Student student) {
     final caseIds = <String>{
       ...focusItemsForStudent(student).map((item) => item.id),
       ...closedItemsForStudent(student).map((item) => item.id),
     };
-    return timeline
-        .where((entry) => caseIds.contains(entry.caseId))
-        .toList(growable: false);
+    return _orderedTimeline(
+      timeline.where((entry) => caseIds.contains(entry.caseId)),
+    );
+  }
+
+  List<V2TimelineEntry> _orderedTimeline(Iterable<V2TimelineEntry> source) {
+    final result = source.toList(growable: false);
+    if (!result.any((entry) => entry.occurredAt != null)) {
+      return result;
+    }
+    final sortable = result.toList(growable: true)
+      ..sort((left, right) {
+        final leftAt = left.occurredAt;
+        final rightAt = right.occurredAt;
+        if (leftAt == null && rightAt == null) return 0;
+        if (leftAt == null) return 1;
+        if (rightAt == null) return -1;
+        return rightAt.compareTo(leftAt);
+      });
+    return List<V2TimelineEntry>.unmodifiable(sortable);
   }
 }
 
