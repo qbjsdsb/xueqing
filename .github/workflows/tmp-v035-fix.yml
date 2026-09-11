@@ -1,4 +1,4 @@
-name: Temporary v0.3.5 patch runner
+name: Temporary v0.3.5 finalizer
 
 on:
   push:
@@ -9,10 +9,10 @@ permissions:
   contents: write
 
 jobs:
-  apply-and-validate:
+  finalize:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,53 +25,72 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Apply focused patch
+      - name: Persist production backend compatibility gate
         shell: bash
         run: |
-          sed -i "s/error.code.trim().toUpperCase()/error.code?.trim().toUpperCase() ?? ''/" tool/tmp_v035_patch.py
-          python3 tool/tmp_v035_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Format
+          path = Path('.github/workflows/publish-release-assets.yml')
+          text = path.read_text()
+          if 'xueqing_backend_compatibility' in text:
+              raise SystemExit('compatibility gate already present unexpectedly')
+
+          anchor = '''          if [[ -z "$XUEQING_SUPABASE_URL" || -z "$XUEQING_SUPABASE_PUBLISHABLE_KEY" || -z "$XUEQING_SUPABASE_ALLOWED_HOSTS" ]]; then
+            echo "Stable production releases require Supabase URL, publishable key, and allowed hosts."
+            exit 1
+          fi
+'''
+          gate = anchor + '''          backend_json="$(curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors --connect-timeout 10 --max-time 30 \\
+            -X POST "${XUEQING_SUPABASE_URL%/}/rest/v1/rpc/xueqing_backend_compatibility" \\
+            -H "apikey: $XUEQING_SUPABASE_PUBLISHABLE_KEY" \\
+            -H "Content-Type: application/json" \\
+            -d '{}')"
+          BACKEND_JSON="$backend_json" python3 - <<'PY_BACKEND'
+          import json
+          import os
+
+          required_schema = "20260911153000"
+          payload = json.loads(os.environ["BACKEND_JSON"])
+          actual_schema = str(payload.get("schema_version", ""))
+          capabilities = payload.get("capabilities") or {}
+          if actual_schema < required_schema:
+              raise SystemExit(
+                  f"Production backend is older than this client requires: {actual_schema!r} < {required_schema}."
+              )
+          required_capabilities = (
+              "student_profile_edit",
+              "learning_record_export_attachments",
+          )
+          missing = [
+              name for name in required_capabilities
+              if capabilities.get(name) is not True
+          ]
+          if missing:
+              raise SystemExit(
+                  "Production backend is missing required capabilities: "
+                  + ", ".join(missing)
+              )
+          print(f"production backend schema {actual_schema} is compatible")
+          PY_BACKEND
+'''
+          if text.count(anchor) != 1:
+              raise SystemExit('stable publisher compatibility insertion anchor not unique')
+          path.write_text(text.replace(anchor, gate, 1))
+          PY
+
+      - name: Validate release contract
         run: |
-          dart format \
-            lib/features/design_v2/v2_read_model_adapter.dart \
-            lib/features/design_v2/v2_workspace_preview.dart \
-            lib/export/learning_record_export.dart \
-            lib/cloud/organization_management_repository.dart \
-            lib/features/organization_management/presentation/organization_student_edit_dialog.dart \
-            test/features/design_v2_read_model_adapter_test.dart \
-            test/export/student_learning_record_export_test.dart \
-            test/cloud/organization_management_repository_test.dart \
-            test/update/stable_release_workflow_contract_test.dart
+          flutter pub get
+          flutter test test/update/stable_release_workflow_contract_test.dart
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Focused regression tests
-        run: |
-          flutter test \
-            test/features/design_v2_read_model_adapter_test.dart \
-            test/export/student_learning_record_export_test.dart \
-            test/cloud/organization_management_repository_test.dart \
-            test/update/stable_release_workflow_contract_test.dart
-
-      - name: Full Flutter tests
-        run: flutter test
-
-      - name: Commit validated implementation
+      - name: Commit final clean branch
         shell: bash
         run: |
           set -euo pipefail
-          git rm -f tool/tmp_v035_patch.py
-          git checkout -- .github/workflows/publish-release-assets.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            lib \
-            supabase/migrations/20260911153000_backend_compatibility_contract.sql \
-            test
-          git commit -m "fix: dedupe learning records and add backend contract"
+          git add .github/workflows/publish-release-assets.yml
+          git rm .github/workflows/tmp-v035-fix.yml
+          git commit -m "ci: gate stable releases on production backend compatibility"
           git push origin HEAD:fix/v0.3.5-record-dedup-backend-compat
