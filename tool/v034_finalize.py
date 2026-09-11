@@ -9,8 +9,8 @@ adapter = Path('lib/features/design_v2/v2_read_model_adapter.dart')
 text = adapter.read_text().replace('lastActivityAt!', 'lastActivityAt')
 adapter.write_text(text)
 
-test_path = Path('test/features/v2_visual_polish_contract_test.dart')
-text = test_path.read_text()
+visual_test = Path('test/features/v2_visual_polish_contract_test.dart')
+text = visual_test.read_text()
 old = '''    expect(source, contains("title: '待安排下一步'"));
     expect(source, contains('!widget.compact &&'));
     expect(source, contains('final expandedRail = width >= 1280;'));
@@ -41,4 +41,12 @@ new = '''    expect(source, contains('item.actionTiming != null'));
 '''
 if old not in text:
     raise SystemExit('stale visual contract block not found')
-test_path.write_text(text.replace(old, new, 1))
+visual_test.write_text(text.replace(old, new, 1))
+
+shell_test = Path('test/features/v2_shell_production_capabilities_test.dart')
+text = shell_test.read_text()
+old = '    expect(preview, contains("const Text(\'近期安排\')"));\n'
+new = '    expect(preview, contains("title: const Text(\'之后\')"));\n'
+if old not in text:
+    raise SystemExit('stale shell future-section contract not found')
+shell_test.write_text(text.replace(old, new, 1))
