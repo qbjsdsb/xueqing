@@ -106,18 +106,18 @@ class V2ReadModelAdapter {
         }
         for (final fact in profile.recentFacts) {
           if (lastActivityAt == null ||
-              fact.occurredAt.isAfter(lastActivityAt!)) {
+              fact.occurredAt.isAfter(lastActivityAt)) {
             lastActivityAt = fact.occurredAt;
           }
         }
         for (final learningCase in profile.cases) {
           if (lastActivityAt == null ||
-              learningCase.firstObservedAt.isAfter(lastActivityAt!)) {
+              learningCase.firstObservedAt.isAfter(lastActivityAt)) {
             lastActivityAt = learningCase.firstObservedAt;
           }
           for (final event in learningCase.timeline) {
             if (lastActivityAt == null ||
-                event.occurredAt.isAfter(lastActivityAt!)) {
+                event.occurredAt.isAfter(lastActivityAt)) {
               lastActivityAt = event.occurredAt;
             }
           }

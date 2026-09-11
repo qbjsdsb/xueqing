@@ -316,7 +316,7 @@ Future<void> _showV2CompleteCurrentAction(
         summary: summary,
         completeCurrentAction: true,
         nextStep: CaseProgressNextStep.continueTracking,
-        attachments: const <PickedEvidenceAttachment>[],
+        attachments: const [],
       ),
     ),
   );

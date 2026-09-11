@@ -51,7 +51,7 @@ void main() {
     expect(preview, contains("title: const Text('退出登录')"));
     expect(preview, contains("Key('v2-workspace-refresh')"));
     expect(preview, contains("Key('v2-menu-refresh')"));
-    expect(preview, contains("const Text('近期安排')"));
+    expect(preview, contains("title: const Text('之后')"));
     expect(preview, contains("Key('v2-today-quick-capture')"));
     expect(preview, isNot(contains('.take(4)')));
     expect(preview, contains("Key('v2-empty-management')"));
