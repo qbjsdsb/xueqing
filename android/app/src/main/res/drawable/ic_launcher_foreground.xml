@@ -1,10 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Human / learner head. -->
+    <path android:pathData="M54,24 A10.5,10.5 0,1 1,53.99 45 A10.5,10.5 0,1 1,54 24">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="47"
+                android:startY="25"
+                android:endX="61"
+                android:endY="45"
+                android:startColor="#72C86E"
+                android:endColor="#0C8B78" />
+        </aapt:attr>
+    </path>
+
+    <!-- Left page / observation path. -->
+    <path android:pathData="M54,82 C48,76 41,72 32,70 C24,68 20,63 20,56 L20,40 C20,37 22,36 25,37 C39,40 49,48 54,60 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="22"
+                android:startY="39"
+                android:endX="55"
+                android:endY="82"
+                android:startColor="#2D8A76"
+                android:endColor="#006A63" />
+        </aapt:attr>
+    </path>
+
+    <!-- Right page / growth path. -->
+    <path android:pathData="M54,82 C60,76 67,72 76,70 C84,68 88,63 88,56 L88,41 C88,38 86,37 83,38 C69,42 59,49 54,60 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="83"
+                android:startY="38"
+                android:endX="56"
+                android:endY="80"
+                android:startColor="#C8EBC2"
+                android:endColor="#72C9A4" />
+        </aapt:attr>
+    </path>
+
+    <!-- The overlap makes the two paths read as one continuous growth loop. -->
     <path
-        android:fillColor="#F8F6EF"
-        android:pathData="M51.2,35.0 L51.2,75.5 Q41.8,72.0 30.8,69.2 L30.8,31.5 Q40.2,33.0 51.2,35.0 Z M56.8,35.0 L56.8,75.5 Q66.2,72.0 77.2,69.2 L77.2,31.5 Q67.8,33.0 56.8,35.0 Z" />
+        android:fillColor="#176C60"
+        android:fillAlpha="0.72"
+        android:pathData="M54,60 C50,68 47,75 45,78 C49,80 52,81.5 54,82 Z" />
 </vector>
