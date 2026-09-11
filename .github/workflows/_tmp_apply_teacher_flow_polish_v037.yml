@@ -22,6 +22,9 @@ jobs:
       - name: Apply focused source patch
         run: python3 tool/_tmp_apply_teacher_flow_polish_v037.py
 
+      - name: Align existing UI contracts with Today-first flow
+        run: python3 tool/_tmp_patch_v037_tests.py
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -71,7 +74,8 @@ jobs:
           git config user.email '3342513714@qq.com'
           git rm \
             .github/workflows/_tmp_apply_teacher_flow_polish_v037.yml \
-            tool/_tmp_apply_teacher_flow_polish_v037.py
+            tool/_tmp_apply_teacher_flow_polish_v037.py \
+            tool/_tmp_patch_v037_tests.py
           git add \
             lib/features/design_v2/v2_workspace_preview.dart \
             lib/features/design_v2/v2_composers.dart \
