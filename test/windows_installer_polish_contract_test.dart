@@ -52,14 +52,14 @@ void main() {
       'tools/windows_installer/smoke_installer.ps1',
     ).readAsStringSync();
 
-    expect(buildScript, contains(r'$env:CI -eq "true"'));
+    expect(buildScript, contains(r'$env:CI -eq "true"'.replaceAll(r'\"', '"')));
     expect(buildScript, contains('smoke_installer.ps1'));
     expect(buildScript, contains('-SkipSmoke'));
 
     expect(smokeScript, contains('0.0.1-preupgrade'));
-    expect(smokeScript, contains('/MERGETASKS=\"!desktopicon\"'));
+    expect(smokeScript, contains('/MERGETASKS=!desktopicon'));
     expect(smokeScript, contains('upgrade-preserve-probe.txt'));
-    expect(smokeScript, contains('DisplayVersion -ne \$AppVersion'));
+    expect(smokeScript, contains(r'DisplayVersion -ne $AppVersion'));
     expect(
       smokeScript,
       contains(
