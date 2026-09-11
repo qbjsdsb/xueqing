@@ -25,7 +25,10 @@ jobs:
           cache: true
 
       - name: Apply focused patch
-        run: python3 tool/tmp_v035_patch.py
+        shell: bash
+        run: |
+          sed -i "s/error.code.trim().toUpperCase()/error.code?.trim().toUpperCase() ?? ''/" tool/tmp_v035_patch.py
+          python3 tool/tmp_v035_patch.py
 
       - name: Format
         run: |
