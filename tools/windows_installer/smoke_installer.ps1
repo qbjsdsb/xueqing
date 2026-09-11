@@ -114,7 +114,7 @@ try {
   # that choice instead of recreating the icon every time.
   Invoke-Setup `
     -Installer $priorInstaller `
-    -ExtraArguments @('/MERGETASKS="!desktopicon"')
+    -ExtraArguments @('/MERGETASKS=!desktopicon')
   Assert-InstalledFiles
 
   if (-not (Test-Path $startMenuShortcut)) {
