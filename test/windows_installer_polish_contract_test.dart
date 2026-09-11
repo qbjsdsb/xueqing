@@ -55,9 +55,10 @@ void main() {
 
     expect(buildScript, contains(r'$env:CI -eq "true"'));
     expect(buildScript, contains('smoke_installer.ps1'));
-    expect(buildScript, contains('-SkipSmoke'));
+    expect(buildScript, contains(r'[switch]$SkipSmoke'));
 
     expect(smokeScript, contains('0.0.1-preupgrade'));
+    expect(smokeScript, contains('-SkipSmoke'));
     expect(smokeScript, contains('/MERGETASKS=!desktopicon'));
     expect(smokeScript, contains('upgrade-preserve-probe.txt'));
     expect(smokeScript, contains(r'DisplayVersion -ne $AppVersion'));
