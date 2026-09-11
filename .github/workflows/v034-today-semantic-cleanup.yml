@@ -71,3 +71,5 @@ jobs:
 
       - name: Full Flutter tests
         run: flutter test
+
+# retrigger: 2026-09-11-v034-1
