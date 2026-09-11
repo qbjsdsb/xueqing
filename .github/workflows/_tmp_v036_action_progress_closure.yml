@@ -18,6 +18,28 @@ jobs:
           channel: stable
           flutter-version: 3.47.1
           cache: true
+      - name: Scope patch to progress route
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tool/_tmp_v036_action_progress_patch.py')
+          text = path.read_text()
+          old = '''workspace = replace_once(
+              workspace,
+              "  ComposerDraftSnapshot? initialDraft,\\n}) async {",
+              "  ComposerDraftSnapshot? initialDraft,\\n  bool completeCurrentActionInitially = false,\\n}) async {",
+              'progress route parameter',
+          )'''.replace('              ', '    ')
+          new = '''workspace = replace_once(
+              workspace,
+              "Future<void> _showV2ProgressForCase(\\n  BuildContext context,\\n  V2Student student,\\n  V2FocusItem item, {\\n  ComposerDraftSnapshot? initialDraft,\\n}) async {",
+              "Future<void> _showV2ProgressForCase(\\n  BuildContext context,\\n  V2Student student,\\n  V2FocusItem item, {\\n  ComposerDraftSnapshot? initialDraft,\\n  bool completeCurrentActionInitially = false,\\n}) async {",
+              'progress route parameter',
+          )'''.replace('              ', '    ')
+          if old not in text:
+              raise SystemExit('progress route patch block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Apply patch
         run: python3 tool/_tmp_v036_action_progress_patch.py
       - name: Format changed Dart files
