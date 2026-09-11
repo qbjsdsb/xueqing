@@ -70,8 +70,7 @@ class _LearningRecordCasePicker extends StatefulWidget {
       _LearningRecordCasePickerState();
 }
 
-class _LearningRecordCasePickerState
-    extends State<_LearningRecordCasePicker> {
+class _LearningRecordCasePickerState extends State<_LearningRecordCasePicker> {
   late Set<String> _selectedIds;
 
   @override
@@ -108,10 +107,7 @@ class _LearningRecordCasePickerState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '选择要导出的学情',
-                        style: theme.textTheme.titleLarge,
-                      ),
+                      Text('选择要导出的学情', style: theme.textTheme.titleLarge),
                       const SizedBox(height: 4),
                       Text(
                         '${widget.studentName} · ${widget.subjectName}',
@@ -168,10 +164,8 @@ class _LearningRecordCasePickerState
             Expanded(
               child: ListView.separated(
                 itemCount: widget.cases.length,
-                separatorBuilder: (_, _) => Divider(
-                  height: 1,
-                  color: theme.colorScheme.outlineVariant,
-                ),
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, color: theme.colorScheme.outlineVariant),
                 itemBuilder: (context, index) {
                   final item = widget.cases[index];
                   final closed = item.status == LearningCaseStatus.closed;

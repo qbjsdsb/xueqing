@@ -50,27 +50,33 @@ void main() {
       },
     );
 
-    test('teacher case delete is an audited not-issue closure', () async {
-      final progress = _FakeProgressiveCaseRepository();
-      final controller = V2WorkflowController(
-        workspace: _workspace(),
-        learningRepository: _FakeLearningRepository(),
-        progressiveCaseRepository: progress,
-      );
+    test(
+      'teacher case invalidation uses the dedicated record command',
+      () async {
+        final progress = _FakeProgressiveCaseRepository();
+        final controller = V2WorkflowController(
+          workspace: _workspace(),
+          learningRepository: _FakeLearningRepository(),
+          progressiveCaseRepository: progress,
+        );
 
-      await controller.voidCase(
-        operationId: 'operation-void-case',
-        caseId: 'case-existing',
-      );
+        await controller.voidCase(
+          operationId: 'operation-void-case',
+          caseId: 'case-existing',
+          reason: CaseVoidReason.duplicate,
+          note: '重复记录',
+        );
 
-      expect(progress.endCalls, hasLength(1));
-      final command = progress.endCalls.single;
-      expect(command.operationId, 'operation-void-case');
-      expect(command.caseId, 'case-existing');
-      expect(command.expectedCaseVersion, 3);
-      expect(command.reason, CaseClosureReason.notIssue);
-      expect(command.note, contains('删除/作废'));
-    });
+        expect(progress.voidCalls, hasLength(1));
+        final command = progress.voidCalls.single;
+        expect(command.operationId, 'operation-void-case');
+        expect(command.caseId, 'case-existing');
+        expect(command.expectedCaseVersion, 3);
+        expect(command.reason, CaseVoidReason.duplicate);
+        expect(command.note, '重复记录');
+        expect(progress.endCalls, isEmpty);
+      },
+    );
 
     test('same-name students never replace stable student identity', () async {
       final learning = _FakeLearningRepository();
@@ -775,12 +781,14 @@ class _FakeLearningRepository extends Fake implements LearningRepository {
 }
 
 class _FakeProgressiveCaseRepository extends Fake
-    implements ProgressiveCaseRepository {
+    implements ProgressiveCaseRepository, LearningCaseRecordRepository {
   _FakeProgressiveCaseRepository({this.log});
 
   final List<String>? log;
   final calls = <RecordCaseProgressCommand>[];
   final endCalls = <EndCaseFollowUpCommand>[];
+  final voidCalls = <VoidLearningCaseCommand>[];
+  final restoreCalls = <RestoreLearningCaseCommand>[];
   ProgressiveCaseReceipt receipt = const ProgressiveCaseReceipt(
     operationId: 'operation-progress',
     caseId: 'case-existing',
@@ -812,6 +820,41 @@ class _FakeProgressiveCaseRepository extends Fake
       eventId: 'event-void',
     );
   }
+
+  @override
+  Future<LearningCaseRecordReceipt> voidLearningCase(
+    VoidLearningCaseCommand command,
+  ) async {
+    voidCalls.add(command);
+    return LearningCaseRecordReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      recordState: 'voided',
+      caseStatus: 'confirmed',
+      caseVersion: command.expectedCaseVersion + 1,
+      eventId: 'event-case-voided',
+    );
+  }
+
+  @override
+  Future<LearningCaseRecordReceipt> restoreLearningCase(
+    RestoreLearningCaseCommand command,
+  ) async {
+    restoreCalls.add(command);
+    return LearningCaseRecordReceipt(
+      operationId: command.operationId,
+      caseId: command.caseId,
+      recordState: 'active',
+      caseStatus: 'confirmed',
+      caseVersion: command.expectedCaseVersion + 1,
+      eventId: 'event-case-restored',
+    );
+  }
+
+  @override
+  Future<List<VoidedLearningCaseSummary>> listVoidedLearningCases({
+    required String profileId,
+  }) async => const <VoidedLearningCaseSummary>[];
 }
 
 class _UploadCall {

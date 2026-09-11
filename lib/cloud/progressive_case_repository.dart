@@ -471,9 +471,7 @@ class SupabaseProgressiveCaseRepository
     return List<VoidedLearningCaseSummary>.unmodifiable([
       for (final item in response)
         if (item is Map)
-          VoidedLearningCaseSummary.fromJson(
-            Map<String, dynamic>.from(item),
-          )
+          VoidedLearningCaseSummary.fromJson(Map<String, dynamic>.from(item))
         else
           throw const FormatException(
             'list_voided_learning_cases returned an invalid row.',

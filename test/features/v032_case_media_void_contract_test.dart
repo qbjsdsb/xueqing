@@ -26,7 +26,7 @@ void main() {
   });
 
   test(
-    'teacher delete remains an audited closure rather than physical delete',
+    'teacher invalidation is audited and never physically deletes history',
     () {
       final controller = File(
         'lib/features/design_v2/v2_workflow_controller.dart',
@@ -34,13 +34,14 @@ void main() {
       final preview = File('lib/features/design_v2/v2_workspace_preview.dart')
           .readAsStringSync();
 
-      expect(controller, contains('progressiveCaseRepository.endFollowUp('));
-      expect(controller, contains('reason: CaseClosureReason.notIssue'));
-      expect(controller, isNot(contains('deleteLearningCase')));
-      expect(preview, contains("title: const Text('删除这个问题？')"));
+      expect(controller, contains('repository.voidLearningCase('));
+      expect(controller, contains('VoidLearningCaseCommand('));
+      expect(controller, isNot(contains("note: '教师删除/作废误建或重复问题'")));
+      expect(preview, contains("title: const Text('作废这条学情？')"));
+      expect(preview, contains("key: const Key('v2-void-reason')"));
       expect(preview, contains("key: const Key('v2-confirm-void-case')"));
-      expect(preview, contains("child: saving"));
-      expect(preview, contains(": const Text('删除问题')"));
+      expect(preview, contains("const Text('确认作废')"));
+      expect(preview, contains("'作废错误学情'"));
     },
   );
 }

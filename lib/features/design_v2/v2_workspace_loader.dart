@@ -181,9 +181,8 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
       return;
     }
     if (profile.cases.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('当前学科没有可导出的有效学情。')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('当前学科没有可导出的有效学情。')));
       return;
     }
 
@@ -197,9 +196,8 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
       return;
     }
     if (selectedCaseIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有选择要导出的学情。')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('没有选择要导出的学情。')));
       return;
     }
 
@@ -218,9 +216,9 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         return;
       }
       if (selectedRecords.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('所选学情目前没有可导出的记录，请刷新后重试。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('所选学情目前没有可导出的记录，请刷新后重试。')));
         return;
       }
       final rows = LearningRecordExport.rowsForStudentRecords(selectedRecords);

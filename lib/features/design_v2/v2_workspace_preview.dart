@@ -406,94 +406,362 @@ Future<bool> _showV2VoidCase(
 ) async {
   final runtime = _V2RuntimeScope.maybeOf(context);
   final controller = runtime?.workflowController;
-  if (controller == null || item.closed) return false;
+  if (controller == null) return false;
   final operationId = createOperationId();
+  final noteController = TextEditingController();
+  var selectedReason = CaseVoidReason.mistake;
 
-  final removed = await showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) {
-      var saving = false;
-      String? errorText;
-      return StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('删除这个问题？'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${student.name} · ${item.subject}\n${item.title}'),
-              const SizedBox(height: 12),
-              const Text('适合误建或重复的问题。删除后不会再作为进行中问题显示；已有成长记录会保留，方便以后追溯。'),
-              if (errorText != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  errorText!,
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: Theme.of(context).colorScheme.error),
+  try {
+    final removed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var saving = false;
+        String? errorText;
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('作废这条学情？'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${student.name} · ${item.subject}\n${item.title}'),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '仅用于误记录、重复记录或录错学生/学科。作废后不会出现在普通学情、今日提醒和默认导出中，但原有成长记录和图片仍会保留。',
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '如果这个问题真实存在过，只是不再继续跟进，请使用“结束跟进”。',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 18),
+                    DropdownButtonFormField<CaseVoidReason>(
+                      key: const Key('v2-void-reason'),
+                      initialValue: selectedReason,
+                      decoration: const InputDecoration(labelText: '作废原因'),
+                      items: [
+                        for (final reason in CaseVoidReason.values)
+                          DropdownMenuItem<CaseVoidReason>(
+                            value: reason,
+                            child: Text(reason.label),
+                          ),
+                      ],
+                      onChanged: saving
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              setDialogState(() => selectedReason = value);
+                            },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      key: const Key('v2-void-note'),
+                      controller: noteController,
+                      enabled: !saving,
+                      minLines: 2,
+                      maxLines: 4,
+                      maxLength: 200,
+                      decoration: const InputDecoration(
+                        labelText: '补充说明（可选）',
+                        hintText: '例如：与上一条重复录入',
+                      ),
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        errorText!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                key: const Key('v2-confirm-void-case'),
+                onPressed: saving
+                    ? null
+                    : () async {
+                        setDialogState(() {
+                          saving = true;
+                          errorText = null;
+                        });
+                        try {
+                          await controller.voidCase(
+                            operationId: operationId,
+                            caseId: item.id,
+                            reason: selectedReason,
+                            note: noteController.text,
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop(true);
+                          }
+                        } on V2WorkflowSaveException catch (error) {
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              saving = false;
+                              errorText = error.userMessage;
+                            });
+                          }
+                        } catch (_) {
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              saving = false;
+                              errorText = '这条学情暂时无法作废，请稍后重试。';
+                            });
+                          }
+                        }
+                      },
+                child: saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('确认作废'),
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: saving
-                  ? null
-                  : () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
+        );
+      },
+    );
+
+    if (removed == true && context.mounted) {
+      runtime?.onWorkspaceChanged?.call();
+      return true;
+    }
+    return false;
+  } finally {
+    noteController.dispose();
+  }
+}
+
+Future<void> _showV2VoidedCasesForStudent(
+  BuildContext context,
+  V2Student student,
+) async {
+  final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
+  if (controller == null) return;
+  final compact = MediaQuery.sizeOf(context).width < 720;
+  final content = _V2VoidedCasesView(
+    student: student,
+    controller: controller,
+    onChanged: _V2RuntimeScope.maybeOf(context)?.onWorkspaceChanged,
+  );
+  if (compact) {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => FractionallySizedBox(heightFactor: 0.82, child: content),
+    );
+  } else {
+    await showDialog<void>(
+      context: context,
+      builder: (_) =>
+          Dialog(child: SizedBox(width: 620, height: 600, child: content)),
+    );
+  }
+}
+
+class _V2VoidedCasesView extends StatefulWidget {
+  const _V2VoidedCasesView({
+    required this.student,
+    required this.controller,
+    this.onChanged,
+  });
+
+  final V2Student student;
+  final V2WorkflowController controller;
+  final VoidCallback? onChanged;
+
+  @override
+  State<_V2VoidedCasesView> createState() => _V2VoidedCasesViewState();
+}
+
+class _V2VoidedCasesViewState extends State<_V2VoidedCasesView> {
+  late Future<List<V2VoidedCaseItem>> _future;
+  String? _errorText;
+  String? _restoringCaseId;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.controller.listVoidedCasesForStudent(widget.student.id);
+  }
+
+  void _reload() {
+    setState(() {
+      _errorText = null;
+      _future = widget.controller.listVoidedCasesForStudent(widget.student.id);
+    });
+  }
+
+  String _dateLabel(DateTime value) =>
+      '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  Future<void> _restore(V2VoidedCaseItem item) async {
+    setState(() {
+      _restoringCaseId = item.caseId;
+      _errorText = null;
+    });
+    try {
+      await widget.controller.restoreVoidedCase(
+        operationId: createOperationId(),
+        item: item,
+      );
+      widget.onChanged?.call();
+      if (mounted) _reload();
+    } on V2WorkflowSaveException catch (error) {
+      if (mounted) setState(() => _errorText = error.userMessage);
+    } catch (_) {
+      if (mounted) setState(() => _errorText = '这条学情暂时无法恢复，请稍后重试。');
+    } finally {
+      if (mounted) setState(() => _restoringCaseId = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canRestore = widget.controller.workspace.canManageOrganization;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '已作废学情',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${widget.student.name} · 错误或重复档案',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
             ),
-            FilledButton(
-              key: const Key('v2-confirm-void-case'),
-              onPressed: saving
-                  ? null
-                  : () async {
-                      setDialogState(() {
-                        saving = true;
-                        errorText = null;
-                      });
-                      try {
-                        await controller.voidCase(
-                          operationId: operationId,
-                          caseId: item.id,
-                        );
-                        if (dialogContext.mounted) {
-                          Navigator.of(dialogContext).pop(true);
-                        }
-                      } on V2WorkflowSaveException catch (error) {
-                        if (dialogContext.mounted) {
-                          setDialogState(() {
-                            saving = false;
-                            errorText = error.userMessage;
-                          });
-                        }
-                      } catch (_) {
-                        if (dialogContext.mounted) {
-                          setDialogState(() {
-                            saving = false;
-                            errorText = '这个问题暂时无法删除，请稍后重试。';
-                          });
-                        }
-                      }
+            const SizedBox(height: 10),
+            Text(
+              canRestore
+                  ? '作废只隐藏错误档案，不会删除成长记录。负责人或管理员可以恢复。'
+                  : '作废只隐藏错误档案，不会删除成长记录；如需恢复，请联系负责人或管理员。',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            if (_errorText != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _errorText!,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Expanded(
+              child: FutureBuilder<List<V2VoidedCaseItem>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('已作废学情暂时无法读取。'),
+                          const SizedBox(height: 10),
+                          OutlinedButton(
+                            onPressed: _reload,
+                            child: const Text('重试'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  final items = snapshot.data ?? const <V2VoidedCaseItem>[];
+                  if (items.isEmpty) {
+                    return Center(
+                      child: Text(
+                        '没有已作废学情',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    );
+                  }
+                  return ListView.separated(
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => Divider(
+                      height: 1,
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      final restoring = _restoringCaseId == item.caseId;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(item.title),
+                        subtitle: Text(
+                          '${item.subject} · ${item.reasonLabel}\n${item.voidedByName} · ${_dateLabel(item.voidedAt)}${item.note == null ? '' : '\n${item.note}'}',
+                        ),
+                        isThreeLine: item.note != null,
+                        trailing: canRestore
+                            ? TextButton(
+                                key: ValueKey<String>(
+                                  'v2-restore-${item.caseId}',
+                                ),
+                                onPressed: restoring
+                                    ? null
+                                    : () => _restore(item),
+                                child: restoring
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('恢复'),
+                              )
+                            : null,
+                      );
                     },
-              child: saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('删除问题'),
+                  );
+                },
+              ),
             ),
           ],
         ),
-      );
-    },
-  );
-
-  if (removed == true && context.mounted) {
-    runtime?.onWorkspaceChanged?.call();
-    return true;
+      ),
+    );
   }
-  return false;
 }
 
 Future<void> _showV2ProgressForCase(
@@ -1978,7 +2246,9 @@ class _StudentHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = V2WorkspaceDataScope.of(context);
     final focusItems = data.focusItemsForStudent(student);
-    final exportStudent = _V2RuntimeScope.maybeOf(context)?.studentExport;
+    final runtime = _V2RuntimeScope.maybeOf(context);
+    final exportStudent = runtime?.studentExport;
+    final controller = runtime?.workflowController;
     final buttons = Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -1995,25 +2265,37 @@ class _StudentHeader extends StatelessWidget {
           icon: const Icon(Icons.edit_note_outlined, size: 18),
           label: const Text('记进展'),
         ),
-        if (exportStudent != null)
+        if (exportStudent != null || controller != null)
           PopupMenuButton<String>(
             key: const Key('v2-student-more-actions'),
             tooltip: '更多操作',
             icon: const Icon(Icons.more_horiz),
             onSelected: (value) async {
-              if (value == 'export') {
+              if (value == 'export' && exportStudent != null) {
                 await exportStudent(context, student);
+              } else if (value == 'voided' && controller != null) {
+                await _showV2VoidedCasesForStudent(context, student);
               }
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem<String>(
-                value: 'export',
-                child: ListTile(
-                  leading: Icon(Icons.download_outlined),
-                  title: Text('导出学情记录'),
-                  contentPadding: EdgeInsets.zero,
+            itemBuilder: (_) => [
+              if (exportStudent != null)
+                const PopupMenuItem<String>(
+                  value: 'export',
+                  child: ListTile(
+                    leading: Icon(Icons.download_outlined),
+                    title: Text('导出学情记录'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
-              ),
+              if (controller != null)
+                const PopupMenuItem<String>(
+                  value: 'voided',
+                  child: ListTile(
+                    leading: Icon(Icons.inventory_2_outlined),
+                    title: Text('已作废学情'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
             ],
           ),
       ],
@@ -2617,49 +2899,49 @@ class _CaseDetailPane extends StatelessWidget {
                           icon: const Icon(Icons.edit_note_outlined, size: 18),
                           label: const Text('记进展'),
                         ),
-                        if (controller != null) ...[
-                          const SizedBox(width: 4),
-                          PopupMenuButton<String>(
-                            key: ValueKey<String>('v2-case-more-${item.id}'),
-                            tooltip: '更多操作',
-                            icon: const Icon(Icons.more_vert),
-                            onSelected: (value) async {
-                              if (value != 'delete') return;
-                              final removed = await _showV2VoidCase(
-                                context,
-                                student,
-                                item,
-                              );
-                              if (removed && context.mounted) onBack();
-                            },
-                            itemBuilder: (menuContext) => [
-                              PopupMenuItem<String>(
-                                key: ValueKey<String>('v2-void-${item.id}'),
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.delete_outline,
-                                      size: 18,
+                      ],
+                      if (controller != null) ...[
+                        const SizedBox(width: 4),
+                        PopupMenuButton<String>(
+                          key: ValueKey<String>('v2-case-more-${item.id}'),
+                          tooltip: '更多操作',
+                          icon: const Icon(Icons.more_vert),
+                          onSelected: (value) async {
+                            if (value != 'void') return;
+                            final removed = await _showV2VoidCase(
+                              context,
+                              student,
+                              item,
+                            );
+                            if (removed && context.mounted) onBack();
+                          },
+                          itemBuilder: (menuContext) => [
+                            PopupMenuItem<String>(
+                              key: ValueKey<String>('v2-void-${item.id}'),
+                              value: 'void',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.hide_source_outlined,
+                                    size: 18,
+                                    color: Theme.of(menuContext)
+                                        .colorScheme
+                                        .error,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    '作废错误学情',
+                                    style: TextStyle(
                                       color: Theme.of(menuContext)
                                           .colorScheme
                                           .error,
                                     ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      '删除问题',
-                                      style: TextStyle(
-                                        color: Theme.of(menuContext)
-                                            .colorScheme
-                                            .error,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ],
                     ],
                   ),
@@ -3399,7 +3681,7 @@ class _V2OperationGuide extends StatelessWidget {
           const _V2GuideItem(
             icon: Icons.admin_panel_settings_outlined,
             title: '管理与导出',
-            body: '负责人/管理员在机构管理维护成员、学生、学科、任课和问题类型；学生详情可按学科导出。',
+            body: '负责人/管理员在机构管理维护成员、学生、学科、任课和问题类型；学生详情可选择具体学情导出，误建记录可安全作废。',
           ),
           const _V2GuideItem(
             icon: Icons.sync_outlined,
