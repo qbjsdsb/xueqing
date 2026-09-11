@@ -40,6 +40,10 @@ void main() {
     );
     expect(loader, contains('selectedCaseIds.contains(record.learningCaseId)'));
     expect(loader, contains('showLearningRecordCasePicker('));
+    expect(loader, contains('final exportedCaseIds = selectedRecords'));
+    expect(loader, contains('exportedCaseIds.containsAll(selectedCaseIds)'));
+    expect(loader, contains('部分所选学情刚刚发生变化，请刷新后重新选择导出。'));
+    expect(loader, contains("summary: '已导出 \${exportedCaseIds.length} 条学情'"));
   });
 
   test('raw handshake failures are not exposed as the primary login message', () {
