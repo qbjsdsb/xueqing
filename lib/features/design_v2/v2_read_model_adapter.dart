@@ -55,9 +55,6 @@ class V2ReadModelSnapshot {
   }
 }
 
-/// Keeps the exact subject-profile and optimistic-lock identity that the V2 UI
-/// must not lose when it groups multiple subject profiles into one visible
-/// student.
 class V2CaseBinding {
   const V2CaseBinding({
     required this.studentId,
@@ -151,13 +148,14 @@ class V2ReadModelAdapter {
         final item = V2FocusItem(
           id: learningCase.id,
           studentId: profile.id,
-          title: learningCase.title,
+          title: _caseTitle(learningCase),
           summary: _caseSummary(learningCase),
-          nextStep: closed ? '跟进已结束' : _nextStep(primaryAction),
+          nextStep: closed ? '跟进已结束' : _nextStep(primaryAction, learningCase),
           dueLabel: closed ? '已结束' : _dueLabel(primaryAction),
           subject: profile.subject,
           actionTiming: closed ? null : _actionTiming(primaryAction),
           dueOn: closed ? null : _actionDueOn(primaryAction),
+          caseStatus: _caseStatus(learningCase.status),
           pendingVerification:
               !closed &&
               learningCase.status == LearningCaseStatus.pendingVerification,
@@ -186,11 +184,8 @@ class V2ReadModelAdapter {
             V2TimelineEntry(
               caseId: learningCase.id,
               date: _dateLabel(event.occurredAt),
-              kind: event.typeLabel,
+              kind: _timelineKind(event),
               body: _timelineBody(event),
-              // WorkspaceTimelineEvent currently has no historical actor name.
-              // An empty value is intentional: never attribute old records to
-              // the current viewer just to fill the UI.
               teacher: '',
               time: _timeLabel(event.occurredAt),
               evidenceId: event.evidenceId,
@@ -212,30 +207,91 @@ class V2ReadModelAdapter {
     );
   }
 
+  static String _timelineKind(WorkspaceTimelineEvent event) {
+    final label = event.typeLabel.trim();
+    if (label == '发现问题') {
+      return '建立跟进';
+    }
+    return label;
+  }
+
   static String _timelineBody(WorkspaceTimelineEvent event) {
     final text = event.text.trim();
     const assessmentPrefix = '检查结果 · ';
-    if (!event.typeLabel.startsWith(assessmentPrefix) || text.isEmpty) {
-      return text;
+    var body = text;
+    if (event.typeLabel.startsWith(assessmentPrefix) && text.isNotEmpty) {
+      final resultLabel = event.typeLabel
+          .substring(assessmentPrefix.length)
+          .trim();
+      if (resultLabel.isNotEmpty) {
+        final lines = text.split('\n');
+        if (lines.isNotEmpty &&
+            _normalizedText(lines.first) ==
+                _normalizedText('检查结果：$resultLabel')) {
+          body = lines.skip(1).join('\n').trim();
+        }
+      }
     }
+    return _dedupeTimelineLines(body);
+  }
 
-    final resultLabel = event.typeLabel
-        .substring(assessmentPrefix.length)
-        .trim();
-    if (resultLabel.isEmpty) return text;
-
-    final lines = text.split('\n');
-    if (lines.isEmpty) return text;
-    String normalize(String value) =>
-        value.trim().replaceAll('：', ':').replaceAll(RegExp(r'\s+'), '');
-    if (normalize(lines.first) != normalize('检查结果：$resultLabel')) {
-      return text;
+  static String _dedupeTimelineLines(String value) {
+    if (value.trim().isEmpty) {
+      return '';
     }
-    return lines.skip(1).join('\n').trim();
+    final result = <String>[];
+    final seen = <String>{};
+    for (final rawLine in value.split('\n')) {
+      final line = _stripTimelinePrefix(rawLine.trim());
+      if (line.isEmpty) {
+        continue;
+      }
+      if (!seen.add(line)) {
+        continue;
+      }
+      result.add(line);
+    }
+    return result.join('\n');
+  }
+
+  static String _stripTimelinePrefix(String value) {
+    const prefixes = <String>[
+      '学生表现：',
+      '学生表现:',
+      '新表现：',
+      '新表现:',
+      '教学处理：',
+      '教学处理:',
+      '记录：',
+      '记录:',
+    ];
+    for (final prefix in prefixes) {
+      if (value.startsWith(prefix)) {
+        return value.substring(prefix.length).trim();
+      }
+    }
+    return value;
   }
 
   static bool _isActiveCase(WorkspaceCase learningCase) =>
       learningCase.status != LearningCaseStatus.closed;
+
+  static V2CaseStatus _caseStatus(LearningCaseStatus status) {
+    switch (status) {
+      case LearningCaseStatus.newCase:
+        return V2CaseStatus.newCase;
+      case LearningCaseStatus.confirmed:
+        return V2CaseStatus.confirmed;
+      case LearningCaseStatus.intervening:
+        return V2CaseStatus.intervening;
+      case LearningCaseStatus.pendingVerification:
+        return V2CaseStatus.pendingVerification;
+      case LearningCaseStatus.stable:
+        return V2CaseStatus.stable;
+      case LearningCaseStatus.closed:
+        return V2CaseStatus.closed;
+    }
+  }
 
   static V2ActionTiming? _actionTiming(WorkspaceAction? action) =>
       switch (action?.bucket) {
@@ -246,23 +302,81 @@ class V2ReadModelAdapter {
         null => null,
       };
 
-  static String _caseSummary(WorkspaceCase learningCase) {
-    final description = learningCase.description?.trim();
-    if (description != null && description.isNotEmpty) {
-      return description;
+  static String _caseTitle(WorkspaceCase learningCase) {
+    final title = learningCase.title.trim();
+    if (learningCase.status != LearningCaseStatus.pendingVerification) {
+      return title;
     }
-    if (learningCase.evidence.isEmpty) {
-      return '暂无补充说明';
-    }
-    final evidence = learningCase.evidence.toList(growable: false)
-      ..sort((a, b) => b.observedAt.compareTo(a.observedAt));
-    final summary = evidence.first.summary.trim();
-    return summary.isEmpty ? '暂无补充说明' : summary;
+    return _stripPendingVerificationSuffix(title);
   }
 
-  static String _nextStep(WorkspaceAction? action) {
+  static String _caseSummary(WorkspaceCase learningCase) {
+    final description = learningCase.description?.trim();
+    String summary;
+    if (description != null && description.isNotEmpty) {
+      summary = description;
+    } else if (learningCase.evidence.isNotEmpty) {
+      final evidence = learningCase.evidence.toList(growable: false)
+        ..sort((a, b) => b.observedAt.compareTo(a.observedAt));
+      summary = evidence.first.summary.trim();
+    } else {
+      summary = '';
+    }
+
+    summary = _dedupeTimelineLines(summary);
+    final repeatsTitle =
+        _normalizedText(summary).isNotEmpty &&
+        _normalizedText(summary) == _normalizedText(learningCase.title);
+    if (learningCase.status == LearningCaseStatus.pendingVerification) {
+      final cleaned = _stripPendingVerificationSuffix(summary);
+      final repeatsDisplayTitle =
+          _normalizedText(cleaned).isNotEmpty &&
+          _normalizedText(cleaned) == _normalizedText(_caseTitle(learningCase));
+      if (cleaned.isEmpty || repeatsTitle || repeatsDisplayTitle) {
+        return '已完成当前阶段，尚需再次检查确认是否稳定掌握。';
+      }
+      return cleaned;
+    }
+    if (repeatsTitle) {
+      return '';
+    }
+    return summary;
+  }
+
+  static String _stripPendingVerificationSuffix(String value) {
+    var result = value.trim();
+    const suffixes = <String>[
+      '，有待复检',
+      '，待复检',
+      '，有待验证',
+      '，待验证',
+      '，有待检查',
+      '，待检查',
+      ',有待复检',
+      ',待复检',
+      ',有待验证',
+      ',待验证',
+      ',有待检查',
+      ',待检查',
+    ];
+    for (final suffix in suffixes) {
+      if (result.endsWith(suffix) && result.length > suffix.length) {
+        result = result.substring(0, result.length - suffix.length).trim();
+        break;
+      }
+    }
+    return result;
+  }
+
+  static String _nextStep(WorkspaceAction? action, WorkspaceCase learningCase) {
     final title = action?.title.trim();
-    return title == null || title.isEmpty ? '待安排下一步' : title;
+    if (title != null && title.isNotEmpty) {
+      return title;
+    }
+    if (learningCase.status == LearningCaseStatus.pendingVerification) {
+      return '安排一次复检';
+    }
+    return '安排下一步';
   }
 
   static DateTime? _actionDueOn(WorkspaceAction? action) =>
@@ -272,6 +386,12 @@ class V2ReadModelAdapter {
     final date = _actionDueOn(action);
     return date == null ? '待安排' : _dateLabel(date);
   }
+
+  static String _normalizedText(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll('：', ':')
+      .replaceAll(RegExp(r'\s+'), '');
 
   static String _dateLabel(DateTime value) => '${value.month} 月 ${value.day} 日';
 

@@ -190,6 +190,9 @@ Future<bool> showV2ProgressComposer(
   required String caseTitle,
   bool canCompleteCurrentAction = false,
   DateTime? businessDate,
+  V2ProgressKind initialKind = V2ProgressKind.observation,
+  String composerTitle = '记录进展',
+  String primaryLabel = '保存进展',
   V2ProgressSave? onSave,
   V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,
   V2ProgressPersistence? persistence,
@@ -203,6 +206,9 @@ Future<bool> showV2ProgressComposer(
           caseTitle: caseTitle,
           canCompleteCurrentAction: canCompleteCurrentAction,
           businessDate: businessDate,
+          initialKind: initialKind,
+          composerTitle: composerTitle,
+          primaryLabel: primaryLabel,
           onSave: onSave,
           attachmentPicker: attachmentPicker,
           persistence: persistence,
@@ -719,6 +725,9 @@ class V2ProgressComposer extends StatefulWidget {
     required this.attachmentPicker,
     this.canCompleteCurrentAction = false,
     this.businessDate,
+    this.initialKind = V2ProgressKind.observation,
+    this.composerTitle = '记录进展',
+    this.primaryLabel = '保存进展',
     this.onSave,
     this.persistence,
     super.key,
@@ -730,6 +739,9 @@ class V2ProgressComposer extends StatefulWidget {
   final V2AttachmentPicker attachmentPicker;
   final bool canCompleteCurrentAction;
   final DateTime? businessDate;
+  final V2ProgressKind initialKind;
+  final String composerTitle;
+  final String primaryLabel;
   final V2ProgressSave? onSave;
   final V2ProgressPersistence? persistence;
 
@@ -741,7 +753,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   final _controller = TextEditingController();
   final _reminderController = TextEditingController();
   final _attachments = <PickedEvidenceAttachment>[];
-  V2ProgressKind _kind = V2ProgressKind.observation;
+  late V2ProgressKind _kind;
   V2NextStep _nextStep = V2NextStep.continueTracking;
   V2AssessmentResult? _assessmentResult;
   V2CloseReason _closeReason = V2CloseReason.resolved;
@@ -754,6 +766,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   @override
   void initState() {
     super.initState();
+    _kind = widget.initialKind;
     final initialDraft = widget.persistence?.initialDraft;
     if (initialDraft != null) {
       _applyInitialDraft(initialDraft);
@@ -972,7 +985,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   bool get _hasDraft =>
       _controller.text.trim().isNotEmpty ||
       _attachments.isNotEmpty ||
-      _kind != V2ProgressKind.observation ||
+      _kind != widget.initialKind ||
       _nextStep != V2NextStep.continueTracking ||
       _assessmentResult != null ||
       _reminderController.text.trim().isNotEmpty ||
@@ -1068,12 +1081,12 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   @override
   Widget build(BuildContext context) {
     return _ComposerScaffold(
-      title: '记录进展',
+      title: widget.composerTitle,
       contextLine:
           '${widget.studentName} · ${widget.subject}\n${widget.caseTitle}',
       onClose: _saving ? null : _close,
       footer: _ComposerFooter(
-        primaryLabel: '保存进展',
+        primaryLabel: widget.primaryLabel,
         onPrimary: _canSave ? _save : null,
         saving: _saving,
         previewMode: widget.onSave == null,

@@ -120,6 +120,43 @@ void main() {
     },
   );
 
+  testWidgets('Progress Composer can open directly in verification mode', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      app(
+        Builder(
+          builder: (context) => FilledButton(
+            onPressed: () => showV2ProgressComposer(
+              context,
+              studentName: '林同学',
+              subject: '语文',
+              caseTitle: '背诵待复检',
+              initialKind: V2ProgressKind.assessment,
+              composerTitle: '记录复检',
+              primaryLabel: '保存复检',
+              attachmentPicker: (_) async => null,
+            ),
+            child: const Text('打开复检'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('打开复检'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('记录复检'), findsOneWidget);
+    expect(find.text('通过'), findsOneWidget);
+    expect(find.text('部分通过'), findsOneWidget);
+    expect(find.text('未通过'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '保存复检'), findsOneWidget);
+    expect(find.text('放弃这段记录？'), findsNothing);
+  });
+
   testWidgets(
     'writable Quick Capture keeps text and photo when save fails, then retries',
     (tester) async {

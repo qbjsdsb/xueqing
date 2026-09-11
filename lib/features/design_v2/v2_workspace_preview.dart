@@ -814,6 +814,11 @@ Future<void> _showV2ProgressForCase(
     canCompleteCurrentAction:
         controller?.hasPendingPrimaryAction(item.id) ?? false,
     businessDate: controller?.businessDate,
+    initialKind: item.pendingVerification
+        ? V2ProgressKind.assessment
+        : V2ProgressKind.observation,
+    composerTitle: item.pendingVerification ? '记录复检' : '记录进展',
+    primaryLabel: item.pendingVerification ? '保存复检' : '保存进展',
     persistence: persistence,
     onSave: controller == null
         ? null
@@ -2505,6 +2510,59 @@ class _TimelineRow extends StatelessWidget {
   final bool last;
   final bool resolveEvidencePhotos;
 
+  Widget _entryBody(
+    BuildContext context, {
+    required EvidenceAttachmentRepository? attachmentRepository,
+    required bool canResolveRealPhotos,
+    required bool compact,
+  }) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final meta = entry.teacher.trim().isEmpty
+        ? '${entry.date} · ${entry.time}'
+        : '${entry.date} · ${entry.time} · ${entry.teacher}';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (compact) ...[
+          Text(
+            meta,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 5),
+        ],
+        Text(entry.kind, style: theme.textTheme.titleMedium),
+        if (entry.body.trim().isNotEmpty) ...[
+          const SizedBox(height: 5),
+          Text(entry.body, style: theme.textTheme.bodyMedium),
+        ],
+        if (canResolveRealPhotos) ...[
+          const SizedBox(height: 12),
+          _EvidencePhotoStrip(
+            evidenceId: entry.evidenceId!,
+            repository: attachmentRepository!,
+          ),
+        ] else if (entry.photoCount > 0) ...[
+          const SizedBox(height: 12),
+          _PhotoStrip(count: entry.photoCount),
+        ],
+        if (!compact) ...[
+          const SizedBox(height: 9),
+          Text(
+            entry.teacher.trim().isEmpty
+                ? entry.time
+                : '${entry.teacher} · ${entry.time}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -2514,6 +2572,57 @@ class _TimelineRow extends StatelessWidget {
         resolveEvidencePhotos &&
         entry.evidenceId != null &&
         attachmentRepository != null;
+    final compact = MediaQuery.sizeOf(context).width < 720;
+    final lineHeight = entry.photoCount > 0 || canResolveRealPhotos
+        ? 144.0
+        : 96.0;
+    final highlighted =
+        entry.kind == '建立跟进' ||
+        entry.kind == '新表现' ||
+        entry.kind.startsWith('检查结果');
+
+    if (compact) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 16,
+            child: Column(
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  margin: const EdgeInsets.only(top: 7),
+                  decoration: BoxDecoration(
+                    color: highlighted ? scheme.primary : scheme.outline,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                if (!last)
+                  Container(
+                    width: 1,
+                    height: lineHeight,
+                    color: scheme.outlineVariant,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: _entryBody(
+                context,
+                attachmentRepository: attachmentRepository,
+                canResolveRealPhotos: canResolveRealPhotos,
+                compact: true,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2536,16 +2645,14 @@ class _TimelineRow extends StatelessWidget {
                 height: 7,
                 margin: const EdgeInsets.only(top: 7),
                 decoration: BoxDecoration(
-                  color: entry.kind == '新表现' ? scheme.primary : scheme.outline,
+                  color: highlighted ? scheme.primary : scheme.outline,
                   shape: BoxShape.circle,
                 ),
               ),
               if (!last)
                 Container(
                   width: 1,
-                  height: entry.photoCount > 0 || canResolveRealPhotos
-                      ? 144
-                      : 96,
+                  height: lineHeight,
                   color: scheme.outlineVariant,
                 ),
             ],
@@ -2555,38 +2662,11 @@ class _TimelineRow extends StatelessWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(bottom: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.kind,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                if (entry.body.trim().isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    entry.body,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-                if (canResolveRealPhotos) ...[
-                  const SizedBox(height: 12),
-                  _EvidencePhotoStrip(
-                    evidenceId: entry.evidenceId!,
-                    repository: attachmentRepository,
-                  ),
-                ] else if (entry.photoCount > 0) ...[
-                  const SizedBox(height: 12),
-                  _PhotoStrip(count: entry.photoCount),
-                ],
-                const SizedBox(height: 9),
-                Text(
-                  entry.teacher.trim().isEmpty
-                      ? entry.time
-                      : '${entry.teacher} · ${entry.time}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+            child: _entryBody(
+              context,
+              attachmentRepository: attachmentRepository,
+              canResolveRealPhotos: canResolveRealPhotos,
+              compact: false,
             ),
           ),
         ),
@@ -2844,9 +2924,38 @@ class _CaseDetailPane extends StatelessWidget {
   final VoidCallback onBack;
   final bool compact;
 
+  String get _statusLabel {
+    switch (item.effectiveStatus) {
+      case V2CaseStatus.newCase:
+        return '新记录';
+      case V2CaseStatus.confirmed:
+      case V2CaseStatus.intervening:
+        return '跟进中';
+      case V2CaseStatus.pendingVerification:
+        return '待复检';
+      case V2CaseStatus.stable:
+        return '暂时稳定';
+      case V2CaseStatus.closed:
+        return '已结束';
+    }
+  }
+
+  String _primaryActionLabel(V2PendingActionSnapshot? pendingAction) {
+    if (item.pendingVerification) return '记录复检';
+    if (pendingAction != null && !pendingAction.canComplete) {
+      return '确认并跟进';
+    }
+    return '记进展';
+  }
+
+  IconData get _primaryActionIcon => item.pendingVerification
+      ? Icons.fact_check_outlined
+      : Icons.edit_note_outlined;
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final timelineEntries = V2WorkspaceDataScope.of(context)
         .timelineForCase(item);
     final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
@@ -2855,6 +2964,101 @@ class _CaseDetailPane extends StatelessWidget {
         : controller?.pendingActionFor(item.id);
     final canReopen =
         item.closed && (controller?.canReopenClosedCase(item.id) ?? false);
+    final showJudgment = _shouldShowCaseSummary(item);
+    final nextStep = _displayNextStep(item.nextStep);
+    final dueText = item.dueLabel.trim().isEmpty || item.dueLabel == '待安排'
+        ? '尚未安排时间'
+        : '计划 ${item.dueLabel}';
+
+    final identity = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          key: ValueKey<String>('v2-case-status-${item.id}'),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: item.pendingVerification
+                ? scheme.primaryContainer.withValues(alpha: 0.55)
+                : scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            _statusLabel,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: item.pendingVerification
+                  ? scheme.onPrimaryContainer
+                  : scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          item.title,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            height: 1.25,
+          ),
+        ),
+        if (showJudgment) ...[
+          const SizedBox(height: 16),
+          Text(
+            '当前判断',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(item.summary, style: theme.textTheme.bodyLarge),
+        ],
+      ],
+    );
+
+    final primaryButton = item.closed
+        ? null
+        : FilledButton.icon(
+            key: ValueKey<String>('v2-case-primary-${item.id}'),
+            onPressed: () => _showV2ProgressForCase(context, student, item),
+            icon: Icon(_primaryActionIcon, size: 18),
+            label: Text(_primaryActionLabel(pendingAction)),
+          );
+
+    final moreMenu = controller == null
+        ? null
+        : PopupMenuButton<String>(
+            key: ValueKey<String>('v2-case-more-${item.id}'),
+            tooltip: '更多操作',
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) async {
+              if (value != 'void') return;
+              final removed = await _showV2VoidCase(context, student, item);
+              if (removed && context.mounted) onBack();
+            },
+            itemBuilder: (menuContext) => [
+              PopupMenuItem<String>(
+                key: ValueKey<String>('v2-void-${item.id}'),
+                value: 'void',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.hide_source_outlined,
+                      size: 18,
+                      color: Theme.of(menuContext).colorScheme.error,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '作废错误学情',
+                      style: TextStyle(
+                        color: Theme.of(menuContext).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+
     return ColoredBox(
       color: scheme.surface,
       child: SingleChildScrollView(
@@ -2879,83 +3083,41 @@ class _CaseDetailPane extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     '${student.name} · ${item.subject}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
+                  if (compact) ...[
+                    identity,
+                    if (primaryButton != null || moreMenu != null) ...[
+                      const SizedBox(height: 18),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [?primaryButton, ?moreMenu],
                       ),
-                      if (!item.closed) ...[
-                        const SizedBox(width: 12),
-                        FilledButton.icon(
-                          onPressed: () =>
-                              _showV2ProgressForCase(context, student, item),
-                          icon: const Icon(Icons.edit_note_outlined, size: 18),
-                          label: const Text('记进展'),
-                        ),
-                      ],
-                      if (controller != null) ...[
-                        const SizedBox(width: 4),
-                        PopupMenuButton<String>(
-                          key: ValueKey<String>('v2-case-more-${item.id}'),
-                          tooltip: '更多操作',
-                          icon: const Icon(Icons.more_vert),
-                          onSelected: (value) async {
-                            if (value != 'void') return;
-                            final removed = await _showV2VoidCase(
-                              context,
-                              student,
-                              item,
-                            );
-                            if (removed && context.mounted) onBack();
-                          },
-                          itemBuilder: (menuContext) => [
-                            PopupMenuItem<String>(
-                              key: ValueKey<String>('v2-void-${item.id}'),
-                              value: 'void',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.hide_source_outlined,
-                                    size: 18,
-                                    color: Theme.of(menuContext)
-                                        .colorScheme
-                                        .error,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    '作废错误学情',
-                                    style: TextStyle(
-                                      color: Theme.of(menuContext)
-                                          .colorScheme
-                                          .error,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                     ],
-                  ),
-                  if (_shouldShowCaseSummary(item)) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      item.summary,
-                      style: Theme.of(context).textTheme.bodyLarge,
+                  ] else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: identity),
+                        if (primaryButton != null) ...[
+                          const SizedBox(width: 20),
+                          primaryButton,
+                        ],
+                        if (moreMenu != null) ...[
+                          const SizedBox(width: 4),
+                          moreMenu,
+                        ],
+                      ],
                     ),
-                  ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 26),
                   if (item.closed) ...[
-                    Text('状态', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 6),
                     Row(
                       children: [
                         Icon(
@@ -2966,8 +3128,8 @@ class _CaseDetailPane extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            _displayNextStep(item.nextStep),
-                            style: Theme.of(context).textTheme.bodyMedium,
+                            nextStep,
+                            style: theme.textTheme.bodyMedium,
                           ),
                         ),
                       ],
@@ -2976,9 +3138,9 @@ class _CaseDetailPane extends StatelessWidget {
                     Container(
                       key: ValueKey<String>('v2-case-next-step-${item.id}'),
                       width: double.infinity,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(17),
                       decoration: BoxDecoration(
-                        color: scheme.primaryContainer.withValues(alpha: 0.28),
+                        color: scheme.primaryContainer.withValues(alpha: 0.24),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: scheme.primary.withValues(alpha: 0.18),
@@ -2987,44 +3149,81 @@ class _CaseDetailPane extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '下一步',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium,
-                                ),
-                              ),
-                              Text(
-                                item.dueLabel,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
+                          Text(
+                            '下一步',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Icon(
-                                  Icons.arrow_forward,
-                                  size: 18,
-                                  color: scheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _displayNextStep(item.nextStep),
-                                  style: Theme.of(context).textTheme.bodyLarge
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
+                          const SizedBox(height: 7),
+                          Text(
+                            nextStep,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
+                          const SizedBox(height: 5),
+                          Text(
+                            dueText,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          if (pendingAction != null) ...[
+                            const SizedBox(height: 14),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (pendingAction.canComplete)
+                                  FilledButton.tonalIcon(
+                                    key: ValueKey<String>(
+                                      'v2-complete-${item.id}',
+                                    ),
+                                    onPressed: () =>
+                                        _showV2CompleteCurrentAction(
+                                          context,
+                                          student,
+                                          item,
+                                        ),
+                                    icon: const Icon(
+                                      Icons.check_circle_outline,
+                                      size: 18,
+                                    ),
+                                    label: const Text('完成这一步'),
+                                  ),
+                                OutlinedButton.icon(
+                                  key: ValueKey<String>(
+                                    'v2-reschedule-${item.id}',
+                                  ),
+                                  onPressed: () =>
+                                      _showV2RescheduleCurrentAction(
+                                        context,
+                                        student,
+                                        item,
+                                      ),
+                                  icon: const Icon(
+                                    Icons.event_repeat_outlined,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    pendingAction.dueOn == null ? '安排日期' : '改期',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              item.pendingVerification
+                                  ? '还没有安排复检时间。完成本次检查后如仍需继续关注，可在记录复检时设置下一次提醒。'
+                                  : '还没有具体提醒。记录下一次进展时，可以顺手安排后续。',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -3036,44 +3235,6 @@ class _CaseDetailPane extends StatelessWidget {
                           _showV2ReopenClosedCase(context, student, item),
                       icon: const Icon(Icons.restart_alt, size: 18),
                       label: const Text('再次出现，重新跟进'),
-                    ),
-                  ],
-                  if (pendingAction != null) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (pendingAction.canComplete)
-                          FilledButton.tonalIcon(
-                            key: ValueKey<String>('v2-complete-${item.id}'),
-                            onPressed: () => _showV2CompleteCurrentAction(
-                              context,
-                              student,
-                              item,
-                            ),
-                            icon: const Icon(
-                              Icons.check_circle_outline,
-                              size: 18,
-                            ),
-                            label: const Text('完成这一步'),
-                          ),
-                        OutlinedButton.icon(
-                          key: ValueKey<String>('v2-reschedule-${item.id}'),
-                          onPressed: () => _showV2RescheduleCurrentAction(
-                            context,
-                            student,
-                            item,
-                          ),
-                          icon: const Icon(
-                            Icons.event_repeat_outlined,
-                            size: 18,
-                          ),
-                          label: Text(
-                            pendingAction.dueOn == null ? '安排日期' : '改期',
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                   const SizedBox(height: 30),
@@ -3338,7 +3499,7 @@ class _TodayAction extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     item.pendingVerification
-                        ? '${item.title} · 继续关注'
+                        ? '${item.title} · 待复检'
                         : item.title,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -3671,7 +3832,7 @@ class _V2OperationGuide extends StatelessWidget {
           const _V2GuideItem(
             icon: Icons.edit_note_outlined,
             title: '继续跟进',
-            body: '进入问题点“记进展”，记录学生表现、教学处理或检查结果，并确定下一步。',
+            body: '进入问题后按当前状态“记进展”或“记录复检”，记录真实表现、教学处理或检查结果，并确定下一步。',
           ),
           const _V2GuideItem(
             icon: Icons.history_outlined,
