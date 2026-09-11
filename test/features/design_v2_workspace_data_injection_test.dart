@@ -37,8 +37,9 @@ void main() {
     await tester.tap(find.byTooltip('今日'));
     await tester.pumpAndSettle();
 
-    expect(find.text('需要处理'), findsNothing);
-    expect(find.text('待验证'), findsWidgets);
+    expect(find.text('现在要做'), findsOneWidget);
+    expect(find.text('待验证'), findsNothing);
+    expect(find.textContaining('继续关注'), findsOneWidget);
     expect(find.text('真实学生 · 语文'), findsOneWidget);
 
     await tester.tap(find.text('真实学生 · 语文'));
@@ -47,66 +48,65 @@ void main() {
     expect(find.text('真实问题'), findsOneWidget);
   });
 
-  testWidgets(
-    'Today separates future and unplanned work and uses business date',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1440, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets('Today hides actionless work and keeps future work secondary', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final data = V2WorkspaceData(
-        businessDate: DateTime(2026, 9, 12),
-        students: _injectedData.students,
-        focusItems: const [
-          V2FocusItem(
-            id: 'today-case',
-            studentId: 'real-student',
-            title: '今天处理',
-            summary: '今天应该出现。',
-            nextStep: '今天复查',
-            dueLabel: '今天',
-            subject: '语文',
-            actionTiming: V2ActionTiming.today,
-          ),
-          V2FocusItem(
-            id: 'future-case',
-            studentId: 'real-student',
-            title: '未来处理',
-            summary: '未来事项不应该挤进今日。',
-            nextStep: '下周复查',
-            dueLabel: '9 月 20 日',
-            subject: '语文',
-            actionTiming: V2ActionTiming.future,
-          ),
-          V2FocusItem(
-            id: 'fact-only-case',
-            studentId: 'real-student',
-            title: '仅记录事实',
-            summary: '没有 Action 的开放问题仍需安排下一步。',
-            nextStep: '待安排下一步',
-            dueLabel: '待安排',
-            subject: '语文',
-          ),
-        ],
-        timeline: const [],
-      );
+    final data = V2WorkspaceData(
+      businessDate: DateTime(2026, 9, 12),
+      students: _injectedData.students,
+      focusItems: const [
+        V2FocusItem(
+          id: 'today-case',
+          studentId: 'real-student',
+          title: '今天处理',
+          summary: '今天应该出现。',
+          nextStep: '今天复查',
+          dueLabel: '今天',
+          subject: '语文',
+          actionTiming: V2ActionTiming.today,
+        ),
+        V2FocusItem(
+          id: 'future-case',
+          studentId: 'real-student',
+          title: '未来处理',
+          summary: '未来事项不应该挤进今日。',
+          nextStep: '下周复查',
+          dueLabel: '9 月 20 日',
+          subject: '语文',
+          actionTiming: V2ActionTiming.future,
+        ),
+        V2FocusItem(
+          id: 'fact-only-case',
+          studentId: 'real-student',
+          title: '仅记录事实',
+          summary: '没有 Action 的开放问题仍需安排下一步。',
+          nextStep: '待安排下一步',
+          dueLabel: '待安排',
+          subject: '语文',
+        ),
+      ],
+      timeline: const [],
+    );
 
-      await tester.pumpWidget(app(data));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('今日'));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(app(data));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('今日'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('9 月 12 日 · 周六'), findsOneWidget);
-      expect(find.text('今天处理'), findsOneWidget);
-      expect(find.text('待安排下一步'), findsOneWidget);
-      expect(find.text('仅记录事实'), findsOneWidget);
-      expect(find.text('近期安排'), findsOneWidget);
-      expect(find.text('未来处理'), findsNothing);
+    expect(find.text('9 月 12 日 · 周六'), findsOneWidget);
+    expect(find.text('今天处理'), findsOneWidget);
+    expect(find.text('待安排下一步'), findsNothing);
+    expect(find.text('仅记录事实'), findsNothing);
+    expect(find.text('之后'), findsOneWidget);
+    expect(find.text('未来处理'), findsNothing);
 
-      await tester.tap(find.text('近期安排'));
-      await tester.pumpAndSettle();
-      expect(find.text('未来处理'), findsOneWidget);
-    },
-  );
+    await tester.tap(find.text('之后'));
+    await tester.pumpAndSettle();
+    expect(find.text('未来处理'), findsOneWidget);
+  });
 
   testWidgets('Today never silently drops the fifth current action', (
     tester,
@@ -139,7 +139,7 @@ void main() {
     await tester.tap(find.byTooltip('今日'));
     await tester.pumpAndSettle();
 
-    expect(find.text('需要处理'), findsOneWidget);
+    expect(find.text('现在要做'), findsOneWidget);
     expect(find.text('6'), findsOneWidget);
     for (var index = 1; index <= 6; index++) {
       expect(find.text('待处理事项 $index'), findsOneWidget);

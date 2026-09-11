@@ -94,6 +94,7 @@ class V2ReadModelAdapter {
       final seenSubjects = <String>{};
       var openCaseCount = 0;
       var hasLearningHistory = false;
+      DateTime? lastActivityAt;
 
       for (final profile in profiles) {
         final subject = profile.subject.trim();
@@ -102,6 +103,24 @@ class V2ReadModelAdapter {
         }
         if (profile.cases.isNotEmpty || profile.recentFacts.isNotEmpty) {
           hasLearningHistory = true;
+        }
+        for (final fact in profile.recentFacts) {
+          if (lastActivityAt == null ||
+              fact.occurredAt.isAfter(lastActivityAt)) {
+            lastActivityAt = fact.occurredAt;
+          }
+        }
+        for (final learningCase in profile.cases) {
+          if (lastActivityAt == null ||
+              learningCase.firstObservedAt.isAfter(lastActivityAt)) {
+            lastActivityAt = learningCase.firstObservedAt;
+          }
+          for (final event in learningCase.timeline) {
+            if (lastActivityAt == null ||
+                event.occurredAt.isAfter(lastActivityAt)) {
+              lastActivityAt = event.occurredAt;
+            }
+          }
         }
         openCaseCount += profile.cases.where(_isActiveCase).length;
       }
@@ -115,6 +134,7 @@ class V2ReadModelAdapter {
           openCaseCount: openCaseCount,
           updatedLabel: hasLearningHistory ? '已有更新' : '暂无记录',
           teacherSummary: '',
+          lastActivityAt: lastActivityAt,
         ),
       );
     }

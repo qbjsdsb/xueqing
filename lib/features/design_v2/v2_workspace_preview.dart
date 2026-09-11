@@ -296,12 +296,28 @@ Future<void> _showV2CompleteCurrentAction(
     return;
   }
   final operationId = createOperationId();
+  final photoEvidenceOperationId = createOperationId();
   final saved = await showV2CompleteActionComposer(
     context,
     actionTitle: action.title,
+    studentName: student.name,
+    subject: item.subject,
+    caseTitle: item.title,
     onSave: () => controller.completeCurrentAction(
       operationId: operationId,
       caseId: item.id,
+    ),
+    onSaveProgress: (summary) => controller.recordProgress(
+      V2ProgressWrite(
+        operationId: operationId,
+        photoEvidenceOperationId: photoEvidenceOperationId,
+        caseId: item.id,
+        progressKind: CaseProgressKind.observation,
+        summary: summary,
+        completeCurrentAction: true,
+        nextStep: CaseProgressNextStep.continueTracking,
+        attachments: const [],
+      ),
     ),
   );
   if (saved && context.mounted) {
@@ -1250,7 +1266,15 @@ class _DesktopWorkspace extends StatelessWidget {
                 ),
               ),
             ] else if (destination == 0) ...[
-              Expanded(child: _TodayPane(onOpenCase: onOpenCase)),
+              Expanded(
+                child: _TodayPane(
+                  onOpenCase: onOpenCase,
+                  onOpenStudent: (student) {
+                    onStudentSelected(student);
+                    onDestinationChanged(1);
+                  },
+                ),
+              ),
             ] else ...[
               Expanded(child: _CaseIndexPane(onOpenCase: onOpenCase)),
             ],
@@ -1321,6 +1345,11 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
     } else if (widget.destination == 0) {
       body = _TodayPane(
         onOpenCase: widget.onOpenCase,
+        onOpenStudent: (student) {
+          widget.onStudentSelected(student);
+          widget.onDestinationChanged(1);
+          setState(() => _studentOpen = true);
+        },
         compact: true,
         onOpenMore: widget.onOpenMore,
       );
@@ -2782,11 +2811,13 @@ class _CaseDetailPane extends StatelessWidget {
 class _TodayPane extends StatelessWidget {
   const _TodayPane({
     required this.onOpenCase,
+    required this.onOpenStudent,
     this.compact = false,
     this.onOpenMore,
   });
 
   final ValueChanged<V2FocusItem> onOpenCase;
+  final ValueChanged<V2Student> onOpenStudent;
   final bool compact;
   final VoidCallback? onOpenMore;
 
@@ -2811,39 +2842,31 @@ class _TodayPane extends StatelessWidget {
     } else if (rightDue != null) {
       return 1;
     }
-    return left.title.compareTo(right.title);
+    return left.nextStep.compareTo(right.nextStep);
   }
 
   @override
   Widget build(BuildContext context) {
     final data = V2WorkspaceDataScope.of(context);
     final validItems = data.focusItems
-        .where((item) => data.studentForFocusItemOrNull(item) != null)
+        .where(
+          (item) =>
+              data.studentForFocusItemOrNull(item) != null &&
+              item.actionTiming != null,
+        )
         .toList(growable: false);
-    final unplannedItems =
-        validItems
-            .where(
-              (item) => item.actionTiming == null && !item.pendingVerification,
-            )
-            .toList(growable: true)
-          ..sort(_compare);
-    final actionItems =
+    final currentItems =
         validItems
             .where(
               (item) =>
-                  item.actionTiming != null &&
-                  item.actionTiming != V2ActionTiming.future &&
-                  !item.pendingVerification,
+                  item.actionTiming == V2ActionTiming.overdue ||
+                  item.actionTiming == V2ActionTiming.today,
             )
             .toList(growable: true)
           ..sort(_compare);
-    final verificationItems =
+    final undatedItems =
         validItems
-            .where(
-              (item) =>
-                  item.actionTiming != V2ActionTiming.future &&
-                  item.pendingVerification,
-            )
+            .where((item) => item.actionTiming == V2ActionTiming.undated)
             .toList(growable: true)
           ..sort(_compare);
     final futureItems =
@@ -2851,6 +2874,14 @@ class _TodayPane extends StatelessWidget {
             .where((item) => item.actionTiming == V2ActionTiming.future)
             .toList(growable: true)
           ..sort(_compare);
+    final recentStudents =
+        data.students
+            .where((student) => student.lastActivityAt != null)
+            .toList(growable: true)
+          ..sort(
+            (left, right) =>
+                right.lastActivityAt!.compareTo(left.lastActivityAt!),
+          );
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(compact ? 18 : 32),
@@ -2876,6 +2907,11 @@ class _TodayPane extends StatelessWidget {
                           _todayLabel(data.businessDate),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '先处理已经安排好的跟进。',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ],
                     ),
                   ),
@@ -2898,43 +2934,28 @@ class _TodayPane extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 28),
-              if (actionItems.isEmpty &&
-                  verificationItems.isEmpty &&
-                  unplannedItems.isEmpty)
+              if (currentItems.isEmpty && undatedItems.isEmpty)
                 Text(
-                  '今天没有需要处理的学情事项',
+                  '今天暂时没有需要处理的提醒',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
-              if (actionItems.isNotEmpty) ...[
-                _SectionTitle(title: '需要处理', count: actionItems.length),
+              if (currentItems.isNotEmpty) ...[
+                _SectionTitle(title: '现在要做', count: currentItems.length),
                 const SizedBox(height: 8),
-                for (final item in actionItems)
+                for (final item in currentItems)
                   _TodayAction(item: item, onOpenCase: onOpenCase),
               ],
-              if (actionItems.isNotEmpty && verificationItems.isNotEmpty)
+              if (currentItems.isNotEmpty && undatedItems.isNotEmpty)
                 const SizedBox(height: 28),
-              if (verificationItems.isNotEmpty) ...[
-                _SectionTitle(title: '待验证', count: verificationItems.length),
-                const SizedBox(height: 10),
-                for (final item in verificationItems)
-                  _TodayAction(
-                    item: item,
-                    onOpenCase: onOpenCase,
-                    verification: true,
-                  ),
-              ],
-              if ((actionItems.isNotEmpty || verificationItems.isNotEmpty) &&
-                  unplannedItems.isNotEmpty)
-                const SizedBox(height: 28),
-              if (unplannedItems.isNotEmpty) ...[
-                _SectionTitle(title: '待安排下一步', count: unplannedItems.length),
+              if (undatedItems.isNotEmpty) ...[
+                _SectionTitle(title: '待安排', count: undatedItems.length),
                 const SizedBox(height: 6),
                 Text(
-                  '这些问题还没有明确的后续行动，先补上下一步，避免从跟进中掉出去。',
+                  '这些提醒已经明确，只差安排日期。',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 6),
-                for (final item in unplannedItems)
+                for (final item in undatedItems)
                   _TodayAction(item: item, onOpenCase: onOpenCase),
               ],
               if (futureItems.isNotEmpty) ...[
@@ -2945,17 +2966,26 @@ class _TodayPane extends StatelessWidget {
                   tilePadding: EdgeInsets.zero,
                   childrenPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event_outlined),
-                  title: const Text('近期安排'),
+                  title: const Text('之后'),
                   subtitle: Text('${futureItems.length} 项已安排的后续行动'),
                   children: [
                     for (final item in futureItems)
-                      _TodayAction(
-                        item: item,
-                        onOpenCase: onOpenCase,
-                        verification: item.pendingVerification,
-                      ),
+                      _TodayAction(item: item, onOpenCase: onOpenCase),
                   ],
                 ),
+              ],
+              if (recentStudents.isNotEmpty) ...[
+                const SizedBox(height: 28),
+                Divider(color: Theme.of(context).colorScheme.outlineVariant),
+                const SizedBox(height: 18),
+                const _SectionTitle(title: '最近学生'),
+                const SizedBox(height: 8),
+                for (final student in recentStudents.take(5))
+                  _TodayRecentStudentRow(
+                    student: student,
+                    businessDate: data.businessDate,
+                    onTap: () => onOpenStudent(student),
+                  ),
               ],
             ],
           ),
@@ -2972,27 +3002,23 @@ String _todayLabel(DateTime? businessDate) {
 }
 
 class _TodayAction extends StatelessWidget {
-  const _TodayAction({
-    required this.item,
-    required this.onOpenCase,
-    this.verification = false,
-  });
+  const _TodayAction({required this.item, required this.onOpenCase});
 
   final V2FocusItem item;
   final ValueChanged<V2FocusItem> onOpenCase;
-  final bool verification;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final student = V2WorkspaceDataScope.of(context)
         .studentForFocusItemOrNull(item);
-    if (student == null) {
-      return const SizedBox.shrink();
-    }
+    if (student == null) return const SizedBox.shrink();
     final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
     final pendingAction = controller?.pendingActionFor(item.id);
-    final status = _todayActionStatus(item, verification: verification);
+    final actionTitle = pendingAction?.title.trim().isNotEmpty == true
+        ? pendingAction!.title.trim()
+        : _displayNextStep(item.nextStep);
+    final status = _todayActionStatus(item);
     return InkWell(
       borderRadius: BorderRadius.circular(10),
       onTap: () => onOpenCase(item),
@@ -3003,8 +3029,10 @@ class _TodayAction extends StatelessWidget {
           children: [
             Container(
               width: 2,
-              height: 56,
-              color: verification ? scheme.primary : const Color(0xFFB77728),
+              height: 62,
+              color: item.actionTiming == V2ActionTiming.overdue
+                  ? const Color(0xFFB77728)
+                  : scheme.primary,
             ),
             const SizedBox(width: 15),
             Expanded(
@@ -3012,23 +3040,23 @@ class _TodayAction extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${student.name} · ${item.subject}',
+                    actionTitle,
                     style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.title,
-                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    verification
-                        ? '等待确认是否已经稳定'
-                        : '下一步 · ${_displayNextStep(item.nextStep)}',
+                    '${student.name} · ${item.subject}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    item.pendingVerification
+                        ? '${item.title} · 继续关注'
+                        : item.title,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (pendingAction != null) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 7),
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
@@ -3047,7 +3075,14 @@ class _TodayAction extends StatelessWidget {
                               Icons.check_circle_outline,
                               size: 17,
                             ),
-                            label: const Text('完成'),
+                            label: const Text('处理'),
+                          )
+                        else
+                          TextButton.icon(
+                            key: ValueKey<String>('v2-today-review-${item.id}'),
+                            onPressed: () => onOpenCase(item),
+                            icon: const Icon(Icons.open_in_new, size: 17),
+                            label: const Text('查看问题'),
                           ),
                         TextButton.icon(
                           key: ValueKey<String>(
@@ -3073,9 +3108,10 @@ class _TodayAction extends StatelessWidget {
               ),
             ),
             if (status.isNotEmpty) ...[
+              const SizedBox(width: 10),
               Text(status, style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(width: 4),
             ],
+            const SizedBox(width: 4),
             const Icon(Icons.chevron_right, size: 20),
           ],
         ),
@@ -3084,16 +3120,73 @@ class _TodayAction extends StatelessWidget {
   }
 }
 
-String _todayActionStatus(V2FocusItem item, {required bool verification}) {
-  if (verification) {
-    if (item.actionTiming == null) return '待验证';
-    return item.actionTiming == V2ActionTiming.overdue ? '待验证 · 已逾期' : '待验证';
+String _todayActionStatus(V2FocusItem item) => switch (item.actionTiming) {
+  V2ActionTiming.overdue =>
+    item.dueLabel == '待安排' ? '已逾期' : '已逾期 · ${item.dueLabel}',
+  V2ActionTiming.today => '今天',
+  V2ActionTiming.undated => '待安排日期',
+  V2ActionTiming.future => item.dueLabel,
+  null => '',
+};
+
+class _TodayRecentStudentRow extends StatelessWidget {
+  const _TodayRecentStudentRow({
+    required this.student,
+    required this.businessDate,
+    required this.onTap,
+  });
+
+  final V2Student student;
+  final DateTime? businessDate;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    student.name,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${student.grade} · ${student.subjects.join(' / ')}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              _recentActivityLabel(student.lastActivityAt!, businessDate),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 20),
+          ],
+        ),
+      ),
+    );
   }
-  if (item.actionTiming == null) return '';
-  if (item.actionTiming == V2ActionTiming.overdue) {
-    return item.dueLabel == '待安排' ? '已逾期' : '逾期 · ${item.dueLabel}';
-  }
-  return item.dueLabel;
+}
+
+String _recentActivityLabel(DateTime value, DateTime? businessDate) {
+  final reference = businessDate ?? DateTime.now();
+  final referenceDay = DateTime(reference.year, reference.month, reference.day);
+  final valueDay = DateTime(value.year, value.month, value.day);
+  final days = referenceDay.difference(valueDay).inDays;
+  if (days <= 0) return '今天有记录';
+  if (days == 1) return '昨天有记录';
+  if (days < 7) return '$days 天前';
+  return '${value.month} 月 ${value.day} 日';
 }
 
 class _CaseIndexPane extends StatefulWidget {
