@@ -28,46 +28,6 @@ jobs:
       - name: Apply bounded Today cleanup
         run: python3 tool/v034_today_cleanup.py
 
-      - name: Fix generated progress callback typing
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('lib/features/design_v2/v2_workspace_preview.dart')
-          text = path.read_text()
-          old = """    onSaveProgress: (summary) => controller.recordProgress(
-      V2ProgressWrite(
-        operationId: operationId,
-        photoEvidenceOperationId: photoEvidenceOperationId,
-        caseId: item.id,
-        progressKind: CaseProgressKind.observation,
-        summary: summary,
-        completeCurrentAction: true,
-        nextStep: CaseProgressNextStep.continueTracking,
-        attachments: const <PickedEvidenceAttachment>[],
-      ),
-    ),
-"""
-          new = """    onSaveProgress: (summary) async {
-      await controller.recordProgress(
-        V2ProgressWrite(
-          operationId: operationId,
-          photoEvidenceOperationId: photoEvidenceOperationId,
-          caseId: item.id,
-          progressKind: CaseProgressKind.observation,
-          summary: summary,
-          completeCurrentAction: true,
-          nextStep: CaseProgressNextStep.continueTracking,
-          attachments: const <PickedEvidenceAttachment>[],
-        ),
-      );
-    },
-"""
-          if old not in text:
-              raise SystemExit('generated progress callback marker not found')
-          path.write_text(text.replace(old, new, 1))
-          PY
-
       - name: Format
         run: dart format lib/features/design_v2/v2_fixture.dart lib/features/design_v2/v2_read_model_adapter.dart lib/features/design_v2/v2_action_composers.dart lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_data_injection_test.dart test/features/v2_final_ergonomics_test.dart test/features/v2_action_composers_test.dart
 
