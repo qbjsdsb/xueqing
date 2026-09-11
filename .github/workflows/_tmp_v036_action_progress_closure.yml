@@ -42,6 +42,18 @@ jobs:
           PY
       - name: Apply patch
         run: python3 tool/_tmp_v036_action_progress_patch.py
+      - name: Complete assessment in optional-date regression
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('test/features/design_v2_composers_test.dart')
+          text = path.read_text()
+          old = "      await tester.tap(find.text('安排再次检查'));\n      await tester.pumpAndSettle();"
+          new = "      await tester.tap(find.text('部分通过'));\n      await tester.pumpAndSettle();\n\n      await tester.tap(find.text('安排再次检查'));\n      await tester.pumpAndSettle();"
+          if text.count(old) < 1:
+              raise SystemExit('optional reminder test marker not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Format changed Dart files
         run: |
           dart format \
