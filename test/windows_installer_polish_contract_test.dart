@@ -7,7 +7,10 @@ void main() {
     final installer = File('installer/windows/xueqing.iss').readAsStringSync();
 
     expect(installer, contains('PrivilegesRequired=lowest'));
-    expect(installer, contains('DefaultDirName={localappdata}\\Programs\\Xueqing'));
+    expect(
+      installer,
+      contains('DefaultDirName={localappdata}\\Programs\\Xueqing'),
+    );
     expect(installer, contains('DisableDirPage=auto'));
     expect(installer, contains('DisableReadyPage=yes'));
     expect(installer, contains('UsePreviousAppDir=yes'));
@@ -45,12 +48,10 @@ void main() {
   });
 
   test('every CI installer build runs an in-place upgrade smoke', () {
-    final buildScript = File(
-      'tools/windows_installer/build_installer.ps1',
-    ).readAsStringSync();
-    final smokeScript = File(
-      'tools/windows_installer/smoke_installer.ps1',
-    ).readAsStringSync();
+    final buildScript = File('tools/windows_installer/build_installer.ps1')
+        .readAsStringSync();
+    final smokeScript = File('tools/windows_installer/smoke_installer.ps1')
+        .readAsStringSync();
 
     expect(buildScript, contains(r'$env:CI -eq "true"'));
     expect(buildScript, contains('smoke_installer.ps1'));
