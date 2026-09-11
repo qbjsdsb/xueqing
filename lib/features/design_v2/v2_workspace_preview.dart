@@ -3446,47 +3446,71 @@ class _TodayPane extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '今日',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          _todayLabel(data.businessDate),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '先处理已经安排好的跟进。',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.tonalIcon(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final copy = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '今日',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        _todayLabel(data.businessDate),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '先处理已经安排好的跟进。',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  );
+                  final quickCapture = FilledButton.tonalIcon(
                     key: const Key('v2-today-quick-capture'),
                     onPressed: () => _showV2QuickCaptureStudentPicker(context),
                     icon: const Icon(Icons.note_add_outlined, size: 18),
                     label: const Text('记录问题'),
-                  ),
-                  if (compact && onOpenMore != null) ...[
-                    const SizedBox(width: 4),
-                    IconButton(
-                      key: const Key('v2-compact-more'),
-                      tooltip: '更多操作',
-                      onPressed: onOpenMore,
-                      icon: const Icon(Icons.more_vert),
-                    ),
-                  ],
-                ],
+                  );
+                  final more = compact && onOpenMore != null
+                      ? IconButton(
+                          key: const Key('v2-compact-more'),
+                          tooltip: '更多操作',
+                          onPressed: onOpenMore,
+                          icon: const Icon(Icons.more_vert),
+                        )
+                      : null;
+                  final stackActions = compact && constraints.maxWidth < 440;
+                  if (stackActions) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: copy),
+                            if (more != null) ...[
+                              const SizedBox(width: 4),
+                              more,
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        quickCapture,
+                      ],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: copy),
+                      const SizedBox(width: 12),
+                      quickCapture,
+                      if (more != null) ...[const SizedBox(width: 4), more],
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 28),
               if (currentItems.isEmpty && undatedItems.isEmpty)
@@ -3574,103 +3598,124 @@ class _TodayAction extends StatelessWidget {
         ? pendingAction!.title.trim()
         : _displayNextStep(item.nextStep);
     final status = _todayActionStatus(item);
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: () => onOpenCase(item),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 2,
-              height: 62,
-              color: item.actionTiming == V2ActionTiming.overdue
-                  ? const Color(0xFFB77728)
-                  : scheme.primary,
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    actionTitle,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${student.name} · ${item.subject}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    item.pendingVerification
-                        ? '${item.title} · 待复检'
-                        : item.title,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  if (pendingAction != null) ...[
-                    const SizedBox(height: 7),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        if (pendingAction.canComplete)
-                          TextButton.icon(
-                            key: ValueKey<String>(
-                              'v2-today-complete-${item.id}',
-                            ),
-                            onPressed: () => _showV2CompleteCurrentAction(
-                              context,
-                              student,
-                              item,
-                            ),
-                            icon: const Icon(
-                              Icons.check_circle_outline,
-                              size: 17,
-                            ),
-                            label: const Text('处理'),
-                          )
-                        else
-                          TextButton.icon(
-                            key: ValueKey<String>('v2-today-review-${item.id}'),
-                            onPressed: () => onOpenCase(item),
-                            icon: const Icon(Icons.open_in_new, size: 17),
-                            label: const Text('查看问题'),
-                          ),
-                        TextButton.icon(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showStatusInline = constraints.maxWidth < 520;
+        return InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => onOpenCase(item),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 2,
+                  height: 62,
+                  color: item.actionTiming == V2ActionTiming.overdue
+                      ? const Color(0xFFB77728)
+                      : scheme.primary,
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        actionTitle,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${student.name} · ${item.subject}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        item.pendingVerification
+                            ? '${item.title} · 待复检'
+                            : item.title,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      if (showStatusInline && status.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          status,
                           key: ValueKey<String>(
-                            'v2-today-reschedule-${item.id}',
+                            'v2-today-inline-status-${item.id}',
                           ),
-                          onPressed: () => _showV2RescheduleCurrentAction(
-                            context,
-                            student,
-                            item,
-                          ),
-                          icon: const Icon(
-                            Icons.event_repeat_outlined,
-                            size: 17,
-                          ),
-                          label: Text(
-                            pendingAction.dueOn == null ? '安排日期' : '改期',
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       ],
-                    ),
-                  ],
+                      if (pendingAction != null) ...[
+                        const SizedBox(height: 7),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            if (pendingAction.canComplete)
+                              TextButton.icon(
+                                key: ValueKey<String>(
+                                  'v2-today-complete-${item.id}',
+                                ),
+                                onPressed: () => _showV2CompleteCurrentAction(
+                                  context,
+                                  student,
+                                  item,
+                                ),
+                                icon: const Icon(
+                                  Icons.check_circle_outline,
+                                  size: 17,
+                                ),
+                                label: const Text('处理'),
+                              )
+                            else
+                              TextButton.icon(
+                                key: ValueKey<String>(
+                                  'v2-today-review-${item.id}',
+                                ),
+                                onPressed: () => onOpenCase(item),
+                                icon: const Icon(Icons.open_in_new, size: 17),
+                                label: const Text('查看问题'),
+                              ),
+                            TextButton.icon(
+                              key: ValueKey<String>(
+                                'v2-today-reschedule-${item.id}',
+                              ),
+                              onPressed: () => _showV2RescheduleCurrentAction(
+                                context,
+                                student,
+                                item,
+                              ),
+                              icon: const Icon(
+                                Icons.event_repeat_outlined,
+                                size: 17,
+                              ),
+                              label: Text(
+                                pendingAction.dueOn == null ? '安排日期' : '改期',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (!showStatusInline && status.isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  Text(status, style: Theme.of(context).textTheme.bodySmall),
                 ],
-              ),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: 20),
+              ],
             ),
-            if (status.isNotEmpty) ...[
-              const SizedBox(width: 10),
-              Text(status, style: Theme.of(context).textTheme.bodySmall),
-            ],
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 20),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
