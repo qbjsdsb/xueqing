@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose-full-test:
+  finalize:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,29 +22,65 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Apply known analyzer fixes
+      - name: Apply final bounded fixes
         shell: bash
         run: |
           sed -i 's/<PickedEvidenceAttachment>//g' lib/features/design_v2/v2_workspace_preview.dart
           sed -i 's/lastActivityAt!/lastActivityAt/g' lib/features/design_v2/v2_read_model_adapter.dart
-          dart format lib/features/design_v2/v2_workspace_preview.dart lib/features/design_v2/v2_read_model_adapter.dart
-      - run: flutter pub get
-      - name: Capture full-test output
-        id: tests
-        continue-on-error: true
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('test/features/v2_visual_polish_contract_test.dart')
+          text = path.read_text()
+          old = '''    expect(source, contains("title: '待安排下一步'"));
+    expect(source, contains('!widget.compact &&'));
+    expect(source, contains('final expandedRail = width >= 1280;'));
+    expect(
+      source,
+      contains('final studentPaneWidth = width < 900 ? 288.0 : 320.0;'),
+    );
+    expect(source, contains("student.updatedLabel != '暂无记录'"));
+    expect(source, contains('!item.pendingVerification'));
+    expect(source, contains("if (item.actionTiming == null) return '待验证';"));
+'''
+          new = '''    expect(source, contains('item.actionTiming != null'));
+    expect(source, contains("_SectionTitle(title: '现在要做'"));
+    expect(source, contains("_SectionTitle(title: '待安排'"));
+    expect(source, contains("title: const Text('之后')"));
+    expect(source, contains("const _SectionTitle(title: '最近学生')"));
+    expect(source, contains('· 继续关注'));
+    expect(source, contains("label: const Text('处理')"));
+    expect(source, isNot(contains("title: '待安排下一步'")));
+    expect(source, isNot(contains("return '待验证';")));
+    expect(source, contains('!widget.compact &&'));
+    expect(source, contains('final expandedRail = width >= 1280;'));
+    expect(
+      source,
+      contains('final studentPaneWidth = width < 900 ? 288.0 : 320.0;'),
+    );
+    expect(source, contains("student.updatedLabel != '暂无记录'"));
+'''
+          if old not in text:
+              raise SystemExit('stale visual contract block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          dart format lib/features/design_v2/v2_workspace_preview.dart lib/features/design_v2/v2_read_model_adapter.dart test/features/v2_visual_polish_contract_test.dart
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Today semantic tests
+        run: flutter test test/features/design_v2_workspace_data_injection_test.dart test/features/v2_final_ergonomics_test.dart test/features/v2_action_composers_test.dart test/features/v2_visual_polish_contract_test.dart test/features/design_v2_read_model_adapter_test.dart test/features/design_v2_workflow_controller_test.dart
+      - name: Full Flutter tests
+        run: flutter test
+      - name: Finalize clean branch
         shell: bash
         run: |
-          set -o pipefail
-          flutter test 2>&1 | tee v034-full-test.txt
-      - name: Persist diagnostics
-        if: steps.tests.outcome == 'failure'
-        shell: bash
-        run: |
+          rm -f v034-analyze.txt v034-full-test.txt
+          rm -f tool/v034_today_cleanup.py
+          rm -f .github/workflows/v034-today-semantic-cleanup.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add v034-full-test.txt
-          git commit -m "chore: capture v0.3.4 full-test diagnostics"
+          git add -A
+          git diff --cached --check
+          git commit -m "UX: make Today action-driven and teacher-readable"
           git push origin HEAD:ux/v0.3.4-today-semantic-cleanup
-      - name: Fail on test failure
-        if: steps.tests.outcome == 'failure'
-        run: exit 1
