@@ -1,7 +1,8 @@
 param(
   [Parameter(Mandatory = $true)]
   [string]$AppVersion,
-  [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "../.."))
+  [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")),
+  [switch]$SkipSmoke
 )
 
 $ErrorActionPreference = "Stop"
@@ -73,3 +74,18 @@ if ((Get-Item $expectedInstaller).Length -le 0) {
 
 Write-Host "Windows installer: $expectedInstaller"
 Write-Host "Installer display version: $AppVersion; binary version: $binaryVersion"
+
+# All existing GitHub Actions installer builds flow through this helper. Running
+# the upgrade smoke here means PR smoke, manual Windows packaging, and the
+# stable publisher all verify the same fresh-install -> upgrade -> uninstall
+# contract without duplicating workflow logic.
+if (-not $SkipSmoke -and $env:CI -eq "true") {
+  $smokeScript = Join-Path $PSScriptRoot "smoke_installer.ps1"
+  if (-not (Test-Path $smokeScript)) {
+    throw "Windows installer smoke script was not found: $smokeScript"
+  }
+  & $smokeScript -AppVersion $AppVersion -RepositoryRoot $RepositoryRoot
+  if ($LASTEXITCODE -ne 0) {
+    throw "Windows installer upgrade smoke failed with exit code $LASTEXITCODE."
+  }
+}
