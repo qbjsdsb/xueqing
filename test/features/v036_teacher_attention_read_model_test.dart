@@ -3,39 +3,51 @@ import 'package:xueqing/cloud/learning_repository.dart';
 import 'package:xueqing/features/design_v2/v2_read_model_adapter.dart';
 
 void main() {
-  test('active cases are ordered by teacher attention instead of database order', () {
-    final snapshot = V2ReadModelAdapter.fromWorkspace(
-      _workspace([
-        _case('stable', LearningCaseStatus.stable),
-        _case('normal', LearningCaseStatus.confirmed),
-        _case(
-          'future',
-          LearningCaseStatus.intervening,
-          action: _action('future', WorkspaceActionBucket.future, DateTime(2026, 9, 20)),
-        ),
-        _case('new', LearningCaseStatus.newCase),
-        _case('review', LearningCaseStatus.pendingVerification),
-        _case(
-          'undated',
-          LearningCaseStatus.intervening,
-          action: _action('undated', WorkspaceActionBucket.undated, null),
-        ),
-        _case(
-          'today',
-          LearningCaseStatus.confirmed,
-          action: _action('today', WorkspaceActionBucket.today, DateTime(2026, 9, 11)),
-        ),
-        _case(
-          'overdue',
-          LearningCaseStatus.confirmed,
-          action: _action('overdue', WorkspaceActionBucket.overdue, DateTime(2026, 9, 10)),
-        ),
-      ]),
-    );
+  test(
+    'active cases are ordered by teacher attention instead of database order',
+    () {
+      final snapshot = V2ReadModelAdapter.fromWorkspace(
+        _workspace([
+          _case('stable', LearningCaseStatus.stable),
+          _case('normal', LearningCaseStatus.confirmed),
+          _case(
+            'future',
+            LearningCaseStatus.intervening,
+            action: _action(
+              'future',
+              WorkspaceActionBucket.future,
+              DateTime(2026, 9, 20),
+            ),
+          ),
+          _case('new', LearningCaseStatus.newCase),
+          _case('review', LearningCaseStatus.pendingVerification),
+          _case(
+            'undated',
+            LearningCaseStatus.intervening,
+            action: _action('undated', WorkspaceActionBucket.undated, null),
+          ),
+          _case(
+            'today',
+            LearningCaseStatus.confirmed,
+            action: _action(
+              'today',
+              WorkspaceActionBucket.today,
+              DateTime(2026, 9, 11),
+            ),
+          ),
+          _case(
+            'overdue',
+            LearningCaseStatus.confirmed,
+            action: _action(
+              'overdue',
+              WorkspaceActionBucket.overdue,
+              DateTime(2026, 9, 10),
+            ),
+          ),
+        ]),
+      );
 
-    expect(
-      snapshot.focusItems.map((item) => item.id).toList(),
-      <String>[
+      expect(snapshot.focusItems.map((item) => item.id).toList(), <String>[
         'overdue',
         'today',
         'undated',
@@ -44,9 +56,9 @@ void main() {
         'future',
         'normal',
         'stable',
-      ],
-    );
-  });
+      ]);
+    },
+  );
 
   test('current judgment prefers latest assessment over old description', () {
     final learningCase = _case(
@@ -85,10 +97,7 @@ void main() {
         .focusItems
         .single;
 
-    expect(
-      item.summary,
-      '本次能独立圈出全部限制词。\n仍需延迟复检确认是否稳定。',
-    );
+    expect(item.summary, '本次能独立圈出全部限制词。\n仍需延迟复检确认是否稳定。');
   });
 }
 
@@ -137,7 +146,9 @@ WorkspaceCase _case(
   evidence: evidence,
   interventions: const <WorkspaceIntervention>[],
   assessments: assessments,
-  actions: action == null ? const <WorkspaceAction>[] : <WorkspaceAction>[action],
+  actions: action == null
+      ? const <WorkspaceAction>[]
+      : <WorkspaceAction>[action],
   timeline: const <WorkspaceTimelineEvent>[],
 );
 
