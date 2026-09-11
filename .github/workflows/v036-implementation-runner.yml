@@ -58,10 +58,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The implementation patch updates the stable publisher so the tests
+          # exercise the intended v0.3.6 gate. Keep that workflow change out of
+          # the Actions-token push; it is committed separately through the
+          # repository connection with explicit workflow permission.
+          git checkout -- .github/workflows/publish-release-assets.yml
           rm -f tool/v036_apply_ui_and_contracts.py tool/v036_fix_after_analyze.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib test .github/workflows/publish-release-assets.yml tool/v036_apply_ui_and_contracts.py tool/v036_fix_after_analyze.py
+          git add lib test tool/v036_apply_ui_and_contracts.py tool/v036_fix_after_analyze.py
           if git diff --cached --quiet; then
             echo "No implementation changes to commit."
             exit 0
