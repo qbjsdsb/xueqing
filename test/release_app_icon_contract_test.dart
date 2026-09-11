@@ -15,6 +15,12 @@ void main() {
     expect(manifest, contains('android:icon="@mipmap/ic_launcher"'));
     expect(manifest, contains('android:roundIcon="@mipmap/ic_launcher_round"'));
 
+    final sourceMark = File('branding/xueqing_app_icon.svg').readAsStringSync();
+    expect(sourceMark, contains('#F7F8F6'));
+    expect(sourceMark, contains('#2F8E79'));
+    expect(sourceMark, contains('#C9EBC4'));
+    expect(sourceMark, contains('<circle cx="512" cy="303"'));
+
     final adaptive26 = File(
       'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
     ).readAsStringSync();
@@ -79,16 +85,24 @@ void main() {
       expect(_be32(bytes, 20), entry.value);
     }
 
-    // The Windows resource is intentionally sourced from the exact selected
-    // artwork. A modern 256px ICO entry is sufficient for Windows to derive
-    // taskbar/start-menu sizes while preserving the approved gradients.
+    // Windows keeps several native icon sizes so Explorer, Start, taskbar and
+    // the installer do not have to stretch one bitmap at every scale.
     final ico = File('windows/runner/resources/app_icon.ico').readAsBytesSync();
     expect(ico.length, greaterThan(4096));
     expect(ico.take(4).toList(), <int>[0, 0, 1, 0]);
     final imageCount = ico[4] | (ico[5] << 8);
-    expect(imageCount, greaterThanOrEqualTo(1));
-    expect(ico[6], 0); // ICO encodes 256px width as 0.
-    expect(ico[7], 0); // ICO encodes 256px height as 0.
+    expect(imageCount, greaterThanOrEqualTo(8));
+    final icoSizes = <int>{};
+    for (var index = 0; index < imageCount; index += 1) {
+      final entryOffset = 6 + (index * 16);
+      expect(entryOffset + 15, lessThan(ico.length));
+      final width = ico[entryOffset] == 0 ? 256 : ico[entryOffset];
+      final height = ico[entryOffset + 1] == 0 ? 256 : ico[entryOffset + 1];
+      if (width == height) {
+        icoSizes.add(width);
+      }
+    }
+    expect(icoSizes, containsAll(<int>[16, 32, 48, 128, 256]));
 
     final rc = File('windows/runner/Runner.rc').readAsStringSync();
     expect(
