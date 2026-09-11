@@ -15,11 +15,11 @@ void main() {
     expect(installer, contains('DisableReadyPage=yes'));
     expect(installer, contains('UsePreviousAppDir=yes'));
     expect(installer, contains('UsePreviousTasks=yes'));
+    expect(installer, contains('#ifndef ChineseMessagesFile'));
     expect(
       installer,
       contains(
-        'Name: "chinesesimplified"; MessagesFile: '
-        '"compiler:Languages\\ChineseSimplified.isl"',
+        'Name: "chinesesimplified"; MessagesFile: "{#ChineseMessagesFile}"',
       ),
     );
     expect(
@@ -45,6 +45,29 @@ void main() {
       ),
     );
     expect(installer, contains('RestartApplications=no'));
+    expect(installer, contains('THIRD_PARTY_NOTICES.txt'));
+  });
+
+  test('installer build pins and integrity-checks Chinese messages', () {
+    final buildScript = File('tools/windows_installer/build_installer.ps1')
+        .readAsStringSync();
+    final notices = File(
+      'installer/windows/THIRD_PARTY_NOTICES.txt',
+    ).readAsStringSync();
+
+    expect(buildScript, contains('Resolve-ChineseMessagesFile'));
+    expect(buildScript, contains('Get-GitBlobSha1'));
+    expect(
+      buildScript,
+      contains('1ff90acc4ed4aee82b1cda43253243deee3daed4'),
+    );
+    expect(
+      buildScript,
+      contains('30d997321197c7c96d8e111e9ddd6c0ca8da5f09'),
+    );
+    expect(buildScript, contains('/DChineseMessagesFile='));
+    expect(notices, contains('Inno Setup Chinese Simplified Translation'));
+    expect(notices, contains('MIT License'));
   });
 
   test('every CI installer build runs an in-place upgrade smoke', () {
