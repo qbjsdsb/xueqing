@@ -1,0 +1,396 @@
+from pathlib import Path
+
+
+def replace_once(text: str, old: str, new: str, label: str) -> str:
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f'{label}: expected exactly one match, found {count}')
+    return text.replace(old, new, 1)
+
+
+preview_path = Path('lib/features/design_v2/v2_workspace_preview.dart')
+preview = preview_path.read_text()
+
+preview = replace_once(
+    preview,
+    "String _displayNextStep(String value) {\n  final trimmed = value.trim();\n  if (_visualContentKey(trimmed) == _visualContentKey('待安排下一步')) {\n    return '待安排';\n  }\n  return trimmed;\n}\n",
+    "String _displayNextStep(String value) {\n  final trimmed = value.trim();\n  if (_visualContentKey(trimmed) == _visualContentKey('待安排下一步')) {\n    return '待安排';\n  }\n  return trimmed;\n}\n\nString _caseStatusLabel(V2FocusItem item) => switch (item.effectiveStatus) {\n  V2CaseStatus.newCase => '新记录',\n  V2CaseStatus.confirmed => '已确认',\n  V2CaseStatus.intervening => '跟进中',\n  V2CaseStatus.pendingVerification => '待复检',\n  V2CaseStatus.stable => '暂时稳定',\n  V2CaseStatus.closed => '已结束',\n};\n",
+    'case status helper',
+)
+
+preview = replace_once(
+    preview,
+    "  if (items.isEmpty) {\n    return;\n  }\n\n  Widget choices(BuildContext sheetContext) => ListView.separated(",
+    "  if (items.isEmpty) {\n    return;\n  }\n  if (items.length == 1) {\n    await _showV2ProgressForCase(context, student, items.single);\n    return;\n  }\n\n  Widget choices(BuildContext sheetContext) => ListView.separated(",
+    'single-case direct progress',
+)
+
+preview = replace_once(
+    preview,
+    "      return ListTile(\n        title: Text(item.title),\n        subtitle: Text(item.subject),\n        trailing: const Icon(Icons.chevron_right),\n        onTap: () => Navigator.of(sheetContext).pop(item),\n      );",
+    "      return ListTile(\n        title: Text(item.title),\n        subtitle: Text(\n          '${item.subject} · ${_caseStatusLabel(item)}\\n'\n          '下一步 ${_displayNextStep(item.nextStep)} · ${item.dueLabel}',\n          maxLines: 2,\n          overflow: TextOverflow.ellipsis,\n        ),\n        isThreeLine: true,\n        trailing: const Icon(Icons.chevron_right),\n        onTap: () => Navigator.of(sheetContext).pop(item),\n      );",
+    'case picker context',
+)
+
+preview = replace_once(
+    preview,
+    "  int _destination = 1;",
+    "  int _destination = 0;",
+    'default Today destination',
+)
+
+preview = replace_once(
+    preview,
+    "  Widget build(BuildContext context) {\n    final scheme = Theme.of(context).colorScheme;\n    return Padding(\n      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),",
+    "  Widget build(BuildContext context) {\n    final scheme = Theme.of(context).colorScheme;\n    final data = V2WorkspaceDataScope.of(context);\n    return Padding(\n      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),",
+    'student row workspace data',
+)
+
+preview = replace_once(
+    preview,
+    "                      if (student.updatedLabel != '暂无记录') ...[\n                        const SizedBox(height: 3),\n                        Text(\n                          student.updatedLabel,\n                          style: Theme.of(context).textTheme.bodySmall\n                              ?.copyWith(\n                                color: scheme.onSurfaceVariant.withValues(\n                                  alpha: 0.72,\n                                ),\n                              ),\n                        ),\n                      ],",
+    "                      if (student.lastActivityAt != null ||\n                          student.updatedLabel != '暂无记录') ...[\n                        const SizedBox(height: 3),\n                        Text(\n                          student.lastActivityAt == null\n                              ? student.updatedLabel\n                              : _recentActivityLabel(\n                                  student.lastActivityAt!,\n                                  data.businessDate,\n                                ),\n                          style: Theme.of(context).textTheme.bodySmall\n                              ?.copyWith(\n                                color: scheme.onSurfaceVariant.withValues(\n                                  alpha: 0.72,\n                                ),\n                              ),\n                        ),\n                      ],",
+    'student activity label',
+)
+
+preview = replace_once(
+    preview,
+    "class _StudentDetailPaneState extends State<_StudentDetailPane> {\n  bool _showAllFocusItems = false;",
+    "class _StudentDetailPaneState extends State<_StudentDetailPane> {\n  bool _showAllFocusItems = false;\n  bool _showAllTimeline = false;\n  bool _showClosedItems = false;",
+    'student detail disclosure state',
+)
+
+preview = replace_once(
+    preview,
+    "    if (oldWidget.student.id != widget.student.id) {\n      _showAllFocusItems = false;\n    }",
+    "    if (oldWidget.student.id != widget.student.id) {\n      _showAllFocusItems = false;\n      _showAllTimeline = false;\n      _showClosedItems = false;\n    }",
+    'reset student detail disclosure state',
+)
+
+preview = replace_once(
+    preview,
+    "    final closedItems = data.closedItemsForStudent(widget.student);\n    final timelineEntries = data.timelineForStudent(widget.student);\n    return ColoredBox(",
+    "    final closedItems = data.closedItemsForStudent(widget.student);\n    final timelineEntries = data.timelineForStudent(widget.student);\n    final visibleTimelineEntries = _showAllTimeline\n        ? timelineEntries\n        : timelineEntries.take(5).toList(growable: false);\n    final hiddenTimelineCount = timelineEntries.length > 5\n        ? timelineEntries.length - 5\n        : 0;\n    return ColoredBox(",
+    'student timeline preview',
+)
+
+old_block = """                      if (closedItems.isNotEmpty) ...[
+                        const SizedBox(height: 34),
+                        _SectionTitle(title: '历史问题', count: closedItems.length),
+                        const SizedBox(height: 8),
+                        for (var i = 0; i < closedItems.length; i++) ...[
+                          _FocusRow(
+                            item: closedItems[i],
+                            onTap: () => widget.onOpenCase(closedItems[i]),
+                          ),
+                          if (i < closedItems.length - 1)
+                            Divider(height: 1, color: scheme.outlineVariant),
+                        ],
+                      ],
+                      const SizedBox(height: 34),
+                      const _SectionTitle(title: '最近成长'),
+                      const SizedBox(height: 14),
+                      _Timeline(entries: timelineEntries),
+"""
+new_block = """                      if (closedItems.isNotEmpty) ...[
+                        const SizedBox(height: 26),
+                        TextButton.icon(
+                          key: const Key('v2-student-history-toggle'),
+                          onPressed: () => setState(
+                            () => _showClosedItems = !_showClosedItems,
+                          ),
+                          icon: Icon(
+                            _showClosedItems
+                                ? Icons.expand_less
+                                : Icons.history_outlined,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _showClosedItems
+                                ? '收起历史问题'
+                                : '查看历史问题 ${closedItems.length} 个',
+                          ),
+                        ),
+                        if (_showClosedItems) ...[
+                          const SizedBox(height: 8),
+                          _SectionTitle(
+                            title: '历史问题',
+                            count: closedItems.length,
+                          ),
+                          const SizedBox(height: 8),
+                          for (var i = 0; i < closedItems.length; i++) ...[
+                            _FocusRow(
+                              item: closedItems[i],
+                              onTap: () => widget.onOpenCase(closedItems[i]),
+                            ),
+                            if (i < closedItems.length - 1)
+                              Divider(
+                                height: 1,
+                                color: scheme.outlineVariant,
+                              ),
+                          ],
+                        ],
+                      ],
+                      const SizedBox(height: 34),
+                      const _SectionTitle(title: '最近成长'),
+                      const SizedBox(height: 14),
+                      _Timeline(entries: visibleTimelineEntries),
+                      if (hiddenTimelineCount > 0) ...[
+                        const SizedBox(height: 4),
+                        TextButton.icon(
+                          key: const Key('v2-student-timeline-toggle'),
+                          onPressed: () => setState(
+                            () => _showAllTimeline = !_showAllTimeline,
+                          ),
+                          icon: Icon(
+                            _showAllTimeline
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _showAllTimeline
+                                ? '收起更早记录'
+                                : '查看更早 $hiddenTimelineCount 条',
+                          ),
+                        ),
+                      ],
+"""
+preview = replace_once(preview, old_block, new_block, 'student history disclosure')
+preview_path.write_text(preview)
+
+composers_path = Path('lib/features/design_v2/v2_composers.dart')
+composers = composers_path.read_text()
+composers = replace_once(
+    composers,
+    "    V2NextStep.continueTracking => '继续跟进',",
+    "    V2NextStep.continueTracking => '继续观察，不设提醒',",
+    'clear continue semantics',
+)
+composers_path.write_text(composers)
+
+fixture_path = Path('lib/features/design_v2/v2_fixture.dart')
+fixture = fixture_path.read_text()
+fixture = replace_once(
+    fixture,
+    "    required this.time,\n    this.photoCount = 0,",
+    "    required this.time,\n    this.occurredAt,\n    this.photoCount = 0,",
+    'timeline occurredAt constructor',
+)
+fixture = replace_once(
+    fixture,
+    "  final String time;\n  final int photoCount;",
+    "  final String time;\n  final DateTime? occurredAt;\n  final int photoCount;",
+    'timeline occurredAt field',
+)
+fixture_path.write_text(fixture)
+
+adapter_path = Path('lib/features/design_v2/v2_read_model_adapter.dart')
+adapter = adapter_path.read_text()
+adapter = replace_once(
+    adapter,
+    "              teacher: '',\n              time: _timeLabel(event.occurredAt),\n              evidenceId: event.evidenceId,",
+    "              teacher: '',\n              time: _timeLabel(event.occurredAt),\n              occurredAt: event.occurredAt,\n              evidenceId: event.evidenceId,",
+    'adapter timeline occurredAt',
+)
+adapter_path.write_text(adapter)
+
+data_path = Path('lib/features/design_v2/v2_workspace_data.dart')
+data = data_path.read_text()
+old_methods = """  List<V2TimelineEntry> timelineForCase(V2FocusItem item) => timeline
+      .where((entry) => entry.caseId == item.id)
+      .toList(growable: false);
+
+  List<V2TimelineEntry> timelineForStudent(V2Student student) {
+    final caseIds = <String>{
+      ...focusItemsForStudent(student).map((item) => item.id),
+      ...closedItemsForStudent(student).map((item) => item.id),
+    };
+    return timeline
+        .where((entry) => caseIds.contains(entry.caseId))
+        .toList(growable: false);
+  }
+"""
+new_methods = """  List<V2TimelineEntry> timelineForCase(V2FocusItem item) =>
+      _orderedTimeline(timeline.where((entry) => entry.caseId == item.id));
+
+  List<V2TimelineEntry> timelineForStudent(V2Student student) {
+    final caseIds = <String>{
+      ...focusItemsForStudent(student).map((item) => item.id),
+      ...closedItemsForStudent(student).map((item) => item.id),
+    };
+    return _orderedTimeline(
+      timeline.where((entry) => caseIds.contains(entry.caseId)),
+    );
+  }
+
+  List<V2TimelineEntry> _orderedTimeline(
+    Iterable<V2TimelineEntry> source,
+  ) {
+    final result = source.toList(growable: false);
+    if (!result.any((entry) => entry.occurredAt != null)) {
+      return result;
+    }
+    final sortable = result.toList(growable: true)
+      ..sort((left, right) {
+        final leftAt = left.occurredAt;
+        final rightAt = right.occurredAt;
+        if (leftAt == null && rightAt == null) return 0;
+        if (leftAt == null) return 1;
+        if (rightAt == null) return -1;
+        return rightAt.compareTo(leftAt);
+      });
+    return List<V2TimelineEntry>.unmodifiable(sortable);
+  }
+"""
+data = replace_once(data, old_methods, new_methods, 'timeline ordering')
+data_path.write_text(data)
+
+test_path = Path('test/features/v037_teacher_flow_polish_test.dart')
+test_path.write_text("""import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:xueqing/features/design_v2/v2_composers.dart';
+import 'package:xueqing/features/design_v2/v2_fixture.dart';
+import 'package:xueqing/features/design_v2/v2_workspace_data.dart';
+import 'package:xueqing/features/design_v2/v2_workspace_preview.dart';
+
+void main() {
+  testWidgets('V2 workspace opens on Today by default', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: V2WorkspacePreview()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('v2-today-quick-capture')), findsOneWidget);
+    expect(find.byKey(const Key('v2-student-search')), findsNothing);
+  });
+
+  testWidgets('single active case skips the progress case picker', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    const student = V2Student(
+      id: 'student-one',
+      name: '单同学',
+      grade: '初二',
+      subjects: <String>['语文'],
+      openCaseCount: 1,
+      updatedLabel: '暂无记录',
+      teacherSummary: '',
+    );
+    const item = V2FocusItem(
+      id: 'case-one',
+      studentId: 'student-one',
+      title: '概括题漏点',
+      summary: '仍会漏掉结果信息。',
+      nextStep: '继续观察',
+      dueLabel: '待安排',
+      subject: '语文',
+      caseStatus: V2CaseStatus.intervening,
+    );
+    const data = V2WorkspaceData(
+      students: <V2Student>[student],
+      focusItems: <V2FocusItem>[item],
+      timeline: <V2TimelineEntry>[],
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(home: V2WorkspacePreview(data: data)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('学生'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('单同学'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('记进展'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择要记录进展的问题'), findsNothing);
+    expect(find.text('记录进展'), findsOneWidget);
+  });
+
+  test('student timeline merges cases by true occurrence time', () {
+    const student = V2Student(
+      id: 'student-timeline',
+      name: '时序同学',
+      grade: '初三',
+      subjects: <String>['语文', '数学'],
+      openCaseCount: 2,
+      updatedLabel: '暂无记录',
+      teacherSummary: '',
+    );
+    const chinese = V2FocusItem(
+      id: 'case-chinese',
+      studentId: 'student-timeline',
+      title: '语文问题',
+      summary: '',
+      nextStep: '继续观察',
+      dueLabel: '待安排',
+      subject: '语文',
+    );
+    const math = V2FocusItem(
+      id: 'case-math',
+      studentId: 'student-timeline',
+      title: '数学问题',
+      summary: '',
+      nextStep: '继续观察',
+      dueLabel: '待安排',
+      subject: '数学',
+    );
+    final data = V2WorkspaceData(
+      students: const <V2Student>[student],
+      focusItems: const <V2FocusItem>[chinese, math],
+      timeline: <V2TimelineEntry>[
+        V2TimelineEntry(
+          caseId: chinese.id,
+          date: '9 月 11 日',
+          kind: '新表现',
+          body: '最新',
+          teacher: '',
+          time: '10:00',
+          occurredAt: DateTime(2026, 9, 11, 10),
+        ),
+        V2TimelineEntry(
+          caseId: chinese.id,
+          date: '9 月 2 日',
+          kind: '建立跟进',
+          body: '最早',
+          teacher: '',
+          time: '10:00',
+          occurredAt: DateTime(2026, 9, 2, 10),
+        ),
+        V2TimelineEntry(
+          caseId: math.id,
+          date: '9 月 10 日',
+          kind: '检查结果',
+          body: '第二新',
+          teacher: '',
+          time: '10:00',
+          occurredAt: DateTime(2026, 9, 10, 10),
+        ),
+        V2TimelineEntry(
+          caseId: math.id,
+          date: '9 月 8 日',
+          kind: '教学处理',
+          body: '第三新',
+          teacher: '',
+          time: '10:00',
+          occurredAt: DateTime(2026, 9, 8, 10),
+        ),
+      ],
+    );
+
+    expect(
+      data.timelineForStudent(student).map((entry) => entry.body),
+      <String>['最新', '第二新', '第三新', '最早'],
+    );
+  });
+
+  test('continue without a reminder is explicit in teacher wording', () {
+    expect(V2NextStep.continueTracking.label, '继续观察，不设提醒');
+  });
+}
+""")
