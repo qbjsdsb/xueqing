@@ -214,16 +214,16 @@ class V2ReadModelAdapter {
   }
 
   static int _compareFocusItems(V2FocusItem left, V2FocusItem right) {
-    final priorityComparison = _focusPriority(left).compareTo(
-      _focusPriority(right),
-    );
+    final priorityComparison = _focusPriority(left)
+        .compareTo(_focusPriority(right));
     if (priorityComparison != 0) {
       return priorityComparison;
     }
 
     final dueComparison = switch ((left.dueOn, right.dueOn)) {
-      (final DateTime leftDate, final DateTime rightDate) =>
-        leftDate.compareTo(rightDate),
+      (final DateTime leftDate, final DateTime rightDate) => leftDate.compareTo(
+        rightDate,
+      ),
       (null, final DateTime _) => 1,
       (final DateTime _, null) => -1,
       (null, null) => 0,
