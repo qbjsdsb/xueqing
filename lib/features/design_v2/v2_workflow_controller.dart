@@ -315,7 +315,8 @@ class V2WorkflowController {
     } catch (error) {
       final detail = error.toString().toLowerCase();
       if (detail.contains('version_conflict') ||
-          detail.contains('case_already_voided')) {
+          detail.contains('case_already_voided') ||
+          detail.contains('case_record_voided')) {
         throw V2WorkflowSaveException(
           '这条学情刚刚有变化，请刷新后再作废。',
           recordMayBeSaved: false,
@@ -404,6 +405,20 @@ class V2WorkflowController {
           detail.contains('case_not_voided')) {
         throw V2WorkflowSaveException(
           '这条学情刚刚有变化，请刷新后再恢复。',
+          recordMayBeSaved: false,
+          cause: error,
+        );
+      }
+      if (detail.contains('case_restore_context_inactive')) {
+        throw V2WorkflowSaveException(
+          '这条学情所属的学生或学科服务已停用；请先恢复对应学科服务，再恢复学情。',
+          recordMayBeSaved: false,
+          cause: error,
+        );
+      }
+      if (detail.contains('case_restore_responsibility_unavailable')) {
+        throw V2WorkflowSaveException(
+          '暂时找不到可接手这条学情的有效责任人；请先检查成员和任课设置。',
           recordMayBeSaved: false,
           cause: error,
         );
