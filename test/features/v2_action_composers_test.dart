@@ -66,6 +66,40 @@ void main() {
     expect(calls, 2);
   });
 
+  testWidgets(
+    'processing reminder can save progress and complete in one action',
+    (tester) async {
+      var completed = 0;
+      final progress = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: V2CompleteActionComposer(
+              actionTitle: '再检查一次',
+              studentName: '林同学',
+              subject: '语文',
+              caseTitle: '阅读概括容易漏点',
+              onSave: () async => completed++,
+              onSaveProgress: (summary) async => progress.add(summary),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('处理提醒'), findsOneWidget);
+      expect(find.text('林同学 · 语文'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('v2-complete-action-progress')),
+        '这次能主动圈出限制词。',
+      );
+      await tester.tap(find.byKey(const Key('v2-complete-action-save')));
+      await tester.pumpAndSettle();
+
+      expect(completed, 0);
+      expect(progress, ['这次能主动圈出限制词。']);
+    },
+  );
+
   testWidgets('compact action sheet stays usable in a short viewport', (
     tester,
   ) async {

@@ -3,18 +3,27 @@ import 'package:flutter/material.dart';
 import 'v2_workflow_controller.dart';
 
 typedef V2CompleteActionSave = Future<void> Function();
+typedef V2CompleteActionProgressSave = Future<void> Function(String summary);
 typedef V2RescheduleActionSave = Future<void> Function(DateTime? dueOn);
 
 Future<bool> showV2CompleteActionComposer(
   BuildContext context, {
   required String actionTitle,
   required V2CompleteActionSave onSave,
+  String? studentName,
+  String? subject,
+  String? caseTitle,
+  V2CompleteActionProgressSave? onSaveProgress,
 }) async {
   return await _showActionComposer<bool>(
         context,
         child: V2CompleteActionComposer(
           actionTitle: actionTitle,
           onSave: onSave,
+          studentName: studentName,
+          subject: subject,
+          caseTitle: caseTitle,
+          onSaveProgress: onSaveProgress,
         ),
       ) ??
       false;
@@ -109,11 +118,19 @@ class V2CompleteActionComposer extends StatefulWidget {
   const V2CompleteActionComposer({
     required this.actionTitle,
     required this.onSave,
+    this.studentName,
+    this.subject,
+    this.caseTitle,
+    this.onSaveProgress,
     super.key,
   });
 
   final String actionTitle;
   final V2CompleteActionSave onSave;
+  final String? studentName;
+  final String? subject;
+  final String? caseTitle;
+  final V2CompleteActionProgressSave? onSaveProgress;
 
   @override
   State<V2CompleteActionComposer> createState() =>
@@ -121,9 +138,18 @@ class V2CompleteActionComposer extends StatefulWidget {
 }
 
 class _V2CompleteActionComposerState extends State<V2CompleteActionComposer> {
+  final _progressController = TextEditingController();
   bool _saving = false;
   bool _attempted = false;
   String? _error;
+
+  bool get _hasProgress => _progressController.text.trim().isNotEmpty;
+
+  @override
+  void dispose() {
+    _progressController.dispose();
+    super.dispose();
+  }
 
   Future<void> _save() async {
     if (_saving) return;
@@ -133,7 +159,13 @@ class _V2CompleteActionComposerState extends State<V2CompleteActionComposer> {
       _error = null;
     });
     try {
-      await widget.onSave();
+      final summary = _progressController.text.trim();
+      final saveProgress = widget.onSaveProgress;
+      if (summary.isNotEmpty && saveProgress != null) {
+        await saveProgress(summary);
+      } else {
+        await widget.onSave();
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
@@ -146,6 +178,28 @@ class _V2CompleteActionComposerState extends State<V2CompleteActionComposer> {
 
   Future<void> _close() async {
     if (_saving) return;
+    if (!_attempted && _hasProgress) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('放弃这次处理？'),
+          content: const Text('刚才填写的新情况还没有保存。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('继续编辑'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('放弃'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || discard != true) return;
+      Navigator.of(context).pop(false);
+      return;
+    }
     if (!_attempted) {
       Navigator.of(context).pop(false);
       return;
@@ -172,8 +226,13 @@ class _V2CompleteActionComposerState extends State<V2CompleteActionComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final contextParts = <String>[
+      if (widget.studentName?.trim().isNotEmpty == true)
+        widget.studentName!.trim(),
+      if (widget.subject?.trim().isNotEmpty == true) widget.subject!.trim(),
+    ];
     return PopScope<void>(
-      canPop: !_saving && !_attempted,
+      canPop: !_saving && !_attempted && !_hasProgress,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !_saving) _close();
       },
@@ -183,15 +242,45 @@ class _V2CompleteActionComposerState extends State<V2CompleteActionComposer> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('完成这一步', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
+            Text('处理提醒', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
             Text(
               widget.actionTitle,
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
+            if (contextParts.isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Text(
+                contextParts.join(' · '),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            if (widget.caseTitle?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: 4),
+              Text(
+                widget.caseTitle!.trim(),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            if (widget.onSaveProgress != null) ...[
+              const SizedBox(height: 18),
+              TextField(
+                key: const Key('v2-complete-action-progress'),
+                controller: _progressController,
+                enabled: !_saving && !_attempted,
+                minLines: 2,
+                maxLines: 5,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: '这次有什么新情况？（可选）',
+                  hintText: '例如：这次能主动圈出限制词，但独立作答时还漏了一处。',
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 6),
+            ],
             Text(
-              '只把这件已经做完的事标记为完成，不会自动生成新的提醒。',
+              '没有新情况也可以直接完成；这里不会自动生成新的提醒。',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             if (_error != null) ...[
@@ -221,7 +310,9 @@ class _V2CompleteActionComposerState extends State<V2CompleteActionComposer> {
                           ? '保存中…'
                           : _attempted
                           ? '重新保存'
-                          : '完成这一步',
+                          : _hasProgress
+                          ? '保存并完成提醒'
+                          : '完成这次提醒',
                     ),
                   ),
                 ),

@@ -7,6 +7,7 @@ class V2Student {
     required this.openCaseCount,
     required this.updatedLabel,
     required this.teacherSummary,
+    this.lastActivityAt,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class V2Student {
   final int openCaseCount;
   final String updatedLabel;
   final String teacherSummary;
+  final DateTime? lastActivityAt;
 }
 
 enum V2ActionTiming { overdue, today, future, undated }

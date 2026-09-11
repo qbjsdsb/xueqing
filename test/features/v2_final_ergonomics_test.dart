@@ -88,10 +88,10 @@ void main() {
     final undatedY = tester.getTopLeft(find.text('待安排问题')).dy;
     expect(overdueY, lessThan(todayY));
     expect(todayY, lessThan(undatedY));
-    expect(find.text('逾期 · 9 月 8 日'), findsOneWidget);
+    expect(find.text('已逾期 · 9 月 8 日'), findsOneWidget);
   });
 
-  testWidgets('Today surfaces open cases that still have no next action', (
+  testWidgets('Today keeps actionless cases out of the task list', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1100, 800));
@@ -116,14 +116,13 @@ void main() {
     await tester.tap(find.byTooltip('今日'));
     await tester.pumpAndSettle();
 
-    expect(find.text('待安排下一步'), findsOneWidget);
-    expect(find.text('还没有安排下一步的问题'), findsOneWidget);
-    expect(find.text('下一步 · 待安排'), findsOneWidget);
-    expect(find.text('今天没有需要处理的学情事项'), findsNothing);
+    expect(find.text('还没有安排下一步的问题'), findsNothing);
+    expect(find.text('待安排下一步'), findsNothing);
+    expect(find.text('今天暂时没有需要处理的提醒'), findsOneWidget);
   });
 
   testWidgets(
-    'Today keeps actionless verification cases in verification bucket',
+    'Today keeps actionless verification cases out of the task list',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1100, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -148,11 +147,9 @@ void main() {
       await tester.tap(find.byTooltip('今日'));
       await tester.pumpAndSettle();
 
-      expect(find.text('等待稳定性复查的问题'), findsOneWidget);
-      expect(find.text('等待确认是否已经稳定'), findsOneWidget);
-      expect(find.text('待验证'), findsNWidgets(2));
-      expect(find.text('待安排下一步'), findsNothing);
-      expect(find.text('今天没有需要处理的学情事项'), findsNothing);
+      expect(find.text('等待稳定性复查的问题'), findsNothing);
+      expect(find.text('待验证'), findsNothing);
+      expect(find.text('今天暂时没有需要处理的提醒'), findsOneWidget);
     },
   );
 
