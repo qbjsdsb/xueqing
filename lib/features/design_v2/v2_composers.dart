@@ -80,6 +80,29 @@ class V2QuickCaptureDraft {
   final List<PickedEvidenceAttachment> attachments;
 }
 
+class V2ExistingCaseOption {
+  const V2ExistingCaseOption({
+    required this.id,
+    required this.title,
+    required this.subject,
+    required this.statusLabel,
+    required this.nextStepLabel,
+    required this.dueLabel,
+  });
+
+  final String id;
+  final String title;
+  final String subject;
+  final String statusLabel;
+  final String nextStepLabel;
+  final String dueLabel;
+}
+
+typedef V2QuickCaptureContinueExisting = Future<void> Function(
+  V2ExistingCaseOption option,
+  V2QuickCaptureDraft draft,
+);
+
 class V2ProgressDraft {
   const V2ProgressDraft({
     required this.kind,
@@ -154,7 +177,9 @@ Future<bool> showV2QuickCapture(
   required String studentName,
   required List<String> subjects,
   List<V2ProblemTypeOption> problemTypes = v2PreviewProblemTypeOptions,
+  List<V2ExistingCaseOption> existingCases = const <V2ExistingCaseOption>[],
   V2QuickCaptureSave? onSave,
+  V2QuickCaptureContinueExisting? onContinueExisting,
   V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,
   V2QuickCapturePersistence? persistence,
 }) async {
@@ -167,7 +192,9 @@ Future<bool> showV2QuickCapture(
           studentName: studentName,
           subjects: subjects,
           problemTypes: problemTypes,
+          existingCases: existingCases,
           onSave: onSave,
+          onContinueExisting: onContinueExisting,
           attachmentPicker: attachmentPicker,
           persistence: persistence,
         ),
@@ -194,6 +221,9 @@ Future<bool> showV2ProgressComposer(
   V2ProgressKind initialKind = V2ProgressKind.observation,
   String composerTitle = '记录进展',
   String primaryLabel = '保存进展',
+  String initialBody = '',
+  List<PickedEvidenceAttachment> initialAttachments =
+      const <PickedEvidenceAttachment>[],
   V2ProgressSave? onSave,
   V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,
   V2ProgressPersistence? persistence,
@@ -211,6 +241,8 @@ Future<bool> showV2ProgressComposer(
           initialKind: initialKind,
           composerTitle: composerTitle,
           primaryLabel: primaryLabel,
+          initialBody: initialBody,
+          initialAttachments: initialAttachments,
           onSave: onSave,
           attachmentPicker: attachmentPicker,
           persistence: persistence,
@@ -331,7 +363,9 @@ class V2QuickCaptureComposer extends StatefulWidget {
     required this.subjects,
     required this.problemTypes,
     required this.attachmentPicker,
+    this.existingCases = const <V2ExistingCaseOption>[],
     this.onSave,
+    this.onContinueExisting,
     this.persistence,
     super.key,
   });
@@ -340,7 +374,9 @@ class V2QuickCaptureComposer extends StatefulWidget {
   final List<String> subjects;
   final List<V2ProblemTypeOption> problemTypes;
   final V2AttachmentPicker attachmentPicker;
+  final List<V2ExistingCaseOption> existingCases;
   final V2QuickCaptureSave? onSave;
+  final V2QuickCaptureContinueExisting? onContinueExisting;
   final V2QuickCapturePersistence? persistence;
 
   @override
@@ -548,6 +584,49 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       _selectedSubject != null &&
       _controller.text.trim().isNotEmpty;
 
+  List<V2ExistingCaseOption> get _matchingExistingCases {
+    final subject = _selectedSubject;
+    if (subject == null) return const <V2ExistingCaseOption>[];
+    return widget.existingCases
+        .where((item) => item.subject == subject)
+        .toList(growable: false);
+  }
+
+  V2QuickCaptureDraft _currentDraft() => V2QuickCaptureDraft(
+    subject: _selectedSubject!,
+    caseTypeKey: _problemTypeKey,
+    body: _controller.text.trim(),
+    attachments: List<PickedEvidenceAttachment>.unmodifiable(_attachments),
+  );
+
+  Future<void> _continueExisting(V2ExistingCaseOption option) async {
+    final callback = widget.onContinueExisting;
+    if (!_canSave || callback == null || option.subject != _selectedSubject) {
+      return;
+    }
+    final draft = _currentDraft();
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      if (widget.persistence != null) {
+        await _persistDraft();
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop(false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(callback(option, draft));
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _saveError = '暂时无法保护当前记录，请重试；已经输入的文字和图片仍在。';
+      });
+    }
+  }
+
   Future<void> _save() async {
     if (!_canSave) {
       return;
@@ -558,12 +637,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       if (mounted) Navigator.of(context).pop(true);
       return;
     }
-    final draft = V2QuickCaptureDraft(
-      subject: _selectedSubject!,
-      caseTypeKey: _problemTypeKey,
-      body: _controller.text.trim(),
-      attachments: List<PickedEvidenceAttachment>.unmodifiable(_attachments),
-    );
+    final draft = _currentDraft();
     setState(() {
       _saving = true;
       _saveError = null;
@@ -614,6 +688,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final matchingExistingCases = _matchingExistingCases;
     return _ComposerScaffold(
       title: '记录新问题',
       contextLine: _selectedSubject == null
@@ -661,6 +736,18 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
                 alignLabelWithHint: true,
               ),
             ),
+            if (matchingExistingCases.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _ExistingCaseContinuationPanel(
+                totalCount: matchingExistingCases.length,
+                items: matchingExistingCases.take(3).toList(growable: false),
+                canContinue:
+                    widget.onContinueExisting != null &&
+                    _controller.text.trim().isNotEmpty &&
+                    !_saving,
+                onContinue: _continueExisting,
+              ),
+            ],
             const SizedBox(height: 12),
             V2MediaDraftStrip(
               attachments: _attachments,
@@ -719,6 +806,108 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
   }
 }
 
+class _ExistingCaseContinuationPanel extends StatelessWidget {
+  const _ExistingCaseContinuationPanel({
+    required this.totalCount,
+    required this.items,
+    required this.canContinue,
+    required this.onContinue,
+  });
+
+  final int totalCount;
+  final List<V2ExistingCaseOption> items;
+  final bool canContinue;
+  final ValueChanged<V2ExistingCaseOption> onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '这个学科还有 $totalCount 个问题正在跟进',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '如果刚才的情况属于已有问题，可以直接记到原问题；确实是新问题仍可继续记录。',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 8),
+          for (var index = 0; index < items.length; index++) ...[
+            if (index > 0) Divider(height: 1, color: scheme.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          items[index].title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _existingCaseMeta(items[index]),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    key: ValueKey<String>(
+                      'v2-quick-capture-existing-${items[index].id}',
+                    ),
+                    onPressed: canContinue
+                        ? () => onContinue(items[index])
+                        : null,
+                    child: const Text('记到这个问题'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (totalCount > items.length) ...[
+            const SizedBox(height: 3),
+            Text(
+              '这里先显示最需要关注的 ${items.length} 个，其余可在学生详情中查看。',
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _existingCaseMeta(V2ExistingCaseOption item) {
+    if (item.nextStepLabel == '待安排' && item.dueLabel == '待安排') {
+      return '${item.statusLabel} · 下一步待安排';
+    }
+    return '${item.statusLabel} · 下一步 ${item.nextStepLabel} · ${item.dueLabel}';
+  }
+}
+
 class V2ProgressComposer extends StatefulWidget {
   const V2ProgressComposer({
     required this.studentName,
@@ -731,6 +920,8 @@ class V2ProgressComposer extends StatefulWidget {
     this.initialKind = V2ProgressKind.observation,
     this.composerTitle = '记录进展',
     this.primaryLabel = '保存进展',
+    this.initialBody = '',
+    this.initialAttachments = const <PickedEvidenceAttachment>[],
     this.onSave,
     this.persistence,
     super.key,
@@ -746,6 +937,8 @@ class V2ProgressComposer extends StatefulWidget {
   final V2ProgressKind initialKind;
   final String composerTitle;
   final String primaryLabel;
+  final String initialBody;
+  final List<PickedEvidenceAttachment> initialAttachments;
   final V2ProgressSave? onSave;
   final V2ProgressPersistence? persistence;
 
@@ -780,6 +973,15 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_restoreLostAttachment());
       });
+    } else {
+      _controller.text = widget.initialBody;
+      _attachments.addAll(widget.initialAttachments.take(3));
+      if (widget.persistence != null &&
+          (_controller.text.trim().isNotEmpty || _attachments.isNotEmpty)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_persistDraftSilently());
+        });
+      }
     }
   }
 

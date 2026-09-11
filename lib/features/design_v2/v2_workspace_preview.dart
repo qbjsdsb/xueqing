@@ -118,13 +118,44 @@ Future<void> _showV2QuickCaptureForStudent(
                   V2ProblemTypeOption(key: choice.key, label: choice.label),
             )
             .toList(growable: false);
+  final activeItems = V2WorkspaceDataScope.of(context)
+      .focusItemsForStudent(student);
+  final existingCases = activeItems
+      .map(
+        (item) => V2ExistingCaseOption(
+          id: item.id,
+          title: item.title,
+          subject: item.subject,
+          statusLabel: _caseStatusLabel(item),
+          nextStepLabel: _displayNextStep(item.nextStep),
+          dueLabel: item.dueLabel,
+        ),
+      )
+      .toList(growable: false);
 
   final saved = await showV2QuickCapture(
     context,
     studentName: student.name,
     subjects: student.subjects,
     problemTypes: problemTypes,
+    existingCases: existingCases,
     persistence: persistence,
+    onContinueExisting: (option, draft) async {
+      V2FocusItem? selected;
+      for (final item in activeItems) {
+        if (item.id == option.id && item.subject == draft.subject) {
+          selected = item;
+          break;
+        }
+      }
+      if (selected == null || !context.mounted) return;
+      await _showV2ProgressForCase(
+        context,
+        student,
+        selected,
+        transferredObservation: draft,
+      );
+    },
     onSave: controller == null
         ? null
         : (draft) async {
@@ -756,6 +787,7 @@ Future<void> _showV2ProgressForCase(
   V2FocusItem item, {
   ComposerDraftSnapshot? initialDraft,
   bool completeCurrentActionInitially = false,
+  V2QuickCaptureDraft? transferredObservation,
 }) async {
   final runtime = _V2RuntimeScope.maybeOf(context);
   final controller = runtime?.workflowController;
@@ -797,6 +829,7 @@ Future<void> _showV2ProgressForCase(
       initialDraft?.state['complete_current_action'] == true;
   final treatingCurrentAction =
       completeCurrentActionInitially || storedCompletesCurrentAction;
+  final continuingExisting = transferredObservation != null;
   final saved = await showV2ProgressComposer(
     context,
     studentName: student.name,
@@ -806,15 +839,23 @@ Future<void> _showV2ProgressForCase(
         controller?.hasPendingPrimaryAction(item.id) ?? false,
     completeCurrentActionInitially: treatingCurrentAction,
     businessDate: controller?.businessDate,
-    initialKind: item.pendingVerification
+    initialKind: continuingExisting
+        ? V2ProgressKind.observation
+        : item.pendingVerification
         ? V2ProgressKind.assessment
         : V2ProgressKind.observation,
-    composerTitle: treatingCurrentAction
+    composerTitle: continuingExisting
+        ? '记到已有问题'
+        : treatingCurrentAction
         ? (item.pendingVerification ? '处理复检提醒' : '处理提醒')
         : (item.pendingVerification ? '记录复检' : '记录进展'),
-    primaryLabel: treatingCurrentAction
+    primaryLabel: continuingExisting
+        ? '保存到原问题'
+        : treatingCurrentAction
         ? (item.pendingVerification ? '保存复检处理' : '保存处理')
         : (item.pendingVerification ? '保存复检' : '保存进展'),
+    initialBody: transferredObservation?.body ?? '',
+    initialAttachments: transferredObservation?.attachments ?? const [],
     persistence: persistence,
     onSave: controller == null
         ? null
