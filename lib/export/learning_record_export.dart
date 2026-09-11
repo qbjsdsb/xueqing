@@ -205,10 +205,14 @@ class LearningRecordExport {
         );
       }
 
-      caseRows.sort((left, right) => left.occurredAt.compareTo(right.occurredAt));
+      caseRows.sort(
+        (left, right) => left.occurredAt.compareTo(right.occurredAt),
+      );
       if (nextStep != null && caseRows.isNotEmpty) {
         final latestIndex = caseRows.length - 1;
-        caseRows[latestIndex] = caseRows[latestIndex].copyWithNextStep(nextStep);
+        caseRows[latestIndex] = caseRows[latestIndex].copyWithNextStep(
+          nextStep,
+        );
       }
       rows.addAll(caseRows);
     }
