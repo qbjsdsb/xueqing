@@ -13,6 +13,9 @@
 #ifndef OutputDir
 #define OutputDir "..\..\build\windows\installer"
 #endif
+#ifndef ChineseMessagesFile
+#define ChineseMessagesFile ".\languages\ChineseSimplified.isl"
+#endif
 
 #define AppName "学情"
 #define AppPublisher "Xueqing"
@@ -58,8 +61,8 @@ VersionInfoProductTextVersion={#AppVersion}
 VersionInfoCopyright=Copyright (C) 2026 Xueqing project
 
 [Languages]
-; build_installer.ps1 materializes this pinned translation before invoking ISCC.
-Name: "chinesesimplified"; MessagesFile: ".\languages\ChineseSimplified.isl"
+; build_installer.ps1 provides a pinned, integrity-checked translation path.
+Name: "chinesesimplified"; MessagesFile: "{#ChineseMessagesFile}"
 
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加任务："; Flags: checkedonce
