@@ -72,7 +72,6 @@ jobs:
           git add \
             lib \
             supabase/migrations/20260911153000_backend_compatibility_contract.sql \
-            test \
-            tool
+            test
           git commit -m "fix: dedupe learning records and add backend contract"
           git push origin HEAD:fix/v0.3.5-record-dedup-backend-compat
