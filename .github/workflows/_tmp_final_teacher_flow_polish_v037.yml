@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  apply-and-verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout work branch
@@ -21,7 +21,7 @@ jobs:
       - name: Apply focused polish
         run: python3 tool/_tmp_apply_final_teacher_flow_polish_v037.py
 
-      - name: Prepare diagnostic fixture
+      - name: Apply narrow-screen fix and fixture correction
         run: python3 tool/_tmp_diagnose_final_polish.py
 
       - name: Set up Flutter
@@ -44,5 +44,24 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
-      - name: Run narrow diagnostic test
-        run: flutter test test/features/v037_final_teacher_flow_resilience_test.dart
+      - name: Run focused regression tests
+        run: |
+          flutter test \
+            test/features/v037_final_teacher_flow_resilience_test.dart \
+            test/features/v037_existing_case_continuation_test.dart \
+            test/features/v2_final_ergonomics_test.dart
+
+      - name: Run full Flutter suite
+        run: flutter test
+
+      - name: Commit verified polish and remove temporary tooling
+        run: |
+          rm -f tool/_tmp_apply_final_teacher_flow_polish_v037.py
+          rm -f tool/_tmp_diagnose_final_polish.py
+          rm -f .github/workflows/_tmp_final_teacher_flow_polish_v037.yml
+          git config user.name "qbjsdsb"
+          git config user.email "3342513714@qq.com"
+          git add -A
+          git diff --cached --quiet && exit 1
+          git commit -m "UX: final polish for compact teacher flow"
+          git push origin HEAD:ux/final-teacher-flow-polish-v037
