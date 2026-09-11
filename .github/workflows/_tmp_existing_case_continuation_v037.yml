@@ -18,7 +18,7 @@ jobs:
           ref: ux/existing-case-continuation-v037
           fetch-depth: 0
 
-      - name: Make intentional first-match selector deterministic
+      - name: Make focused patch selectors deterministic
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -28,6 +28,10 @@ jobs:
               "    if count != 1:\n        raise SystemExit(f'{label}: expected exactly one match, found {count}')\n    return text.replace(old, new, 1)\n",
               "    if count < 1:\n        raise SystemExit(f'{label}: expected at least one match, found {count}')\n    return text.replace(old, new, 1)\n",
               1,
+          )
+          text = text.replace(
+              "transferredObservation?.attachments ?? const <PickedEvidenceAttachment>[]",
+              "transferredObservation?.attachments ?? const []",
           )
           path.write_text(text)
           PY
