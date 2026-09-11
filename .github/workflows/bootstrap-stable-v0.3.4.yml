@@ -1,0 +1,158 @@
+name: Bootstrap Xueqing v0.3.4 Stable
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/release-requests/v0.3.4"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: bootstrap-xueqing-v0.3.4-stable
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: v0.3.4
+  RELEASE_VERSION: 0.3.4+12
+  RELEASE_COMMIT: 964338ce30e1bea623229ef6d24a2a8cf6c440bb
+  PUBLIC_SUPABASE_URL: https://czuctoulgnfytcfonkhc.supabase.co
+  PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI
+  PUBLIC_SUPABASE_ALLOWED_HOSTS: czuctoulgnfytcfonkhc.supabase.co
+  XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+
+jobs:
+  bootstrap:
+    name: Validate frozen candidate and dispatch signed Stable release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate configured release material
+        shell: bash
+        env:
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          required_names=(
+            PUBLIC_SUPABASE_URL
+            PUBLIC_SUPABASE_PUBLISHABLE_KEY
+            PUBLIC_SUPABASE_ALLOWED_HOSTS
+            XUEQING_ANDROID_CERT_SHA256
+            XUEQING_ANDROID_KEYSTORE_BASE64
+            XUEQING_ANDROID_KEYSTORE_PASSWORD
+            XUEQING_ANDROID_KEY_ALIAS
+            XUEQING_ANDROID_KEY_PASSWORD
+          )
+          missing=()
+          for name in "${required_names[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required GitHub release configuration: %s\n' "${missing[*]}"
+            exit 1
+          fi
+          if [[ "$PUBLIC_SUPABASE_URL" != https://*.supabase.co ]]; then
+            echo "PUBLIC_SUPABASE_URL must be an https://*.supabase.co endpoint."
+            exit 1
+          fi
+          expected_host="${PUBLIC_SUPABASE_URL#https://}"
+          expected_host="${expected_host%%/*}"
+          if [[ "$PUBLIC_SUPABASE_ALLOWED_HOSTS" != "$expected_host" ]]; then
+            echo "Public Supabase allowed host does not match the public endpoint host."
+            exit 1
+          fi
+          if [[ "$PUBLIC_SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* ]]; then
+            echo "Public Supabase client key is not in the expected publishable-key form."
+            exit 1
+          fi
+          cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "XUEQING_ANDROID_CERT_SHA256 must be a 64-hex SHA-256 fingerprint."
+            exit 1
+          fi
+          echo "Verified public client fallback and permanent Android signing configuration. Secret values were not printed."
+
+      - name: Verify frozen release commit and source version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_COMMIT" >/dev/null
+          compare_status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" --jq '.status')"
+          behind_by="$(gh api "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" --jq '.behind_by')"
+          if [[ "$behind_by" != "0" ]] || [[ "$compare_status" != "ahead" && "$compare_status" != "identical" ]]; then
+            echo "Frozen release commit is no longer reachable from main."
+            exit 1
+          fi
+          encoded_pubspec="$(gh api "repos/$GITHUB_REPOSITORY/contents/pubspec.yaml?ref=$RELEASE_COMMIT" --jq '.content')"
+          source_version="$(printf '%s' "$encoded_pubspec" | base64 --decode | sed -n 's/^version:[[:space:]]*//p' | head -n 1)"
+          if [[ "$source_version" != "$RELEASE_VERSION" ]]; then
+            echo "Frozen source version is $source_version, expected $RELEASE_VERSION."
+            exit 1
+          fi
+          echo "Frozen candidate $RELEASE_COMMIT is reachable from main and reports $RELEASE_VERSION."
+
+      - name: Create or verify staging Pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
+            RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json
+          import os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('Existing v0.3.4 Release is not a published Pre-release staging Release.')
+          PY
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_COMMIT" \
+              --prerelease \
+              --title "学情 v0.3.4" \
+              --notes $'v0.3.4 稳定版更新。\n\n- Today 只展示明确安排过的 Action，减少流程噪音和伪待办\n- 逾期/今日、待安排、之后三个层级更清晰\n- 待验证改为更贴近教师语言的“继续关注”上下文\n- 增加轻量“处理提醒”：可直接完成，也可写一句进展后完成\n- 增加“最近学生”入口，帮助老师快速回到最近教学上下文\n- 不改 Supabase schema、RLS、权限模型和核心 Case 状态机\n- 版本 0.3.4+12；Flutter、Android、Windows 发布 Gate 已通过'
+          fi
+          actual_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          if [[ "$actual_commit" != "$RELEASE_COMMIT" ]]; then
+            echo "$RELEASE_TAG does not point to the frozen candidate commit."
+            exit 1
+          fi
+          echo "$RELEASE_TAG staging Pre-release points to $RELEASE_COMMIT."
+
+      - name: Dispatch signed production release workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if gh workflow run publish-release-assets.yml \
+              --repo "$GITHUB_REPOSITORY" \
+              --ref main \
+              -f release_tag="$RELEASE_TAG" \
+              -f app_version="$RELEASE_VERSION" \
+              -f release_notes=$'Today 只展示明确安排过的 Action，减少流程噪音\n梳理“现在要做 / 待安排 / 之后”层级，并将待验证降为继续关注上下文\n新增轻量处理提醒：可直接完成，或写一句进展后完成\n增加最近学生入口，帮助教师快速回到最近工作\n保持 Supabase、RLS、权限与核心状态机不变\n稳定版版本 0.3.4+12' \
+              -f supabase_url="$PUBLIC_SUPABASE_URL" \
+              -f supabase_publishable_key="$PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+              -f supabase_allowed_hosts="$PUBLIC_SUPABASE_ALLOWED_HOSTS"; then
+              echo "Stable release workflow dispatched for $RELEASE_TAG ($RELEASE_VERSION)."
+              exit 0
+            fi
+            if [[ "$attempt" == "5" ]]; then
+              echo "Could not dispatch the Stable release workflow after repository propagation retries."
+              exit 1
+            fi
+            sleep 3
+          done
