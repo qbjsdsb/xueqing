@@ -249,50 +249,55 @@ void main() {
       expect(entry.body, '咏雪，陈太丘背诵完成，有待复检');
     });
 
-    test('timeline deduplication never collapses distinct punctuation facts', () {
-      final workspace = TeacherWorkspace(
-        viewerName: '乔老师',
-        organizationName: '测试机构',
-        organizationTimeZone: 'Asia/Shanghai',
-        hasTeachingAccess: true,
-        loadedAt: DateTime(2026, 9, 11, 20),
-        students: [
-          WorkspaceStudent(
-            id: 'student-punctuation',
-            profileId: 'profile-punctuation',
-            profileVersion: 1,
-            name: '测试学生',
-            grade: '初三',
-            subject: '数学',
-            context: '',
-            positioning: null,
-            strengths: null,
-            cadenceNote: null,
-            cases: [
-              _case(
-                id: 'case-punctuation',
-                profileId: 'profile-punctuation',
-                title: '错题记录',
-                status: LearningCaseStatus.intervening,
-                version: 1,
-                timeline: [
-                  WorkspaceTimelineEvent(
-                    id: 'event-punctuation',
-                    occurredAt: DateTime(2026, 9, 11, 19),
-                    typeLabel: '新表现',
-                    text: '第 3-1 题错误\n第 31 题错误',
-                  ),
-                ],
-              ),
-            ],
-            recentFacts: const [],
-          ),
-        ],
-      );
+    test(
+      'timeline deduplication never collapses distinct punctuation facts',
+      () {
+        final workspace = TeacherWorkspace(
+          viewerName: '乔老师',
+          organizationName: '测试机构',
+          organizationTimeZone: 'Asia/Shanghai',
+          hasTeachingAccess: true,
+          loadedAt: DateTime(2026, 9, 11, 20),
+          students: [
+            WorkspaceStudent(
+              id: 'student-punctuation',
+              profileId: 'profile-punctuation',
+              profileVersion: 1,
+              name: '测试学生',
+              grade: '初三',
+              subject: '数学',
+              context: '',
+              positioning: null,
+              strengths: null,
+              cadenceNote: null,
+              cases: [
+                _case(
+                  id: 'case-punctuation',
+                  profileId: 'profile-punctuation',
+                  title: '错题记录',
+                  status: LearningCaseStatus.intervening,
+                  version: 1,
+                  timeline: [
+                    WorkspaceTimelineEvent(
+                      id: 'event-punctuation',
+                      occurredAt: DateTime(2026, 9, 11, 19),
+                      typeLabel: '新表现',
+                      text: '第 3-1 题错误\n第 31 题错误',
+                    ),
+                  ],
+                ),
+              ],
+              recentFacts: const [],
+            ),
+          ],
+        );
 
-      final entry = V2ReadModelAdapter.fromWorkspace(workspace).timeline.single;
-      expect(entry.body, '第 3-1 题错误\n第 31 题错误');
-    });
+        final entry = V2ReadModelAdapter.fromWorkspace(workspace)
+            .timeline
+            .single;
+        expect(entry.body, '第 3-1 题错误\n第 31 题错误');
+      },
+    );
   });
 }
 
