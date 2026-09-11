@@ -126,7 +126,7 @@ class LearningRecordExport {
           subjectName: student.subject,
           issueTitle: learningCase.title,
           recordType: '发现问题',
-          content: initialContent.isEmpty ? learningCase.title : initialContent,
+          content: _dedupeIssueContent(learningCase.title, initialContent),
           nextStep: nextStep,
           status: status,
         ),
@@ -143,7 +143,10 @@ class LearningRecordExport {
             subjectName: student.subject,
             issueTitle: learningCase.title,
             recordType: '学生表现',
-            content: '${evidence.title}：${evidence.summary}',
+            content: _dedupeIssueContent(
+              learningCase.title,
+              '${evidence.title}：${evidence.summary}',
+            ),
             nextStep: nextStep,
             status: status,
           ),
@@ -204,7 +207,7 @@ class LearningRecordExport {
           subjectName: record.subjectName,
           issueTitle: record.issueTitle,
           recordType: _teacherRecordTypeLabel(record.recordKind),
-          content: record.content,
+          content: _dedupeIssueContent(record.issueTitle, record.content),
           assessmentResult: record.assessmentResult == null
               ? null
               : _assessmentResultLabel(record.assessmentResult!),
@@ -233,7 +236,7 @@ class LearningRecordExport {
           subjectName: record.subjectName,
           issueTitle: record.issueTitle,
           recordType: _teacherRecordTypeLabel(record.recordKind),
-          content: record.content,
+          content: _dedupeIssueContent(record.issueTitle, record.content),
           assessmentResult: record.assessmentResult == null
               ? null
               : _assessmentResultLabel(record.assessmentResult!),
@@ -545,6 +548,44 @@ class LearningRecordExport {
         .replaceAll(RegExp(r'\s+'), ' ');
     return normalized.isEmpty ? '学情记录' : normalized;
   }
+
+  static String _dedupeIssueContent(String issueTitle, String content) {
+    final issue = issueTitle.trim();
+    final text = content.trim();
+    if (text.isEmpty || issue.isEmpty) return text;
+    if (_semanticTextKey(text) == _semanticTextKey(issue)) return '';
+
+    final lines = text.split('\n');
+    if (lines.isNotEmpty &&
+        _semanticTextKey(lines.first) == _semanticTextKey(issue)) {
+      return lines.skip(1).join('\n').trim();
+    }
+
+    for (final separator in const ['：', ':']) {
+      final prefix = '$issue$separator';
+      if (!text.startsWith(prefix)) continue;
+      final remainder = text.substring(prefix.length).trim();
+      if (remainder.isEmpty ||
+          _semanticTextKey(remainder) == _semanticTextKey(issue)) {
+        return '';
+      }
+      return remainder;
+    }
+
+    for (final label in const ['具体表现：', '具体表现:']) {
+      if (!text.startsWith(label)) continue;
+      final remainder = text.substring(label.length).trim();
+      if (_semanticTextKey(remainder) == _semanticTextKey(issue)) {
+        return '';
+      }
+    }
+    return text;
+  }
+
+  static String _semanticTextKey(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[\s，。！？、；：,.!?;:"“”‘’（）()\[\]【】《》—–\-·…]+'), '');
 
   static String _statusLabel(LearningCaseStatus status) {
     return switch (status) {

@@ -114,6 +114,10 @@ class _OrganizationStudentEditDialogState
   }
 
   String _describeError(Object error) {
+    final compatibilityMessage = organizationBackendCompatibilityErrorMessage(
+      error,
+    );
+    if (compatibilityMessage != null) return compatibilityMessage;
     final message = organizationStudentLifecycleErrorMessage(error);
     if (message != null) return message;
     if (error is AuthException && error.message.trim().isNotEmpty) {

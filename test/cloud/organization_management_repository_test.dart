@@ -64,6 +64,31 @@ void main() {
     },
   );
 
+  test('maps missing production RPCs to a backend compatibility message', () {
+    expect(
+      organizationBackendCompatibilityErrorMessage(
+        const PostgrestException(
+          message: 'Could not find the function public.update_organization_student_profile in the schema cache',
+          code: 'PGRST202',
+          details: '',
+          hint: '',
+        ),
+      ),
+      '当前软件与服务端版本暂不一致，请刷新后重试；如仍出现，请联系负责人更新服务端。',
+    );
+    expect(
+      organizationBackendCompatibilityErrorMessage(
+        const PostgrestException(
+          message: 'organization_manager_required',
+          code: 'P0001',
+          details: '',
+          hint: '',
+        ),
+      ),
+      isNull,
+    );
+  });
+
   test('maps invitation authorization errors to actionable copy', () {
     expect(
       organizationInvitationErrorMessage(

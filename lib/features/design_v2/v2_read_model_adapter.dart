@@ -187,7 +187,7 @@ class V2ReadModelAdapter {
               caseId: learningCase.id,
               date: _dateLabel(event.occurredAt),
               kind: event.typeLabel,
-              body: event.text,
+              body: _timelineBody(event),
               // WorkspaceTimelineEvent currently has no historical actor name.
               // An empty value is intentional: never attribute old records to
               // the current viewer just to fill the UI.
@@ -210,6 +210,28 @@ class V2ReadModelAdapter {
       caseBindings: List<V2CaseBinding>.unmodifiable(bindings),
       businessDate: workspace.businessDate,
     );
+  }
+
+  static String _timelineBody(WorkspaceTimelineEvent event) {
+    final text = event.text.trim();
+    const assessmentPrefix = '检查结果 · ';
+    if (!event.typeLabel.startsWith(assessmentPrefix) || text.isEmpty) {
+      return text;
+    }
+
+    final resultLabel = event.typeLabel
+        .substring(assessmentPrefix.length)
+        .trim();
+    if (resultLabel.isEmpty) return text;
+
+    final lines = text.split('\n');
+    if (lines.isEmpty) return text;
+    String normalize(String value) =>
+        value.trim().replaceAll('：', ':').replaceAll(RegExp(r'\s+'), '');
+    if (normalize(lines.first) != normalize('检查结果：$resultLabel')) {
+      return text;
+    }
+    return lines.skip(1).join('\n').trim();
   }
 
   static bool _isActiveCase(WorkspaceCase learningCase) =>
