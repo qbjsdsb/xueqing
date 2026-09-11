@@ -39,13 +39,17 @@ void main() {
 
     expect(find.text('现在要做'), findsOneWidget);
     expect(find.text('待验证'), findsNothing);
-    expect(find.textContaining('继续关注'), findsOneWidget);
+    expect(find.textContaining('待复检'), findsOneWidget);
     expect(find.text('真实学生 · 语文'), findsOneWidget);
 
     await tester.tap(find.text('真实学生 · 语文'));
     await tester.pumpAndSettle();
     expect(find.text('成长过程'), findsOneWidget);
     expect(find.text('真实问题'), findsOneWidget);
+    expect(find.text('待复检'), findsOneWidget);
+    expect(find.text('当前判断'), findsOneWidget);
+    expect(find.text('记录复检'), findsOneWidget);
+    expect(find.text('下次课验证'), findsOneWidget);
   });
 
   testWidgets('Today hides actionless work and keeps future work secondary', (

@@ -77,7 +77,7 @@ void main() {
 
       expect(math.subject, '数学');
       expect(math.summary, '最近一次仍不会从题意建立关系。');
-      expect(math.nextStep, '待安排下一步');
+      expect(math.nextStep, '安排一次复检');
       expect(math.dueLabel, '待安排');
       expect(math.pendingVerification, isTrue);
       expect(
@@ -97,6 +97,7 @@ void main() {
         expect(timeline, hasLength(2));
         expect(timeline.first.body, '第二次检查仍漏结果。');
         expect(timeline.first.evidenceId, 'evidence-timeline');
+        expect(timeline.last.kind, '建立跟进');
         expect(timeline.last.body, '第一次发现概括遗漏。');
         expect(timeline.every((entry) => entry.teacher.isEmpty), isTrue);
         expect(snapshot.viewerName, '乔老师');
@@ -129,6 +130,7 @@ void main() {
         expect(allCaseIds, contains('case-cn-closed'));
       },
     );
+
     test(
       'removes duplicated assessment wording but preserves real follow-up text',
       () {
@@ -186,6 +188,62 @@ void main() {
         expect(timeline.last.body, isEmpty);
       },
     );
+
+    test('presents pending review cases as concise teacher work', () {
+      final workspace = TeacherWorkspace(
+        viewerName: '乔老师',
+        organizationName: '测试机构',
+        organizationTimeZone: 'Asia/Shanghai',
+        hasTeachingAccess: true,
+        loadedAt: DateTime(2026, 9, 11, 19),
+        businessDate: DateTime(2026, 9, 11),
+        students: [
+          WorkspaceStudent(
+            id: 'student-li',
+            profileId: 'profile-li-cn',
+            profileVersion: 1,
+            name: '李兆城',
+            grade: '初三',
+            subject: '语文',
+            context: '',
+            positioning: null,
+            strengths: null,
+            cadenceNote: null,
+            cases: [
+              _case(
+                id: 'case-recitation-review',
+                profileId: 'profile-li-cn',
+                title: '咏雪，陈太丘背诵完成，有待复检',
+                status: LearningCaseStatus.pendingVerification,
+                version: 1,
+                description: '咏雪，陈太丘背诵完成，有待复检',
+                timeline: [
+                  WorkspaceTimelineEvent(
+                    id: 'event-created',
+                    occurredAt: DateTime(2026, 9, 11, 18, 53),
+                    typeLabel: '发现问题',
+                    text: '咏雪，陈太丘背诵完成，有待复检\n学生表现：咏雪，陈太丘背诵完成，有待复检',
+                  ),
+                ],
+              ),
+            ],
+            recentFacts: const [],
+          ),
+        ],
+      );
+
+      final snapshot = V2ReadModelAdapter.fromWorkspace(workspace);
+      final item = snapshot.focusItems.single;
+      final entry = snapshot.timeline.single;
+
+      expect(item.title, '咏雪，陈太丘背诵完成');
+      expect(item.summary, '已完成当前阶段，尚需再次检查确认是否稳定掌握。');
+      expect(item.nextStep, '安排一次复检');
+      expect(item.dueLabel, '待安排');
+      expect(item.pendingVerification, isTrue);
+      expect(entry.kind, '建立跟进');
+      expect(entry.body, '咏雪，陈太丘背诵完成，有待复检');
+    });
   });
 }
 
