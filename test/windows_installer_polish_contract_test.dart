@@ -52,7 +52,7 @@ void main() {
       'tools/windows_installer/smoke_installer.ps1',
     ).readAsStringSync();
 
-    expect(buildScript, contains(r'$env:CI -eq "true"'.replaceAll(r'\"', '"')));
+    expect(buildScript, contains(r'$env:CI -eq "true"'));
     expect(buildScript, contains('smoke_installer.ps1'));
     expect(buildScript, contains('-SkipSmoke'));
 
