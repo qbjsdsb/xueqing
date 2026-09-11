@@ -212,6 +212,10 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
                 selectedCaseIds.contains(record.learningCaseId),
           )
           .toList(growable: false);
+      final exportedCaseIds = selectedRecords
+          .map((record) => record.learningCaseId)
+          .whereType<String>()
+          .toSet();
       if (!context.mounted) {
         return;
       }
@@ -219,6 +223,13 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('所选学情目前没有可导出的记录，请刷新后重试。')));
+        return;
+      }
+      if (exportedCaseIds.length != selectedCaseIds.length ||
+          !exportedCaseIds.containsAll(selectedCaseIds)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('部分所选学情刚刚发生变化，请刷新后重新选择导出。')),
+        );
         return;
       }
       final rows = LearningRecordExport.rowsForStudentRecords(selectedRecords);
@@ -248,7 +259,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         showLearningRecordExportSuccess(
           context,
           savedPath: savedPath,
-          summary: '已导出 ${selectedCaseIds.length} 条学情',
+          summary: '已导出 ${exportedCaseIds.length} 条学情',
         );
       }
     } catch (error) {
