@@ -25,13 +25,13 @@ jobs:
       - name: Apply final bounded fixes
         run: python3 tool/v034_finalize.py
       - name: Format
-        run: dart format lib/features/design_v2/v2_workspace_preview.dart lib/features/design_v2/v2_read_model_adapter.dart test/features/v2_visual_polish_contract_test.dart
+        run: dart format lib/features/design_v2/v2_workspace_preview.dart lib/features/design_v2/v2_read_model_adapter.dart test/features/v2_visual_polish_contract_test.dart test/features/v2_shell_production_capabilities_test.dart
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze
         run: flutter analyze
       - name: Today semantic tests
-        run: flutter test test/features/design_v2_workspace_data_injection_test.dart test/features/v2_final_ergonomics_test.dart test/features/v2_action_composers_test.dart test/features/v2_visual_polish_contract_test.dart test/features/design_v2_read_model_adapter_test.dart test/features/design_v2_workflow_controller_test.dart
+        run: flutter test test/features/design_v2_workspace_data_injection_test.dart test/features/v2_final_ergonomics_test.dart test/features/v2_action_composers_test.dart test/features/v2_visual_polish_contract_test.dart test/features/v2_shell_production_capabilities_test.dart test/features/design_v2_read_model_adapter_test.dart test/features/design_v2_workflow_controller_test.dart
       - name: Full Flutter tests
         run: flutter test
       - name: Finalize clean branch
