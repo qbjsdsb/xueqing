@@ -52,6 +52,24 @@ extension CaseClosureReasonPresentation on CaseClosureReason {
   };
 }
 
+enum CaseVoidReason { mistake, duplicate, wrongStudentSubject, other }
+
+extension CaseVoidReasonPresentation on CaseVoidReason {
+  String get wireValue => switch (this) {
+    CaseVoidReason.mistake => 'mistake',
+    CaseVoidReason.duplicate => 'duplicate',
+    CaseVoidReason.wrongStudentSubject => 'wrong_student_subject',
+    CaseVoidReason.other => 'other',
+  };
+
+  String get label => switch (this) {
+    CaseVoidReason.mistake => '误记录',
+    CaseVoidReason.duplicate => '重复记录',
+    CaseVoidReason.wrongStudentSubject => '录错学生或学科',
+    CaseVoidReason.other => '其他',
+  };
+}
+
 class RecordCaseProgressCommand {
   const RecordCaseProgressCommand({
     required this.operationId,
@@ -170,6 +188,83 @@ class EndCaseFollowUpCommand {
   }
 }
 
+class VoidLearningCaseCommand {
+  const VoidLearningCaseCommand({
+    required this.operationId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+    required this.reason,
+    this.note,
+  });
+
+  final String operationId;
+  final String caseId;
+  final int expectedCaseVersion;
+  final CaseVoidReason reason;
+  final String? note;
+
+  void validate() => _validateCaseIdentity(
+    operationId: operationId,
+    caseId: caseId,
+    expectedCaseVersion: expectedCaseVersion,
+  );
+}
+
+class RestoreLearningCaseCommand {
+  const RestoreLearningCaseCommand({
+    required this.operationId,
+    required this.caseId,
+    required this.expectedCaseVersion,
+  });
+
+  final String operationId;
+  final String caseId;
+  final int expectedCaseVersion;
+
+  void validate() => _validateCaseIdentity(
+    operationId: operationId,
+    caseId: caseId,
+    expectedCaseVersion: expectedCaseVersion,
+  );
+}
+
+class VoidedLearningCaseSummary {
+  const VoidedLearningCaseSummary({
+    required this.caseId,
+    required this.profileId,
+    required this.title,
+    required this.caseStatus,
+    required this.caseVersion,
+    required this.voidReason,
+    required this.voidedAt,
+    required this.voidedByName,
+    this.voidNote,
+  });
+
+  final String caseId;
+  final String profileId;
+  final String title;
+  final String caseStatus;
+  final int caseVersion;
+  final String voidReason;
+  final String? voidNote;
+  final DateTime voidedAt;
+  final String voidedByName;
+
+  factory VoidedLearningCaseSummary.fromJson(Map<String, dynamic> json) =>
+      VoidedLearningCaseSummary(
+        caseId: _requiredString(json['case_id'], 'case_id'),
+        profileId: _requiredString(json['profile_id'], 'profile_id'),
+        title: _requiredString(json['title'], 'title'),
+        caseStatus: _requiredString(json['case_status'], 'case_status'),
+        caseVersion: _requiredInt(json['case_version'], 'case_version'),
+        voidReason: _requiredString(json['void_reason'], 'void_reason'),
+        voidNote: _stringValue(json['void_note']),
+        voidedAt: _requiredDateTime(json['voided_at'], 'voided_at'),
+        voidedByName: _requiredString(json['voided_by_name'], 'voided_by_name'),
+      );
+}
+
 class ProgressiveCaseReceipt {
   const ProgressiveCaseReceipt({
     required this.operationId,
@@ -220,6 +315,34 @@ class ProgressiveCaseReceipt {
   }
 }
 
+class LearningCaseRecordReceipt {
+  const LearningCaseRecordReceipt({
+    required this.operationId,
+    required this.caseId,
+    required this.recordState,
+    required this.caseStatus,
+    required this.caseVersion,
+    required this.eventId,
+  });
+
+  final String operationId;
+  final String caseId;
+  final String recordState;
+  final String caseStatus;
+  final int caseVersion;
+  final String eventId;
+
+  factory LearningCaseRecordReceipt.fromJson(Map<String, dynamic> json) =>
+      LearningCaseRecordReceipt(
+        operationId: _requiredString(json['operation_id'], 'operation_id'),
+        caseId: _requiredString(json['case_id'], 'case_id'),
+        recordState: _requiredString(json['record_state'], 'record_state'),
+        caseStatus: _requiredString(json['case_status'], 'case_status'),
+        caseVersion: _requiredInt(json['case_version'], 'case_version'),
+        eventId: _requiredString(json['event_id'], 'event_id'),
+      );
+}
+
 abstract interface class ProgressiveCaseRepository {
   Future<ProgressiveCaseReceipt> recordProgress(
     RecordCaseProgressCommand command,
@@ -228,7 +351,24 @@ abstract interface class ProgressiveCaseRepository {
   Future<ProgressiveCaseReceipt> endFollowUp(EndCaseFollowUpCommand command);
 }
 
-class SupabaseProgressiveCaseRepository implements ProgressiveCaseRepository {
+/// Optional governance capability kept separate from the teaching-progress
+/// interface so existing form fakes and alternate repositories remain valid.
+abstract interface class LearningCaseRecordRepository {
+  Future<LearningCaseRecordReceipt> voidLearningCase(
+    VoidLearningCaseCommand command,
+  );
+
+  Future<LearningCaseRecordReceipt> restoreLearningCase(
+    RestoreLearningCaseCommand command,
+  );
+
+  Future<List<VoidedLearningCaseSummary>> listVoidedLearningCases({
+    required String profileId,
+  });
+}
+
+class SupabaseProgressiveCaseRepository
+    implements ProgressiveCaseRepository, LearningCaseRecordRepository {
   SupabaseProgressiveCaseRepository(this._client);
 
   final SupabaseClient _client;
@@ -238,7 +378,7 @@ class SupabaseProgressiveCaseRepository implements ProgressiveCaseRepository {
     RecordCaseProgressCommand command,
   ) async {
     command.validate();
-    return _invoke(
+    return _invokeProgress(
       functionName: 'record_case_progress',
       params: <String, dynamic>{
         'p_operation_id': command.operationId,
@@ -265,7 +405,7 @@ class SupabaseProgressiveCaseRepository implements ProgressiveCaseRepository {
     EndCaseFollowUpCommand command,
   ) async {
     command.validate();
-    return _invoke(
+    return _invokeProgress(
       functionName: 'end_case_follow_up',
       params: <String, dynamic>{
         'p_operation_id': command.operationId,
@@ -278,25 +418,111 @@ class SupabaseProgressiveCaseRepository implements ProgressiveCaseRepository {
     );
   }
 
-  Future<ProgressiveCaseReceipt> _invoke({
+  @override
+  Future<LearningCaseRecordReceipt> voidLearningCase(
+    VoidLearningCaseCommand command,
+  ) async {
+    command.validate();
+    return _invokeRecordCommand(
+      functionName: 'void_learning_case',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+        'p_reason': command.reason.wireValue,
+        'p_note': command.note?.trim(),
+      },
+    );
+  }
+
+  @override
+  Future<LearningCaseRecordReceipt> restoreLearningCase(
+    RestoreLearningCaseCommand command,
+  ) async {
+    command.validate();
+    return _invokeRecordCommand(
+      functionName: 'restore_learning_case',
+      params: <String, dynamic>{
+        'p_operation_id': command.operationId,
+        'p_case_id': command.caseId,
+        'p_expected_case_version': command.expectedCaseVersion,
+      },
+    );
+  }
+
+  @override
+  Future<List<VoidedLearningCaseSummary>> listVoidedLearningCases({
+    required String profileId,
+  }) async {
+    if (profileId.trim().isEmpty) {
+      throw ArgumentError('profileId is required.');
+    }
+    final expectedUserId = _requireSession();
+    final response = await _client.rpc(
+      'list_voided_learning_cases',
+      params: <String, dynamic>{'p_profile_id': profileId},
+    );
+    _assertSameSession(expectedUserId);
+    if (response is! List) {
+      throw const FormatException(
+        'list_voided_learning_cases returned an invalid result.',
+      );
+    }
+    return List<VoidedLearningCaseSummary>.unmodifiable([
+      for (final item in response)
+        if (item is Map)
+          VoidedLearningCaseSummary.fromJson(
+            Map<String, dynamic>.from(item),
+          )
+        else
+          throw const FormatException(
+            'list_voided_learning_cases returned an invalid row.',
+          ),
+    ]);
+  }
+
+  Future<ProgressiveCaseReceipt> _invokeProgress({
     required String functionName,
     required Map<String, dynamic> params,
   }) async {
+    final expectedUserId = _requireSession();
+    final response = await _client.rpc(functionName, params: params);
+    _assertSameSession(expectedUserId);
+    if (response is! Map) {
+      throw FormatException('$functionName returned an invalid result.');
+    }
+    return ProgressiveCaseReceipt.fromJson(Map<String, dynamic>.from(response));
+  }
+
+  Future<LearningCaseRecordReceipt> _invokeRecordCommand({
+    required String functionName,
+    required Map<String, dynamic> params,
+  }) async {
+    final expectedUserId = _requireSession();
+    final response = await _client.rpc(functionName, params: params);
+    _assertSameSession(expectedUserId);
+    if (response is! Map) {
+      throw FormatException('$functionName returned an invalid result.');
+    }
+    return LearningCaseRecordReceipt.fromJson(
+      Map<String, dynamic>.from(response),
+    );
+  }
+
+  String _requireSession() {
     final authUser = _client.auth.currentUser;
     if (authUser == null) {
       throw const AuthException('No active session.');
     }
-    final expectedUserId = authUser.id;
-    final response = await _client.rpc(functionName, params: params);
+    return authUser.id;
+  }
+
+  void _assertSameSession(String expectedUserId) {
     if (_client.auth.currentUser?.id != expectedUserId) {
       throw const AuthException(
         'The active session changed while saving Case progress.',
       );
     }
-    if (response is! Map) {
-      throw FormatException('$functionName returned an invalid result.');
-    }
-    return ProgressiveCaseReceipt.fromJson(Map<String, dynamic>.from(response));
   }
 }
 
@@ -347,6 +573,15 @@ int _requiredInt(dynamic value, String field) {
     return value;
   }
   final result = int.tryParse(value?.toString() ?? '');
+  if (result == null) {
+    throw FormatException('Missing $field in server response.');
+  }
+  return result;
+}
+
+DateTime _requiredDateTime(dynamic value, String field) {
+  if (value is DateTime) return value;
+  final result = DateTime.tryParse(value?.toString() ?? '');
   if (result == null) {
     throw FormatException('Missing $field in server response.');
   }
