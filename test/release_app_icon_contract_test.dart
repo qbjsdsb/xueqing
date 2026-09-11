@@ -9,7 +9,7 @@ int _be32(List<int> bytes, int offset) =>
     bytes[offset + 3];
 
 void main() {
-  test('Android and Windows ship the real 学情 app icon', () {
+  test('Android and Windows ship the selected 学情 app icon', () {
     final manifest = File('android/app/src/main/AndroidManifest.xml')
         .readAsStringSync();
     expect(manifest, contains('android:icon="@mipmap/ic_launcher"'));
@@ -18,29 +18,50 @@ void main() {
     final adaptive26 = File(
       'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
     ).readAsStringSync();
-    expect(adaptive26, contains('@color/ic_launcher_background'));
+    expect(adaptive26, contains('@drawable/ic_launcher_background'));
     expect(adaptive26, contains('@drawable/ic_launcher_foreground'));
     expect(adaptive26, isNot(contains('<monochrome')));
+
+    final background = File(
+      'android/app/src/main/res/drawable/ic_launcher_background.xml',
+    ).readAsStringSync();
+    expect(background, contains('#F7F8F6'));
+    expect(background, contains('#EEF7F2'));
 
     final foreground = File(
       'android/app/src/main/res/drawable/ic_launcher_foreground.xml',
     ).readAsStringSync();
     expect(foreground, contains('android:viewportWidth="108"'));
-    expect(foreground, contains('#F8F6EF'));
-    // Keep the mark optically smaller than v0.3.0 and soften the book-page
-    // silhouette with curves instead of restoring the old sharp polygon.
-    expect(foreground, contains('M51.2,35.0'));
-    expect(foreground, contains('L77.2,31.5'));
-    expect(foreground, contains('Q41.8,72.0'));
-    expect(foreground, contains('Q67.8,33.0'));
-    expect(foreground, isNot(contains('M50.9,34.2')));
-    expect(foreground, isNot(contains('L80.0,29.2')));
+    // The selected mark is intentionally one quiet symbol: learner / growth
+    // point over two book-page or leaf forms, using the product green family.
+    expect(foreground, contains('#72C86E'));
+    expect(foreground, contains('#0C8B78'));
+    expect(foreground, contains('#2D8A76'));
+    expect(foreground, contains('#C8EBC2'));
+    expect(foreground, contains('M54,24'));
+    expect(foreground, contains('M54,82'));
 
     final adaptive33 = File(
       'android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml',
     ).readAsStringSync();
     expect(adaptive33, contains('<monochrome'));
-    expect(adaptive33, contains('@drawable/ic_launcher_foreground'));
+    expect(adaptive33, contains('@drawable/ic_launcher_monochrome'));
+
+    final monochrome = File(
+      'android/app/src/main/res/drawable/ic_launcher_monochrome.xml',
+    ).readAsStringSync();
+    expect(monochrome, contains('android:viewportWidth="108"'));
+    expect(monochrome, contains('M54,24'));
+    expect(monochrome, contains('M54,82'));
+
+    // API 23-25 still gets the same identity instead of falling back to the
+    // pre-v0.3.7 book placeholder.
+    final fallback23 = File(
+      'android/app/src/main/res/mipmap-anydpi-v23/ic_launcher.xml',
+    ).readAsStringSync();
+    expect(fallback23, contains('#F7F8F6'));
+    expect(fallback23, contains('#146F63'));
+    expect(fallback23, contains('#8ED2AA'));
 
     const androidIcons = <String, int>{
       'mdpi': 48,
@@ -58,11 +79,16 @@ void main() {
       expect(_be32(bytes, 20), entry.value);
     }
 
+    // The Windows resource is intentionally sourced from the exact selected
+    // artwork. A modern 256px ICO entry is sufficient for Windows to derive
+    // taskbar/start-menu sizes while preserving the approved gradients.
     final ico = File('windows/runner/resources/app_icon.ico').readAsBytesSync();
     expect(ico.length, greaterThan(4096));
     expect(ico.take(4).toList(), <int>[0, 0, 1, 0]);
     final imageCount = ico[4] | (ico[5] << 8);
-    expect(imageCount, greaterThanOrEqualTo(8));
+    expect(imageCount, greaterThanOrEqualTo(1));
+    expect(ico[6], 0); // ICO encodes 256px width as 0.
+    expect(ico[7], 0); // ICO encodes 256px height as 0.
 
     final rc = File('windows/runner/Runner.rc').readAsStringSync();
     expect(
