@@ -50,7 +50,7 @@ enum V2NextStep { continueTracking, remind, close }
 extension V2NextStepLabel on V2NextStep {
   String get label => switch (this) {
     V2NextStep.continueTracking => '继续跟进',
-    V2NextStep.remind => '提醒我再检查',
+    V2NextStep.remind => '安排再次检查',
     V2NextStep.close => '结束跟进',
   };
 }
@@ -189,6 +189,7 @@ Future<bool> showV2ProgressComposer(
   required String subject,
   required String caseTitle,
   bool canCompleteCurrentAction = false,
+  bool completeCurrentActionInitially = false,
   DateTime? businessDate,
   V2ProgressKind initialKind = V2ProgressKind.observation,
   String composerTitle = '记录进展',
@@ -205,6 +206,7 @@ Future<bool> showV2ProgressComposer(
           subject: subject,
           caseTitle: caseTitle,
           canCompleteCurrentAction: canCompleteCurrentAction,
+          completeCurrentActionInitially: completeCurrentActionInitially,
           businessDate: businessDate,
           initialKind: initialKind,
           composerTitle: composerTitle,
@@ -724,6 +726,7 @@ class V2ProgressComposer extends StatefulWidget {
     required this.caseTitle,
     required this.attachmentPicker,
     this.canCompleteCurrentAction = false,
+    this.completeCurrentActionInitially = false,
     this.businessDate,
     this.initialKind = V2ProgressKind.observation,
     this.composerTitle = '记录进展',
@@ -738,6 +741,7 @@ class V2ProgressComposer extends StatefulWidget {
   final String caseTitle;
   final V2AttachmentPicker attachmentPicker;
   final bool canCompleteCurrentAction;
+  final bool completeCurrentActionInitially;
   final DateTime? businessDate;
   final V2ProgressKind initialKind;
   final String composerTitle;
@@ -767,6 +771,9 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   void initState() {
     super.initState();
     _kind = widget.initialKind;
+    _completeCurrentAction =
+        widget.canCompleteCurrentAction &&
+        widget.completeCurrentActionInitially;
     final initialDraft = widget.persistence?.initialDraft;
     if (initialDraft != null) {
       _applyInitialDraft(initialDraft);
@@ -982,6 +989,9 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
     }
   }
 
+  bool get _initialCompleteCurrentAction =>
+      widget.canCompleteCurrentAction && widget.completeCurrentActionInitially;
+
   bool get _hasDraft =>
       _controller.text.trim().isNotEmpty ||
       _attachments.isNotEmpty ||
@@ -990,16 +1000,13 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
       _assessmentResult != null ||
       _reminderController.text.trim().isNotEmpty ||
       _reminderDate != null ||
-      _completeCurrentAction;
+      _completeCurrentAction != _initialCompleteCurrentAction;
 
   bool get _canSave {
     if (_saving || _controller.text.trim().isEmpty) {
       return false;
     }
     if (_kind == V2ProgressKind.assessment && _assessmentResult == null) {
-      return false;
-    }
-    if (_nextStep == V2NextStep.remind && _reminderDate == null) {
       return false;
     }
     return true;
@@ -1193,7 +1200,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                               },
                       ),
                       const SizedBox(width: 4),
-                      const Expanded(child: Text('同时完成当前待办')),
+                      const Expanded(child: Text('同时完成当前提醒')),
                     ],
                   ),
                 ),
@@ -1208,10 +1215,14 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                 label: step.label,
                 selected: _nextStep == step,
                 onTap: () {
+                  final previousStep = _nextStep;
                   setState(() {
                     _nextStep = step;
                     if (step == V2NextStep.close) {
                       _completeCurrentAction = false;
+                    } else if (previousStep == V2NextStep.close &&
+                        _initialCompleteCurrentAction) {
+                      _completeCurrentAction = true;
                     }
                   });
                   unawaited(_persistDraftSilently());
@@ -1237,20 +1248,46 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                       const SizedBox(height: 10),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          key: const Key('v2-reminder-date'),
-                          onPressed: _chooseReminderDate,
-                          icon: const Icon(
-                            Icons.calendar_today_outlined,
-                            size: 17,
-                          ),
-                          label: Text(
-                            _reminderDate == null
-                                ? '选择日期'
-                                : '${_reminderDate!.month} 月 ${_reminderDate!.day} 日',
-                          ),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            OutlinedButton.icon(
+                              key: const Key('v2-reminder-date'),
+                              onPressed: _chooseReminderDate,
+                              icon: const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 17,
+                              ),
+                              label: Text(
+                                _reminderDate == null
+                                    ? '选择日期（可选）'
+                                    : '${_reminderDate!.month} 月 ${_reminderDate!.day} 日',
+                              ),
+                            ),
+                            if (_reminderDate != null)
+                              TextButton(
+                                key: const Key('v2-reminder-clear-date'),
+                                onPressed: () {
+                                  setState(() => _reminderDate = null);
+                                  unawaited(_persistDraftSilently());
+                                },
+                                child: const Text('暂不定日期'),
+                              ),
+                          ],
                         ),
                       ),
+                      if (_reminderDate == null) ...[
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '暂不确定日期也可以保存，之后会出现在“待安排”。',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

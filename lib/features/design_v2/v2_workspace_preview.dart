@@ -289,40 +289,17 @@ Future<void> _showV2CompleteCurrentAction(
   V2Student student,
   V2FocusItem item,
 ) async {
-  final runtime = _V2RuntimeScope.maybeOf(context);
-  final controller = runtime?.workflowController;
+  final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
   final action = controller?.pendingActionFor(item.id);
   if (controller == null || action == null || !action.canComplete) {
     return;
   }
-  final operationId = createOperationId();
-  final photoEvidenceOperationId = createOperationId();
-  final saved = await showV2CompleteActionComposer(
+  await _showV2ProgressForCase(
     context,
-    actionTitle: action.title,
-    studentName: student.name,
-    subject: item.subject,
-    caseTitle: item.title,
-    onSave: () => controller.completeCurrentAction(
-      operationId: operationId,
-      caseId: item.id,
-    ),
-    onSaveProgress: (summary) => controller.recordProgress(
-      V2ProgressWrite(
-        operationId: operationId,
-        photoEvidenceOperationId: photoEvidenceOperationId,
-        caseId: item.id,
-        progressKind: CaseProgressKind.observation,
-        summary: summary,
-        completeCurrentAction: true,
-        nextStep: CaseProgressNextStep.continueTracking,
-        attachments: const [],
-      ),
-    ),
+    student,
+    item,
+    completeCurrentActionInitially: true,
   );
-  if (saved && context.mounted) {
-    runtime?.onWorkspaceChanged?.call();
-  }
 }
 
 Future<void> _showV2RescheduleCurrentAction(
@@ -769,6 +746,7 @@ Future<void> _showV2ProgressForCase(
   V2Student student,
   V2FocusItem item, {
   ComposerDraftSnapshot? initialDraft,
+  bool completeCurrentActionInitially = false,
 }) async {
   final runtime = _V2RuntimeScope.maybeOf(context);
   final controller = runtime?.workflowController;
@@ -806,6 +784,10 @@ Future<void> _showV2ProgressForCase(
           initialDraft: initialDraft,
         )
       : null;
+  final storedCompletesCurrentAction =
+      initialDraft?.state['complete_current_action'] == true;
+  final treatingCurrentAction =
+      completeCurrentActionInitially || storedCompletesCurrentAction;
   final saved = await showV2ProgressComposer(
     context,
     studentName: student.name,
@@ -813,12 +795,17 @@ Future<void> _showV2ProgressForCase(
     caseTitle: item.title,
     canCompleteCurrentAction:
         controller?.hasPendingPrimaryAction(item.id) ?? false,
+    completeCurrentActionInitially: treatingCurrentAction,
     businessDate: controller?.businessDate,
     initialKind: item.pendingVerification
         ? V2ProgressKind.assessment
         : V2ProgressKind.observation,
-    composerTitle: item.pendingVerification ? '记录复检' : '记录进展',
-    primaryLabel: item.pendingVerification ? '保存复检' : '保存进展',
+    composerTitle: treatingCurrentAction
+        ? (item.pendingVerification ? '处理复检提醒' : '处理提醒')
+        : (item.pendingVerification ? '记录复检' : '记录进展'),
+    primaryLabel: treatingCurrentAction
+        ? (item.pendingVerification ? '保存复检处理' : '保存处理')
+        : (item.pendingVerification ? '保存复检' : '保存进展'),
     persistence: persistence,
     onSave: controller == null
         ? null
@@ -3191,7 +3178,7 @@ class _CaseDetailPane extends StatelessWidget {
                                       Icons.check_circle_outline,
                                       size: 18,
                                     ),
-                                    label: const Text('完成这一步'),
+                                    label: const Text('处理这一步'),
                                   ),
                                 OutlinedButton.icon(
                                   key: ValueKey<String>(

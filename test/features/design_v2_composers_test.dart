@@ -101,7 +101,10 @@ void main() {
       expect(find.text('部分通过'), findsOneWidget);
       expect(find.text('未通过'), findsOneWidget);
 
-      await tester.tap(find.text('提醒我再检查'));
+      await tester.tap(find.text('部分通过'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('安排再次检查'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-reminder-title')), findsOneWidget);
@@ -116,7 +119,64 @@ void main() {
       final save = tester.widget<FilledButton>(
         find.widgetWithText(FilledButton, '保存进展'),
       );
-      expect(save.onPressed, isNull);
+      expect(save.onPressed, isNotNull);
+      expect(find.text('暂不确定日期也可以保存，之后会出现在“待安排”。'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'action handling starts with completion selected and can keep reminder undated',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      V2ProgressDraft? savedDraft;
+      await tester.pumpWidget(
+        app(
+          Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => showV2ProgressComposer(
+                context,
+                studentName: '林同学',
+                subject: '语文',
+                caseTitle: '阅读概括不完整',
+                canCompleteCurrentAction: true,
+                completeCurrentActionInitially: true,
+                composerTitle: '处理提醒',
+                primaryLabel: '保存处理',
+                attachmentPicker: (_) async => null,
+                onSave: (draft) async => savedDraft = draft,
+              ),
+              child: const Text('处理提醒'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, '处理提醒'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('同时完成当前提醒'), findsOneWidget);
+      final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+      expect(checkbox.value, isTrue);
+
+      await tester.enterText(
+        find.byKey(const Key('v2-progress-body')),
+        '今天复查时已经能主动圈出限制词。',
+      );
+      await tester.tap(find.text('安排再次检查'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('选择日期（可选）'), findsOneWidget);
+      final save = find.widgetWithText(FilledButton, '保存处理');
+      await tester.ensureVisible(save);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+
+      expect(savedDraft, isNotNull);
+      expect(savedDraft!.completeCurrentAction, isTrue);
+      expect(savedDraft!.nextStep, V2NextStep.remind);
+      expect(savedDraft!.reminderDate, isNull);
     },
   );
 
