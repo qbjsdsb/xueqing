@@ -6,13 +6,12 @@ on:
       - ux/v0.3.4-today-semantic-cleanup
     paths:
       - .github/workflows/v034-today-semantic-cleanup.yml
-      - tool/v034_today_cleanup.py
 
 permissions:
   contents: write
 
 jobs:
-  apply-and-verify:
+  verify-and-finalize:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,46 +24,18 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Apply bounded Today cleanup
-        run: python3 tool/v034_today_cleanup.py
-
-      - name: Format
-        run: dart format lib/features/design_v2/v2_fixture.dart lib/features/design_v2/v2_read_model_adapter.dart lib/features/design_v2/v2_action_composers.dart lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_data_injection_test.dart test/features/v2_final_ergonomics_test.dart test/features/v2_action_composers_test.dart
-
-      - name: Commit generated implementation snapshot
+      - name: Apply analyzer fixes
         shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib test
-          git diff --cached --check
-          if ! git diff --cached --quiet; then
-            git commit -m "WIP: materialize v0.3.4 Today cleanup"
-            git push origin HEAD:ux/v0.3.4-today-semantic-cleanup
-          fi
+          sed -i 's/<PickedEvidenceAttachment>//g' lib/features/design_v2/v2_workspace_preview.dart
+          sed -i 's/lastActivityAt!/lastActivityAt/g' lib/features/design_v2/v2_read_model_adapter.dart
+          dart format lib/features/design_v2/v2_workspace_preview.dart lib/features/design_v2/v2_read_model_adapter.dart
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Analyze and capture output
-        id: analyze
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          flutter analyze 2>&1 | tee v034-analyze.txt
-
-      - name: Commit analyzer diagnostics on failure
-        if: steps.analyze.outcome == 'failure'
-        shell: bash
-        run: |
-          git add v034-analyze.txt
-          git commit -m "chore: capture v0.3.4 analyzer diagnostics"
-          git push origin HEAD:ux/v0.3.4-today-semantic-cleanup
-
-      - name: Fail if analyze failed
-        if: steps.analyze.outcome == 'failure'
-        run: exit 1
+      - name: Analyze
+        run: flutter analyze
 
       - name: Focused tests
         run: flutter test test/features/design_v2_workspace_data_injection_test.dart test/features/v2_final_ergonomics_test.dart test/features/v2_action_composers_test.dart test/features/design_v2_read_model_adapter_test.dart test/features/design_v2_workflow_controller_test.dart
@@ -72,4 +43,15 @@ jobs:
       - name: Full Flutter tests
         run: flutter test
 
-# retrigger: 2026-09-11-v034-1
+      - name: Finalize branch
+        shell: bash
+        run: |
+          rm -f v034-analyze.txt
+          rm -f tool/v034_today_cleanup.py
+          rm -f .github/workflows/v034-today-semantic-cleanup.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "UX: make Today action-driven and teacher-readable"
+          git push origin HEAD:ux/v0.3.4-today-semantic-cleanup
