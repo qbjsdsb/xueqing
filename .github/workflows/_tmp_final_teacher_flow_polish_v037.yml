@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   apply-and-verify:
-    if: github.event.head_commit.message == 'chore: run final teacher flow polish'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout work branch
