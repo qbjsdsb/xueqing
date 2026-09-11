@@ -48,6 +48,7 @@ jobs:
           flutter test test/features/v036_learning_record_organization_contract_test.dart
           flutter test test/features/design_v2_workflow_controller_test.dart
           flutter test test/export/student_learning_record_export_test.dart
+          flutter test test/update/stable_release_workflow_contract_test.dart
 
       - name: Full Flutter tests
         run: flutter test
