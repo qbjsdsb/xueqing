@@ -57,7 +57,7 @@ void main() {
         .readAsStringSync();
 
     expect(workflow, contains('xueqing_backend_compatibility'));
-    expect(workflow, contains('20260911183000'));
+    expect(workflow, contains('20260911190000'));
     expect(workflow, contains('student_profile_edit'));
     expect(workflow, contains('learning_record_export_attachments'));
     expect(workflow, contains('learning_case_record_organization'));
