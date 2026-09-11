@@ -24,6 +24,68 @@ if (-not (Test-Path (Join-Path $buildRoot "xueqing.exe"))) {
   throw "Windows release bundle was not found: $buildRoot"
 }
 
+function Get-GitBlobSha1 {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path
+  )
+
+  [byte[]]$content = [System.IO.File]::ReadAllBytes($Path)
+  [byte[]]$header = [System.Text.Encoding]::UTF8.GetBytes("blob $($content.Length)`0")
+  [byte[]]$payload = New-Object byte[] ($header.Length + $content.Length)
+  [Array]::Copy($header, 0, $payload, 0, $header.Length)
+  [Array]::Copy($content, 0, $payload, $header.Length, $content.Length)
+
+  $sha1 = [System.Security.Cryptography.SHA1]::Create()
+  try {
+    $hash = $sha1.ComputeHash($payload)
+  }
+  finally {
+    $sha1.Dispose()
+  }
+  return (($hash | ForEach-Object { $_.ToString("x2") }) -join "")
+}
+
+function Resolve-ChineseMessagesFile {
+  $translationCommit = "1ff90acc4ed4aee82b1cda43253243deee3daed4"
+  $translationBlobSha = "30d997321197c7c96d8e111e9ddd6c0ca8da5f09"
+  $translationDirectory = Join-Path $RepositoryRoot "build/windows/installer-support"
+  $translationPath = Join-Path $translationDirectory "ChineseSimplified.isl"
+  $translationUrl = "https://raw.githubusercontent.com/kira-96/Inno-Setup-Chinese-Simplified-Translation/$translationCommit/ChineseSimplified.isl"
+
+  New-Item -ItemType Directory -Force -Path $translationDirectory | Out-Null
+
+  if (Test-Path $translationPath) {
+    $existingBlobSha = Get-GitBlobSha1 -Path $translationPath
+    if ($existingBlobSha -eq $translationBlobSha) {
+      return $translationPath
+    }
+    Remove-Item -Force $translationPath
+  }
+
+  $temporaryPath = "$translationPath.download"
+  try {
+    Invoke-WebRequest `
+      -Uri $translationUrl `
+      -OutFile $temporaryPath `
+      -UseBasicParsing
+
+    $downloadedBlobSha = Get-GitBlobSha1 -Path $temporaryPath
+    if ($downloadedBlobSha -ne $translationBlobSha) {
+      throw "Chinese installer translation integrity check failed: expected Git blob $translationBlobSha, got $downloadedBlobSha."
+    }
+
+    Move-Item -Force $temporaryPath $translationPath
+  }
+  finally {
+    if (Test-Path $temporaryPath) {
+      Remove-Item -Force $temporaryPath -ErrorAction SilentlyContinue
+    }
+  }
+
+  return $translationPath
+}
+
 function Find-InnoSetupCompiler {
   $command = Get-Command iscc.exe -ErrorAction SilentlyContinue
   if ($null -ne $command) {
@@ -59,8 +121,10 @@ if ($null -eq $isccPath) {
   }
 }
 
+$chineseMessagesFile = Resolve-ChineseMessagesFile
+
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
-& $isccPath "/Qp" "/DAppVersion=$AppVersion" "/DBinaryVersion=$binaryVersion" "/DBuildRoot=$buildRoot" "/DOutputDir=$outputDirectory" $scriptPath
+& $isccPath "/Qp" "/DAppVersion=$AppVersion" "/DBinaryVersion=$binaryVersion" "/DBuildRoot=$buildRoot" "/DOutputDir=$outputDirectory" "/DChineseMessagesFile=$chineseMessagesFile" $scriptPath
 if ($LASTEXITCODE -ne 0) {
   throw "Inno Setup compilation failed with exit code $LASTEXITCODE."
 }
