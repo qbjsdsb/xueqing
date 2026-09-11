@@ -1,0 +1,97 @@
+name: Temporary dispatch v0.3.6 with verified production inputs
+
+on:
+  push:
+    branches:
+      - release/v0.3.6-staging-trigger
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  dispatch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout helper branch
+        uses: actions/checkout@v6
+        with:
+          ref: release/v0.3.6-staging-trigger
+          fetch-depth: 0
+
+      - name: Recover previously verified production public inputs
+        id: production
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          previous_log="$(gh run view 34579181374 --repo "$GITHUB_REPOSITORY" --job 103198519947 --log)"
+          supabase_url="$(printf '%s\n' "$previous_log" | sed -n 's/.*XUEQING_SUPABASE_URL: //p' | tail -n 1 | tr -d '\r')"
+          publishable_key="$(printf '%s\n' "$previous_log" | sed -n 's/.*XUEQING_SUPABASE_PUBLISHABLE_KEY: //p' | tail -n 1 | tr -d '\r')"
+          allowed_hosts="$(printf '%s\n' "$previous_log" | sed -n 's/.*XUEQING_SUPABASE_ALLOWED_HOSTS: //p' | tail -n 1 | tr -d '\r')"
+          if [[ "$supabase_url" != "https://czuctoulgnfytcfonkhc.supabase.co" ]]; then
+            echo "Unexpected production Supabase URL recovered from v0.3.5 release evidence."
+            exit 1
+          fi
+          if [[ "$allowed_hosts" != "czuctoulgnfytcfonkhc.supabase.co" ]]; then
+            echo "Unexpected production allowed-host value recovered from v0.3.5 release evidence."
+            exit 1
+          fi
+          if [[ "$publishable_key" != sb_publishable_* ]]; then
+            echo "A valid public Supabase publishable key was not recovered from the successful v0.3.5 release evidence."
+            exit 1
+          fi
+          {
+            echo "supabase_url=$supabase_url"
+            echo "publishable_key=$publishable_key"
+            echo "allowed_hosts=$allowed_hosts"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify staging target and dispatch publisher
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUPABASE_URL: ${{ steps.production.outputs.supabase_url }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ steps.production.outputs.publishable_key }}
+          SUPABASE_ALLOWED_HOSTS: ${{ steps.production.outputs.allowed_hosts }}
+        run: |
+          set -euo pipefail
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          if [[ "$main_sha" != "f09f568c75029cf7b1f21fb1f65b5e304affd123" ]]; then
+            echo "main moved after release freeze: $main_sha"
+            exit 1
+          fi
+          release_json="$(gh release view v0.3.6 --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
+          RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('v0.3.6 is not in the required staging prerelease state')
+          PY
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/v0.3.6" --jq '.sha')"
+          if [[ "$tag_sha" != "$main_sha" ]]; then
+            echo "v0.3.6 tag mismatch: $tag_sha != $main_sha"
+            exit 1
+          fi
+          notes=$'教师处理提醒接入完整进展闭环：记录真实情况、完成当前提醒并决定下一步\n待复检提醒直接进入检查结果，可继续跟进、再次检查或结束跟进\n再次检查日期可暂不确定，未定日期的后续进入“待安排”\n学情详情围绕当前状态、教师判断、下一步和成长过程重新组织\n学情记录支持作废与恢复，错误或重复记录不再污染工作台和导出\nExcel 导出改进日期、历史记录与当前下一步语义，保留真实题号与标点'
+          gh workflow run publish-release-assets.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_tag=v0.3.6 \
+            -f app_version=0.3.6+14 \
+            -f release_notes="$notes" \
+            -f supabase_url="$SUPABASE_URL" \
+            -f supabase_publishable_key="$SUPABASE_PUBLISHABLE_KEY" \
+            -f supabase_allowed_hosts="$SUPABASE_ALLOWED_HOSTS"
+
+      - name: Remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'qbjsdsb'
+          git config user.email '3342513714@qq.com'
+          git rm .github/workflows/_tmp_dispatch_v036_verified_inputs.yml
+          git commit -m 'chore: remove temporary v0.3.6 verified-input dispatch trigger'
+          git push origin HEAD:release/v0.3.6-staging-trigger
