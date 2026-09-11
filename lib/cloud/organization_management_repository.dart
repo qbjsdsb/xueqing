@@ -1076,6 +1076,22 @@ class SupabaseOrganizationInvitationAcceptanceRepository
   }
 }
 
+String? organizationBackendCompatibilityErrorMessage(Object error) {
+  if (error is! PostgrestException) return null;
+  final code = error.code?.trim().toUpperCase() ?? '';
+  final detail = [
+    error.message,
+    error.details,
+    error.hint,
+  ].whereType<Object>().map((item) => item.toString()).join(' ').toLowerCase();
+  if (code == 'PGRST202' ||
+      detail.contains('could not find the function') ||
+      detail.contains('schema cache')) {
+    return '当前软件与服务端版本暂不一致，请刷新后重试；如仍出现，请联系负责人更新服务端。';
+  }
+  return null;
+}
+
 String? organizationSubjectSetupErrorMessage(Object error) {
   final detail = switch (error) {
     AuthException(:final message) => message.trim(),

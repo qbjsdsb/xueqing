@@ -2280,8 +2280,13 @@ class _TimelineRow extends StatelessWidget {
                   entry.kind,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 5),
-                Text(entry.body, style: Theme.of(context).textTheme.bodyMedium),
+                if (entry.body.trim().isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    entry.body,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
                 if (canResolveRealPhotos) ...[
                   const SizedBox(height: 12),
                   _EvidencePhotoStrip(

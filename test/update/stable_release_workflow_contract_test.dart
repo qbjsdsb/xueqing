@@ -52,6 +52,20 @@ void main() {
     );
   });
 
+  test('stable publisher blocks clients newer than production backend', () {
+    final workflow = File('.github/workflows/publish-release-assets.yml')
+        .readAsStringSync();
+
+    expect(workflow, contains('xueqing_backend_compatibility'));
+    expect(workflow, contains('20260911153000'));
+    expect(workflow, contains('student_profile_edit'));
+    expect(workflow, contains('learning_record_export_attachments'));
+    expect(
+      workflow,
+      contains('Production backend is older than this client requires'),
+    );
+  });
+
   test('stable publisher verifies the permanent Android signing identity', () {
     final workflow = File('.github/workflows/publish-release-assets.yml')
         .readAsStringSync();

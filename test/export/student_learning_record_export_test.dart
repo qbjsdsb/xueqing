@@ -48,4 +48,39 @@ void main() {
       expect(rows.last.status, '继续关注');
     },
   );
+
+  test('keeps issue title and detail columns semantically distinct', () {
+    final rows = LearningRecordExport.rowsForStudentRecords(
+      <StudentLearningRecord>[
+        StudentLearningRecord(
+          id: 'created-1',
+          occurredAt: DateTime.utc(2026, 9, 9, 10),
+          studentName: '示例学生',
+          subjectName: '道德与法治',
+          issueTitle: '分点作答意识不够',
+          recordKind: 'case_created',
+          content: '分点作答意识不够：分点作答意识不够',
+          teacherName: '乔老师',
+          attachmentCount: 0,
+          currentStatus: 'confirmed',
+        ),
+        StudentLearningRecord(
+          id: 'evidence-1',
+          occurredAt: DateTime.utc(2026, 9, 9, 11),
+          studentName: '示例学生',
+          subjectName: '道德与法治',
+          issueTitle: '分点作答意识不够',
+          recordKind: 'evidence',
+          content: '分点作答意识不够：第二问仍漏了一个得分点',
+          teacherName: '乔老师',
+          attachmentCount: 0,
+          currentStatus: 'confirmed',
+        ),
+      ],
+    );
+
+    expect(rows.first.issueTitle, '分点作答意识不够');
+    expect(rows.first.content, isEmpty);
+    expect(rows.last.content, '第二问仍漏了一个得分点');
+  });
 }

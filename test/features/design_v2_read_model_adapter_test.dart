@@ -129,6 +129,63 @@ void main() {
         expect(allCaseIds, contains('case-cn-closed'));
       },
     );
+    test(
+      'removes duplicated assessment wording but preserves real follow-up text',
+      () {
+        final workspace = TeacherWorkspace(
+          viewerName: '乔老师',
+          organizationName: '测试机构',
+          organizationTimeZone: 'Asia/Shanghai',
+          hasTeachingAccess: true,
+          loadedAt: DateTime(2026, 9, 11, 14),
+          students: [
+            WorkspaceStudent(
+              id: 'student-1',
+              profileId: 'profile-1',
+              profileVersion: 1,
+              name: '吴同学',
+              grade: '初三',
+              subject: '历史',
+              context: '',
+              positioning: null,
+              strengths: null,
+              cadenceNote: null,
+              cases: [
+                _case(
+                  id: 'case-assessment-copy',
+                  profileId: 'profile-1',
+                  title: '拜占庭帝国',
+                  status: LearningCaseStatus.closed,
+                  version: 2,
+                  timeline: [
+                    WorkspaceTimelineEvent(
+                      id: 'assessment-only',
+                      occurredAt: DateTime(2026, 9, 9, 12, 30),
+                      typeLabel: '检查结果 · 通过',
+                      text: '检查结果：通过',
+                    ),
+                    WorkspaceTimelineEvent(
+                      id: 'assessment-closed',
+                      occurredAt: DateTime(2026, 9, 9, 13, 3),
+                      typeLabel: '检查结果 · 通过',
+                      text: '检查结果：通过\n结束跟进。',
+                    ),
+                  ],
+                ),
+              ],
+              recentFacts: const [],
+            ),
+          ],
+        );
+
+        final timeline = V2ReadModelAdapter.fromWorkspace(workspace)
+            .timelineForCase('case-assessment-copy');
+        expect(timeline, hasLength(2));
+        expect(timeline.first.kind, '检查结果 · 通过');
+        expect(timeline.first.body, '结束跟进。');
+        expect(timeline.last.body, isEmpty);
+      },
+    );
   });
 }
 
