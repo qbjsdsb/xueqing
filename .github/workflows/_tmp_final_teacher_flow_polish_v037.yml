@@ -21,6 +21,25 @@ jobs:
       - name: Apply focused polish
         run: python3 tool/_tmp_apply_final_teacher_flow_polish_v037.py
 
+      - name: Fix focused regression fixture
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('test/features/v037_final_teacher_flow_resilience_test.dart')
+          text = path.read_text()
+          old = """    const item = V2FocusItem(
+                id: 'case-existing',
+                studentId: student.id,
+          """
+          new = """    const item = V2FocusItem(
+                id: 'case-existing',
+                studentId: 's-existing',
+          """
+          if old not in text:
+              raise SystemExit('focused fixture target not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
