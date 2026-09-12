@@ -33,9 +33,11 @@ onboarding：可最小 Auth 接管，但普通学生业务全部拒绝；可以�
 
 disabled：所有学生业务拒绝，历史 actor 保留。
 
-## 4. V1 Auth UX
+## 4. V1 Auth UX 与成员账号生命周期
 
-org_admin provision known member → temporary password once → membership onboarding → user changes credential → revoke old sessions → membership active → forced re-login。
+可信 bootstrap org_owner → org_owner provision/invite known member → temporary credential / invitation → membership onboarding → user changes credential → revoke old sessions → membership active → forced re-login。
+
+当前最终 migration 链只允许 `org_owner` 执行成员账号生命周期写命令，包括创建/审批/撤销/重发邀请、停用/恢复成员与受控凭据重发。`org_admin` 可以查看成员/邀请状态、维护显示姓名以及管理学生/学科/任课业务，但不能调用这些 owner-only member-account commands。
 
 Password/Token/高权限 Secret 不进业务 DB/log/GitHub/Flutter。
 
@@ -49,8 +51,8 @@ Supabase `JWT session_id → auth.sessions` 只是 reference；其他 provider �
 
 当前试点只保留三种机构角色：org_owner / org_admin / teacher。
 
-- org_owner：机构负责人，管理机构、管理员和老师，并具备机构级学情监督能力；
-- org_admin：管理员，管理老师、学生和教学关系，并具备机构级学情监督能力；
+- org_owner：机构负责人，管理成员账号生命周期与机构业务，并具备机构级学情监督能力；
+- org_admin：管理员，管理学生、学科和教学关系，并具备机构级学情监督能力；不拥有成员账号生命周期写权限；
 - teacher：老师，仅在有效教学范围和学生分配内承担个人教学责任。
 
 学管、班主任或学科复核等分工先通过人员关系和流程表达，不新增系统角色。
@@ -200,6 +202,7 @@ Student merge 的 semantic conflict 不由 admin 超权自动猜测；遵守 `ST
 - revoked/reset/disabled old token → deny；
 - Org A/B isolation；
 - onboarding → no student data；
+- org_admin member-account write commands → `organization_owner_required`；
 - Student merged source → no new current business operations。
 
 ## 13. Function security
@@ -213,7 +216,9 @@ RLS + GRANT + command checks。security invoker 优先；security definer 仅非
 - 不允许一个模糊 membership helper 同时承担 access authorization 与 responsibility assignment；
 - operation_id / expected_version / stale assignment 冲突 fail closed。
 
-## 14. Historical actor / responsibility
+成员账号生命周期相关 RPC 必须由 owner-only helper 保护；`org_admin` 的 organization learning/operations 权限不能被解释成账号接管权限。
+
+## 14. Historical actor / responsibility 与 handoff
 
 Handoff/disable/merge/service suspension 不重写过去 Evidence/Intervention/Assessment/finalized snapshot actor。
 
@@ -221,7 +226,7 @@ Handoff/disable/merge/service suspension 不重写过去 Evidence/Intervention/A
 
 历史 Case 如果 owner 已不满足当前 Assignment，不通过 migration 静默批量换老师；应识别为责任关系待确认，并通过显式 handoff / responsibility governance 处理。
 
-Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实，不能互相自动替代。
+Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实，但显式 `reassign_teacher` / scope-revoke / membership-disable handoff command 可以在一个责任计划中原子处理当前 Assignment、Case owner 与 pending Action assignee。没有完整 plan 或发生 stale drift 时 whole rollback；禁止拆成两个可能部分成功的提交，也禁止无确认地静默搬责任。
 
 ## 15. UI projection contract
 
@@ -230,6 +235,6 @@ Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两
 - `hasPersonalTeachingResponsibility`：当前成员是否存在合法个人任课关系；
 - `canManageOrganization` / organization supervision capability：是否拥有机构级监督与管理入口。
 
-Personal Projection 只能形成“我的今日 / 我的学生 / 我的学情”；Organization Projection 才承载全机构监督数据。
+Personal Projection 只能形成“我的今日 / 我的学生 / 我的课程 / 我的学情”；Organization Projection 才承载全机构监督数据。
 
 不得继续用单一 `hasTeachingAccess` 同时表达“我本人有任课”和“我能监督机构”。
