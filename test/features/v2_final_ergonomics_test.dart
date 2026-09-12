@@ -187,6 +187,12 @@ void main() {
 
     await tester.pumpWidget(_app(data));
     await tester.pumpAndSettle();
+
+    final backgroundWangCount = find.text('王同学').evaluate().length;
+    final backgroundLinCount = find.text('林同学').evaluate().length;
+    expect(backgroundWangCount, greaterThanOrEqualTo(1));
+    expect(backgroundLinCount, greaterThanOrEqualTo(1));
+
     await tester.tap(find.byKey(const Key('v2-today-quick-capture')));
     await tester.pumpAndSettle();
 
@@ -200,16 +206,9 @@ void main() {
     );
     await tester.pump();
 
-    final picker = find.byType(BottomSheet);
     expect(find.text('找到 1 位'), findsOneWidget);
-    expect(
-      find.descendant(of: picker, matching: find.text('王同学')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: picker, matching: find.text('林同学')),
-      findsNothing,
-    );
+    expect(find.text('王同学'), findsNWidgets(backgroundWangCount + 1));
+    expect(find.text('林同学'), findsNWidgets(backgroundLinCount));
   });
 
   testWidgets(
