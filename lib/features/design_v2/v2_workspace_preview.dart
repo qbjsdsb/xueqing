@@ -1088,6 +1088,11 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     if (!identical(oldWidget.data, widget.data)) {
       _reconcileSelection();
     }
+    if (widget.organizationPageBuilder == null &&
+        _destination == V2WorkspaceDestination.organization) {
+      _destination = V2WorkspaceDestination.today;
+      _showCase = false;
+    }
     if (oldWidget.composerDraftScopeKey != widget.composerDraftScopeKey ||
         oldWidget.composerDraftStore != widget.composerDraftStore) {
       _composerDraftRecoveryScheduled = false;
