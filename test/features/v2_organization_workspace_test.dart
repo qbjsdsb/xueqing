@@ -38,10 +38,7 @@ void main() {
       expect(find.text('机构学情'), findsNothing);
       expect(find.text('学情'), findsOneWidget);
       expect(find.text('管理'), findsOneWidget);
-      expect(
-        find.text('2 名学生 · 2 个问题正在跟进 · 1 个学科未明确主责'),
-        findsOneWidget,
-      );
+      expect(find.text('2 名学生 · 2 个问题正在跟进 · 1 个学科未明确主责'), findsOneWidget);
       expect(find.textContaining('机构操作不会自动改变教师主责'), findsOneWidget);
       expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
       expect(find.byIcon(Icons.expand_more), findsWidgets);
@@ -99,9 +96,7 @@ void main() {
     expect(find.text('机构学生一'), findsNothing);
     expect(find.text('机构学生二'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const Key('v2-organization-filter-attention')),
-    );
+    await tester.tap(find.byKey(const Key('v2-organization-filter-attention')));
     await tester.pumpAndSettle();
     expect(find.text('机构学生一'), findsNothing);
     expect(find.text('机构学生二'), findsOneWidget);

@@ -601,33 +601,35 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     required Map<String, String> leadLabelByCaseId,
   }) {
     final query = _query.trim().toLowerCase();
-    return widget.data.students.where((student) {
-      final items = itemsByStudentId[student.id] ?? const <V2FocusItem>[];
-      final profiles =
-          profilesByStudentId[student.id] ?? const <WorkspaceStudent>[];
-      if (!_matchesFilter(student, items: items, profiles: profiles)) {
-        return false;
-      }
-      if (query.isEmpty) return true;
-      final haystack = <String>[
-        student.name,
-        student.grade,
-        ...student.subjects,
-        _responsibilitySummary(profiles),
-        for (final profile in profiles) ...[
-          profile.subject,
-          _leadLabelForProfile(profile),
-        ],
-        for (final item in items) ...[
-          item.title,
-          item.summary,
-          item.nextStep,
-          item.subject,
-          leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
-        ],
-      ].join(' ').toLowerCase();
-      return haystack.contains(query);
-    }).toList(growable: false);
+    return widget.data.students
+        .where((student) {
+          final items = itemsByStudentId[student.id] ?? const <V2FocusItem>[];
+          final profiles =
+              profilesByStudentId[student.id] ?? const <WorkspaceStudent>[];
+          if (!_matchesFilter(student, items: items, profiles: profiles)) {
+            return false;
+          }
+          if (query.isEmpty) return true;
+          final haystack = <String>[
+            student.name,
+            student.grade,
+            ...student.subjects,
+            _responsibilitySummary(profiles),
+            for (final profile in profiles) ...[
+              profile.subject,
+              _leadLabelForProfile(profile),
+            ],
+            for (final item in items) ...[
+              item.title,
+              item.summary,
+              item.nextStep,
+              item.subject,
+              leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
+            ],
+          ].join(' ').toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
   }
 
   String _summaryText({
@@ -668,11 +670,13 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     );
     final activeItems = widget.data.focusItems.where((item) => !item.closed);
     final activeCaseCount = activeItems.length;
-    final pendingCount = activeItems.where(
-      (item) =>
-          item.pendingVerification ||
-          item.effectiveStatus == V2CaseStatus.pendingVerification,
-    ).length;
+    final pendingCount = activeItems
+        .where(
+          (item) =>
+              item.pendingVerification ||
+              item.effectiveStatus == V2CaseStatus.pendingVerification,
+        )
+        .length;
     final overdueCount = activeItems
         .where((item) => item.actionTiming == V2ActionTiming.overdue)
         .length;
@@ -743,7 +747,8 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      for (final filter in _OrganizationLearningFilter.values) ...[
+                      for (final filter
+                          in _OrganizationLearningFilter.values) ...[
                         ChoiceChip(
                           key: ValueKey<String>(
                             'v2-organization-filter-${filter.name}',
@@ -798,7 +803,9 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                           items: items,
                           profiles: profiles,
                           leadLabelByCaseId: leadLabelByCaseId,
-                          responsibilitySummary: _responsibilitySummary(profiles),
+                          responsibilitySummary: _responsibilitySummary(
+                            profiles,
+                          ),
                           leadLabelForProfile: _leadLabelForProfile,
                           compact: compact,
                           onQuickCapture: () =>
@@ -850,11 +857,13 @@ class _OrganizationStudentRow extends StatelessWidget {
         );
 
   String _statusSummary(List<V2FocusItem> activeItems) {
-    final pendingCount = activeItems.where(
-      (item) =>
-          item.pendingVerification ||
-          item.effectiveStatus == V2CaseStatus.pendingVerification,
-    ).length;
+    final pendingCount = activeItems
+        .where(
+          (item) =>
+              item.pendingVerification ||
+              item.effectiveStatus == V2CaseStatus.pendingVerification,
+        )
+        .length;
     final overdueCount = activeItems
         .where((item) => item.actionTiming == V2ActionTiming.overdue)
         .length;
@@ -878,8 +887,12 @@ class _OrganizationStudentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeItems = items.where((item) => !item.closed).toList(growable: false);
-    final closedItems = items.where((item) => item.closed).toList(growable: false);
+    final activeItems = items
+        .where((item) => !item.closed)
+        .toList(growable: false);
+    final closedItems = items
+        .where((item) => item.closed)
+        .toList(growable: false);
     final subtitleStyle = Theme.of(context).textTheme.bodySmall;
 
     if (items.isEmpty) {
@@ -898,9 +911,7 @@ class _OrganizationStudentRow extends StatelessWidget {
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 5),
-          child: Text(
-            '当前没有需要跟进的问题\n${_subjectResponsibilityPreview()}',
-          ),
+          child: Text('当前没有需要跟进的问题\n${_subjectResponsibilityPreview()}'),
         ),
         isThreeLine: true,
         trailing: _recordButton(),
