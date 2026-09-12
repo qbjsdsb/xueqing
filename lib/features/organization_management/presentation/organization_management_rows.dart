@@ -342,6 +342,7 @@ class _OrganizationStudentTile extends StatelessWidget {
     required this.student,
     required this.busy,
     required this.activeAssignments,
+    required this.onSetSubjectLead,
     required this.onTransferAssignment,
     required this.onAddSubject,
     required this.onToggleSubjectService,
@@ -353,6 +354,8 @@ class _OrganizationStudentTile extends StatelessWidget {
   final OrganizationStudentRecord student;
   final bool busy;
   final List<OrganizationStudentTeacherAssignment> activeAssignments;
+  final Future<void> Function(OrganizationStudentSubjectService service)
+  onSetSubjectLead;
   final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
   onTransferAssignment;
   final VoidCallback? onAddSubject;
@@ -423,6 +426,9 @@ class _OrganizationStudentTile extends StatelessWidget {
                     service: service,
                     assignments: _assignmentsFor(service),
                     busy: busy,
+                    onSetLead: student.isActive && service.isActive
+                        ? () => onSetSubjectLead(service)
+                        : null,
                     onTransfer: (assignment) =>
                         onTransferAssignment(assignment),
                     onToggle:
@@ -520,6 +526,7 @@ class _StudentSubjectServiceRow extends StatelessWidget {
     required this.service,
     required this.assignments,
     required this.busy,
+    required this.onSetLead,
     required this.onTransfer,
     required this.onToggle,
   });
@@ -527,12 +534,16 @@ class _StudentSubjectServiceRow extends StatelessWidget {
   final OrganizationStudentSubjectService service;
   final List<OrganizationStudentTeacherAssignment> assignments;
   final bool busy;
+  final VoidCallback? onSetLead;
   final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
   onTransfer;
   final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
+    final hasLead = assignments.any(
+      (assignment) => assignment.isActive && assignment.isLead,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Column(
@@ -568,7 +579,33 @@ class _StudentSubjectServiceRow extends StatelessWidget {
           ),
           if (service.isActive) ...[
             const SizedBox(height: AppSpacing.xxs),
-            if (assignments.isEmpty)
+            if (!hasLead)
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xxs,
+                children: [
+                  Icon(
+                    Icons.person_off_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  Text(
+                    '暂未明确主责老师',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.error),
+                  ),
+                  if (onSetLead != null)
+                    TextButton(
+                      key: ValueKey<String>(
+                        'student-subject-set-lead-${service.profileId}',
+                      ),
+                      onPressed: busy ? null : onSetLead,
+                      child: const Text('设置主责老师'),
+                    ),
+                ],
+              ),
+            for (final assignment in assignments)
               Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: AppSpacing.xs,
@@ -580,36 +617,18 @@ class _StudentSubjectServiceRow extends StatelessWidget {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   Text(
-                    '暂未安排负责老师',
+                    '${_studentAssignmentRoleLabel(assignment.assignmentRole)}：${assignment.teacherName}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  TextButton(
+                    key: ValueKey<String>(
+                      'student-assignment-transfer-${assignment.assignmentId}',
+                    ),
+                    onPressed: busy ? null : () => onTransfer(assignment),
+                    child: const Text('交接老师'),
+                  ),
                 ],
-              )
-            else
-              for (final assignment in assignments)
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xxs,
-                  children: [
-                    Icon(
-                      Icons.person_pin_outlined,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    Text(
-                      '${_studentAssignmentRoleLabel(assignment.assignmentRole)}：${assignment.teacherName}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    TextButton(
-                      key: ValueKey<String>(
-                        'student-assignment-transfer-${assignment.assignmentId}',
-                      ),
-                      onPressed: busy ? null : () => onTransfer(assignment),
-                      child: const Text('交接老师'),
-                    ),
-                  ],
-                ),
+              ),
           ],
         ],
       ),

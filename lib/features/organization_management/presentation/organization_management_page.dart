@@ -15,6 +15,7 @@ import '../../../export/learning_record_export_feedback.dart';
 import 'organization_student_edit_dialog.dart';
 import 'organization_student_record_export_dialog.dart';
 import 'organization_student_setup_dialog.dart';
+import 'organization_student_subject_lead_dialog.dart';
 import 'organization_student_subject_restore_dialog.dart';
 import 'organization_student_subject_setup_dialog.dart';
 import 'organization_student_teacher_assignment_transfer_dialog.dart';
@@ -192,6 +193,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                               onAddSubject: _addSubject,
                               onAddTeacherScope: _addTeacherScope,
                               onToggleTeacherScope: _toggleTeacherScope,
+                              onSetStudentSubjectLead: _setStudentSubjectLead,
                               onTransferStudentTeacherAssignment:
                                   _transferStudentTeacherAssignment,
                               canManageCaseTypes:

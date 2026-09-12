@@ -49,6 +49,7 @@ class _FakeOrganizationManagementRepository
   int studentProfileUpdateCount = 0;
   int teacherScopeUpdateCount = 0;
   int assignmentTransferCount = 0;
+  int studentSubjectLeadSetCount = 0;
   int handoffPreviewCount = 0;
   int handoffCommitCount = 0;
   int listStudentsCount = 0;
@@ -216,6 +217,67 @@ class _FakeOrganizationManagementRepository
   Future<List<OrganizationStudentTeacherAssignment>>
   listStudentTeacherAssignments({required String organizationId}) async {
     return studentTeacherAssignments;
+  }
+
+  @override
+  Future<OrganizationStudentSubjectLeadResult> setStudentSubjectLead({
+    required String operationId,
+    required String organizationId,
+    required String studentSubjectProfileId,
+    required int expectedProfileVersion,
+    required String teacherMembershipId,
+  }) async {
+    studentSubjectLeadSetCount++;
+    final student = students.firstWhere(
+      (item) => item.subjectServices.any(
+        (service) => service.profileId == studentSubjectProfileId,
+      ),
+    );
+    final service = student.subjectServices.firstWhere(
+      (item) => item.profileId == studentSubjectProfileId,
+    );
+    final teacher = setupOptions
+        .teachersForSubject(service.organizationSubjectId)
+        .firstWhere((item) => item.membershipId == teacherMembershipId);
+    final assignment = OrganizationStudentTeacherAssignment(
+      assignmentId: 'assignment-set-lead-$studentSubjectLeadSetCount',
+      organizationId: organizationId,
+      studentSubjectProfileId: studentSubjectProfileId,
+      studentId: student.studentId,
+      studentName: student.studentName,
+      organizationSubjectId: service.organizationSubjectId,
+      subjectName: service.subjectName,
+      subjectCode: service.subjectName.toLowerCase(),
+      membershipId: teacher.membershipId,
+      teacherName: teacher.displayName,
+      teacherEmail: teacher.email,
+      assignmentRole: 'lead',
+      status: 'active',
+      version: 1,
+      activeFrom: DateTime(2026, 9, 12),
+      activeTo: null,
+      endedAt: null,
+    );
+    studentTeacherAssignments.add(assignment);
+    return OrganizationStudentSubjectLeadResult(
+      operationId: operationId,
+      organizationId: organizationId,
+      studentId: student.studentId,
+      studentName: student.studentName,
+      studentSubjectProfileId: studentSubjectProfileId,
+      organizationSubjectId: service.organizationSubjectId,
+      subjectName: service.subjectName,
+      subjectCode: service.subjectName.toLowerCase(),
+      assignmentId: assignment.assignmentId,
+      assignmentRole: 'lead',
+      assignmentStatus: 'active',
+      assignmentVersion: 1,
+      teacherMembershipId: teacher.membershipId,
+      teacherDisplayName: teacher.displayName,
+      teacherEmail: teacher.email,
+      teacherScopeId: 'scope-set-lead',
+      activeFrom: assignment.activeFrom,
+    );
   }
 
   @override
@@ -2067,6 +2129,89 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'active subject without Lead can explicitly set responsible teacher',
+    (tester) async {
+      final collaborator = OrganizationStudentTeacherAssignment(
+        assignmentId: 'assignment-collaborator',
+        organizationId: 'org-1',
+        studentSubjectProfileId: 'profile-1',
+        studentId: 'student-1',
+        studentName: '原学生',
+        organizationSubjectId: 'subject-1',
+        subjectName: '数学',
+        subjectCode: 'math',
+        membershipId: 'membership-2',
+        teacherName: '协作老师',
+        teacherEmail: 'collaborator@example.com',
+        assignmentRole: 'collaborator',
+        status: 'active',
+        version: 1,
+        activeFrom: DateTime(2026, 9, 1),
+        activeTo: null,
+        endedAt: null,
+      );
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        students: [_studentRecord()],
+        studentTeacherAssignments: [collaborator],
+        setupOptions: const OrganizationSetupOptions(
+          subjects: [
+            OrganizationSetupSubject(id: 'subject-1', displayName: '数学'),
+          ],
+          teachers: [
+            OrganizationSetupTeacher(
+              membershipId: 'membership-2',
+              displayName: '协作老师',
+              email: 'collaborator@example.com',
+              organizationSubjectIds: ['subject-1'],
+            ),
+            OrganizationSetupTeacher(
+              membershipId: 'membership-3',
+              displayName: '新主责老师',
+              email: 'lead@example.com',
+              organizationSubjectIds: ['subject-1'],
+            ),
+          ],
+        ),
+      );
+
+      await _pumpManagement(tester, repository);
+      await _selectManagementArea(tester, '学生');
+
+      expect(find.text('暂未明确主责老师'), findsOneWidget);
+      expect(find.text('协作老师：协作老师'), findsOneWidget);
+      final setLeadButton = find.byKey(
+        const ValueKey<String>('student-subject-set-lead-profile-1'),
+      );
+      expect(setLeadButton, findsOneWidget);
+      await tester.ensureVisible(setLeadButton);
+      await tester.tap(setLeadButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('设置主责老师'), findsWidgets);
+      expect(find.text('原学生 · 数学'), findsOneWidget);
+      expect(find.text('这位老师将负责该学科后续新建立的问题。'), findsOneWidget);
+      expect(find.text('已有问题的主责、待办负责人和历史记录不会自动修改。'), findsOneWidget);
+
+      final dropdown = find.byType(DropdownButtonFormField<String>);
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('新主责老师').last);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('student-subject-set-lead-confirm')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.studentSubjectLeadSetCount, 1);
+      expect(find.text('暂未明确主责老师'), findsNothing);
+      expect(find.text('主责老师：新主责老师'), findsOneWidget);
+      expect(find.text('协作老师：协作老师'), findsOneWidget);
+    },
+  );
 
   testWidgets('missing subjects opens settings first', (tester) async {
     final repository = _FakeOrganizationManagementRepository(

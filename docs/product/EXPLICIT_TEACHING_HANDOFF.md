@@ -34,6 +34,18 @@
 >
 > 历史证据、教学处理、检查结果和历史记录不会修改。
 
+## “设置主责老师”与“教学责任交接”不是同一个动作
+
+学生学科服务仍处于 active，但当前没有 active Lead Assignment 时，系统面对的是**责任空缺**，而不是“从 A 交接给 B”。这时应使用独立的“设置主责老师”动作：只为该学生学科建立新的当前 Lead，不伪造一个不存在的原负责人，也不借机迁移其他事实。
+
+两种动作的边界必须稳定：
+
+- **当前没有 Lead → 设置主责老师。** 只建立新的 active Lead Assignment；必须校验学生、学科、成员、teacher 角色和当前有效 teaching scope；如果别人刚刚已经补上 Lead，则 fail closed。
+- **当前已有 Lead A，需要改为 B → 教学责任交接。** 必须先预览再提交，并显式迁移确认范围内的当前 Case owner 与 pending Action assignee。
+- “设置主责老师”**不得**自动修改已有 Learning Case owner、Case Action assignee 或历史 Actor。若这些旧事实本身需要修复，应通过明确、可审计的后续业务动作处理，不能成为补 Lead 的隐藏副作用。
+
+因此，管理端在责任空缺时应直接显示“暂未明确主责老师 / 设置主责老师”；已有主责时才提供“交接老师”。这也避免把 collaborator 的存在误判成“已有主责”。
+
 ## 不做什么
 
 - 不把负责人/管理员自动设置为 Case owner；
@@ -45,3 +57,5 @@
 ## 当前实现边界
 
 服务端提供 `preview_organization_student_teacher_handoff` 与 `commit_organization_student_teacher_handoff` 两个 RPC；Flutter repository 提供对应的 preview / commit 合同。管理端可视化确认流程作为其上的独立 UX 层实现，不能绕过预览直接迁移仍有关联责任的任课关系。
+
+责任空缺由独立的 `set_organization_student_subject_lead` RPC 处理。它只允许对 active 且当前不存在 active Lead 的学生学科建立一个新的 Lead Assignment，并依赖数据库“一门学生学科最多一个 active Lead”的约束作为并发安全底线；它不承担已有 Case / Action 的责任迁移。
