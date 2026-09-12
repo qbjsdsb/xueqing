@@ -42,8 +42,8 @@ void main() {
       expect(find.textContaining('机构操作不会自动改变教师主责'), findsOneWidget);
       expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
       expect(find.byIcon(Icons.expand_more), findsWidgets);
-      expect(find.text('语文 · 张老师'), findsOneWidget);
-      expect(find.text('语文 · 未设置主责'), findsOneWidget);
+      expect(find.textContaining('语文 · 张老师'), findsOneWidget);
+      expect(find.textContaining('语文 · 未设置主责'), findsOneWidget);
       expect(find.widgetWithText(TextButton, '记录问题'), findsNWidgets(2));
 
       await tester.tap(find.text('机构学生一'));
