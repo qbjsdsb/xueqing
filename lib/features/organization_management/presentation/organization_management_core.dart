@@ -83,6 +83,45 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
     });
   }
 
+  Future<void> _finishCommittedMutation({String? successMessage}) async {
+    var refreshFailed = false;
+    try {
+      await _refresh();
+    } catch (_) {
+      refreshFailed = true;
+    }
+    if (!mounted) return;
+
+    // The server write is already authoritative at this point. A parent
+    // workspace reload is best-effort only and must never turn a committed
+    // teaching fact into a false "operation failed" message.
+    try {
+      widget.onChanged?.call();
+    } catch (_) {
+      refreshFailed = true;
+    }
+    if (!mounted) return;
+
+    final normalizedSuccess = successMessage?.trim();
+    if (refreshFailed) {
+      final prefix = normalizedSuccess == null || normalizedSuccess.isEmpty
+          ? '操作已经保存。'
+          : normalizedSuccess;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 8),
+          content: Text('$prefix\n最新列表暂时没有刷新成功。请刷新页面确认，不要重复提交。'),
+        ),
+      );
+      return;
+    }
+
+    if (normalizedSuccess != null && normalizedSuccess.isNotEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(normalizedSuccess)));
+    }
+  }
+
   Future<void> _runMutation(
     Future<Object?> Function() mutation,
     String successMessage, {
@@ -97,12 +136,7 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
     }
     try {
       await mutation();
-      await _refresh();
-      if (mounted) {
-        widget.onChanged?.call();
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(successMessage)));
-      }
+      await _finishCommittedMutation(successMessage: successMessage);
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     } finally {

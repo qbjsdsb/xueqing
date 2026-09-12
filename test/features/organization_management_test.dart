@@ -51,6 +51,8 @@ class _FakeOrganizationManagementRepository
   int assignmentTransferCount = 0;
   int handoffPreviewCount = 0;
   int handoffCommitCount = 0;
+  int listStudentsCount = 0;
+  bool failNextListStudents = false;
   int studentSubjectAddCount = 0;
   int studentSubjectEndCount = 0;
   int studentSubjectRestoreCount = 0;
@@ -696,6 +698,11 @@ class _FakeOrganizationManagementRepository
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   }) async {
+    listStudentsCount++;
+    if (failNextListStudents) {
+      failNextListStudents = false;
+      throw StateError('simulated refresh failure');
+    }
     return students;
   }
 
@@ -1106,6 +1113,31 @@ void main() {
       await _selectManagementArea(tester, '成员');
 
       expect(find.widgetWithText(FilledButton, '邀请成员'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'committed mutation reports refresh failure without pretending the write failed',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: [_ownerNomination()],
+      );
+      await _pumpManagement(tester, repository);
+
+      repository.failNextListStudents = true;
+      final approveFinder = find.text('通过负责人提名');
+      await tester.ensureVisible(approveFinder);
+      await tester.tap(approveFinder);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(repository.approveCount, 1);
+      expect(repository.listStudentsCount, greaterThanOrEqualTo(2));
+      expect(find.textContaining('负责人提名已通过'), findsOneWidget);
+      expect(find.textContaining('最新列表暂时没有刷新成功'), findsOneWidget);
+      expect(find.textContaining('不要重复提交'), findsOneWidget);
+      expect(find.textContaining('操作未完成'), findsNothing);
     },
   );
 
@@ -1878,6 +1910,95 @@ void main() {
     expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');
     expect(find.text('主责老师：新老师'), findsOneWidget);
   });
+
+  testWidgets(
+    'committed teaching handoff is not reported as failed when refresh fails',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        students: [_studentRecord()],
+        studentTeacherAssignments: [_studentTeacherAssignment()],
+        setupOptions: const OrganizationSetupOptions(
+          subjects: [
+            OrganizationSetupSubject(id: 'subject-1', displayName: '数学'),
+          ],
+          teachers: [
+            OrganizationSetupTeacher(
+              membershipId: 'membership-1',
+              displayName: '原老师',
+              email: 'old-teacher@example.com',
+              organizationSubjectIds: ['subject-1'],
+            ),
+            OrganizationSetupTeacher(
+              membershipId: 'membership-2',
+              displayName: '新老师',
+              email: 'new-teacher@example.com',
+              organizationSubjectIds: ['subject-1'],
+            ),
+          ],
+        ),
+        teacherSubjectScopes: [
+          OrganizationTeacherSubjectScope(
+            scopeId: 'scope-1',
+            membershipId: 'membership-1',
+            organizationSubjectId: 'subject-1',
+            teacherName: '原老师',
+            teacherEmail: 'old-teacher@example.com',
+            membershipStatus: 'active',
+            subjectName: '数学',
+            subjectCode: 'math',
+            scopeKind: 'teaching',
+            status: 'active',
+            version: 1,
+            activeFrom: DateTime(2026, 9, 1),
+            activeTo: null,
+          ),
+          OrganizationTeacherSubjectScope(
+            scopeId: 'scope-2',
+            membershipId: 'membership-2',
+            organizationSubjectId: 'subject-1',
+            teacherName: '新老师',
+            teacherEmail: 'new-teacher@example.com',
+            membershipStatus: 'active',
+            subjectName: '数学',
+            subjectCode: 'math',
+            scopeKind: 'teaching',
+            status: 'active',
+            version: 1,
+            activeFrom: DateTime(2026, 9, 1),
+            activeTo: null,
+          ),
+        ],
+      );
+      await _pumpManagement(tester, repository);
+
+      final transferButton = find.byKey(
+        const ValueKey<String>('student-assignment-transfer-assignment-1'),
+      );
+      await tester.ensureVisible(transferButton);
+      await tester.tap(transferButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('继续核对'));
+      await tester.pumpAndSettle();
+
+      repository.failNextListStudents = true;
+      await tester.tap(find.byKey(const ValueKey('handoff-confirm-submit')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(repository.handoffCommitCount, 1);
+      expect(repository.assignmentTransferCount, 1);
+      expect(
+        repository.updatedTeacherAssignment?.replacementTeacherName,
+        '新老师',
+      );
+      expect(find.textContaining('已将 原学生 的 数学 主责老师交接给 新老师'), findsOneWidget);
+      expect(find.textContaining('最新列表暂时没有刷新成功'), findsOneWidget);
+      expect(find.textContaining('不要重复提交'), findsOneWidget);
+      expect(find.textContaining('操作未完成'), findsNothing);
+    },
+  );
 
   testWidgets('student subject shows lead and collaborator together', (
     tester,

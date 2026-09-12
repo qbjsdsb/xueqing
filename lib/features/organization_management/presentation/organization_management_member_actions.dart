@@ -24,15 +24,11 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
         expectedMembershipVersion: member.version,
         status: disabling ? 'disabled' : 'active',
       );
-      await _refresh();
-      if (!mounted) return;
-      widget.onChanged?.call();
       final displayName = member.displayName ?? member.email;
       final message = result.status == 'disabled'
           ? '已停用 $displayName；结束了 ${result.endedScopeCount + result.endedAssignmentCount} 条当前教学关系。'
           : '已恢复 $displayName 的机构访问；需要的教学关系请重新配置。';
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
+      await _finishCommittedMutation(successMessage: message);
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     } finally {
@@ -80,7 +76,7 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
           SnackBar(content: Text(copied ? '邀请代码已复制。' : '邀请已创建，可在邀请列表中继续处理。')),
         );
       }
-      if (mounted) await _refresh();
+      if (mounted) await _finishCommittedMutation();
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     } finally {
@@ -117,12 +113,9 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
         membershipId: member.membershipId,
         displayName: displayName,
       );
-      await _refresh();
-      if (!mounted) return;
-      widget.onChanged?.call();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已更新成员姓名：${result.displayName}。')));
+      await _finishCommittedMutation(
+        successMessage: '已更新成员姓名：${result.displayName}。',
+      );
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     } finally {
@@ -291,7 +284,7 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
       );
       if (mounted) {
         await _showProvisioningResult(result);
-        await _refresh();
+        await _finishCommittedMutation();
       }
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
@@ -314,7 +307,7 @@ mixin _OrganizationManagementMemberActions on _OrganizationManagementCore {
       );
       if (mounted) {
         await _showTemporaryPassword(result);
-        await _refresh();
+        await _finishCommittedMutation();
       }
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
