@@ -11,11 +11,13 @@ void main() {
     expect(workflow, contains(r'RELEASE_VERSION_NAME="$version_name"'));
     expect(workflow, contains('version >= (0, 3, 8)'));
     expect(workflow, contains('"responsibility_read_model"'));
+    expect(workflow, contains('"organization_profile_responsibility"'));
     expect(workflow, contains('"responsibility_safe_quick_capture"'));
     expect(
       workflow,
       contains(
         'required += ["responsibility_read_model", '
+        '"organization_profile_responsibility", '
         '"responsibility_safe_quick_capture"] if version >= (0, 3, 8) else []',
       ),
     );

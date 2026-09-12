@@ -1,7 +1,7 @@
 name: xueqing
 description: 学情闭环教师工作台
 publish_to: "none"
-version: 0.3.7+15
+version: 0.3.8+16
 
 environment:
   sdk: ">=3.13.0 <4.0.0"
