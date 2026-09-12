@@ -452,16 +452,24 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
             rawWorkspace.organizationId != null &&
             runtime?.organizationManagementRepository != null;
         final canOpenOrganization =
-            canOpenManagement && responsibility != null && runtime != null;
-        final WidgetBuilder? managementPageBuilder = canOpenOrganization
-            ? (_) => V2OrganizationWorkspacePage(
+            rawWorkspace.canManageOrganization &&
+            rawWorkspace.organizationId != null &&
+            responsibility != null &&
+            runtime != null;
+        final V2OrganizationWorkspaceBuilder? organizationPageBuilder =
+            canOpenOrganization
+            ? (context, onBackToPersonal) => V2OrganizationWorkspacePage(
                 workspace: rawWorkspace,
                 workspaceData: loaded.organizationWorkspaceData,
                 responsibility: responsibility,
                 runtime: runtime,
+                embedded: true,
+                onBackFromRoot: onBackToPersonal,
                 onChanged: () => unawaited(_softRefresh()),
               )
-            : canOpenManagement
+            : null;
+        final WidgetBuilder? managementPageBuilder =
+            !canOpenOrganization && canOpenManagement
             ? (_) => V2ManagementPage(
                 workspace: rawWorkspace,
                 runtime: runtime!,
@@ -536,6 +544,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           onExportMyStudents: runtime?.studentLearningRecordRepository != null
               ? (context) => _exportMyStudentRecords(context, personalWorkspace)
               : null,
+          organizationPageBuilder: organizationPageBuilder,
           managementPageBuilder: managementPageBuilder,
           updateService: runtime?.updateService,
           updateInstaller: runtime?.updateInstaller,

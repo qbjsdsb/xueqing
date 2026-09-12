@@ -27,6 +27,8 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
     required this.responsibility,
     required this.runtime,
     this.rootMode = false,
+    this.embedded = false,
+    this.onBackFromRoot,
     this.onChanged,
     super.key,
   });
@@ -36,6 +38,8 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
   final WorkspaceResponsibilityContext responsibility;
   final AuthenticatedWorkspaceRuntime runtime;
   final bool rootMode;
+  final bool embedded;
+  final VoidCallback? onBackFromRoot;
 
   /// Reloads the authorized workspace after an organization mutation and also
   /// provides the explicit manual refresh entry for supervisor workflows.
@@ -140,16 +144,23 @@ class _V2OrganizationWorkspacePageState
     final compact = MediaQuery.sizeOf(context).width < 720;
     final canSignOut = widget.rootMode && widget.runtime.onSignOut != null;
     final handlesInternalBack = _section != _OrganizationSection.learning;
+    final interceptsBack = handlesInternalBack || widget.embedded;
 
     return PopScope<void>(
-      canPop: !handlesInternalBack,
+      canPop: !interceptsBack,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop || !handlesInternalBack) return;
-        setState(() => _section = _OrganizationSection.learning);
+        if (didPop) return;
+        if (handlesInternalBack) {
+          setState(() => _section = _OrganizationSection.learning);
+          return;
+        }
+        if (widget.embedded) {
+          widget.onBackFromRoot?.call();
+        }
       },
       child: Scaffold(
         appBar: AppBar(
-          automaticallyImplyLeading: !widget.rootMode,
+          automaticallyImplyLeading: !widget.rootMode && !widget.embedded,
           title: const Text('机构'),
           actions: [
             if (widget.onChanged != null)

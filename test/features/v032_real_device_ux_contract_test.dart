@@ -6,13 +6,36 @@ void main() {
   test('compact V2 intercepts internal Android back hierarchy', () {
     final source = File('lib/features/design_v2/v2_workspace_preview.dart')
         .readAsStringSync();
+    final organization = File(
+      'lib/features/design_v2/v2_organization_workspace_page.dart',
+    ).readAsStringSync();
+
     expect(source, contains('PopScope<void>('));
     expect(source, contains('final handlesSystemBack ='));
-    expect(source, contains('hasInternalHistory || widget.destination != 0'));
+    expect(
+      source,
+      contains('widget.destination != V2WorkspaceDestination.today &&'),
+    );
+    expect(
+      source,
+      contains('widget.destination != V2WorkspaceDestination.organization'),
+    );
     expect(source, contains('canPop: !handlesSystemBack'));
     expect(source, contains('widget.onBackFromCase();'));
     expect(source, contains('setState(() => _studentOpen = false)'));
-    expect(source, contains('widget.onDestinationChanged(0);'));
+    expect(
+      source,
+      contains('widget.onDestinationChanged(V2WorkspaceDestination.today);'),
+    );
+
+    expect(
+      organization,
+      contains(
+        'final interceptsBack = handlesInternalBack || widget.embedded;',
+      ),
+    );
+    expect(organization, contains('if (handlesInternalBack)'));
+    expect(organization, contains('widget.onBackFromRoot?.call();'));
   });
 
   test('compact student canvas no longer mixes list and scaffold surfaces', () {
