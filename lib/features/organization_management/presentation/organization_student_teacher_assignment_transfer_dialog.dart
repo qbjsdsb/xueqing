@@ -97,7 +97,7 @@ class _OrganizationStudentTeacherAssignmentTransferDialogState
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                '交接会在同一个事务中结束当前任课并建立新的任课记录，历史不会丢失。学生已有的正在跟进的问题和待办不会自动换负责人；如需停用原老师的可教学科，请先把这些事项交接清楚。',
+                '先选择接收老师。下一步会由系统核对这门学科当前正在跟进的问题和待完成行动，只有你确认具体影响范围后才会完成交接；历史记录不会被改写。',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -133,7 +133,7 @@ class _OrganizationStudentTeacherAssignmentTransferDialogState
               ] else if (selectedTeacher != null) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '接收老师：${selectedTeacher.displayName}；仅改变这条${_assignmentRoleLabel(assignment.assignmentRole)}任课关系。',
+                  '接收老师：${selectedTeacher.displayName}。继续后会先显示需要迁移的教学责任，不会立即提交。',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -148,7 +148,7 @@ class _OrganizationStudentTeacherAssignmentTransferDialogState
         ),
         FilledButton(
           onPressed: selectedTeacher == null ? null : _submit,
-          child: const Text('确认交接'),
+          child: const Text('继续核对'),
         ),
       ],
     );
