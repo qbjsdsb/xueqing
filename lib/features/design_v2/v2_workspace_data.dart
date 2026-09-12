@@ -13,6 +13,7 @@ class V2WorkspaceData {
     required this.timeline,
     this.closedItems = const <V2FocusItem>[],
     this.businessDate,
+    this.todayFocusItemIds,
   });
 
   final List<V2Student> students;
@@ -20,6 +21,25 @@ class V2WorkspaceData {
   final List<V2FocusItem> closedItems;
   final List<V2TimelineEntry> timeline;
   final DateTime? businessDate;
+
+  /// When supplied, Today may only surface cases whose current primary Action
+  /// is assigned to the current Personal membership. A null value preserves
+  /// the fixture/legacy behavior where every actionable focus item is eligible.
+  ///
+  /// This is intentionally independent from [focusItems]: a teacher must still
+  /// see the complete Case history for every Profile they currently teach even
+  /// when a collaborator owns the next Action.
+  final Set<String>? todayFocusItemIds;
+
+  List<V2FocusItem> get todayFocusItems {
+    final ids = todayFocusItemIds;
+    if (ids == null) {
+      return focusItems;
+    }
+    return focusItems
+        .where((item) => ids.contains(item.id))
+        .toList(growable: false);
+  }
 
   List<V2FocusItem> focusItemsForStudent(V2Student student) => focusItems
       .where((item) => item.studentId == student.id)
