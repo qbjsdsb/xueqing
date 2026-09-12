@@ -1,6 +1,6 @@
 # Initial Diagnosis Workflow｜新生 / 新学科初诊工作流
 
-> Phase 0A.6 领域事实源。Initial Diagnosis 是 Student + Subject scoped 的进入闭环工作流，不建立与 Learning Case 平行的永久“初诊问题表”。
+> Phase 0A.6 领域事实源。Initial Diagnosis 是 Student + Subject scoped 的进入闭环工作流，不建立与 Learning Case 平行的永久“初诊问题表”。v0.3.8 起同时受 ADR-047 与 `docs/RESPONSIBILITY_MODEL.md` 约束。
 
 ## 1. 目标
 
@@ -43,12 +43,16 @@ Student identity 先于初诊；姓名不是唯一键。
 
 ## 5. 初诊 Teaching Fact Gate｜包含 Quick Capture / new Case
 
-初诊中以下全部需要完整 Teaching Fact Gate：
+初诊中以下全部属于 teaching facts / teaching responsibility：
 - teaching Evidence；
 - Intervention；
 - Assessment；
 - Lesson teacher behavior；
 - **Quick Capture / new Learning Case**。
+
+### 5.1 Personal Scope｜本人作为责任老师
+
+当前成员要以本人责任写入上述事实，必须完整满足：
 
 ```text
 live session
@@ -60,12 +64,26 @@ live session
 + operation-specific permission
 ```
 
-任何一项缺失都不能写云端 teaching fact/new Case。
+任何一项缺失都不能把当前成员作为 Responsible Teacher 写入云端 teaching fact/new Case。
 
-### 管理员授权不是 bypass
-管理员可以建立/恢复 Profile、assignment、治理关系；但不能以“允许初诊”替代 teacher capability、active Profile 或 legal active Student Teacher Assignment，也不能直接替老师创建教学 Case。
+### 5.2 Organization Scope｜管理者监督初诊
 
-Advisor-only / pure Subject Lead / Admin-only 的非专业记录应走 Parent Communication 或 Observation（该能力上线后），不能用 Quick Capture。
+org_owner / org_admin 可以建立/恢复 Profile、scope、assignment，并在 Organization Projection 监督初诊。但管理身份本身不是 Teaching Fact Gate 的替代物。
+
+如果管理者从机构视角发起 new Case：
+
+- 管理身份只提供 supervisor / command capability；
+- server 必须把 teaching responsibility 解析到目标 Profile 当前合法 active Assignment；
+- 默认 Responsible Teacher 为 active Lead；
+- 没有 active Lead 时 fail closed，先明确主责老师；
+- Event/audit 记录真实 manager actor，Case owner / Action assignee 记录真实责任老师；
+- 管理者本人只有在确实具有该 Profile 合法 Assignment 时才能成为 owner。
+
+因此：
+
+> 管理员不能“代替老师承担不存在的教学责任”，但可以在 Organization Scope 为已经明确的合法责任老师发起责任安全的 Case。
+
+Advisor-only / pure management-only 的非专业记录，如不应进入正式教学 Case，应走 Parent Communication / Observation（对应能力上线后），不能借 Quick Capture 伪造教学责任。
 
 ## 6. Positioning / Strengths
 
@@ -84,11 +102,21 @@ student + subject context
 → new Case
 ```
 
-但云端创建 new Case 前必须执行 §5 完整 Gate。
+但云端创建 new Case 前必须执行 §5 的责任解析：
 
+### Personal Scope
+
+- 当前成员必须通过完整 Gate；
 - Profile inactive/archived → reject；
-- Advisor-only/management-only → reject；
+- 无合法 Assignment → reject；
 - 无网络 → 只保存 encrypted local draft；同步时重新验证 Gate。
+
+### Organization Scope
+
+- 只有具备机构监督能力的 org_owner/org_admin 可发起；
+- server 默认解析 active Lead 为 Responsible Teacher；
+- 无 active Lead → reject，并提示先明确任课关系；
+- 管理者可见整个机构不等于这些学生属于其 Personal Projection。
 
 课后再判断 knowledge / habit / exam_strategy / other。一个错题不等于必须 formalize。
 
@@ -124,34 +152,6 @@ V1 / Phase 0B 不建 `initial_diagnoses` 平行大表，也不把 baseline snaps
 
 ## 11. Multi-teacher diagnosis
 
-Lead 可做主体诊断；Collaborator 可在完整 Gate 下补本人真实 Evidence/Assessment；Subject Lead 可专业 review，但仅 leadership scope 时不能伪造 teaching fact/new Case。
+Lead 可做主体诊断；Collaborator 可在完整 Gate 下补本人真实 Evidence/Assessment；Organization supervisor 可以治理和监督，但不能用管理身份伪造 teaching fact responsibility。
 
-每条事实保留真实 actor；关键 Case command 按 Commands/Role Matrix。
-
-## 12. Lesson / Family
-
-真实试听/诊断可以 Lesson context：Lesson → Evidence / Quick Capture → post-lesson formalize。Lesson 和 Quick Capture 各自写入时都重新验证 Gate。
-
-初诊后可生成家校 Draft，但真实沟通遵守 Parent Communication finalized-event 语义；家校不是初诊完成的强制 blocker。
-
-## 13. Acceptance Scenarios
-
-- 第一次试听只发现一个值得跟进的问题 → 只建一个 Case；
-- 根因不确定 → 不编造；
-- 同名 Student 已存在 → 复用/查重；
-- 新开数学 → Profile active + legal active Student Teacher Assignment 后才可 Quick Capture/teaching fact；
-- Profile inactive/archived + 管理员“允许初诊” → new Case/Intervention/Assessment/Lesson 全拒绝；
-- Advisor-only → Quick Capture/new Case 拒绝，可记 Parent Communication/允许的 Observation；
-- pure Subject Lead → 可 review，不可伪造 teaching fact；
-- Pilot 无人需要首次整体基线页 → 继续不建 snapshot 表。
-
-## 14. 冻结结论
-
-1. Initial Diagnosis 是 workflow，不是第二台账；
-2. Student identity / Subject Profile service state 先于教学事实；
-3. positioning/strengths 属于 Profile 当前上下文；
-4. candidate problem 不等于 formal Case；
-5. **Quick Capture/new Case 与其他 teaching facts 使用完全相同的 Teaching Fact Gate**；
-6. 管理身份不能 bypass；
-7. inactive/archived Profile 不能通过初诊建立 teaching Case；
-8. baseline snapshot 为 P2 Pilot validation。
+每条事实保留真实 actor；每个 Case/Action 保留真实 Responsible Teacher；关键 Case command 按 Commands/Role Matrix。
