@@ -25,9 +25,8 @@ class _ManagementHeader extends StatelessWidget {
       children: [
         Text(
           organizationName,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
         Container(
           padding: const EdgeInsets.symmetric(
@@ -41,9 +40,8 @@ class _ManagementHeader extends StatelessWidget {
           ),
           child: Text(
             roleLabel,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
         ),
       ],
@@ -218,11 +216,7 @@ class _ManagementAreaCard extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Icon(
-                icon,
-                size: 20,
-                color: colorScheme.onSurfaceVariant,
-              ),
+              child: Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
@@ -233,9 +227,8 @@ class _ManagementAreaCard extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xxs),
                   Text(
                     description,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -379,9 +372,8 @@ class _ManagementEmptyState extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   message,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -407,10 +399,7 @@ class _ManagementErrorState extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off_outlined, size: 40),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              '机构管理暂时无法加载',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('机构管理暂时无法加载', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.xs),
             const Text('请检查网络和账号状态后重试。'),
             const SizedBox(height: AppSpacing.md),
