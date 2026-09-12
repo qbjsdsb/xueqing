@@ -432,11 +432,44 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
         .where((profile) => profile.id == student.id)
         .toList(growable: false);
     if (profiles.isEmpty) return;
-    final hasLead = profiles.any(
-      (profile) =>
-          widget.responsibility.leadMembershipIdForProfile(profile.profileId) !=
-          null,
-    );
+    final subjectContexts = <String, V2QuickCaptureSubjectContext>{};
+    for (final subject in student.subjects) {
+      final matchingProfiles = profiles
+          .where((profile) => profile.subject == subject)
+          .toList(growable: false);
+      if (matchingProfiles.length != 1) {
+        subjectContexts[subject] = const V2QuickCaptureSubjectContext(
+          label: '主责信息暂不可用',
+          helperText: '当前学科的责任关系无法安全确认，请刷新学情后再记录。',
+          canSave: false,
+        );
+        continue;
+      }
+      final profile = matchingProfiles.single;
+      final leadMembershipId = widget.responsibility.leadMembershipIdForProfile(
+        profile.profileId,
+      );
+      if (leadMembershipId == null) {
+        subjectContexts[subject] = const V2QuickCaptureSubjectContext(
+          label: '尚未明确主责老师',
+          helperText: '正式学情必须有人持续负责。请先在机构管理中设置主责老师。',
+          canSave: false,
+        );
+        continue;
+      }
+      final leadLabel =
+          widget.responsibility.displayNameForMembership(leadMembershipId) ??
+          '主责老师';
+      final currentTeacherSuffix =
+          leadMembershipId == widget.responsibility.currentMembershipId
+          ? '（你）'
+          : '';
+      subjectContexts[subject] = V2QuickCaptureSubjectContext(
+        label: '教学主责：$leadLabel$currentTeacherSuffix',
+        helperText: '你正在以机构视角记录，本次记录不会改变主责老师。',
+      );
+    }
+    final hasLead = subjectContexts.values.any((context) => context.canSave);
     if (!hasLead) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -492,6 +525,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
       subjects: student.subjects,
       problemTypes: problemTypes,
       existingCases: existingCases,
+      subjectContexts: subjectContexts,
       persistence: persistence,
       onSave: (draft) => controller.quickCapture(
         V2QuickCaptureWrite(

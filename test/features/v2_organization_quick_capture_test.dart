@@ -49,6 +49,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('记录新问题'), findsOneWidget);
+      expect(find.text('教学主责：张老师'), findsOneWidget);
+      expect(find.text('你正在以机构视角记录，本次记录不会改变主责老师。'), findsOneWidget);
       expect(drafts.lastLoadedScope, isNotNull);
       expect(drafts.lastLoadedScope, endsWith(':organization'));
       expect(
@@ -72,6 +74,58 @@ void main() {
       expect(learning.lastCommand?.profileId, 'profile-cn');
       expect(learning.lastCommand?.evidenceSummary, '阅读概括遗漏结果要点。');
       expect(find.text('记录新问题'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Organization Quick Capture shows mixed subject responsibility before save',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final learning = _FakeOrganizationLearningRepository();
+      await tester.pumpWidget(
+        _app(
+          learning: learning,
+          workspace: _multiSubjectWorkspace(),
+          responsibility: _multiSubjectResponsibility(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('v2-organization-quick-capture-student-1')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('选择学科'), findsOneWidget);
+      expect(find.text('教学主责：张老师'), findsNothing);
+
+      await tester.tap(find.text('历史'));
+      await tester.pump();
+      expect(find.text('尚未明确主责老师'), findsOneWidget);
+      expect(find.text('正式学情必须有人持续负责。请先在机构管理中设置主责老师。'), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('v2-quick-capture-body')),
+        '历史材料题暴露出新的问题。',
+      );
+      await tester.pump();
+      var save = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '记录问题'),
+      );
+      expect(save.onPressed, isNull);
+      expect(learning.organizationCalls, 0);
+
+      await tester.tap(find.text('语文'));
+      await tester.pump();
+      expect(find.text('教学主责：张老师'), findsOneWidget);
+      expect(find.text('尚未明确主责老师'), findsNothing);
+      save = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '记录问题'),
+      );
+      expect(save.onPressed, isNotNull);
       expect(tester.takeException(), isNull);
     },
   );
@@ -150,13 +204,15 @@ Widget _app({
   required _FakeOrganizationLearningRepository learning,
   required WorkspaceResponsibilityContext responsibility,
   ComposerDraftStore? drafts,
+  TeacherWorkspace? workspace,
 }) {
-  final workspace = _workspace();
+  final resolvedWorkspace = workspace ?? _workspace();
   return MaterialApp(
     theme: V2Theme.light(),
     home: V2OrganizationWorkspacePage(
-      workspace: workspace,
-      workspaceData: V2ReadModelAdapter.fromWorkspace(workspace).workspaceData,
+      workspace: resolvedWorkspace,
+      workspaceData: V2ReadModelAdapter.fromWorkspace(resolvedWorkspace)
+          .workspaceData,
       responsibility: responsibility,
       runtime: AuthenticatedWorkspaceRuntime(
         learningRepository: learning,
@@ -199,6 +255,66 @@ TeacherWorkspace _workspace() => TeacherWorkspace(
     ),
   ],
 );
+
+TeacherWorkspace _multiSubjectWorkspace() => TeacherWorkspace(
+  viewerName: '李老师',
+  organizationName: '测试机构',
+  organizationTimeZone: 'Asia/Shanghai',
+  organizationId: 'org-1',
+  hasTeachingAccess: true,
+  canManageOrganization: true,
+  roles: const ['org_admin'],
+  loadedAt: DateTime(2026, 9, 12, 12),
+  businessDate: DateTime(2026, 9, 12),
+  students: [
+    WorkspaceStudent(
+      id: 'student-1',
+      profileId: 'profile-cn',
+      profileVersion: 3,
+      name: '机构学生',
+      grade: '初三',
+      subject: '语文',
+      context: '',
+      positioning: null,
+      strengths: null,
+      cadenceNote: null,
+      cases: const [],
+      recentFacts: const [],
+    ),
+    WorkspaceStudent(
+      id: 'student-1',
+      profileId: 'profile-history',
+      profileVersion: 1,
+      name: '机构学生',
+      grade: '初三',
+      subject: '历史',
+      context: '',
+      positioning: null,
+      strengths: null,
+      cadenceNote: null,
+      cases: const [],
+      recentFacts: const [],
+    ),
+  ],
+);
+
+WorkspaceResponsibilityContext _multiSubjectResponsibility() =>
+    WorkspaceResponsibilityContext(
+      organizationId: 'org-1',
+      currentMembershipId: 'membership-manager',
+      personalAssignments: const [],
+      caseOwnerMembershipIds: const {},
+      actionAssignedMembershipIds: const {},
+      eventActorMembershipIds: const {},
+      memberDisplayNames: const {
+        'membership-manager': '李老师',
+        'membership-lead': '张老师',
+      },
+      profileLeadMembershipIds: const {
+        'profile-cn': 'membership-lead',
+        'profile-history': null,
+      },
+    );
 
 WorkspaceResponsibilityContext _responsibility({
   required String? leadMembershipId,
