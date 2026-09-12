@@ -400,18 +400,22 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     super.dispose();
   }
 
-  Map<String, String> get _leadLabelByCaseId {
+  Map<String, String> get _caseOwnerLabelByCaseId {
     final result = <String, String>{};
     for (final profile in widget.workspace.students) {
-      final leadMembershipId = widget.responsibility.leadMembershipIdForProfile(
-        profile.profileId,
-      );
-      final leadLabel = leadMembershipId == null
-          ? '未设置主责'
-          : widget.responsibility.displayNameForMembership(leadMembershipId) ??
-                '主责老师';
       for (final learningCase in profile.cases) {
-        result[learningCase.id] = leadLabel;
+        // Existing Case responsibility is its persisted owner. The Profile Lead
+        // is only the default responsibility source when a new Case is created;
+        // a later Lead change must not silently rewrite historical/current Case
+        // ownership in the supervision UI.
+        final ownerMembershipId =
+            widget.responsibility.caseOwnerMembershipIds[learningCase.id];
+        result[learningCase.id] = ownerMembershipId == null
+            ? '主责信息暂不可用'
+            : widget.responsibility.displayNameForMembership(
+                    ownerMembershipId,
+                  ) ??
+                  '主责老师';
       }
     }
     return result;
@@ -632,7 +636,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
   List<V2Student> _visibleStudents({
     required Map<String, List<V2FocusItem>> itemsByStudentId,
     required Map<String, List<WorkspaceStudent>> profilesByStudentId,
-    required Map<String, String> leadLabelByCaseId,
+    required Map<String, String> caseOwnerLabelByCaseId,
   }) {
     final query = _query.trim().toLowerCase();
     return widget.data.students
@@ -658,7 +662,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
               item.summary,
               item.nextStep,
               item.subject,
-              leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
+              caseOwnerLabelByCaseId[item.id] ?? '主责信息暂不可用',
             ],
           ].join(' ').toLowerCase();
           return haystack.contains(query);
@@ -696,11 +700,11 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     // view responsive without changing the underlying responsibility contract.
     final itemsByStudentId = _itemsByStudentId();
     final profilesByStudentId = _profilesByStudentId();
-    final leadLabelByCaseId = _leadLabelByCaseId;
+    final caseOwnerLabelByCaseId = _caseOwnerLabelByCaseId;
     final visibleStudents = _visibleStudents(
       itemsByStudentId: itemsByStudentId,
       profilesByStudentId: profilesByStudentId,
-      leadLabelByCaseId: leadLabelByCaseId,
+      caseOwnerLabelByCaseId: caseOwnerLabelByCaseId,
     );
     final activeItems = widget.data.focusItems.where((item) => !item.closed);
     final activeCaseCount = activeItems.length;
@@ -836,7 +840,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                           student: student,
                           items: items,
                           profiles: profiles,
-                          leadLabelByCaseId: leadLabelByCaseId,
+                          caseOwnerLabelByCaseId: caseOwnerLabelByCaseId,
                           responsibilitySummary: _responsibilitySummary(
                             profiles,
                           ),
@@ -860,7 +864,7 @@ class _OrganizationStudentRow extends StatelessWidget {
     required this.student,
     required this.items,
     required this.profiles,
-    required this.leadLabelByCaseId,
+    required this.caseOwnerLabelByCaseId,
     required this.responsibilitySummary,
     required this.leadLabelForProfile,
     required this.compact,
@@ -870,7 +874,7 @@ class _OrganizationStudentRow extends StatelessWidget {
   final V2Student student;
   final List<V2FocusItem> items;
   final List<WorkspaceStudent> profiles;
-  final Map<String, String> leadLabelByCaseId;
+  final Map<String, String> caseOwnerLabelByCaseId;
   final String responsibilitySummary;
   final String Function(WorkspaceStudent profile) leadLabelForProfile;
   final bool compact;
@@ -983,7 +987,7 @@ class _OrganizationStudentRow extends StatelessWidget {
         for (final item in activeItems)
           _OrganizationCaseRow(
             item: item,
-            leadLabel: leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
+            ownerLabel: caseOwnerLabelByCaseId[item.id] ?? '主责信息暂不可用',
           ),
         if (closedItems.isNotEmpty) ...[
           Padding(
@@ -1001,7 +1005,7 @@ class _OrganizationStudentRow extends StatelessWidget {
           for (final item in closedItems)
             _OrganizationCaseRow(
               item: item,
-              leadLabel: leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
+              ownerLabel: caseOwnerLabelByCaseId[item.id] ?? '主责信息暂不可用',
               historical: true,
             ),
         ],
@@ -1013,19 +1017,19 @@ class _OrganizationStudentRow extends StatelessWidget {
 class _OrganizationCaseRow extends StatelessWidget {
   const _OrganizationCaseRow({
     required this.item,
-    required this.leadLabel,
+    required this.ownerLabel,
     this.historical = false,
   });
 
   final V2FocusItem item;
-  final String leadLabel;
+  final String ownerLabel;
   final bool historical;
 
   @override
   Widget build(BuildContext context) {
     final detail = historical
-        ? '${item.subject} · 已结束 · $leadLabel'
-        : '${item.subject} · ${_caseStatusLabel(item)} · $leadLabel\n'
+        ? '${item.subject} · 已结束 · 主责：$ownerLabel'
+        : '${item.subject} · ${_caseStatusLabel(item)} · 主责：$ownerLabel\n'
               '下一步：${item.nextStep} · ${item.dueLabel}';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 2, 4, 8),

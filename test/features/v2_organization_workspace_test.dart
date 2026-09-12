@@ -48,12 +48,15 @@ void main() {
 
       await tester.tap(find.text('机构学生一'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('语文 · 跟进中 · 张老师'), findsOneWidget);
+      expect(find.textContaining('语文 · 跟进中 · 主责：张老师'), findsOneWidget);
       expect(find.textContaining('下一步：下一次继续检查'), findsOneWidget);
 
       await tester.tap(find.text('机构学生二'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('语文 · 跟进中 · 未设置主责'), findsOneWidget);
+      expect(find.textContaining('语文 · 跟进中 · 主责：王老师'), findsOneWidget);
+      // Profile B still has no current Lead. Existing Case B nevertheless keeps
+      // its persisted Case owner instead of inheriting the Profile Lead state.
+      expect(find.textContaining('语文 · 未设置主责'), findsOneWidget);
 
       await tester.enterText(
         find.byKey(const Key('v2-organization-learning-search')),
@@ -62,6 +65,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('机构学生一'), findsOneWidget);
       expect(find.text('机构学生二'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const Key('v2-organization-learning-search')),
+        '王老师',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('机构学生一'), findsNothing);
+      expect(find.text('机构学生二'), findsOneWidget);
     },
   );
 
