@@ -7,8 +7,19 @@ void main() {
     final workflow = File('.github/workflows/publish-release-assets.yml')
         .readAsStringSync();
 
-    expect(workflow, contains('required_schema="20260911193000"'));
+    expect(workflow, contains('required_schema = "20260911193000"'));
     expect(workflow, contains(r'RELEASE_VERSION_NAME="$version_name"'));
+    expect(
+      workflow,
+      contains(
+        "BACKEND_JSON=\"\$backend_json\" "
+        "RELEASE_VERSION_NAME=\"\$version_name\" python3 - <<'PY'",
+      ),
+    );
+    expect(
+      workflow,
+      isNot(contains("python3 -c 'import json, os; required_schema=")),
+    );
     expect(workflow, contains('version >= (0, 3, 8)'));
     expect(workflow, contains('"responsibility_read_model"'));
     expect(workflow, contains('"organization_profile_responsibility"'));
@@ -16,9 +27,11 @@ void main() {
     expect(
       workflow,
       contains(
-        'required += ["responsibility_read_model", '
-        '"organization_profile_responsibility", '
-        '"responsibility_safe_quick_capture"] if version >= (0, 3, 8) else []',
+        'required += [\n'
+        '              "responsibility_read_model",\n'
+        '              "organization_profile_responsibility",\n'
+        '              "responsibility_safe_quick_capture",\n'
+        '          ] if version >= (0, 3, 8) else []',
       ),
     );
   });
