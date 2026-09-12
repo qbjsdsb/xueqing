@@ -624,6 +624,55 @@ class _FakeOrganizationManagementRepository
   }
 
   @override
+  Future<OrganizationTeachingHandoffPlan> previewStudentTeacherHandoff({
+    required String organizationId,
+    required String assignmentId,
+    required String replacementMembershipId,
+  }) async {
+    final assignment = studentTeacherAssignments.firstWhere(
+      (item) => item.assignmentId == assignmentId,
+    );
+    final replacement = setupOptions.teachers.firstWhere(
+      (item) => item.membershipId == replacementMembershipId,
+    );
+    return OrganizationTeachingHandoffPlan(
+      organizationId: organizationId,
+      businessDate: DateTime(2026, 9, 4),
+      studentSubjectProfileId: assignment.studentSubjectProfileId,
+      studentId: assignment.studentId,
+      studentName: assignment.studentName,
+      organizationSubjectId: assignment.organizationSubjectId,
+      subjectName: assignment.subjectName,
+      subjectCode: assignment.subjectCode,
+      assignmentId: assignment.assignmentId,
+      assignmentRole: assignment.assignmentRole,
+      assignmentVersion: assignment.version,
+      sourceMembershipId: assignment.membershipId,
+      sourceTeacherName: assignment.teacherName,
+      replacementMembershipId: replacement.membershipId,
+      replacementTeacherName: replacement.displayName,
+      replacementScopeId: 'scope-preview-${replacement.membershipId}',
+      affectedCases: const <OrganizationTeachingHandoffCase>[],
+      affectedActions: const <OrganizationTeachingHandoffAction>[],
+    );
+  }
+
+  @override
+  Future<OrganizationStudentTeacherAssignmentTransferResult>
+  commitStudentTeacherHandoff({
+    required String operationId,
+    required OrganizationTeachingHandoffPlan plan,
+  }) {
+    return transferStudentTeacherAssignment(
+      operationId: operationId,
+      organizationId: plan.organizationId,
+      assignmentId: plan.assignmentId,
+      expectedAssignmentVersion: plan.assignmentVersion,
+      replacementMembershipId: plan.replacementMembershipId,
+    );
+  }
+
+  @override
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   }) async {

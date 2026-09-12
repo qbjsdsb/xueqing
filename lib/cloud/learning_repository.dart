@@ -2134,6 +2134,7 @@ String _eventTypeLabel(String value) {
     'case_reopened' => '重新跟进',
     'action_completed' => '完成提醒',
     'action_rescheduled' => '调整提醒',
+    'responsibility_handoff' => '教学责任交接',
     _ => '记录',
   };
 }
@@ -2158,6 +2159,8 @@ String _eventText(String eventType, dynamic rawMetadata) {
     'case_reopened' => '出现新情况，重新开始跟进。',
     'action_completed' => '完成了当前提醒。',
     'action_rescheduled' => '调整了提醒时间。',
+    'responsibility_handoff' =>
+      '教学责任已从${_stringValue(metadata['previous_teacher_name']) ?? '原老师'}交接给${_stringValue(metadata['replacement_teacher_name']) ?? '新老师'}。',
     _ => '补充了一条记录。',
   };
 }
