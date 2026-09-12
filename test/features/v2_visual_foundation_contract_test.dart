@@ -36,25 +36,26 @@ void main() {
     expect(minimum?.height, AppSpacing.touchTarget);
   });
 
-  test('embedded management does not expose a duplicate refresh affordance', () {
-    final source = File(
-      'lib/features/organization_management/presentation/'
-      'organization_management_layout.dart',
-    ).readAsStringSync();
+  test(
+    'embedded management does not expose a duplicate refresh affordance',
+    () {
+      final source = File(
+        'lib/features/organization_management/presentation/'
+        'organization_management_layout.dart',
+      ).readAsStringSync();
 
-    expect(
-      source,
-      contains(
-        "if (!showTitle) {\n      return identity;\n    }",
-      ),
-    );
-    expect(
-      source,
-      contains('class _ManagementAreaCard extends StatelessWidget'),
-    );
-    expect(
-      source,
-      contains('Divider(height: 1, color: colorScheme.outlineVariant)'),
-    );
-  });
+      expect(
+        source,
+        contains("if (!showTitle) {\n      return identity;\n    }"),
+      );
+      expect(
+        source,
+        contains('class _ManagementAreaCard extends StatelessWidget'),
+      );
+      expect(
+        source,
+        contains('Divider(height: 1, color: colorScheme.outlineVariant)'),
+      );
+    },
+  );
 }
