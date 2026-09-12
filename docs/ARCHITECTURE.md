@@ -78,7 +78,6 @@ Management-only 不能 bypass。
 
 V1 不存在以 Lesson participant 替代 Student Teacher Assignment 的授权旁路。`lesson_students` 只是实际参与的 business fact；`start_lesson` 创建前每个 participant 都必须已有 legal active Student Teacher Assignment。
 
-
 ## 4. Session revoke security
 
 安全目标固定：signOut/reset/disabled 后 old access token 立即失去学生业务访问。
@@ -91,13 +90,13 @@ V1 不存在以 Lesson participant 替代 Student Teacher Assignment 的授权�
 
 ## 5. V1 Auth UX
 
-管理员 provision known member → onboarding → temporary password → user changes credential → revoke old sessions → membership active → forced re-login。
+可信运维 bootstrap 首位 `org_owner`；后续已知成员由 `org_owner` 通过受控 provision/invitation 流程开通 → onboarding → temporary credential / invitation → user changes credential → revoke old sessions → membership active → forced re-login。`org_admin` 不拥有成员账号生命周期写权限。
 
 不开放 public self-register；credential 不存 DB/log/GitHub。
 
 接受机构邀请必须在同一事务中锁定并确认目标机构仍为 active；机构已归档时失败关闭，不能创建应用身份、成员关系或角色。
 
-任课交接同样不静默改写教学历史：如果源老师仍拥有未关闭 Learning Case 或待执行 Action，交接命令必须失败关闭，先完成显式 Case/Action 责任处理。
+任课交接不静默改写教学历史，也不拆成两个可部分成功的提交。安全 handoff 必须先由 server 生成/校验完整 affected responsibility set，用户确认接手责任后，在同一事务锁定并迁移当前 Assignment、Case owner 与 pending Action assignee，写 event/audit 并验证 no orphan；没有完整 plan 或发生 stale drift 时 whole rollback。历史 Evidence、Intervention、Assessment 与 Event actor 永不改写。
 
 机构归档后，Data API 对该机构的成员、角色、教学范围、机构学科和教学数据统一失败关闭；只保留当前用户自身应用身份的最小读取，用于显示账号状态。
 

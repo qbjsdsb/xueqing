@@ -1,6 +1,6 @@
 # Teacher / Subject / Student Assignments｜教师学科范围与学生分配
 
-> Phase 0A.6 事实源。冻结一个老师可教多科、一个学生可由多位老师协作，以及 Membership / Subject Scope / Subject Profile / Assignment 的边界。
+> Phase 0A.6 起的关系事实源。冻结一个老师可教多科、一个学生可由多位老师协作，以及 Membership / Subject Scope / Subject Profile / Assignment 的边界。v0.3.8 起同时受 ADR-047 与 `docs/RESPONSIBILITY_MODEL.md` 约束。
 
 ## 1. 关系分层
 
@@ -35,6 +35,8 @@ Teaching scope 只表示可以承担该科 teacher assignment；普通教师访�
 
 Leadership scope 只表示 Subject Lead 本科治理范围，不自动成为任课教师/Case owner。
 
+机构负责人/管理员的 organization supervision capability 也不是 Student Teacher Assignment：它可以授予机构级监督入口，但不能自动成为 Personal Projection、Case owner 或 Action assignee 的责任来源。
+
 ## 3. Committed active assignment invariant
 
 必须同时：
@@ -47,9 +49,11 @@ Leadership scope 只表示 Subject Lead 本科治理范围，不自动成为任�
 
 Committed inactive/archived Profile 不得 active teacher assignment。
 
-## 4. Teaching Fact Gate
+## 4. Teaching Fact Gate 与机构监督
 
-Teaching Evidence / Intervention / Assessment / Lesson teacher / **Quick Capture new Case** 必须：
+### 4.1 Personal Scope / Responsible Teacher
+
+Teaching Evidence / Intervention / Assessment / Lesson teacher / **Personal Quick Capture new Case** 必须：
 
 ```text
 live session
@@ -61,19 +65,42 @@ live session
 + operation permission
 ```
 
-Advisor-only/management-only 不可借 Quick Capture 创建 teaching Case。
+Advisor-only 或 management-only 成员**不能仅凭身份成为 teaching Case owner**。
+
+### 4.2 Organization Scope
+
+负责人/管理员可以依据机构监督能力：
+
+- 查看机构范围内的学情；
+- 在 command policy 允许时监督已有 Case；
+- 作为真实 actor 留下 Event/audit；
+- 从机构视角为合法责任老师发起 responsibility-aware new Case。
+
+但必须满足：
+
+- 已有 Case 的监督操作不自动把 owner/assignee 改成管理者；
+- 新 Case 的 Responsible Teacher 必须由 server 解析到目标 Profile 当前合法 Assignment；
+- 默认责任人是 active Lead；
+- 没有 active Lead 时 fail closed，先明确主责老师；
+- 管理者本人只有在同时满足完整 Personal Teaching Fact Gate、确实是该 Profile 合法任课老师时，才能成为 owner。
+
+因此“management-only 不能借 Quick Capture 把自己变成 teaching owner”与“管理者可在 Organization Scope 为合法责任老师发起 Case”并不矛盾。
 
 Actor Gate：`start_lesson` 的执行 actor 必须有 live active authenticated identity、valid active session、active membership、teacher capability、required teaching Subject Scope 与 operation permission。Per-Student Participant Gate：每一个 Student participant 另须有 active Profile、current/legal Student、actor 对 Student+Subject 的 legal active assignment、及一致的 organization/subject/Lesson context；live identity/session 不属于 participant。已有 `lesson_students` 不能成为权限来源。assignment 在课中撤销后 fail closed；temporary substitute 只能走 time-bounded collaborator assignment，治理 actor 仅可 controlled cancel/cleanup。
 
+### V1 Lesson authorization rule
+
+V1 所有以教师本人责任身份发生的教学写权限必须依赖 legal active Student Teacher Assignment。Lesson 或 `lesson_students` participant 记录只表达实际参与事实，不能替代 assignment、grant temporary permission 或创建 capability/scope。
+
+`start_lesson` 创建前必须为每个 participant 验证完整 Gate；仅有 teaching scope、把 Student 自己加入 participants、或 Lesson 已经 `in_progress` 都不能形成授权。临时代课统一用 time-bounded collaborator assignment（`active_from`/`active_to`），在有效期间按同一 Gate 工作。
 
 ## 5. Lead / Collaborator
 
-Lead：主要负责教师、默认 Case owner 候选、关键专业确认。
+Lead：主要负责教师、Organization Scope 新 Case 的默认 owner 候选、关键专业确认。
 
 Collaborator：在 Gate 成立时可协作教学、记录本人事实、承担 Action；非 owner 不自动获得 stable/close/reopen 权限。
 
 临时代课不另建 Lesson authorization。V1 通过 time-bounded collaborator assignment（`active_from`/`active_to`）提供完整 Gate；有效期结束后 assignment expired/ended，后续教学写入拒绝。
-
 
 同 student+subject 同时默认最多一个 active Lead。
 
@@ -112,29 +139,57 @@ Selected Profiles 必须在 command 调用前已经 inactive。
 
 先前显式 unarchive 成功、后续 reactivate 失败时，Profile 合法停在 inactive；这不是 partial reactivate。
 
-## 9. Reassign
+## 9. Reassign / responsibility handoff
 
-`reassign_teacher` 一个事务：旧/新 assignment + Case owner + pending Action assignee + event/audit + final no-orphan validation。
+Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实，但 V1 的安全交接必须由**显式 handoff command + 明确 responsibility plan** 原子执行。
 
-高风险 event/audit 绑定 operation_id stable keys；重复 operation 不重复副作用。
+不能把“Assignment 改了”直接等价成“所有责任自动跟着换人”；也不能拆成两个可能部分成功的事务。
+
+安全路径：
+
+```text
+读取当前 assignment / owner / pending Actions
+→ server 生成或校验 affected responsibility set
+→ 用户明确确认接手老师与责任迁移
+→ lock/revalidate assignment + target scope + Cases + Actions
+→ 同事务结束旧 assignment / 建立或切换新 assignment
+→ 同事务迁移当前 Case owner / pending Action assignee
+→ 写 handoff event/audit
+→ final no-orphan validation
+→ commit
+```
+
+任一 current relation、scope、membership、Case/Action version 或 responsibility set 漂移 → `stale_plan/version_conflict`，whole rollback，重新加载后再确认。
+
+如果只是尝试结束 Assignment，而没有显式 handoff plan，且会留下 open Case owner 或 pending Action assignee orphan，则必须 fail closed。
+
+历史 Evidence、Intervention、Assessment、Event actor 绝不因 handoff 改写。
 
 ## 10. Teacher exits one subject
 
-`revoke_teacher_subject_scope_and_handoff`：只处理目标 subject 的 assignments/owners/Actions + scope end；其他科不受影响。单事务、operation_id、expected versions/locks、no orphan。
+`revoke_teacher_subject_scope_and_handoff`：只处理目标 subject 的 assignments/owners/Actions + scope end；其他科不受影响。它本身就是显式 handoff command，因此必须先确定接手责任并在**同一事务**执行迁移、operation_id、expected versions/locks、no orphan。
+
+如果没有合法接手老师、责任计划不完整或 current data 已 drift，则整个命令 fail closed；不能先撤 scope 再留下孤儿责任，也不能静默猜测接手人。
 
 ## 11. Membership disable
 
-业务 DB handoff 先在单事务完成 assignments/owners/Actions/scopes/membership disabled；Auth session revoke 若属外部事务域则 fail-closed 重试。历史 actor 不重写。
+`disable_membership_and_handoff` 同理：业务 DB 层先按显式责任计划原子收口 assignments/owners/Actions/scopes，确保 no orphan，再提交 membership disable 相关业务状态。Auth session revoke 属外部事务域时采用 fail-closed/retry；membership disabled 后业务访问已经拒绝。
+
+没有完整 handoff plan 时，若成员仍承担 current teaching responsibility，普通 disable 必须拒绝。历史 actor 不重写。
 
 ## 12. Today
 
-多学科 Teacher 的 Today 聚合本人所有**合法 active Profile + active assignment** 下 pending Actions，可 subject filter；filter 不是权限事实源。
+多学科 Teacher 的 **Personal Today** 只聚合本人所有合法 active Profile + active assignment 下、且 `assigned_membership_id` 指向本人的 pending primary Actions，可 subject filter；filter 不是权限事实源。
+
+机构管理者的 Organization Projection 可以另行查看机构监督队列，但不能把全机构 Action 标记成“我的今日”。
 
 Inactive/archived tracking suspended 不进入普通 Today。
 
 ## 13. Student Detail
 
-从某学科 Action 进入保持该学科上下文；无权学科不泄露、不显示成“暂无数据”。Advisor 看授权摘要。
+Personal Scope 从某学科 Action 进入时保持该学科上下文；无权学科不泄露、不显示成“暂无数据”。
+
+Organization Scope 由机构监督能力读取，但页面必须明确当前负责老师，不能把 supervisor 显示为默认责任人。
 
 ## 14. Assignment creation UX
 
@@ -153,13 +208,20 @@ Profile inactive/archived 先走 service lifecycle，不静默建 assignment。
 
 Scope/Assignment 正常结束保留历史区间。离职/换科/停科/merge 不重写过去 teaching actor。
 
+历史 Case owner 如果已经不满足当前 Assignment，应识别为“责任关系待确认”并显式治理，不通过 migration 批量替换。
+
 ## 16. Negative tests
 
 至少：
-- scope but no assignment → no Student detail/Quick Capture；
+- scope but no assignment → no Personal Student detail / Personal Quick Capture；
 - Profile inactive + old assignment → teaching facts/new Case deny；
-- pure Subject Lead/Admin/Advisor → Quick Capture deny；
+- management-only → Personal Projection 为空，不能仅凭管理角色成为 Case owner；
+- manager supervision existing Case → actor=manager，owner/assignee 保持合法原责任；
+- Organization Scope new Case → owner=合法 active Lead；
+- Organization Scope no active Lead → deny；
+- cross-org / ended / expired assignment → 不能作为 responsible membership；
 - reactivate staging failure → old complete state；
 - Student 第 N Profile stale → whole Student command rollback；
 - target teacher scope changed after preview → stale_plan；
+- handoff plan 缺失或 stale → whole handoff 拒绝，不留下 orphan；
 - handoff response lost → same operation_id returns original result。

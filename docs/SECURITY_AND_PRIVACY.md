@@ -77,7 +77,7 @@
 ## 4. 临时凭据与账号接管
 
 ### `provision_member`
-- 只有有权 org_admin；
+- 只有当前机构 active `org_owner` 可执行成员账号生命周期写入；`org_admin` 必须被 owner-only helper 拒绝；
 - Auth Admin / service_role 只存在可信服务端；
 - 服务端使用安全随机源生成临时密码；
 - membership 初始为 onboarding；
@@ -96,10 +96,10 @@
 
 ### 响应丢失
 
-若后台已成功但管理员没收到响应：
+若后台已成功但负责人没收到响应：
 - 不为了幂等保存明文密码；
 - member 保持 onboarding；
-- 管理员 reissue 新临时密码；
+- 由 `org_owner` reissue 新临时密码；
 - 旧临时密码随 Auth 密码更新失效。
 
 ### `complete_member_onboarding`
@@ -118,12 +118,14 @@
 
 ### `reset_member_credential`
 
-1. 管理员按机构流程确认本人；
+1. `org_owner` 按机构流程确认目标成员与本次重发意图；
 2. **先 membership → onboarding**，立即切断学生业务；
 3. 再生成并更新新的临时密码；
 4. 刷新 onboarding expiry；
 5. audit 不记录密码；
 6. 教师重新完成完整 onboarding。
+
+`org_admin` 不得创建/处理邀请、停用/恢复成员或执行 credential reissue。当前最终 migration 链与自动化测试必须返回 `organization_owner_required`，不能以早期 migration 曾允许部分管理员操作为依据放宽。
 
 ---
 
@@ -131,7 +133,7 @@
 
 数据库可以有多个 organization，但 V1 同一个 Auth User 同一时点最多一个 onboarding / active membership。
 
-在 Supabase reference candidate 路径中，Password 属于全局 Supabase Auth User，而 V1 org_admin 可以执行 credential reset；如果一个用户同时属于 A、B 两个机构，A 管理员重置全局密码会影响 B，这是需要由 P0 Gate A 与后续身份治理方案解决的风险。
+在 Supabase reference candidate 路径中，Password 属于全局 Supabase Auth User，而 V1 `org_owner` 可以执行 credential reset；如果一个用户同时属于 A、B 两个机构，A 负责人重置全局密码会影响 B，这是需要由 P0 Gate A 与后续身份治理方案解决的风险。
 
 因此：
 - 其他机构只允许 disabled 历史；
@@ -332,20 +334,20 @@ Credential audit 只记录“开通 / 接管 / 重置发生过”和结果类别
 
 ## 16. 删除、归档与人员变化
 
-- 教师离职：先交接，最后 membership → disabled；
+- 教师离职：先执行显式 responsibility handoff，再由负责人停用 membership；
+- handoff 必须在一个受控事务中处理当前 Assignment、Case owner、pending Action assignee；无完整 plan 或 stale drift whole rollback，历史 actor 不重写；
 - 历史作者 / 教师关系不删除；
 - 学生退班：archived；
 - 重复学生：merge，保留 source → target mapping；
 - 普通教师不硬删核心事实；
-- 真正个人信息导出 / 删除走管理员治理流程；
+- 真正个人信息导出 / 删除走机构治理流程；
 - 日常删除按钮不直接映射跨表 cascade delete。
 
-普通流程不能停用最后一个可恢复 org_admin。
+普通流程不能停用最后一个可恢复 `org_owner`。
 
 ---
 
 ## 17. 环境隔离与 Region
-
 
 > **Phase 0B.0 provider / production hard boundary**
 >
@@ -380,15 +382,17 @@ Gated Production 不共享 Development 的 DB / Storage / Secret / 测试账号�
 
 ## 18. GitHub / ChatGPT 云端开发隐私
 
-当前仓库已经是 **Private**。
+当前仓库为**公开开发仓库**，这是当前零成本 CI 的明确阶段性选择。
 
-但 Private 不改变以下规则：
+因此必须比私有仓库更严格遵守：
 - 不提交真实学生 / 家长 / 教师敏感数据；
 - 不提交 Password / Token / Secret / Production backup；
 - Issue / PR / seed / screenshot 只用虚构数据；
 - Work / Codex 只提供完成开发所需的最小上下文；
 - GitHub 是代码事实源，聊天不是；
 - Agent 没跑命令必须明确“未执行”。
+
+在任何真实数据进入系统前，必须重新评估仓库可见性与生产运维边界；公开仓库绝不承载真实数据或 Secret。
 
 零成本阶段：
 - Work / Codex 禁止直推 main；
@@ -411,7 +415,7 @@ Free Pilot 不具备商业级自动恢复承诺，必须自己建立恢复能力
 
 ### Auth
 若最终选定 Supabase，恢复项目必须按**恢复当日 Supabase 官方流程**处理 Auth user / identity 数据，并真实验证；这属于 P0 Gate A/B 之后的 gated Production restore drill：
-- org_admin 登录；
+- org_owner 登录；
 - 普通 teacher 登录；
 - membership / RLS 正确。
 
@@ -484,13 +488,13 @@ Supabase Free 接近容量或可靠性边界时先重新评审，不自动升级
 
 ---
 
-## 22. 管理员 Break-glass
+## 22. 负责人 Break-glass
 
-无 SMTP 自助恢复时，唯一管理员是单点故障。
+无 SMTP 自助恢复时，唯一负责人是单点故障。
 
 真实 Pilot 前至少：
-- 两名独立可信 active org_admin；或
-- 已演练的 Supabase Project Owner break-glass。
+- 两名独立可信 active `org_owner`；或
+- 已演练的 Supabase Project Owner / 等价 provider break-glass，并有恢复业务 `org_owner` 的明确流程。
 
 break-glass 使用后要复核角色、撤销临时凭据并留下治理记录。
 
@@ -500,7 +504,7 @@ break-glass 使用后要复核角色、撤销临时凭据并留下治理记录�
 
 ## 已完成
 
-- [x] GitHub repository 已 Private
+- [x] 当前公开仓库只使用虚构开发数据，并明确禁止真实学生/家长/教师敏感资料与 Secret 进入 GitHub
 - [x] Wiki 已关闭
 - [x] Template repository 已关闭
 - [x] Foundation 禁止真实学生数据和 Secret 进入 GitHub 的规则明确
@@ -511,7 +515,6 @@ break-glass 使用后要复核角色、撤销临时凭据并留下治理记录�
 - P0 Gate A：Auth Identity Portability Spike
 - P0 Gate B：Revoked Session / Old Token Security Spike
 - provider/region/identity/session strategy 冻结并经 Go/No-Go 批准
-
 
 - [ ] Local / Remote Development / Production 隔离
 - [ ] `organizations.time_zone` migration + 边界测试
@@ -528,7 +531,7 @@ break-glass 使用后要复核角色、撤销临时凭据并留下治理记录�
 - [ ] 网络失败草稿恢复与幂等
 - [ ] Storage policy / signed URL / cross-org 下载边界测试
 - [ ] 教师交接、学生合并治理验证
-- [ ] 两个 org_admin 或 break-glass 已演练
+- [ ] 两个 active org_owner 或等价 break-glass 已演练
 - [ ] DB roles / schema / data backup + 真恢复
 - [ ] Auth 用户恢复 + 实际登录验证
 - [ ] Storage 独立备份 / 恢复抽测
