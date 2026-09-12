@@ -64,8 +64,8 @@
 ## ADR-020｜Local / Remote Dev / Production 分离
 **Accepted / Refined by ADR-045** — Remote Dev 仅虚构数据；Production provider 在 Phase 0B.0 gate 后才创建/冻结。
 
-## ADR-021｜首位 org_admin 一次性 bootstrap
-**Accepted**。
+## ADR-021｜首位 org_owner 一次性可信 bootstrap
+**Accepted / Refined by current three-role contract** — 首位负责人由可信运维路径建立；后续成员账号生命周期写操作由 `org_owner` 负责，`org_admin` 不拥有账号接管权限。
 
 ## ADR-022｜Assessment 与 Case Status 是两类事实
 **Accepted** — passed ≠ stable ≠ closed。
@@ -91,8 +91,8 @@
 ## ADR-029｜课堂快速捕捉 → 课后确认
 **Accepted / Refined by Phase 0A.6 and ADR-047** — Quick Capture 10–20 秒；普通教师在 Personal Scope 创建 new Case 仍必须满足完整 Teaching Fact Gate。机构监督 actor 在 Organization Scope 创建 Case 时，管理身份只提供监督/命令资格，Case responsibility 必须解析到合法 active teaching assignment，而不能由管理角色本身替代。
 
-## ADR-030｜低成本认证：管理员开通 + 临时密码 + onboarding
-**Accepted / Provider implementation pending ADR-045** — 不开放公共注册；onboarding 无学生业务权限。
+## ADR-030｜低成本认证：负责人开通成员 + 临时凭据 / 邀请 + onboarding
+**Accepted / Refined by owner-only member-account boundary / Provider implementation pending ADR-045** — 不开放公共注册；onboarding 无学生业务权限；当前最终 migration 链只允许 `org_owner` 创建/处理邀请、停用/恢复成员与执行受控凭据重发，`org_admin` 不拥有成员账号生命周期写权限。
 
 ## ADR-031｜零额外付费 Pilot 基础设施
 **Accepted as cost goal / Provider choice refined by ADR-045** — GitHub/轻量 CI/不强依赖付费 SMTP/SMS/AI；历史 Supabase Free Project 方案不再等于 Production provider 已冻结。
@@ -248,15 +248,17 @@ Xueqing 已经同时支持普通任课教师与 `org_owner / org_admin` 的机�
 6. 新 responsibility-aware command 必须分别验证 `actor_membership_id` 与 `responsible_membership_id`；
 7. 旧客户端 RPC 保持 additive compatibility，但不得继续制造新的错误责任关系；
 8. 不通过 migration 静默批量重写历史 owner，历史责任与当前责任分开治理；
-9. Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实，不能自动互相替代。
+9. Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实；不能因 Assignment 变化无确认地自动迁移责任，但显式 handoff plan 可以在一个事务内原子处理当前 Assignment、Case owner 与 pending Action assignee，任何 stale drift 必须 whole rollback。
 
 ### UI 影响
 
 导航由“是否存在个人教学责任”和“是否具有机构监督能力”共同决定：
 
-- 普通任课老师：今日 / 学生 / 学情；
-- 同时任课的负责人/管理员：今日 / 学生 / 学情 / 机构；
+- 普通任课老师：今日 / 学生 / 课程 / 学情；
+- 同时任课的负责人/管理员：今日 / 学生 / 课程 / 学情 / 机构；
 - 没有任课关系的负责人/管理员：直接进入机构工作区。
+
+这里冻结产品语义，不提前决定窄屏如何折叠五个入口。
 
 因此客户端后续应逐步替换把管理角色直接折叠成 `hasTeachingAccess` 的旧语义，显式引入 Personal / Organization scope。
 
