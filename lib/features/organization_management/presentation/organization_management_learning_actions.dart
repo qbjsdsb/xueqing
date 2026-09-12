@@ -468,6 +468,51 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
     }
   }
 
+  Future<void> _setStudentSubjectLead(
+    OrganizationStudentRecord student,
+    OrganizationStudentSubjectService service,
+  ) async {
+    if (_busy || !student.isActive || !service.isActive) return;
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) return;
+      final candidates = snapshot.setupOptions.teachersForSubject(
+        service.organizationSubjectId,
+      );
+      if (candidates.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('当前没有可负责${service.subjectName}的在岗老师。请先配置老师的可教学科。'),
+          ),
+        );
+        return;
+      }
+
+      final draft = await showDialog<OrganizationStudentSubjectLeadDraft>(
+        context: context,
+        builder: (context) => OrganizationStudentSubjectLeadDialog(
+          studentName: student.studentName,
+          service: service,
+          candidates: candidates,
+        ),
+      );
+      if (!mounted || draft == null) return;
+
+      await _runMutation(
+        () => widget.repository.setStudentSubjectLead(
+          operationId: draft.operationId,
+          organizationId: widget.organizationId,
+          studentSubjectProfileId: service.profileId,
+          expectedProfileVersion: service.version,
+          teacherMembershipId: draft.teacherMembershipId,
+        ),
+        '已为 ${student.studentName} · ${service.subjectName} 设置主责老师${draft.teacherName}。',
+      );
+    } catch (error) {
+      if (mounted) setState(() => _errorMessage = _describeError(error));
+    }
+  }
+
   Future<void> _transferStudentTeacherAssignment(
     OrganizationStudentTeacherAssignment assignment,
   ) async {

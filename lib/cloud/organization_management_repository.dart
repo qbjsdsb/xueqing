@@ -383,6 +383,94 @@ class OrganizationStudentTeacherAssignmentTransferResult {
   }
 }
 
+class OrganizationStudentSubjectLeadResult {
+  const OrganizationStudentSubjectLeadResult({
+    required this.operationId,
+    required this.organizationId,
+    required this.studentId,
+    required this.studentName,
+    required this.studentSubjectProfileId,
+    required this.organizationSubjectId,
+    required this.subjectName,
+    required this.subjectCode,
+    required this.assignmentId,
+    required this.assignmentRole,
+    required this.assignmentStatus,
+    required this.assignmentVersion,
+    required this.teacherMembershipId,
+    required this.teacherDisplayName,
+    required this.teacherEmail,
+    required this.teacherScopeId,
+    required this.activeFrom,
+  });
+
+  final String operationId;
+  final String organizationId;
+  final String studentId;
+  final String studentName;
+  final String studentSubjectProfileId;
+  final String organizationSubjectId;
+  final String subjectName;
+  final String subjectCode;
+  final String assignmentId;
+  final String assignmentRole;
+  final String assignmentStatus;
+  final int assignmentVersion;
+  final String teacherMembershipId;
+  final String teacherDisplayName;
+  final String teacherEmail;
+  final String teacherScopeId;
+  final DateTime? activeFrom;
+
+  factory OrganizationStudentSubjectLeadResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationStudentSubjectLeadResult(
+      operationId: _requiredString(json['operation_id'], 'operation_id'),
+      organizationId: _requiredString(
+        json['organization_id'],
+        'organization_id',
+      ),
+      studentId: _requiredString(json['student_id'], 'student_id'),
+      studentName: _stringValue(json['student_name']) ?? '未命名学生',
+      studentSubjectProfileId: _requiredString(
+        json['student_subject_profile_id'],
+        'student_subject_profile_id',
+      ),
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      subjectName: _stringValue(json['subject_name']) ?? '未命名学科',
+      subjectCode: _stringValue(json['subject_code']) ?? '—',
+      assignmentId: _requiredString(json['assignment_id'], 'assignment_id'),
+      assignmentRole: _requiredString(
+        json['assignment_role'],
+        'assignment_role',
+      ),
+      assignmentStatus: _requiredString(
+        json['assignment_status'],
+        'assignment_status',
+      ),
+      assignmentVersion: _requiredPositiveInt(
+        json['assignment_version'],
+        'assignment_version',
+      ),
+      teacherMembershipId: _requiredString(
+        json['teacher_membership_id'],
+        'teacher_membership_id',
+      ),
+      teacherDisplayName: _stringValue(json['teacher_display_name']) ?? '未命名老师',
+      teacherEmail: _stringValue(json['teacher_email']) ?? '',
+      teacherScopeId: _requiredString(
+        json['teacher_scope_id'],
+        'teacher_scope_id',
+      ),
+      activeFrom: _dateTimeValue(json['active_from']),
+    );
+  }
+}
+
 class OrganizationTeachingHandoffCase {
   const OrganizationTeachingHandoffCase({
     required this.id,
@@ -1132,6 +1220,14 @@ abstract interface class OrganizationManagementRepository {
   Future<List<OrganizationStudentTeacherAssignment>>
   listStudentTeacherAssignments({required String organizationId});
 
+  Future<OrganizationStudentSubjectLeadResult> setStudentSubjectLead({
+    required String operationId,
+    required String organizationId,
+    required String studentSubjectProfileId,
+    required int expectedProfileVersion,
+    required String teacherMembershipId,
+  });
+
   Future<OrganizationStudentSetupResult> addStudentSubject({
     required String operationId,
     required String organizationId,
@@ -1421,6 +1517,10 @@ String? organizationStudentTeacherAssignmentErrorMessage(Object error) {
     return null;
   }
   return switch (detail.toLowerCase()) {
+    'invalid_student_subject_lead_assignment_input' => '主责老师设置信息不完整，请刷新后重试。',
+    'student_subject_profile_version_conflict' => '这门学生学科档案刚刚发生变化，请刷新后重试。',
+    'student_subject_lead_already_assigned' => '这门学科刚刚已经明确了主责老师，请刷新后核对。',
+    'teacher_membership_not_found' => '所选老师已不在本机构，请刷新后重新选择。',
     'invalid_student_teacher_assignment_transfer_input' => '任课交接信息不完整，请刷新后重试。',
     'organization_not_found' => '机构不存在或已归档，请刷新后重试。',
     'membership_not_found' => '原任课老师已不在本机构，请刷新后重试。',
@@ -1721,6 +1821,38 @@ class SupabaseOrganizationManagementRepository
       <String, dynamic>{'p_organization_id': organizationId},
     );
     return _mapList(response, OrganizationStudentTeacherAssignment.fromJson);
+  }
+
+  @override
+  Future<OrganizationStudentSubjectLeadResult> setStudentSubjectLead({
+    required String operationId,
+    required String organizationId,
+    required String studentSubjectProfileId,
+    required int expectedProfileVersion,
+    required String teacherMembershipId,
+  }) async {
+    if (operationId.trim().isEmpty ||
+        organizationId.trim().isEmpty ||
+        studentSubjectProfileId.trim().isEmpty ||
+        expectedProfileVersion <= 0 ||
+        teacherMembershipId.trim().isEmpty) {
+      throw ArgumentError(
+        'Student subject Lead assignment identity is invalid.',
+      );
+    }
+    final response = await _call(
+      'set_organization_student_subject_lead',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': organizationId,
+        'p_student_subject_profile_id': studentSubjectProfileId,
+        'p_expected_profile_version': expectedProfileVersion,
+        'p_teacher_membership_id': teacherMembershipId,
+      },
+    );
+    return OrganizationStudentSubjectLeadResult.fromJson(
+      _mapResponse(response),
+    );
   }
 
   @override

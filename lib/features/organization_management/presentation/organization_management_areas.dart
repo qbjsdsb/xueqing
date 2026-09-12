@@ -24,6 +24,7 @@ class _ManagementOverview extends StatefulWidget {
     required this.onAddSubject,
     required this.onAddTeacherScope,
     required this.onToggleTeacherScope,
+    required this.onSetStudentSubjectLead,
     required this.onTransferStudentTeacherAssignment,
     required this.canManageCaseTypes,
     this.onProvisionInvitation,
@@ -67,6 +68,11 @@ class _ManagementOverview extends StatefulWidget {
   final VoidCallback onAddTeacherScope;
   final Future<void> Function(OrganizationTeacherSubjectScope scope)
   onToggleTeacherScope;
+  final Future<void> Function(
+    OrganizationStudentRecord student,
+    OrganizationStudentSubjectService service,
+  )
+  onSetStudentSubjectLead;
   final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
   onTransferStudentTeacherAssignment;
   final bool canManageCaseTypes;
@@ -565,6 +571,8 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
                                     assignment.studentId == student.studentId,
                               )
                               .toList(growable: false),
+                          onSetSubjectLead: (service) =>
+                              widget.onSetStudentSubjectLead(student, service),
                           onTransferAssignment: (assignment) => widget
                               .onTransferStudentTeacherAssignment(assignment),
                           onAddSubject: student.isActive && !student.isMerged
