@@ -110,18 +110,15 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           duration: const Duration(seconds: 8),
-          content: Text(
-            '$prefix\n最新列表暂时没有刷新成功。请刷新页面确认，不要重复提交。',
-          ),
+          content: Text('$prefix\n最新列表暂时没有刷新成功。请刷新页面确认，不要重复提交。'),
         ),
       );
       return;
     }
 
     if (normalizedSuccess != null && normalizedSuccess.isNotEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(normalizedSuccess)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(normalizedSuccess)));
     }
   }
 

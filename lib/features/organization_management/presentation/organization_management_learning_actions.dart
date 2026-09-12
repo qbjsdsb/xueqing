@@ -246,12 +246,9 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
         ),
       );
       if (!mounted || result == null) return;
-      await _refresh();
-      if (!mounted) return;
-      widget.onChanged?.call();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已添加学科：${result.subjectName}。')));
+      await _finishCommittedMutation(
+        successMessage: '已添加学科：${result.subjectName}。',
+      );
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     } finally {
@@ -546,18 +543,12 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
           operationId: draft.operationId,
           plan: plan,
         );
-        await _refresh();
-        if (!mounted) return;
-        widget.onChanged?.call();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        await _finishCommittedMutation(
+          successMessage:
               '已将 ${assignment.studentName} 的 ${assignment.subjectName} '
               '${_studentAssignmentRoleLabel(assignment.assignmentRole)}交接给 '
               '${result.replacementTeacherName}；同时迁移 '
               '${plan.affectedCases.length} 个问题、${plan.affectedActions.length} 个行动。',
-            ),
-          ),
         );
       } catch (error) {
         if (mounted) setState(() => _errorMessage = _describeError(error));
@@ -605,16 +596,10 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
         ),
       );
       if (!mounted || result == null) return;
-      await _refresh();
-      if (!mounted) return;
-      widget.onChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
+      await _finishCommittedMutation(
+        successMessage:
             '已添加 ${result.studentName} · ${result.subjectName} · '
             '${result.teacherDisplayName}',
-          ),
-        ),
       );
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
@@ -729,11 +714,8 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
         ),
       );
       if (!mounted || result == null) return;
-      await _refresh();
-      if (!mounted) return;
-      widget.onChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已更新 ${result.studentName} 的基础资料。')),
+      await _finishCommittedMutation(
+        successMessage: '已更新 ${result.studentName} 的基础资料。',
       );
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
