@@ -20,19 +20,19 @@ void main() {
     expect(dark.bottomSheetTheme.shape, isNotNull);
     expect(
       light.navigationBarTheme.indicatorColor,
-      light.colorScheme.primaryContainer,
+      light.colorScheme.primary.withValues(alpha: 0.09),
     );
     expect(
       dark.navigationBarTheme.indicatorColor,
-      dark.colorScheme.primaryContainer,
+      dark.colorScheme.primary.withValues(alpha: 0.12),
     );
     expect(
       light.navigationRailTheme.indicatorColor,
-      light.colorScheme.primaryContainer,
+      light.colorScheme.primary.withValues(alpha: 0.08),
     );
     expect(
       dark.navigationRailTheme.indicatorColor,
-      dark.colorScheme.primaryContainer,
+      dark.colorScheme.primary.withValues(alpha: 0.11),
     );
   });
 
