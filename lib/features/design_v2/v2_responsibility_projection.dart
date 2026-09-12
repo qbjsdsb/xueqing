@@ -1,5 +1,6 @@
 import '../../cloud/learning_repository.dart';
 import '../../cloud/responsibility_read_repository.dart';
+import 'v2_fixture.dart';
 import 'v2_read_model_adapter.dart';
 import 'v2_workspace_data.dart';
 
@@ -25,7 +26,13 @@ class V2PersonalWorkspaceProjection {
 
   V2WorkspaceData get workspaceData => V2WorkspaceData(
     students: snapshot.students,
-    focusItems: snapshot.focusItems,
+    // Keep every active Case in Learning/Student views. For Today, the current
+    // UI already treats actionTiming == null as non-actionable, so remove only
+    // the scheduling signal when the primary Action belongs to somebody else.
+    focusItems: [
+      for (final item in snapshot.focusItems)
+        if (todayCaseIds.contains(item.id)) item else _withoutPersonalTiming(item),
+    ],
     closedItems: snapshot.closedItems,
     timeline: snapshot.timeline,
     businessDate: snapshot.businessDate,
@@ -98,3 +105,18 @@ abstract final class V2ResponsibilityProjection {
     );
   }
 }
+
+V2FocusItem _withoutPersonalTiming(V2FocusItem item) => V2FocusItem(
+  id: item.id,
+  studentId: item.studentId,
+  title: item.title,
+  summary: item.summary,
+  nextStep: item.nextStep,
+  dueLabel: item.dueLabel,
+  subject: item.subject,
+  actionTiming: null,
+  dueOn: item.dueOn,
+  caseStatus: item.caseStatus,
+  pendingVerification: item.pendingVerification,
+  closed: item.closed,
+);
