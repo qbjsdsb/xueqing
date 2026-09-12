@@ -31,7 +31,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('主责：语文 张老师'), findsOneWidget);
+      expect(find.textContaining('语文 · 张老师'), findsOneWidget);
       await tester.enterText(
         find.byKey(const Key('v2-organization-learning-search')),
         '张老师',

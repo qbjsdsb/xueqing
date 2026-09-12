@@ -96,14 +96,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('机构管理'));
+      await tester.tap(find.text('管理'));
       await tester.pumpAndSettle();
       expect(find.text('当前账号没有可用的机构管理权限。'), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(returnedToPersonal, 0);
-      expect(find.text('机构学情'), findsWidgets);
+      expect(find.text('学情'), findsOneWidget);
       expect(find.text('当前账号没有可用的机构管理权限。'), findsNothing);
 
       await tester.binding.handlePopRoute();
@@ -133,7 +133,7 @@ void main() {
       expect(find.text('暂时没有任课学情'), findsNothing);
       expect(find.text('机构'), findsOneWidget);
       expect(find.text('机构学生'), findsOneWidget);
-      expect(find.text('机构学情'), findsWidgets);
+      expect(find.text('学情'), findsOneWidget);
     },
   );
 
