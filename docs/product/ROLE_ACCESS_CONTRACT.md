@@ -19,24 +19,30 @@
 - 管理学生、学科、任课范围和学生任课分配；
 - 可以像其他教学人员一样配置自己的可教学科并承担具体学生任课；
 - 查看成员与邀请；
-- 邀请成员、处理邀请、停用/恢复成员以及受控账号凭据操作。
+- 邀请 `teacher`、`org_admin`、`org_owner`；
+- 审批管理员发起的 `org_owner` 提名；
+- 撤销尚未完成的邀请；
+- 停用/恢复成员以及执行负责人专属的受控账号生命周期操作。
 
-如果负责人本人存在合法当前 Assignment，则其 **Personal Projection** 只显示本人真实负责的 Today / Students / Learning，不因负责人身份混入全机构数据。
+如果负责人本人存在合法当前 Assignment，则其 **Personal Projection** 只显示本人真实负责的 Today / Students / Lessons / Learning，不因负责人身份混入全机构数据。
 
 ## 管理员 `org_admin`
 
-管理员拥有机构业务与学情监督能力，但不拥有会改变成员进入、离开机构或账号凭据的生命周期权限：
+管理员拥有机构业务与学情监督能力，并拥有受限制的成员邀请能力；但不能执行需要负责人确认的高权限成员治理：
 
 - 在 **Organization Projection** 查看并监督全机构学生、学情与 Learning Case；
 - 在监督 policy 允许时推进已有 Case，同时保留原 Case owner / Action assignee，审计记录管理员本人为真实 actor；
-- 可以管理学生、学科、任课范围和学生任课分配；
+- 管理学生、学科、任课范围和学生任课分配；
 - 可以像其他教学人员一样配置自己的可教学科并承担具体学生任课；
 - 可以查看成员和邀请状态，并维护成员的日常显示姓名；
-- 不能创建、审批、撤销或重新发放成员邀请；
-- 不能停用或恢复成员；
-- 不能通过受控服务端路径重发其他成员凭据。
+- 可以直接创建 `teacher` 邀请；
+- 可以提名 `org_owner`，但邀请保持 `pending_owner_approval`，必须由现有负责人审批后才能进入可接受状态；
+- 不能创建 `org_admin` 邀请；
+- 可以撤销尚未完成的邀请；
+- 不能审批 `org_owner` 提名；
+- 不能仅凭管理员身份执行负责人专属的成员停用/恢复或高权限账号凭据治理。
 
-如果管理员本人存在合法当前 Assignment，则其 **Personal Projection** 同样只显示自己的教学责任。
+如果管理员本人存在合法当前 Assignment，则其 **Personal Projection** 同样只显示自己的 Today / Students / Lessons / Learning。
 
 成员显示姓名只是协作资料，不改变角色、登录凭据或机构成员资格，因此负责人和管理员都可维护。
 
@@ -46,6 +52,7 @@
 
 - Personal Projection 只能访问自己当前合法任课范围内的学生与学情；
 - Today 只包含 `assigned_membership_id` 指向当前成员的 pending primary Action；
+- Lessons 继续按合法任课关系与 Teaching Fact Gate 工作；
 - 任课关系或教学范围结束后，相关个人教学访问与写权限必须立即失效；
 - 不因普通教师身份获得机构级读取能力。
 
@@ -69,6 +76,16 @@
 - 管理者本人只有在确实是该 Profile 的合法任课老师时才能成为 owner。
 
 因此，“Admin-only 不能仅凭管理身份成为 teaching Case owner”与“管理员可以在机构视角为合法责任老师发起新 Case”必须同时成立。
+
+## 导航与 Scope
+
+责任模型不删除既有 V1 教师入口。存在个人教学责任时，Personal Projection 的产品入口仍为：
+
+```text
+今日 / 学生 / 课程 / 学情
+```
+
+同时具有机构监督能力的负责人/管理员再增加“机构”入口；如果管理者没有任何当前个人任课责任，可以直接进入机构工作区，而不是展示一组无意义的空 Personal 页面。
 
 ## 不可突破的边界
 
