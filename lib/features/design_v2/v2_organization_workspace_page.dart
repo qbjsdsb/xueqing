@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/layout/responsive.dart';
 import '../../cloud/composer_draft_store.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/responsibility_read_repository.dart';
@@ -151,7 +152,7 @@ class _V2OrganizationWorkspacePageState
         widget.onChanged?.call();
       },
     );
-    if (MediaQuery.sizeOf(context).width < 720) {
+    if (ResponsiveBreakpoints.isCompact(context)) {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
@@ -203,164 +204,172 @@ class _V2OrganizationWorkspacePageState
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 720;
-    final canSignOut = widget.rootMode && widget.runtime.onSignOut != null;
-    final handlesInternalBack = _section != _OrganizationSection.learning;
-    final interceptsBack = handlesInternalBack || widget.embedded;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            ResponsiveBreakpoints.classify(constraints.maxWidth) ==
+            WindowSizeClass.compact;
+        final canSignOut = widget.rootMode && widget.runtime.onSignOut != null;
+        final handlesInternalBack = _section != _OrganizationSection.learning;
+        final interceptsBack = handlesInternalBack || widget.embedded;
 
-    return PopScope<void>(
-      canPop: !interceptsBack,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        if (handlesInternalBack) {
-          setState(() => _section = _OrganizationSection.learning);
-          return;
-        }
-        if (widget.embedded) {
-          widget.onBackFromRoot?.call();
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: !widget.rootMode && !widget.embedded,
-          title: const Text('机构'),
-          actions: [
-            if (widget.onChanged != null)
-              IconButton(
-                key: const Key('v2-organization-refresh'),
-                tooltip: '刷新学情',
-                onPressed: widget.onChanged,
-                icon: const Icon(Icons.refresh_outlined),
-              ),
-            if (!compact) ...[
-              if (_checkingForUpdates)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Center(
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+        return PopScope<void>(
+          canPop: !interceptsBack,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (handlesInternalBack) {
+              setState(() => _section = _OrganizationSection.learning);
+              return;
+            }
+            if (widget.embedded) {
+              widget.onBackFromRoot?.call();
+            }
+          },
+          child: Scaffold(
+            appBar: AppBar(
+              automaticallyImplyLeading: !widget.rootMode && !widget.embedded,
+              title: const Text('机构'),
+              actions: [
+                if (widget.onChanged != null)
+                  IconButton(
+                    key: const Key('v2-organization-refresh'),
+                    tooltip: '刷新学情',
+                    onPressed: widget.onChanged,
+                    icon: const Icon(Icons.refresh_outlined),
                   ),
-                )
-              else
-                IconButton(
-                  tooltip: '检查更新',
-                  onPressed: _checkForUpdates,
-                  icon: const Icon(Icons.system_update_alt_outlined),
-                ),
-              if (canSignOut)
-                IconButton(
-                  tooltip: '退出登录',
-                  onPressed: widget.runtime.onSignOut,
-                  icon: const Icon(Icons.logout_outlined),
-                ),
-            ] else
-              PopupMenuButton<_OrganizationPageAction>(
-                key: const Key('v2-organization-more'),
-                tooltip: '更多操作',
-                onSelected: (action) {
-                  switch (action) {
-                    case _OrganizationPageAction.checkUpdate:
-                      unawaited(_checkForUpdates());
-                    case _OrganizationPageAction.signOut:
-                      widget.runtime.onSignOut?.call();
-                  }
-                },
-                itemBuilder: (_) => [
-                  PopupMenuItem<_OrganizationPageAction>(
-                    value: _OrganizationPageAction.checkUpdate,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.system_update_alt_outlined),
-                      title: const Text('检查更新'),
-                      subtitle: Text('当前版本 ${widget.runtime.appVersion}'),
-                    ),
-                  ),
-                  if (canSignOut)
-                    const PopupMenuItem<_OrganizationPageAction>(
-                      value: _OrganizationPageAction.signOut,
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.logout_outlined),
-                        title: Text('退出登录'),
-                      ),
-                    ),
-                ],
-              ),
-            const SizedBox(width: 6),
-          ],
-        ),
-        body: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  compact ? 16 : 24,
-                  12,
-                  compact ? 16 : 24,
-                  10,
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SegmentedButton<_OrganizationSection>(
-                    key: const Key('v2-organization-section-switch'),
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment<_OrganizationSection>(
-                        value: _OrganizationSection.learning,
-                        icon: Icon(Icons.fact_check_outlined),
-                        label: Text('学情'),
-                      ),
-                      ButtonSegment<_OrganizationSection>(
-                        value: _OrganizationSection.management,
-                        icon: Icon(Icons.admin_panel_settings_outlined),
-                        label: Text('管理'),
-                      ),
-                    ],
-                    selected: {_section},
-                    onSelectionChanged: (selection) {
-                      setState(() => _section = selection.single);
-                    },
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: _section == _OrganizationSection.learning
-                    ? _OrganizationLearningView(
-                        workspace: widget.workspace,
-                        data: widget.workspaceData,
-                        responsibility: widget.responsibility,
-                        workflowController: _organizationWorkflowController(),
-                        composerDraftStore: widget.runtime.composerDraftStore,
-                        composerDraftScopeKey:
-                            widget.runtime.composerDraftStore != null &&
-                                widget.runtime.sessionUserId != null
-                            ? '${quickCaptureComposerScopeKey(sessionUserId: widget.runtime.sessionUserId!, organizationId: widget.workspace.organizationId)}:organization'
-                            : null,
-                        onChanged: widget.onChanged,
-                      )
-                    : Scrollbar(
-                        controller: _managementScrollController,
-                        thumbVisibility: !compact,
-                        interactive: !compact,
-                        child: SingleChildScrollView(
-                          controller: _managementScrollController,
-                          keyboardDismissBehavior:
-                              ScrollViewKeyboardDismissBehavior.onDrag,
-                          child: !compact
-                              ? SelectionArea(child: _managementContent())
-                              : _managementContent(),
+                if (!compact) ...[
+                  if (_checkingForUpdates)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
+                    )
+                  else
+                    IconButton(
+                      tooltip: '检查更新',
+                      onPressed: _checkForUpdates,
+                      icon: const Icon(Icons.system_update_alt_outlined),
+                    ),
+                  if (canSignOut)
+                    IconButton(
+                      tooltip: '退出登录',
+                      onPressed: widget.runtime.onSignOut,
+                      icon: const Icon(Icons.logout_outlined),
+                    ),
+                ] else
+                  PopupMenuButton<_OrganizationPageAction>(
+                    key: const Key('v2-organization-more'),
+                    tooltip: '更多操作',
+                    onSelected: (action) {
+                      switch (action) {
+                        case _OrganizationPageAction.checkUpdate:
+                          unawaited(_checkForUpdates());
+                        case _OrganizationPageAction.signOut:
+                          widget.runtime.onSignOut?.call();
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem<_OrganizationPageAction>(
+                        value: _OrganizationPageAction.checkUpdate,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.system_update_alt_outlined),
+                          title: const Text('检查更新'),
+                          subtitle: Text('当前版本 ${widget.runtime.appVersion}'),
+                        ),
+                      ),
+                      if (canSignOut)
+                        const PopupMenuItem<_OrganizationPageAction>(
+                          value: _OrganizationPageAction.signOut,
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.logout_outlined),
+                            title: Text('退出登录'),
+                          ),
+                        ),
+                    ],
+                  ),
+                const SizedBox(width: 6),
+              ],
+            ),
+            body: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      compact ? 16 : 24,
+                      12,
+                      compact ? 16 : 24,
+                      10,
+                    ),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SegmentedButton<_OrganizationSection>(
+                        key: const Key('v2-organization-section-switch'),
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment<_OrganizationSection>(
+                            value: _OrganizationSection.learning,
+                            icon: Icon(Icons.fact_check_outlined),
+                            label: Text('学情'),
+                          ),
+                          ButtonSegment<_OrganizationSection>(
+                            value: _OrganizationSection.management,
+                            icon: Icon(Icons.admin_panel_settings_outlined),
+                            label: Text('管理'),
+                          ),
+                        ],
+                        selected: {_section},
+                        onSelectionChanged: (selection) {
+                          setState(() => _section = selection.single);
+                        },
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: _section == _OrganizationSection.learning
+                        ? _OrganizationLearningView(
+                            workspace: widget.workspace,
+                            data: widget.workspaceData,
+                            responsibility: widget.responsibility,
+                            workflowController:
+                                _organizationWorkflowController(),
+                            composerDraftStore:
+                                widget.runtime.composerDraftStore,
+                            composerDraftScopeKey:
+                                widget.runtime.composerDraftStore != null &&
+                                    widget.runtime.sessionUserId != null
+                                ? '${quickCaptureComposerScopeKey(sessionUserId: widget.runtime.sessionUserId!, organizationId: widget.workspace.organizationId)}:organization'
+                                : null,
+                            onChanged: widget.onChanged,
+                          )
+                        : Scrollbar(
+                            controller: _managementScrollController,
+                            thumbVisibility: !compact,
+                            interactive: !compact,
+                            child: SingleChildScrollView(
+                              controller: _managementScrollController,
+                              keyboardDismissBehavior:
+                                  ScrollViewKeyboardDismissBehavior.onDrag,
+                              child: !compact
+                                  ? SelectionArea(child: _managementContent())
+                                  : _managementContent(),
+                            ),
+                          ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -772,140 +781,148 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
       overdueCount: overdueCount,
       unassignedProfileCount: unassignedProfileCount,
     );
-    final compact = MediaQuery.sizeOf(context).width < 720;
-    final horizontalPadding = compact ? 16.0 : 24.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            ResponsiveBreakpoints.classify(constraints.maxWidth) ==
+            WindowSizeClass.compact;
+        final horizontalPadding = compact ? 16.0 : 24.0;
 
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            18,
-            horizontalPadding,
-            12,
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1100),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _summaryText(activeCount: activeCaseCount),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                if (attentionSummary != null) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    '需要关注：$attentionSummary',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+        return Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                18,
+                horizontalPadding,
+                12,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _summaryText(activeCount: activeCaseCount),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                  ),
-                ],
-                const SizedBox(height: 5),
-                Text(
-                  '查看全机构当前问题、主责与下一步；机构操作不会自动改变教师主责。',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  key: const Key('v2-organization-learning-search'),
-                  controller: _searchController,
-                  onChanged: (value) => setState(() => _query = value),
-                  decoration: InputDecoration(
-                    hintText: '搜索学生、学科、问题或负责老师…',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: _query.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: '清除搜索',
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _query = '');
-                            },
-                            icon: const Icon(Icons.close, size: 19),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final filter
-                          in _OrganizationLearningFilter.values) ...[
-                        ChoiceChip(
-                          key: ValueKey<String>(
-                            'v2-organization-filter-${filter.name}',
-                          ),
-                          label: Text(_filterLabel(filter)),
-                          selected: _filter == filter,
-                          onSelected: (_) => setState(() => _filter = filter),
+                    if (attentionSummary != null) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        '需要关注：$attentionSummary',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                        if (filter != _OrganizationLearningFilter.values.last)
-                          const SizedBox(width: 8),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: visibleStudents.isEmpty
-              ? Center(
-                  child: Text(
-                    _query.trim().isEmpty &&
-                            _filter != _OrganizationLearningFilter.all
-                        ? '当前没有符合这个关注条件的学生。'
-                        : '没有找到匹配的机构学情。',
-                  ),
-                )
-              : Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1100),
-                    child: ListView.separated(
-                      padding: EdgeInsets.fromLTRB(
-                        horizontalPadding,
-                        0,
-                        horizontalPadding,
-                        28,
                       ),
-                      itemCount: visibleStudents.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final student = visibleStudents[index];
-                        final items =
-                            itemsByStudentId[student.id] ??
-                            const <V2FocusItem>[];
-                        final profiles =
-                            profilesByStudentId[student.id] ??
-                            const <WorkspaceStudent>[];
-                        return _OrganizationStudentRow(
-                          student: student,
-                          items: items,
-                          profiles: profiles,
-                          caseOwnerLabelByCaseId: caseOwnerLabelByCaseId,
-                          collaborationLabelByCaseId:
-                              collaborationLabelByCaseId,
-                          responsibilitySummary: _responsibilitySummary(
-                            profiles,
-                          ),
-                          leadLabelForProfile: _leadLabelForProfile,
-                          compact: compact,
-                          onQuickCapture: () =>
-                              _openQuickCapture(context, student),
-                        );
-                      },
+                    ],
+                    const SizedBox(height: 5),
+                    Text(
+                      '查看全机构当前问题、主责与下一步；机构操作不会自动改变教师主责。',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      key: const Key('v2-organization-learning-search'),
+                      controller: _searchController,
+                      onChanged: (value) => setState(() => _query = value),
+                      decoration: InputDecoration(
+                        hintText: '搜索学生、学科、问题或负责老师…',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        suffixIcon: _query.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: '清除搜索',
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _query = '');
+                                },
+                                icon: const Icon(Icons.close, size: 19),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final filter
+                              in _OrganizationLearningFilter.values) ...[
+                            ChoiceChip(
+                              key: ValueKey<String>(
+                                'v2-organization-filter-${filter.name}',
+                              ),
+                              label: Text(_filterLabel(filter)),
+                              selected: _filter == filter,
+                              onSelected: (_) =>
+                                  setState(() => _filter = filter),
+                            ),
+                            if (filter !=
+                                _OrganizationLearningFilter.values.last)
+                              const SizedBox(width: 8),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-        ),
-      ],
+              ),
+            ),
+            Expanded(
+              child: visibleStudents.isEmpty
+                  ? Center(
+                      child: Text(
+                        _query.trim().isEmpty &&
+                                _filter != _OrganizationLearningFilter.all
+                            ? '当前没有符合这个关注条件的学生。'
+                            : '没有找到匹配的机构学情。',
+                      ),
+                    )
+                  : Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: ListView.separated(
+                          padding: EdgeInsets.fromLTRB(
+                            horizontalPadding,
+                            0,
+                            horizontalPadding,
+                            28,
+                          ),
+                          itemCount: visibleStudents.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final student = visibleStudents[index];
+                            final items =
+                                itemsByStudentId[student.id] ??
+                                const <V2FocusItem>[];
+                            final profiles =
+                                profilesByStudentId[student.id] ??
+                                const <WorkspaceStudent>[];
+                            return _OrganizationStudentRow(
+                              student: student,
+                              items: items,
+                              profiles: profiles,
+                              caseOwnerLabelByCaseId: caseOwnerLabelByCaseId,
+                              collaborationLabelByCaseId:
+                                  collaborationLabelByCaseId,
+                              responsibilitySummary: _responsibilitySummary(
+                                profiles,
+                              ),
+                              leadLabelForProfile: _leadLabelForProfile,
+                              compact: compact,
+                              onQuickCapture: () =>
+                                  _openQuickCapture(context, student),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

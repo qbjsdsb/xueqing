@@ -15,6 +15,16 @@ abstract final class ResponsiveBreakpoints {
     }
     return WindowSizeClass.expanded;
   }
+
+  /// Classifies the full application window for modal/sheet decisions.
+  ///
+  /// Layout widgets that can be nested inside a rail or split pane should
+  /// classify their local [BoxConstraints.maxWidth] instead.
+  static WindowSizeClass of(BuildContext context) =>
+      classify(MediaQuery.sizeOf(context).width);
+
+  static bool isCompact(BuildContext context) =>
+      of(context) == WindowSizeClass.compact;
 }
 
 class ResponsiveLayout extends StatelessWidget {
