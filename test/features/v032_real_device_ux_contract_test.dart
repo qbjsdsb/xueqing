@@ -25,14 +25,14 @@ void main() {
     expect(source, contains('setState(() => _studentOpen = false)'));
     expect(
       source,
-      contains(
-        'widget.onDestinationChanged(V2WorkspaceDestination.today);',
-      ),
+      contains('widget.onDestinationChanged(V2WorkspaceDestination.today);'),
     );
 
     expect(
       organization,
-      contains('final interceptsBack = handlesInternalBack || widget.embedded;'),
+      contains(
+        'final interceptsBack = handlesInternalBack || widget.embedded;',
+      ),
     );
     expect(organization, contains('if (handlesInternalBack)'));
     expect(organization, contains('widget.onBackFromRoot?.call();'));
