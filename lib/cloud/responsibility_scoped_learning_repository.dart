@@ -95,13 +95,11 @@ class SupabaseResponsibilityWriteRepository
 /// therefore fails closed instead of silently falling back to legacy writes.
 class ResponsibilityScopedLearningRepository
     implements LearningRepository, ResponsibilityReadRepository {
-  ResponsibilityScopedLearningRepository({
-    required LearningRepository learningRepository,
-    required ResponsibilityReadRepository responsibilityReadRepository,
-    required ResponsibilityWriteRepository responsibilityWriteRepository,
-  }) : _learningRepository = learningRepository,
-       _responsibilityReadRepository = responsibilityReadRepository,
-       _responsibilityWriteRepository = responsibilityWriteRepository;
+  ResponsibilityScopedLearningRepository(
+    this._learningRepository,
+    this._responsibilityReadRepository,
+    this._responsibilityWriteRepository,
+  );
 
   final LearningRepository _learningRepository;
   final ResponsibilityReadRepository _responsibilityReadRepository;
