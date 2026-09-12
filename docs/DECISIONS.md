@@ -89,7 +89,7 @@
 **Deferred for V1**。
 
 ## ADR-029｜课堂快速捕捉 → 课后确认
-**Accepted / Refined by Phase 0A.6** — Quick Capture 10–20 秒，但 new Case 云端创建必须完整 Teaching Fact Gate；Advisor-only 不可借此创建教学 Case。
+**Accepted / Refined by Phase 0A.6 and ADR-047** — Quick Capture 10–20 秒；普通教师在 Personal Scope 创建 new Case 仍必须满足完整 Teaching Fact Gate。机构监督 actor 在 Organization Scope 创建 Case 时，管理身份只提供监督/命令资格，Case responsibility 必须解析到合法 active teaching assignment，而不能由管理角色本身替代。
 
 ## ADR-030｜低成本认证：管理员开通 + 临时密码 + onboarding
 **Accepted / Provider implementation pending ADR-045** — 不开放公共注册；onboarding 无学生业务权限。
@@ -189,6 +189,7 @@ Windows/Android Auth、RLS、RPC/transactions、private Storage、backup/restore
 - 不把 provider-specific Session helper 当领域事实。
 
 Spike 通过后新增/更新 ADR 明确最终 provider、region、identity strategy、restore strategy。
+
 ## ADR-046｜业务身份与外部认证身份解耦
 
 **Accepted — P0 Gate A 通过（2026-09-03）**
@@ -220,3 +221,57 @@ Supabase reference 路径通常使用 UUID 形式的 Auth 用户标识，而候�
 - Flutter checks：`https://github.com/qbjsdsb/xueqing/actions/runs/33741847275`
 - 验证提交：`8efba87d553deafe3e6011e140a30f1cebd6d44c`
 - identity_portability_spike.sql：18/18 通过；既有 RLS 与旧 token 回归通过。
+
+## ADR-047｜机构监督权与教学责任分离
+
+**Accepted — v0.3.8 responsibility contract（2026-09-12）**
+
+### 背景
+
+Xueqing 已经同时支持普通任课教师与 `org_owner / org_admin` 的机构级监督。现有数据库能够分别保存 Case owner、Action assignee 与 Event actor，但部分旧文档和客户端语义仍把“有权访问/监督”近似成“本人承担教学责任”。这会导致管理者可见的机构学情被错误投射成“我的学生/我的任务”，也会给 Quick Capture 留下把管理者本人自动写成 Case owner 的风险。
+
+### 决定
+
+正式区分三类身份语义：
+
+- **Actor**：实际执行当前操作的人；
+- **Supervisor**：因机构负责人/管理员身份拥有机构级查看与监督能力的人；
+- **Responsible Teacher**：基于真实 `Student Teacher Assignment`、teaching scope 与业务日期承担教学责任的人。
+
+关键规则：
+
+1. Access / supervision capability 不等于 teaching responsibility；
+2. 负责人/管理员监督既有 Case 时，允许真实记录其 actor，但不得因此静默接管原 Case owner 或 Action assignee；
+3. 管理者如果本人也任课，必须和普通教师一样满足完整 Teaching Fact Gate，管理角色不能替代 Assignment；
+4. Personal Projection 只展示当前成员自己的合法任课关系与 assigned Action；Organization Projection 才承载机构级监督数据；
+5. Organization Scope 新建 Case 时，默认责任人解析为目标 Profile 当前合法 active Lead；没有明确 Lead 时 fail closed，先明确责任关系；
+6. 新 responsibility-aware command 必须分别验证 `actor_membership_id` 与 `responsible_membership_id`；
+7. 旧客户端 RPC 保持 additive compatibility，但不得继续制造新的错误责任关系；
+8. 不通过 migration 静默批量重写历史 owner，历史责任与当前责任分开治理；
+9. Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实，不能自动互相替代。
+
+### UI 影响
+
+导航由“是否存在个人教学责任”和“是否具有机构监督能力”共同决定：
+
+- 普通任课老师：今日 / 学生 / 学情；
+- 同时任课的负责人/管理员：今日 / 学生 / 学情 / 机构；
+- 没有任课关系的负责人/管理员：直接进入机构工作区。
+
+因此客户端后续应逐步替换把管理角色直接折叠成 `hasTeachingAccess` 的旧语义，显式引入 Personal / Organization scope。
+
+### 迁移与兼容
+
+- 后端首先 additive 增加 responsibility-aware read/write contract；
+- 现有监督既有 Case 的能力保持；
+- legacy RPC 在兼容期保留，并采用安全默认责任解析；
+- 历史 Case 若责任关系与当前 Assignment 不一致，标记/识别为待确认，不静默改写；
+- 客户端通过 backend capability gate 决定是否启用新的机构责任写入。
+
+### 非目标
+
+本 ADR 不引入绩效排名、管理驾驶舱、新系统角色、第二套 Admin Case UI、AI 风险评分或复杂 Action 分派。
+
+### 规范
+
+详细语义以 `docs/RESPONSIBILITY_MODEL.md` 为准。
