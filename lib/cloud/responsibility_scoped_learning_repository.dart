@@ -198,8 +198,9 @@ class ResponsibilityScopedLearningRepository
   ) => _learningRepository.recordIntervention(command);
 
   @override
-  Future<CaseCommandReceipt> recordAssessment(RecordAssessmentCommand command) =>
-      _learningRepository.recordAssessment(command);
+  Future<CaseCommandReceipt> recordAssessment(
+    RecordAssessmentCommand command,
+  ) => _learningRepository.recordAssessment(command);
 
   @override
   Future<CaseCommandReceipt> stabilizeCase(StabilizeCaseCommand command) =>
