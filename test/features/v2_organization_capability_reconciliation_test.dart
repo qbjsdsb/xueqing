@@ -37,9 +37,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(
-        find.byKey(const Key('v2-open-organization-scope')),
-      );
+      await tester.tap(find.byKey(const Key('v2-open-organization-scope')));
       await tester.pumpAndSettle();
       expect(find.text('机构权限测试页'), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
@@ -49,10 +47,7 @@ void main() {
 
       expect(find.text('机构权限测试页'), findsNothing);
       expect(find.text('机构'), findsNothing);
-      expect(
-        find.byKey(const Key('v2-open-organization-scope')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('v2-open-organization-scope')), findsNothing);
       navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
       expect(navigation.destinations, hasLength(3));
       expect(navigation.selectedIndex, 0);
