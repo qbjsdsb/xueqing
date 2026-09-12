@@ -139,14 +139,12 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
     }
     try {
       await mutation();
+      await _finishCommittedMutation(successMessage: successMessage);
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
-      return;
     } finally {
       if (!busyAlreadySet && mounted) setState(() => _busy = false);
     }
-
-    await _finishCommittedMutation(successMessage: successMessage);
   }
 
   Future<bool> _confirm({
