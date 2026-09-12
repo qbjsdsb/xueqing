@@ -14,7 +14,7 @@ import 'package:xueqing/update/update_service.dart';
 
 void main() {
   testWidgets(
-    'Organization learning shows Lead responsibility without writes',
+    'Organization learning is a responsibility-aware supervision workspace',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1100, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -35,18 +35,28 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('机构'), findsOneWidget);
-      expect(find.text('机构学情'), findsWidgets);
-      expect(find.textContaining('2 名学生 · 2 个正在跟进的问题'), findsOneWidget);
+      expect(find.text('机构学情'), findsNothing);
+      expect(find.text('学情'), findsOneWidget);
+      expect(find.text('管理'), findsOneWidget);
+      expect(
+        find.text('2 名学生 · 2 个问题正在跟进 · 1 个学科未明确主责'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('机构操作不会自动改变教师主责'), findsOneWidget);
       expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
       expect(find.byIcon(Icons.expand_more), findsWidgets);
+      expect(find.text('语文 · 张老师'), findsOneWidget);
+      expect(find.text('语文 · 未设置主责'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, '记录问题'), findsNWidgets(2));
 
       await tester.tap(find.text('机构学生一'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('当前负责：张老师'), findsOneWidget);
+      expect(find.textContaining('语文 · 跟进中 · 张老师'), findsOneWidget);
+      expect(find.textContaining('下一步：下一次继续检查'), findsOneWidget);
 
       await tester.tap(find.text('机构学生二'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('当前负责：未设置主责'), findsOneWidget);
+      expect(find.textContaining('语文 · 跟进中 · 未设置主责'), findsOneWidget);
 
       await tester.enterText(
         find.byKey(const Key('v2-organization-learning-search')),
@@ -57,6 +67,49 @@ void main() {
       expect(find.text('机构学生二'), findsNothing);
     },
   );
+
+  testWidgets('organization attention filters are factual and actionable', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final workspace = _workspace();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: V2Theme.light(),
+        home: V2OrganizationWorkspacePage(
+          workspace: workspace,
+          workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+              .workspaceData,
+          responsibility: _context(personalProfileIds: const []),
+          runtime: _runtime(includeManagement: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('机构学生一'), findsOneWidget);
+    expect(find.text('机构学生二'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('v2-organization-filter-unassigned')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('机构学生一'), findsNothing);
+    expect(find.text('机构学生二'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('v2-organization-filter-attention')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('机构学生一'), findsNothing);
+    expect(find.text('机构学生二'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('v2-organization-filter-overdue')));
+    await tester.pumpAndSettle();
+    expect(find.text('当前没有符合这个关注条件的学生。'), findsOneWidget);
+  });
 
   testWidgets('manager without Personal Assignment enters Organization root', (
     tester,
