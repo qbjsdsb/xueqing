@@ -9,7 +9,7 @@
 | 角色 | 中文 | 主要职责 | 默认不能做 |
 | --- | --- | --- | --- |
 | `org_owner` | 负责人 | 管理机构与成员；机构级查看/监督学情；本人有真实 Assignment 时也可承担教学责任 | 仅凭负责人身份成为新 Case owner / Action assignee |
-| `org_admin` | 管理员 | 管理老师、学生、学科范围、学生分配；机构级查看/监督学情 | 仅凭管理员身份成为新 Case owner / Action assignee；成员生命周期高权限操作 |
+| `org_admin` | 管理员 | 管理老师、学生、学科范围、学生分配；机构级查看/监督学情；受限邀请治理 | 仅凭管理员身份成为新 Case owner / Action assignee；邀请管理员；审批负责人提名 |
 | `teacher` | 老师 | 管理本人负责的学生；创建问题；记录行动、证据和验证；查看授权成长历史 | 查看其他机构或未分配学生；机构级监督 |
 
 一个成员可以同时拥有管理角色与真实教学责任。系统始终按当前操作需要的完整条件授权，不因高层级角色自动获得 Student Teacher Assignment。
@@ -22,8 +22,10 @@ org_owner
     → teacher
 ```
 
-- 负责人可以邀请管理员和老师；
-- 管理员可以邀请老师，也可以发起需要现有负责人审批的负责人提名；
+- 负责人可以邀请管理员、老师和负责人；
+- 管理员可以直接邀请老师，也可以发起需要现有负责人审批的负责人提名；
+- 管理员不能创建管理员邀请；
+- owner/admin 都可以撤销尚未完成的邀请；只有 owner 能审批负责人提名；
 - 老师不能管理机构成员；
 - 首位负责人仍由可信运维流程产生，不提供公开自助入口。
 
@@ -75,11 +77,11 @@ Responsible = 原合法责任老师
 | 工作流 | 负责人 | 管理员 | 已授权老师 |
 | --- | --- | --- | --- |
 | 机构设置 | G | 必要 G | — |
-| 成员与邀请 | G | 邀请老师 / 提名负责人 | — |
+| 成员与邀请 | G：全角色邀请/审批/撤销 | G：邀请老师、提名负责人、撤销；不可邀请管理员/审批负责人 | — |
 | 学科范围 | G | G | R 本人 |
 | 学生主档案 | G | G | R 已分配学生 |
 | 学生任课分配 / handoff | G | G | — |
-| Personal Today / Students / Learning | R/A/C：仅本人合法 Assignment | R/A/C：仅本人合法 Assignment | R/A/C：按本人 Assignment |
+| Personal Today / Students / Lessons / Learning | R/A/C：仅本人合法 Assignment | R/A/C：仅本人合法 Assignment | R/A/C：按本人 Assignment |
 | Organization 学情详情 | R/S | R/S | — |
 | 已有 Case 的机构监督 | S：按 command policy，保留原责任 | S：按 command policy，保留原责任 | — |
 | Personal Quick Capture / new Case | A：仅本人通过完整 Gate | A：仅本人通过完整 Gate | A：完整 Gate |
@@ -90,7 +92,18 @@ Responsible = 原合法责任老师
 
 任课交接不自动改写 Case owner 或 Action assignee；存在未关闭 Case 或待执行 Action 时拒绝交接，直到完成显式责任处理。
 
-## 5. 数据隔离硬规则
+## 5. 导航合同
+
+责任模型不删除既有 V1 教师入口。
+
+- 普通任课老师：今日 / 学生 / 课程 / 学情；
+- 同时任课的负责人/管理员：今日 / 学生 / 课程 / 学情 / 机构；
+- 没有任课关系的负责人/管理员：直接进入机构工作区；
+- 没有当前任课的普通老师：显示暂无当前任课学生。
+
+这里定义的是产品语义；具体窄屏如何折叠 5 个入口属于后续 UI PR，不在责任合同文档里提前决定。
+
+## 6. 数据隔离硬规则
 
 - 任何角色都不能跨机构读取或写入数据；
 - Personal Projection 必须有对应学生、学科和有效期内的任课分配；
@@ -101,7 +114,7 @@ Responsible = 原合法责任老师
 - Organization Projection 的“可见”不能被重新解释成“我的学生/我的任务”；
 - responsibility-aware command 必须 server-side 验证负责老师，不能信任客户端传入 membership。
 
-## 6. 必测负向矩阵
+## 7. 必测负向矩阵
 
 - teacher scope 但无 student assignment → Personal detail / Personal new Case 拒绝；
 - Admin/Owner 无 Assignment → Personal Projection 为空，不自动成为 Case owner；
@@ -115,6 +128,6 @@ Responsible = 原合法责任老师
 - revoked session / disabled membership → 拒绝；
 - 学生创建不得隐式新建或恢复教师教学范围。
 
-## 7. 暂不增加角色
+## 8. 暂不增加角色
 
 小型机构的班主任、学管、学科复核等现实分工，先作为流程责任、teacher assignment 或管理员治理任务表达。只有在真实试点证明三角色无法安全表达必要工作，而且新增角色的权限边界可以被自动化测试时，才重新评估新的系统角色。
