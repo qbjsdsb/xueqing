@@ -36,6 +36,9 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
   final WorkspaceResponsibilityContext responsibility;
   final AuthenticatedWorkspaceRuntime runtime;
   final bool rootMode;
+
+  /// Reloads the authorized workspace after an organization mutation and also
+  /// provides the explicit manual refresh entry for supervisor workflows.
   final VoidCallback? onChanged;
 
   @override
@@ -149,6 +152,13 @@ class _V2OrganizationWorkspacePageState
           automaticallyImplyLeading: !widget.rootMode,
           title: const Text('机构'),
           actions: [
+            if (widget.onChanged != null)
+              IconButton(
+                key: const Key('v2-organization-refresh'),
+                tooltip: '刷新学情',
+                onPressed: widget.onChanged,
+                icon: const Icon(Icons.refresh_outlined),
+              ),
             if (!compact) ...[
               if (_checkingForUpdates)
                 const Padding(
