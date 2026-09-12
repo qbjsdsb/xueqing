@@ -119,6 +119,7 @@ void main() {
         find.byKey(const Key('v2-quick-capture-body')),
         '这段文字在主责变化后不能丢。',
       );
+      await tester.pump();
       final save = find.widgetWithText(FilledButton, '记录问题');
       await tester.ensureVisible(save);
       await tester.tap(save);
