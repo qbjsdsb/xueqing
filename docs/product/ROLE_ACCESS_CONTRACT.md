@@ -19,28 +19,27 @@
 - 管理学生、学科、任课范围和学生任课分配；
 - 可以像其他教学人员一样配置自己的可教学科并承担具体学生任课；
 - 查看成员与邀请；
+- 创建、审批、撤销、重新发放成员邀请；
 - 邀请 `teacher`、`org_admin`、`org_owner`；
-- 审批管理员发起的 `org_owner` 提名；
-- 撤销尚未完成的邀请；
-- 停用/恢复成员以及执行负责人专属的受控账号生命周期操作。
+- 停用/恢复成员，以及执行受控账号凭据重发等成员账号生命周期操作。
 
 如果负责人本人存在合法当前 Assignment，则其 **Personal Projection** 只显示本人真实负责的 Today / Students / Lessons / Learning，不因负责人身份混入全机构数据。
 
 ## 管理员 `org_admin`
 
-管理员拥有机构业务与学情监督能力，并拥有受限制的成员邀请能力；但不能执行需要负责人确认的高权限成员治理：
+管理员拥有机构业务与学情监督能力，但**不拥有成员账号生命周期写权限**：
 
 - 在 **Organization Projection** 查看并监督全机构学生、学情与 Learning Case；
 - 在监督 policy 允许时推进已有 Case，同时保留原 Case owner / Action assignee，审计记录管理员本人为真实 actor；
 - 管理学生、学科、任课范围和学生任课分配；
 - 可以像其他教学人员一样配置自己的可教学科并承担具体学生任课；
 - 可以查看成员和邀请状态，并维护成员的日常显示姓名；
-- 可以直接创建 `teacher` 邀请；
-- 可以提名 `org_owner`，但邀请保持 `pending_owner_approval`，必须由现有负责人审批后才能进入可接受状态；
-- 不能创建 `org_admin` 邀请；
-- 可以撤销尚未完成的邀请；
-- 不能审批 `org_owner` 提名；
-- 不能仅凭管理员身份执行负责人专属的成员停用/恢复或高权限账号凭据治理。
+- 不能创建任何角色的成员邀请；
+- 不能审批、撤销或重新发放邀请；
+- 不能停用/恢复成员；
+- 不能重发其他成员账号凭据或执行其他负责人专属成员账号生命周期命令。
+
+这里以最终 migration 链中的 `can_manage_member_accounts_v2` 与 owner/admin access contract tests 为准；较早 migration 曾允许管理员发起部分邀请，但已被后续安全边界收紧，不再是当前运行时事实。
 
 如果管理员本人存在合法当前 Assignment，则其 **Personal Projection** 同样只显示自己的 Today / Students / Lessons / Learning。
 
@@ -96,4 +95,5 @@
 - 管理身份本身不能偷偷创建学科范围、任课关系、Case owner 或学生责任；
 - 监督已有 Case 不得静默接管原 owner / assignee；
 - 新责任人必须由 server 重新验证当前 Assignment、scope、Profile 与业务日期；
+- 只有 `org_owner` 可执行成员账号生命周期写命令；
 - 测试必须同时覆盖正向权限和拒绝路径。
