@@ -16,9 +16,15 @@ void main() {
         "'p_expected_responsibility_membership_id': responsibilityMembershipId",
       ),
     );
-    expect(source, contains("'p_organization_case_type_id': command.organizationCaseTypeId"));
+    expect(
+      source,
+      contains("'p_organization_case_type_id': command.organizationCaseTypeId"),
+    );
     expect(source, contains("WorkspaceWriteScope.personal => 'personal'"));
-    expect(source, contains("WorkspaceWriteScope.organization => 'organization'"));
+    expect(
+      source,
+      contains("WorkspaceWriteScope.organization => 'organization'"),
+    );
     expect(source, contains('personal_responsibility_context_required'));
     expect(source, contains('personal_profile_responsibility_required'));
   });
