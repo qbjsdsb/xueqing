@@ -98,6 +98,18 @@ class V2ExistingCaseOption {
   final String dueLabel;
 }
 
+class V2QuickCaptureSubjectContext {
+  const V2QuickCaptureSubjectContext({
+    required this.label,
+    required this.helperText,
+    this.canSave = true,
+  });
+
+  final String label;
+  final String helperText;
+  final bool canSave;
+}
+
 typedef V2QuickCaptureContinueExisting = Future<void> Function(
   V2ExistingCaseOption option,
   V2QuickCaptureDraft draft,
@@ -178,6 +190,8 @@ Future<bool> showV2QuickCapture(
   required List<String> subjects,
   List<V2ProblemTypeOption> problemTypes = v2PreviewProblemTypeOptions,
   List<V2ExistingCaseOption> existingCases = const <V2ExistingCaseOption>[],
+  Map<String, V2QuickCaptureSubjectContext> subjectContexts =
+      const <String, V2QuickCaptureSubjectContext>{},
   V2QuickCaptureSave? onSave,
   V2QuickCaptureContinueExisting? onContinueExisting,
   V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,
@@ -193,6 +207,7 @@ Future<bool> showV2QuickCapture(
           subjects: subjects,
           problemTypes: problemTypes,
           existingCases: existingCases,
+          subjectContexts: subjectContexts,
           onSave: onSave,
           onContinueExisting: onContinueExisting,
           attachmentPicker: attachmentPicker,
@@ -364,6 +379,7 @@ class V2QuickCaptureComposer extends StatefulWidget {
     required this.problemTypes,
     required this.attachmentPicker,
     this.existingCases = const <V2ExistingCaseOption>[],
+    this.subjectContexts = const <String, V2QuickCaptureSubjectContext>{},
     this.onSave,
     this.onContinueExisting,
     this.persistence,
@@ -375,6 +391,7 @@ class V2QuickCaptureComposer extends StatefulWidget {
   final List<V2ProblemTypeOption> problemTypes;
   final V2AttachmentPicker attachmentPicker;
   final List<V2ExistingCaseOption> existingCases;
+  final Map<String, V2QuickCaptureSubjectContext> subjectContexts;
   final V2QuickCaptureSave? onSave;
   final V2QuickCaptureContinueExisting? onContinueExisting;
   final V2QuickCapturePersistence? persistence;
@@ -579,9 +596,16 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
   bool get _hasDraft =>
       _controller.text.trim().isNotEmpty || _attachments.isNotEmpty;
 
+  V2QuickCaptureSubjectContext? get _selectedSubjectContext {
+    final subject = _selectedSubject;
+    if (subject == null) return null;
+    return widget.subjectContexts[subject];
+  }
+
   bool get _canSave =>
       !_saving &&
       _selectedSubject != null &&
+      (_selectedSubjectContext?.canSave ?? true) &&
       _controller.text.trim().isNotEmpty;
 
   List<V2ExistingCaseOption> get _matchingExistingCases {
@@ -720,7 +744,13 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
                   _persistDraftSilently();
                 },
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 14),
+            ],
+            if (_selectedSubjectContext != null) ...[
+              _QuickCaptureSubjectContextPanel(
+                subjectContext: _selectedSubjectContext!,
+              ),
+              const SizedBox(height: 18),
             ],
             Text('今天发现什么？', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 10),
@@ -801,6 +831,61 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _QuickCaptureSubjectContextPanel extends StatelessWidget {
+  const _QuickCaptureSubjectContextPanel({required this.subjectContext});
+
+  final V2QuickCaptureSubjectContext subjectContext;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final blocked = !subjectContext.canSave;
+    return Container(
+      key: const Key('v2-quick-capture-subject-context'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: blocked ? scheme.error : scheme.outlineVariant,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            blocked ? Icons.person_off_outlined : Icons.person_outline,
+            size: 19,
+            color: blocked ? scheme.error : scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  subjectContext.label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: blocked ? scheme.error : scheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subjectContext.helperText,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
