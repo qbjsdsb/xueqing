@@ -38,7 +38,8 @@ void main() {
       expect(find.text('机构学情'), findsNothing);
       expect(find.text('学情'), findsOneWidget);
       expect(find.text('管理'), findsOneWidget);
-      expect(find.text('2 名学生 · 2 个问题正在跟进 · 1 个学科未明确主责'), findsOneWidget);
+      expect(find.text('2 名学生 · 2 个问题正在跟进'), findsOneWidget);
+      expect(find.text('需要关注：1 个学科未明确主责'), findsOneWidget);
       expect(find.textContaining('机构操作不会自动改变教师主责'), findsOneWidget);
       expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
       expect(find.byIcon(Icons.expand_more), findsWidgets);
@@ -48,13 +49,14 @@ void main() {
 
       await tester.tap(find.text('机构学生一'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('语文 · 跟进中 · 主责：张老师'), findsOneWidget);
-      expect(find.textContaining('下一步：下一次继续检查'), findsOneWidget);
+      expect(find.text('跟进中'), findsWidgets);
+      expect(find.text('主责：张老师'), findsOneWidget);
+      expect(find.text('下一步：下一次继续检查'), findsOneWidget);
       expect(find.text('最近记录：李老师 · 机构协作'), findsOneWidget);
 
       await tester.tap(find.text('机构学生二'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('语文 · 跟进中 · 主责：王老师'), findsOneWidget);
+      expect(find.text('主责：王老师'), findsOneWidget);
       // Profile B still has no current Lead. Existing Case B nevertheless keeps
       // its persisted Case owner instead of inheriting the Profile Lead state.
       expect(find.textContaining('语文 · 未设置主责'), findsOneWidget);
