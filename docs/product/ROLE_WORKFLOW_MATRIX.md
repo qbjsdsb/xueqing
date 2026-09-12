@@ -8,9 +8,9 @@
 
 | 角色 | 中文 | 主要职责 | 默认不能做 |
 | --- | --- | --- | --- |
-| `org_owner` | 负责人 | 管理机构与成员；机构级查看/监督学情；本人有真实 Assignment 时也可承担教学责任 | 仅凭负责人身份成为新 Case owner / Action assignee |
-| `org_admin` | 管理员 | 管理老师、学生、学科范围、学生分配；机构级查看/监督学情；受限邀请治理 | 仅凭管理员身份成为新 Case owner / Action assignee；邀请管理员；审批负责人提名 |
-| `teacher` | 老师 | 管理本人负责的学生；创建问题；记录行动、证据和验证；查看授权成长历史 | 查看其他机构或未分配学生；机构级监督 |
+| `org_owner` | 负责人 | 管理机构与成员账号生命周期；机构级查看/监督学情；本人有真实 Assignment 时也可承担教学责任 | 仅凭负责人身份成为新 Case owner / Action assignee |
+| `org_admin` | 管理员 | 管理学生、学科范围、学生分配等机构业务；机构级查看/监督学情 | 仅凭管理员身份成为新 Case owner / Action assignee；任何成员账号生命周期写操作 |
+| `teacher` | 老师 | 管理本人负责的学生；创建问题；记录行动、证据和验证；查看授权成长历史 | 查看其他机构或未分配学生；机构级监督；成员账号治理 |
 
 一个成员可以同时拥有管理角色与真实教学责任。系统始终按当前操作需要的完整条件授权，不因高层级角色自动获得 Student Teacher Assignment。
 
@@ -22,12 +22,16 @@ org_owner
     → teacher
 ```
 
-- 负责人可以邀请管理员、老师和负责人；
-- 管理员可以直接邀请老师，也可以发起需要现有负责人审批的负责人提名；
-- 管理员不能创建管理员邀请；
-- owner/admin 都可以撤销尚未完成的邀请；只有 owner 能审批负责人提名；
+当前运行时合同：
+
+- 只有负责人可以创建 `teacher` / `org_admin` / `org_owner` 邀请；
+- 只有负责人可以审批、撤销、重新发放邀请；
+- 只有负责人可以停用/恢复成员、重发成员凭据或执行其他成员账号生命周期写命令；
+- 管理员可以查看成员/邀请状态，并管理学生、学科、教学范围和任课分配等机构业务，但不能改变谁进入/离开机构或接管账号；
 - 老师不能管理机构成员；
 - 首位负责人仍由可信运维流程产生，不提供公开自助入口。
+
+较早 migration 曾允许管理员发起部分邀请；后续 `owner_admin_learning_member_boundary` 已以 owner-only helper 收紧，因此最终 migration 链与自动化测试优先。
 
 这里的层级表示机构治理关系，不表示教学责任可以从上向下继承。
 
@@ -77,7 +81,7 @@ Responsible = 原合法责任老师
 | 工作流 | 负责人 | 管理员 | 已授权老师 |
 | --- | --- | --- | --- |
 | 机构设置 | G | 必要 G | — |
-| 成员与邀请 | G：全角色邀请/审批/撤销 | G：邀请老师、提名负责人、撤销；不可邀请管理员/审批负责人 | — |
+| 成员与邀请 | G：创建/审批/撤销/重发邀请，成员账号生命周期 | R：查看成员/邀请状态；可维护显示姓名 | — |
 | 学科范围 | G | G | R 本人 |
 | 学生主档案 | G | G | R 已分配学生 |
 | 学生任课分配 / handoff | G | G | — |
@@ -90,7 +94,7 @@ Responsible = 原合法责任老师
 | Confirm / Stable / Close / Reopen | Personal：Gate+owner/policy；Organization：监督 policy | Personal：Gate+owner/policy；Organization：监督 policy | C：owner/policy |
 | 成长历史 | Personal 仅任课 Profile；Organization 全机构监督范围 | Personal 仅任课 Profile；Organization 全机构监督范围 | R 已分配 Profile 的完整合法历史 |
 
-任课交接不自动改写 Case owner 或 Action assignee；存在未关闭 Case 或待执行 Action 时拒绝交接，直到完成显式责任处理。
+显式 handoff command 可以在一个事务内原子迁移 Assignment + 当前 Case owner + pending Action assignee；如果没有完整责任计划、接手人不合法或 plan 已 stale，则整个 handoff fail closed。历史 actor 永不改写。
 
 ## 5. 导航合同
 
@@ -112,7 +116,8 @@ Responsible = 原合法责任老师
 - 前端隐藏按钮只是体验，数据库 RLS 与受保护命令才是安全边界；
 - handoff、停用和合并不改写历史 actor；
 - Organization Projection 的“可见”不能被重新解释成“我的学生/我的任务”；
-- responsibility-aware command 必须 server-side 验证负责老师，不能信任客户端传入 membership。
+- responsibility-aware command 必须 server-side 验证负责老师，不能信任客户端传入 membership；
+- member-account writes 必须由 owner-only server helper 保护，不能仅靠 UI 隐藏。
 
 ## 7. 必测负向矩阵
 
@@ -126,6 +131,7 @@ Responsible = 原合法责任老师
 - inactive/archived Profile → 拒绝新教学事实；
 - collaborator 非 owner → 关键命令按 policy 拒绝；
 - revoked session / disabled membership → 拒绝；
+- org_admin 创建/审批/撤销/重发邀请或停用成员 → `organization_owner_required`；
 - 学生创建不得隐式新建或恢复教师教学范围。
 
 ## 8. 暂不增加角色
