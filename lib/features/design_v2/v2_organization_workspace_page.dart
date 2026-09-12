@@ -19,6 +19,14 @@ enum _OrganizationSection { learning, management }
 
 enum _OrganizationPageAction { checkUpdate, signOut }
 
+enum _OrganizationLearningFilter {
+  all,
+  attention,
+  pendingVerification,
+  overdue,
+  unassigned,
+}
+
 /// Organization-scope workspace for owners/admins.
 ///
 /// Organization authority may supervise the already-authorized workspace and
@@ -304,12 +312,12 @@ class _V2OrganizationWorkspacePageState
                       ButtonSegment<_OrganizationSection>(
                         value: _OrganizationSection.learning,
                         icon: Icon(Icons.fact_check_outlined),
-                        label: Text('机构学情'),
+                        label: Text('学情'),
                       ),
                       ButtonSegment<_OrganizationSection>(
                         value: _OrganizationSection.management,
                         icon: Icon(Icons.admin_panel_settings_outlined),
-                        label: Text('机构管理'),
+                        label: Text('管理'),
                       ),
                     ],
                     selected: {_section},
@@ -384,6 +392,7 @@ class _OrganizationLearningView extends StatefulWidget {
 class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  _OrganizationLearningFilter _filter = _OrganizationLearningFilter.all;
 
   @override
   void dispose() {
@@ -511,68 +520,171 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     return result;
   }
 
-  Map<String, String> _responsibilitySummaryByStudentId() {
-    final labelsByStudentId = <String, List<String>>{};
+  Map<String, List<WorkspaceStudent>> _profilesByStudentId() {
+    final result = <String, List<WorkspaceStudent>>{};
     for (final profile in widget.workspace.students) {
-      final leadMembershipId = widget.responsibility.leadMembershipIdForProfile(
-        profile.profileId,
-      );
-      final leadName = leadMembershipId == null
-          ? '未设置主责'
-          : widget.responsibility.displayNameForMembership(leadMembershipId) ??
-                '主责老师';
-      labelsByStudentId
-          .putIfAbsent(profile.id, () => <String>[])
-          .add('${profile.subject} $leadName');
+      result.putIfAbsent(profile.id, () => <WorkspaceStudent>[]).add(profile);
     }
-    return <String, String>{
-      for (final entry in labelsByStudentId.entries)
-        entry.key: entry.value.join(' · '),
+    return result;
+  }
+
+  String _leadLabelForProfile(WorkspaceStudent profile) {
+    final membershipId = widget.responsibility.leadMembershipIdForProfile(
+      profile.profileId,
+    );
+    if (membershipId == null) return '未设置主责';
+    return widget.responsibility.displayNameForMembership(membershipId) ??
+        '主责老师';
+  }
+
+  bool _hasUnassignedProfile(List<WorkspaceStudent> profiles) => profiles.any(
+    (profile) =>
+        widget.responsibility.leadMembershipIdForProfile(profile.profileId) ==
+        null,
+  );
+
+  String _responsibilitySummary(List<WorkspaceStudent> profiles) {
+    final assigned = <String>{};
+    var hasUnassigned = false;
+    for (final profile in profiles) {
+      final lead = _leadLabelForProfile(profile);
+      if (lead == '未设置主责') {
+        hasUnassigned = true;
+      } else {
+        assigned.add(lead);
+      }
+    }
+
+    final teacherSummary = switch (assigned.length) {
+      0 => '未设置主责',
+      1 => '${assigned.single}负责',
+      _ => '${assigned.first}等 ${assigned.length} 位老师负责',
+    };
+    return hasUnassigned && assigned.isNotEmpty
+        ? '$teacherSummary · 有学科未明确主责'
+        : teacherSummary;
+  }
+
+  bool _isAttentionItem(V2FocusItem item) {
+    if (item.closed) return false;
+    return item.pendingVerification ||
+        item.effectiveStatus == V2CaseStatus.pendingVerification ||
+        item.actionTiming == V2ActionTiming.overdue ||
+        item.actionTiming == V2ActionTiming.undated;
+  }
+
+  bool _matchesFilter(
+    V2Student student, {
+    required List<V2FocusItem> items,
+    required List<WorkspaceStudent> profiles,
+  }) {
+    final activeItems = items.where((item) => !item.closed);
+    return switch (_filter) {
+      _OrganizationLearningFilter.all => true,
+      _OrganizationLearningFilter.attention =>
+        activeItems.any(_isAttentionItem) || _hasUnassignedProfile(profiles),
+      _OrganizationLearningFilter.pendingVerification => activeItems.any(
+        (item) =>
+            item.pendingVerification ||
+            item.effectiveStatus == V2CaseStatus.pendingVerification,
+      ),
+      _OrganizationLearningFilter.overdue => activeItems.any(
+        (item) => item.actionTiming == V2ActionTiming.overdue,
+      ),
+      _OrganizationLearningFilter.unassigned => _hasUnassignedProfile(profiles),
     };
   }
 
   List<V2Student> _visibleStudents({
     required Map<String, List<V2FocusItem>> itemsByStudentId,
-    required Map<String, String> responsibilitySummaryByStudentId,
+    required Map<String, List<WorkspaceStudent>> profilesByStudentId,
     required Map<String, String> leadLabelByCaseId,
   }) {
     final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return widget.data.students;
-    return widget.data.students
-        .where((student) {
-          final items = itemsByStudentId[student.id] ?? const <V2FocusItem>[];
-          final haystack = <String>[
-            student.name,
-            student.grade,
-            ...student.subjects,
-            responsibilitySummaryByStudentId[student.id] ?? '主责信息暂不可用',
-            for (final item in items) ...[
-              item.title,
-              item.summary,
-              item.nextStep,
-              item.subject,
-              leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
-            ],
-          ].join(' ').toLowerCase();
-          return haystack.contains(query);
-        })
-        .toList(growable: false);
+    return widget.data.students.where((student) {
+      final items = itemsByStudentId[student.id] ?? const <V2FocusItem>[];
+      final profiles =
+          profilesByStudentId[student.id] ?? const <WorkspaceStudent>[];
+      if (!_matchesFilter(student, items: items, profiles: profiles)) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      final haystack = <String>[
+        student.name,
+        student.grade,
+        ...student.subjects,
+        _responsibilitySummary(profiles),
+        for (final profile in profiles) ...[
+          profile.subject,
+          _leadLabelForProfile(profile),
+        ],
+        for (final item in items) ...[
+          item.title,
+          item.summary,
+          item.nextStep,
+          item.subject,
+          leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
+        ],
+      ].join(' ').toLowerCase();
+      return haystack.contains(query);
+    }).toList(growable: false);
   }
+
+  String _summaryText({
+    required int activeCount,
+    required int pendingCount,
+    required int overdueCount,
+    required int unassignedProfileCount,
+  }) {
+    final parts = <String>[
+      '${widget.data.students.length} 名学生',
+      '$activeCount 个问题正在跟进',
+      if (pendingCount > 0) '$pendingCount 个待复检',
+      if (overdueCount > 0) '$overdueCount 个已逾期',
+      if (unassignedProfileCount > 0) '$unassignedProfileCount 个学科未明确主责',
+    ];
+    return parts.join(' · ');
+  }
+
+  String _filterLabel(_OrganizationLearningFilter filter) => switch (filter) {
+    _OrganizationLearningFilter.all => '全部',
+    _OrganizationLearningFilter.attention => '需关注',
+    _OrganizationLearningFilter.pendingVerification => '待复检',
+    _OrganizationLearningFilter.overdue => '已逾期',
+    _OrganizationLearningFilter.unassigned => '未明确主责',
+  };
 
   @override
   Widget build(BuildContext context) {
-    // Build immutable lookup maps once per frame. Previously each visible row
-    // rescanned every profile/case to derive the same labels and item lists.
+    // Build immutable lookup maps once per frame. This keeps the organization
+    // view responsive without changing the underlying responsibility contract.
     final itemsByStudentId = _itemsByStudentId();
-    final responsibilitySummaryByStudentId =
-        _responsibilitySummaryByStudentId();
+    final profilesByStudentId = _profilesByStudentId();
     final leadLabelByCaseId = _leadLabelByCaseId;
     final visibleStudents = _visibleStudents(
       itemsByStudentId: itemsByStudentId,
-      responsibilitySummaryByStudentId: responsibilitySummaryByStudentId,
+      profilesByStudentId: profilesByStudentId,
       leadLabelByCaseId: leadLabelByCaseId,
     );
-    final activeCaseCount = widget.data.focusItems.length;
+    final activeItems = widget.data.focusItems.where((item) => !item.closed);
+    final activeCaseCount = activeItems.length;
+    final pendingCount = activeItems.where(
+      (item) =>
+          item.pendingVerification ||
+          item.effectiveStatus == V2CaseStatus.pendingVerification,
+    ).length;
+    final overdueCount = activeItems
+        .where((item) => item.actionTiming == V2ActionTiming.overdue)
+        .length;
+    final unassignedProfileCount = widget.workspace.students
+        .where(
+          (profile) =>
+              widget.responsibility.leadMembershipIdForProfile(
+                profile.profileId,
+              ) ==
+              null,
+        )
+        .length;
     final compact = MediaQuery.sizeOf(context).width < 720;
     final horizontalPadding = compact ? 16.0 : 24.0;
 
@@ -590,11 +702,18 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('机构学情', style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 4),
                 Text(
-                  '${widget.data.students.length} 名学生 · '
-                  '$activeCaseCount 个正在跟进的问题。这里用于监督与协作，不改变教师主责。',
+                  _summaryText(
+                    activeCount: activeCaseCount,
+                    pendingCount: pendingCount,
+                    overdueCount: overdueCount,
+                    unassignedProfileCount: unassignedProfileCount,
+                  ),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '监督全机构学情与协作进度；机构操作不会自动改变教师主责。',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -619,13 +738,40 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                           ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final filter in _OrganizationLearningFilter.values) ...[
+                        ChoiceChip(
+                          key: ValueKey<String>(
+                            'v2-organization-filter-${filter.name}',
+                          ),
+                          label: Text(_filterLabel(filter)),
+                          selected: _filter == filter,
+                          onSelected: (_) => setState(() => _filter = filter),
+                        ),
+                        if (filter != _OrganizationLearningFilter.values.last)
+                          const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
         ),
         Expanded(
           child: visibleStudents.isEmpty
-              ? const Center(child: Text('没有找到匹配的机构学情。'))
+              ? Center(
+                  child: Text(
+                    _query.trim().isEmpty &&
+                            _filter != _OrganizationLearningFilter.all
+                        ? '当前没有符合这个关注条件的学生。'
+                        : '没有找到匹配的机构学情。',
+                  ),
+                )
               : Align(
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
@@ -644,13 +790,17 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                         final items =
                             itemsByStudentId[student.id] ??
                             const <V2FocusItem>[];
+                        final profiles =
+                            profilesByStudentId[student.id] ??
+                            const <WorkspaceStudent>[];
                         return _OrganizationStudentRow(
                           student: student,
                           items: items,
+                          profiles: profiles,
                           leadLabelByCaseId: leadLabelByCaseId,
-                          responsibilitySummary:
-                              responsibilitySummaryByStudentId[student.id] ??
-                              '主责信息暂不可用',
+                          responsibilitySummary: _responsibilitySummary(profiles),
+                          leadLabelForProfile: _leadLabelForProfile,
+                          compact: compact,
                           onQuickCapture: () =>
                               _openQuickCapture(context, student),
                         );
@@ -668,72 +818,183 @@ class _OrganizationStudentRow extends StatelessWidget {
   const _OrganizationStudentRow({
     required this.student,
     required this.items,
+    required this.profiles,
     required this.leadLabelByCaseId,
     required this.responsibilitySummary,
+    required this.leadLabelForProfile,
+    required this.compact,
     required this.onQuickCapture,
   });
 
   final V2Student student;
   final List<V2FocusItem> items;
+  final List<WorkspaceStudent> profiles;
   final Map<String, String> leadLabelByCaseId;
   final String responsibilitySummary;
+  final String Function(WorkspaceStudent profile) leadLabelForProfile;
+  final bool compact;
   final VoidCallback onQuickCapture;
 
-  @override
-  Widget build(BuildContext context) {
-    final activeCount = items.where((item) => !item.closed).length;
-    final subjectLabel = student.subjects.join('、');
-    if (items.isEmpty) {
-      return ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        title: Text(student.name),
-        subtitle: Text(
-          '${student.grade} · $subjectLabel · 暂无学情记录 · 主责：$responsibilitySummary',
-        ),
-        isThreeLine: true,
-        trailing: IconButton(
+  Widget _recordButton() => compact
+      ? IconButton(
           key: Key('v2-organization-quick-capture-${student.id}'),
           tooltip: '记录问题',
           onPressed: onQuickCapture,
           icon: const Icon(Icons.note_add_outlined),
+        )
+      : TextButton.icon(
+          key: Key('v2-organization-quick-capture-${student.id}'),
+          onPressed: onQuickCapture,
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('记录问题'),
+        );
+
+  String _statusSummary(List<V2FocusItem> activeItems) {
+    final pendingCount = activeItems.where(
+      (item) =>
+          item.pendingVerification ||
+          item.effectiveStatus == V2CaseStatus.pendingVerification,
+    ).length;
+    final overdueCount = activeItems
+        .where((item) => item.actionTiming == V2ActionTiming.overdue)
+        .length;
+    final parts = <String>[
+      '${activeItems.length} 个跟进中',
+      if (pendingCount > 0) '$pendingCount 个待复检',
+      if (overdueCount > 0) '$overdueCount 个已逾期',
+    ];
+    return parts.join(' · ');
+  }
+
+  String _subjectResponsibilityPreview() {
+    if (profiles.isEmpty) return responsibilitySummary;
+    final rows = [
+      for (final profile in profiles)
+        '${profile.subject} · ${leadLabelForProfile(profile)}',
+    ];
+    if (rows.length <= 2) return rows.join('  /  ');
+    return '${rows.take(2).join('  /  ')}  /  另 ${rows.length - 2} 门';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeItems = items.where((item) => !item.closed).toList(growable: false);
+    final closedItems = items.where((item) => item.closed).toList(growable: false);
+    final subtitleStyle = Theme.of(context).textTheme.bodySmall;
+
+    if (items.isEmpty) {
+      return ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                student.name,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            Text(student.grade, style: subtitleStyle),
+          ],
         ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 5),
+          child: Text(
+            '当前没有需要跟进的问题\n${_subjectResponsibilityPreview()}',
+          ),
+        ),
+        isThreeLine: true,
+        trailing: _recordButton(),
       );
     }
 
     return ExpansionTile(
       controlAffinity: ListTileControlAffinity.leading,
-      tilePadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      childrenPadding: const EdgeInsets.only(bottom: 8),
-      title: Text(student.name),
-      subtitle: Text(
-        '${student.grade} · $subjectLabel · '
-        '${activeCount == 0 ? '暂无进行中问题' : '$activeCount 个进行中问题'} · 主责：$responsibilitySummary',
-      ),
-      trailing: IconButton(
-        key: Key('v2-organization-quick-capture-${student.id}'),
-        tooltip: '记录问题',
-        onPressed: onQuickCapture,
-        icon: const Icon(Icons.note_add_outlined),
-      ),
-      children: [
-        for (final item in items)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 2, 4, 8),
-            child: ListTile(
-              dense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-              title: Text(item.title),
-              subtitle: Text(
-                '${item.subject} · ${_caseStatusLabel(item)} · '
-                '当前负责：${leadLabelByCaseId[item.id] ?? '主责信息暂不可用'}\n'
-                '${item.closed ? '该问题已结束' : '下一步：${item.nextStep} · ${item.dueLabel}'}',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              isThreeLine: true,
+      tilePadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+      childrenPadding: const EdgeInsets.only(bottom: 10),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              student.name,
+              style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
+          const SizedBox(width: 12),
+          Text(student.grade, style: subtitleStyle),
+        ],
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 5),
+        child: Text(
+          activeItems.isEmpty
+              ? '当前没有需要跟进的问题${closedItems.isEmpty ? '' : ' · ${closedItems.length} 个历史问题'}\n${_subjectResponsibilityPreview()}'
+              : '${_statusSummary(activeItems)}\n${_subjectResponsibilityPreview()}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      trailing: _recordButton(),
+      children: [
+        for (final item in activeItems)
+          _OrganizationCaseRow(
+            item: item,
+            leadLabel: leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
+          ),
+        if (closedItems.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 12, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '历史问题 ${closedItems.length}',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+          for (final item in closedItems)
+            _OrganizationCaseRow(
+              item: item,
+              leadLabel: leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
+              historical: true,
+            ),
+        ],
       ],
+    );
+  }
+}
+
+class _OrganizationCaseRow extends StatelessWidget {
+  const _OrganizationCaseRow({
+    required this.item,
+    required this.leadLabel,
+    this.historical = false,
+  });
+
+  final V2FocusItem item;
+  final String leadLabel;
+  final bool historical;
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = historical
+        ? '${item.subject} · 已结束 · $leadLabel'
+        : '${item.subject} · ${_caseStatusLabel(item)} · $leadLabel\n'
+              '下一步：${item.nextStep} · ${item.dueLabel}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 4, 8),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+        title: Text(item.title),
+        subtitle: Text(
+          detail,
+          maxLines: historical ? 1 : 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        isThreeLine: !historical,
+      ),
     );
   }
 }
