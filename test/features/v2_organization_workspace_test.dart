@@ -82,6 +82,7 @@ void main() {
       find.byKey(const Key('v2-organization-section-switch')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
   });
 }
 
