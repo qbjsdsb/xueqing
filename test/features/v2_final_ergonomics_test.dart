@@ -118,7 +118,7 @@ void main() {
 
     expect(find.text('还没有安排下一步的问题'), findsNothing);
     expect(find.text('待安排下一步'), findsNothing);
-    expect(find.text('今天暂时没有需要处理的提醒'), findsOneWidget);
+    expect(find.text('今天没有待处理事项'), findsOneWidget);
   });
 
   testWidgets(
@@ -149,9 +149,29 @@ void main() {
 
       expect(find.text('等待稳定性复查的问题'), findsNothing);
       expect(find.text('待验证'), findsNothing);
-      expect(find.text('今天暂时没有需要处理的提醒'), findsOneWidget);
+      expect(find.text('今天没有待处理事项'), findsOneWidget);
     },
   );
+
+  testWidgets('Today keeps students reachable when there is no recent activity', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const data = V2WorkspaceData(
+      students: _students,
+      focusItems: [],
+      timeline: [],
+    );
+
+    await tester.pumpWidget(_app(data));
+    await tester.pumpAndSettle();
+
+    expect(find.text('我的学生'), findsOneWidget);
+    expect(find.text('林同学'), findsOneWidget);
+    expect(find.text('王同学'), findsOneWidget);
+    expect(find.text('今天没有待处理事项'), findsOneWidget);
+  });
 
   testWidgets('quick capture student picker searches name grade and subject', (
     tester,
