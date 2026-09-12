@@ -47,9 +47,9 @@ class V2WorkspacePage extends StatelessWidget {
     final responsibilityGateway =
         responsibilityRepository != null && responsibilityWriter != null
         ? ResponsibilityScopedLearningRepository(
-            learningRepository: runtime.learningRepository,
-            responsibilityReadRepository: responsibilityRepository,
-            responsibilityWriteRepository: responsibilityWriter,
+            runtime.learningRepository,
+            responsibilityRepository,
+            responsibilityWriter,
           )
         : null;
     final effectiveRuntime = responsibilityGateway == null
