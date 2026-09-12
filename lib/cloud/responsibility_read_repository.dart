@@ -38,6 +38,7 @@ class WorkspaceResponsibilityContext {
     required this.actionAssignedMembershipIds,
     required this.eventActorMembershipIds,
     required this.memberDisplayNames,
+    this.profileLeadMembershipIds = const <String, String?>{},
   });
 
   final String organizationId;
@@ -47,6 +48,7 @@ class WorkspaceResponsibilityContext {
   final Map<String, String> actionAssignedMembershipIds;
   final Map<String, String> eventActorMembershipIds;
   final Map<String, String> memberDisplayNames;
+  final Map<String, String?> profileLeadMembershipIds;
 
   bool get hasPersonalTeachingResponsibility => personalAssignments.isNotEmpty;
 
@@ -60,6 +62,12 @@ class WorkspaceResponsibilityContext {
 
   bool isPersonalAction(String actionId) =>
       actionAssignedMembershipIds[actionId] == currentMembershipId;
+
+  String? leadMembershipIdForProfile(String profileId) =>
+      profileLeadMembershipIds[profileId];
+
+  String? leadDisplayNameForProfile(String profileId) =>
+      displayNameForMembership(leadMembershipIdForProfile(profileId));
 
   String? displayNameForMembership(String? membershipId) {
     if (membershipId == null || membershipId.trim().isEmpty) {
@@ -102,6 +110,9 @@ class WorkspaceResponsibilityContext {
         collectionField: 'event_actors',
       ),
       memberDisplayNames: _displayNameMap(json['member_display_names']),
+      profileLeadMembershipIds: _profileLeadMembershipMap(
+        json['profile_responsibilities'],
+      ),
     );
   }
 }
@@ -204,6 +215,27 @@ Map<String, String> _membershipMap(
     result[key] = membershipId;
   }
   return Map<String, String>.unmodifiable(result);
+}
+
+Map<String, String?> _profileLeadMembershipMap(Object? value) {
+  if (value == null) {
+    return const <String, String?>{};
+  }
+  final result = <String, String?>{};
+  for (final row in _mapList(value, 'profile_responsibilities')) {
+    final profileId = _requiredString(row['profile_id'], 'profile_id');
+    final rawLeadMembershipId = row['lead_membership_id'];
+    final leadMembershipId = rawLeadMembershipId == null
+        ? null
+        : _requiredString(rawLeadMembershipId, 'lead_membership_id');
+    if (result.containsKey(profileId)) {
+      throw const FormatException(
+        'Duplicate profile_id in profile_responsibilities.',
+      );
+    }
+    result[profileId] = leadMembershipId;
+  }
+  return Map<String, String?>.unmodifiable(result);
 }
 
 Map<String, String> _displayNameMap(Object? value) {
