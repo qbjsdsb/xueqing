@@ -1,0 +1,55 @@
+name: Apply organization actor collaboration temporary
+
+on:
+  push:
+    branches:
+      - ux/organization-actor-collaboration
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ux/organization-actor-collaboration
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Apply actor collaboration bridge
+        run: python3 .github/scripts/apply_org_actor_collaboration_temp.py
+      - name: Format and targeted regressions
+        shell: bash
+        run: |
+          dart format \
+            lib/cloud/learning_repository.dart \
+            lib/features/design_v2/v2_organization_workspace_page.dart \
+            test/features/v2_organization_workspace_test.dart \
+            test/cloud/workspace_timeline_responsibility_contract_test.dart
+          flutter pub get
+          flutter test \
+            test/cloud/workspace_timeline_responsibility_contract_test.dart \
+            test/cloud/responsibility_read_repository_test.dart \
+            test/features/v2_organization_workspace_test.dart
+      - name: Commit refinement and clean temporary helpers
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-org-actor-collaboration-temp.yml
+          git rm .github/scripts/apply_org_actor_collaboration_temp.py
+          git add \
+            lib/cloud/learning_repository.dart \
+            lib/features/design_v2/v2_organization_workspace_page.dart \
+            test/features/v2_organization_workspace_test.dart \
+            test/cloud/workspace_timeline_responsibility_contract_test.dart
+          git diff --cached --check
+          git commit -m 'feat: expose organization collaboration actor without changing responsibility'
+          git push origin HEAD:ux/organization-actor-collaboration
