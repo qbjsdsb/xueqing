@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -18,18 +19,36 @@ replace_one(
     "timeline responsibility event field",
 )
 
-# Raw Case Events keep their own id as the Actor lookup id. There are two
-# constructors in the raw-event loop: case_created and the generic event path.
+# Raw Case Events keep their own id as the Actor lookup id. The two call sites
+# currently use different indentation because one lives inside case_created and
+# one is the generic path, so match the argument indentation instead of assuming
+# a fixed number of spaces.
 p = Path(learning)
 text = p.read_text()
-raw_anchor = """            id: _requiredString(eventRow['id'], 'event_id'),\n            occurredAt: _requiredDateTime(\n"""
-if text.count(raw_anchor) != 2:
-    raise SystemExit(f"raw timeline event anchors: expected 2, found {text.count(raw_anchor)}")
-text = text.replace(
-    raw_anchor,
-    """            id: _requiredString(eventRow['id'], 'event_id'),\n            responsibilityEventId: _requiredString(\n              eventRow['id'],\n              'event_id',\n            ),\n            occurredAt: _requiredDateTime(\n""",
+raw_event_pattern = re.compile(
+    r"(?P<indent>[ \t]+)id: _requiredString\(eventRow\['id'\], 'event_id'\),\n"
+    r"(?P=indent)occurredAt: _requiredDateTime\(\n"
 )
-p.write_text(text)
+matches = list(raw_event_pattern.finditer(text))
+if len(matches) != 2:
+    raise SystemExit(
+        f"raw timeline event anchors: expected 2, found {len(matches)}"
+    )
+
+
+def raw_event_replacement(match: re.Match[str]) -> str:
+    indent = match.group("indent")
+    return (
+        f"{indent}id: _requiredString(eventRow['id'], 'event_id'),\n"
+        f"{indent}responsibilityEventId: _requiredString(\n"
+        f"{indent}  eventRow['id'],\n"
+        f"{indent}  'event_id',\n"
+        f"{indent}),\n"
+        f"{indent}occurredAt: _requiredDateTime(\n"
+    )
+
+
+p.write_text(raw_event_pattern.sub(raw_event_replacement, text))
 
 # Derived timeline rows retain the related progress Case Event id even though
 # their public timeline id remains evidence:/intervention:/assessment:.
