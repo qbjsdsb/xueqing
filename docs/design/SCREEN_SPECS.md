@@ -1,8 +1,10 @@
 # Xueqing Core Screen Specifications
 
-状态：Phase 0A.5 implementation-ready screen baseline
+状态：Phase 0A.5 implementation-ready screen baseline / target-state reference
 
-最后更新：2026-09-09
+最后更新：2026-09-12
+
+> 运行时说明：v0.3.x 当前生产 V2 不提供 Lesson / 课程一级入口。本文出现的“课程入口 / 开始记录课程 / 课程结束返回”等内容属于未来目标态路径，不应被当前实现伪造成可见按钮；决策见 `docs/product/LESSON_NAVIGATION_DECISION.md`。
 
 本文件是四个核心 screen 的可实现规格。它描述用户任务、信息优先级、状态、Windows/Android 行为和验收场景；不要求第一版生产实现全部字段齐全。字段语义以 `PRODUCT.md`、`DATA_MODEL.md` 和 `COMMANDS_AND_INVARIANTS.md` 为准。
 

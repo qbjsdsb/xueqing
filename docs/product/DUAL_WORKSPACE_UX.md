@@ -51,7 +51,7 @@ v0.3.x 当前生产 V2 的个人主线保持：
 
 Organization capability 存在时增加“机构”入口，但“机构”是 scope 入口，不代表把全机构数据重新标记成“我的”。
 
-`Lesson / 课程` 的领域事实继续保留。早期 IA 文档仍把“课程”列为一级入口，而当前 V2 shell 没有该 destination；这是一个明确的 IA 一致性审计项。本合同不在机构 UX 改造中贸然恢复或删除 Lesson 领域能力，后续应根据真实教师使用路径单独决定它是否需要重新成为一级入口。
+`Lesson / 课程` 的领域概念继续保留，但本轮 IA 审计已经收口：v0.3.x 不恢复“课程”一级入口。早期 IA 中四入口结构视为目标态蓝图；只有 `LESSON_NAVIGATION_DECISION.md` 定义的最小真实 Lesson 能力完成并通过双平台验证后，才重新评审是否值得进入一级导航。
 
 ## 5. Organization Projection 不是 KPI Dashboard
 
