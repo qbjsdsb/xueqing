@@ -31,6 +31,7 @@ with expected(signature, authenticated_allowed) as (
     ('public.prepare_member_credential_reissue(uuid, uuid, uuid, uuid)'::regprocedure, false),
     ('public.provision_organization_member_from_auth(uuid, uuid, text, uuid, uuid, text)'::regprocedure, false),
     ('public.quick_capture_case(uuid, uuid, integer, text, text, text, timestamp with time zone, text, text, timestamp with time zone)'::regprocedure, true),
+    ('public.quick_capture_case_in_scope(uuid, uuid, integer, text, text, text, timestamp with time zone, text, text, timestamp with time zone, uuid, text, uuid)'::regprocedure, true),
     ('public.quick_capture_case_with_type(uuid, uuid, integer, text, text, text, timestamp with time zone, text, text, timestamp with time zone, uuid)'::regprocedure, true),
     ('public.record_assessment(uuid, uuid, integer, text, text, text, timestamp with time zone, text, timestamp with time zone)'::regprocedure, true),
     ('public.record_intervention(uuid, uuid, integer, text, text, timestamp with time zone, text, timestamp with time zone)'::regprocedure, true),
@@ -59,7 +60,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 43
+  (select count(*) from found) = 44
   and not exists (
     select 1
     from found
@@ -99,6 +100,7 @@ with expected(signature, authenticated_allowed) as (
     ('private.prepare_member_credential_reissue(uuid, uuid, uuid, uuid)'::regprocedure, false),
     ('private.provision_organization_member_from_auth(uuid, uuid, text, uuid, uuid, text)'::regprocedure, false),
     ('private.quick_capture_case(uuid, uuid, integer, text, text, text, timestamp with time zone, text, text, timestamp with time zone)'::regprocedure, true),
+    ('private.quick_capture_case_in_scope(uuid, uuid, integer, text, text, text, timestamp with time zone, text, text, timestamp with time zone, uuid, text, uuid)'::regprocedure, true),
     ('private.quick_capture_case_with_type(uuid, uuid, integer, text, text, text, timestamp with time zone, text, text, timestamp with time zone, uuid)'::regprocedure, true),
     ('private.record_assessment(uuid, uuid, integer, text, text, text, timestamp with time zone, text, timestamp with time zone)'::regprocedure, true),
     ('private.record_intervention(uuid, uuid, integer, text, text, timestamp with time zone, text, timestamp with time zone)'::regprocedure, true),
@@ -127,7 +129,7 @@ found as (
   join pg_catalog.pg_proc as p on p.oid = e.signature
 )
 select ok(
-  (select count(*) from found) = 43
+  (select count(*) from found) = 44
   and not exists (
     select 1
     from found
