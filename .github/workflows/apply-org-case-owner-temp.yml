@@ -1,0 +1,44 @@
+name: Apply organization case owner fix temporary
+
+on:
+  push:
+    branches:
+      - fix/organization-case-owner-label
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/organization-case-owner-label
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Apply responsibility semantics fix
+        run: python3 .github/scripts/fix_org_case_owner_temp.py
+      - name: Format and targeted regression
+        shell: bash
+        run: |
+          dart format lib/features/design_v2/v2_organization_workspace_page.dart test/features/v2_organization_workspace_test.dart
+          flutter pub get
+          flutter test test/features/v2_organization_workspace_test.dart
+      - name: Commit fix and clean temporary helpers
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-org-case-owner-temp.yml
+          git rm .github/scripts/fix_org_case_owner_temp.py
+          git add lib/features/design_v2/v2_organization_workspace_page.dart test/features/v2_organization_workspace_test.dart
+          git diff --cached --check
+          git commit -m 'fix: preserve existing case owner in organization view'
+          git push origin HEAD:fix/organization-case-owner-label
