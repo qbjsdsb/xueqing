@@ -13,47 +13,49 @@ import 'package:xueqing/update/update_installer.dart';
 import 'package:xueqing/update/update_service.dart';
 
 void main() {
-  testWidgets('Organization learning shows Lead responsibility without writes', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1100, 800));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'Organization learning shows Lead responsibility without writes',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final workspace = _workspace();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: V2Theme.light(),
-        home: V2OrganizationWorkspacePage(
-          workspace: workspace,
-          workspaceData: V2ReadModelAdapter.fromWorkspace(workspace).workspaceData,
-          responsibility: _context(personalProfileIds: const []),
-          runtime: _runtime(includeManagement: false),
+      final workspace = _workspace();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2OrganizationWorkspacePage(
+            workspace: workspace,
+            workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+                .workspaceData,
+            responsibility: _context(personalProfileIds: const []),
+            runtime: _runtime(includeManagement: false),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('机构'), findsOneWidget);
-    expect(find.text('机构学情'), findsWidgets);
-    expect(find.textContaining('2 名学生 · 2 个正在跟进的问题'), findsOneWidget);
-    expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
+      expect(find.text('机构'), findsOneWidget);
+      expect(find.text('机构学情'), findsWidgets);
+      expect(find.textContaining('2 名学生 · 2 个正在跟进的问题'), findsOneWidget);
+      expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
 
-    await tester.tap(find.text('机构学生一'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('当前负责：张老师'), findsOneWidget);
+      await tester.tap(find.text('机构学生一'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('当前负责：张老师'), findsOneWidget);
 
-    await tester.tap(find.text('机构学生二'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('当前负责：未设置主责'), findsOneWidget);
+      await tester.tap(find.text('机构学生二'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('当前负责：未设置主责'), findsOneWidget);
 
-    await tester.enterText(
-      find.byKey(const Key('v2-organization-learning-search')),
-      '张老师',
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('机构学生一'), findsOneWidget);
-    expect(find.text('机构学生二'), findsNothing);
-  });
+      await tester.enterText(
+        find.byKey(const Key('v2-organization-learning-search')),
+        '张老师',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('机构学生一'), findsOneWidget);
+      expect(find.text('机构学生二'), findsNothing);
+    },
+  );
 
   testWidgets('manager without Personal Assignment enters Organization root', (
     tester,
@@ -76,7 +78,10 @@ void main() {
     expect(find.text('机构'), findsOneWidget);
     expect(find.text('机构学生一'), findsOneWidget);
     expect(find.text('机构学生二'), findsOneWidget);
-    expect(find.byKey(const Key('v2-organization-section-switch')), findsOneWidget);
+    expect(
+      find.byKey(const Key('v2-organization-section-switch')),
+      findsOneWidget,
+    );
   });
 }
 
