@@ -1,6 +1,6 @@
 begin;
 
-select plan(3);
+select plan(4);
 
 select has_function(
   'public',
@@ -22,6 +22,15 @@ select is(
   'true',
   'v0.3.8 explicitly advertises Organization Profile responsibility support'
 );
+
+set local role anon;
+select is(
+  public.xueqing_backend_compatibility()
+    -> 'capabilities' ->> 'organization_profile_responsibility',
+  'true',
+  'publishable-key role can read v0.3.8 compatibility without private-schema access'
+);
+reset role;
 
 select * from finish();
 rollback;
