@@ -12,7 +12,8 @@ new = """    if (progressiveRepository == null ||
         learningRepository is! OrganizationQuickCaptureRepository) {
       return null;
     }
-    final organizationRepository = learningRepository;
+    final organizationRepository =
+        learningRepository as OrganizationQuickCaptureRepository;
     return V2WorkflowController(
 """
 if source.count(old) != 1:
