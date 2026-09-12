@@ -1,0 +1,30 @@
+name: One-shot D1c source inspection
+
+on:
+  push:
+    branches:
+      - v0.3.8/organization-quick-capture-responsibility
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Inspect organization workspace and quick capture seams
+        run: |
+          echo '=== organization symbols ==='
+          grep -n "OrganizationLearningView\|V2OrganizationWorkspacePage\|workspaceData.students\|responsibility" lib/features/design_v2/v2_organization_workspace_page.dart | head -120
+          echo '=== organization learning view ==='
+          start=$(grep -n "class _OrganizationLearningView" lib/features/design_v2/v2_organization_workspace_page.dart | cut -d: -f1 | head -1)
+          if [ -n "$start" ]; then sed -n "${start},$((start+360))p" lib/features/design_v2/v2_organization_workspace_page.dart; fi
+          echo '=== controller quick capture ==='
+          grep -n "Future<V2WorkflowResult> quickCapture" lib/features/design_v2/v2_workflow_controller.dart
+          q=$(grep -n "Future<V2WorkflowResult> quickCapture" lib/features/design_v2/v2_workflow_controller.dart | cut -d: -f1 | head -1)
+          sed -n "$((q-25)),$((q+140))p" lib/features/design_v2/v2_workflow_controller.dart
+          echo '=== loader workflow seam ==='
+          grep -n "workflowController\|organizationPageBuilder" lib/features/design_v2/v2_workspace_loader.dart
+          echo '=== draft scope ==='
+          grep -n "scopeKey\|quick.*draft\|QuickCapturePersistence" lib/features/design_v2/v2_workspace_loader.dart | head -120
