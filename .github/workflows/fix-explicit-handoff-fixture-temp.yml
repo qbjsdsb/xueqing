@@ -1,0 +1,44 @@
+name: Repair explicit handoff fixture temporary
+
+on:
+  push:
+    branches:
+      - feature/explicit-teaching-handoff-plan
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/explicit-teaching-handoff-plan
+          fetch-depth: 0
+      - name: Repair fixture without weakening production invariant
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('supabase/tests/explicit_teaching_handoff_plan_test.sql')
+          text = path.read_text()
+          old = """  actor_membership_id,\n  metadata,\n  operation_event_key\n)\nvalues (\n  '8d500000-0000-0000-0000-000000000001',\n  '00000000-0000-0000-0000-000000000001',\n  '8d300000-0000-0000-0000-000000000001',\n  'case_created',\n  '10000000-0000-0000-0000-000000000001',\n  '61000000-0000-0000-0000-000000000001',\n  '{}'::jsonb,\n  'fixture-created'\n);"""
+          new = """  actor_membership_id,\n  metadata\n)\nvalues (\n  '8d500000-0000-0000-0000-000000000001',\n  '00000000-0000-0000-0000-000000000001',\n  '8d300000-0000-0000-0000-000000000001',\n  'case_created',\n  '10000000-0000-0000-0000-000000000001',\n  '61000000-0000-0000-0000-000000000001',\n  '{}'::jsonb\n);"""
+          if text.count(old) != 1:
+              raise SystemExit('expected exactly one historical fixture event')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          git diff --check
+      - name: Commit fixture repair and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/fix-explicit-handoff-fixture-temp.yml
+          git add supabase/tests/explicit_teaching_handoff_plan_test.sql
+          git diff --cached --check
+          git commit -m 'test: fix explicit handoff historical event fixture'
+          git push origin HEAD:feature/explicit-teaching-handoff-plan
