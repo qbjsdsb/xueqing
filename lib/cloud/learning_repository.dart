@@ -250,6 +250,7 @@ class WorkspaceTimelineEvent {
     required this.typeLabel,
     required this.text,
     this.evidenceId,
+    this.responsibilityEventId,
   });
 
   final String id;
@@ -257,6 +258,13 @@ class WorkspaceTimelineEvent {
   final String typeLabel;
   final String text;
   final String? evidenceId;
+
+  /// The persisted Case Event that owns Actor semantics for this timeline item.
+  ///
+  /// Evidence / Intervention / Assessment entries use synthetic timeline ids for
+  /// presentation, so their underlying Case Event id must be preserved separately
+  /// if a supervision view needs to resolve who actually recorded the fact.
+  final String? responsibilityEventId;
 }
 
 class WorkspaceCase {
@@ -1740,6 +1748,7 @@ class SupabaseLearningRepository implements LearningRepository {
         timeline.add(
           WorkspaceTimelineEvent(
             id: _requiredString(eventRow['id'], 'event_id'),
+            responsibilityEventId: _requiredString(eventRow['id'], 'event_id'),
             occurredAt: _requiredDateTime(
               eventRow['occurred_at'],
               'event_occurred_at',
@@ -1760,6 +1769,7 @@ class SupabaseLearningRepository implements LearningRepository {
       timeline.add(
         WorkspaceTimelineEvent(
           id: _requiredString(eventRow['id'], 'event_id'),
+          responsibilityEventId: _requiredString(eventRow['id'], 'event_id'),
           occurredAt: _requiredDateTime(
             eventRow['occurred_at'],
             'event_occurred_at',
@@ -1825,6 +1835,9 @@ class SupabaseLearningRepository implements LearningRepository {
       timeline.add(
         WorkspaceTimelineEvent(
           id: 'evidence:${item.id}',
+          responsibilityEventId: _stringValue(
+            progressByRecordId[item.id]?['id'],
+          ),
           occurredAt: item.observedAt,
           typeLabel: '学生表现',
           text: '${item.summary}${progressSuffix(progressByRecordId[item.id])}',
@@ -1836,6 +1849,9 @@ class SupabaseLearningRepository implements LearningRepository {
       timeline.add(
         WorkspaceTimelineEvent(
           id: 'intervention:${item.id}',
+          responsibilityEventId: _stringValue(
+            progressByRecordId[item.id]?['id'],
+          ),
           occurredAt: item.occurredAt,
           typeLabel: '教学处理',
           text:
@@ -1848,6 +1864,9 @@ class SupabaseLearningRepository implements LearningRepository {
       timeline.add(
         WorkspaceTimelineEvent(
           id: 'assessment:${item.id}',
+          responsibilityEventId: _stringValue(
+            progressByRecordId[item.id]?['id'],
+          ),
           occurredAt: item.assessedAt,
           typeLabel: '检查结果 · ${_assessmentResultLabel(item.result)}',
           text:

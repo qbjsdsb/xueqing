@@ -421,6 +421,45 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     return result;
   }
 
+  Map<String, String> get _collaborationLabelByCaseId {
+    final result = <String, String>{};
+    for (final profile in widget.workspace.students) {
+      for (final learningCase in profile.cases) {
+        final ownerMembershipId =
+            widget.responsibility.caseOwnerMembershipIds[learningCase.id];
+        if (ownerMembershipId == null) continue;
+
+        // Timeline is newest-first. Only the latest attributable record decides
+        // whether a collaboration cue is shown. Do not skip a newer owner action
+        // just to surface an older supervisor action.
+        for (final event in learningCase.timeline) {
+          final responsibilityEventId = event.responsibilityEventId;
+          if (responsibilityEventId == null) continue;
+          if (!widget.responsibility.eventActorMembershipIds.containsKey(
+            responsibilityEventId,
+          )) {
+            break;
+          }
+          final actorMembershipId = widget
+              .responsibility
+              .eventActorMembershipIds[responsibilityEventId];
+          if (actorMembershipId == null ||
+              actorMembershipId == ownerMembershipId) {
+            break;
+          }
+          final actorLabel = widget.responsibility.displayNameForMembership(
+            actorMembershipId,
+          );
+          if (actorLabel != null) {
+            result[learningCase.id] = '最近记录：$actorLabel · 机构协作';
+          }
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
   Future<void> _openQuickCapture(
     BuildContext context,
     V2Student student,
@@ -701,6 +740,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     final itemsByStudentId = _itemsByStudentId();
     final profilesByStudentId = _profilesByStudentId();
     final caseOwnerLabelByCaseId = _caseOwnerLabelByCaseId;
+    final collaborationLabelByCaseId = _collaborationLabelByCaseId;
     final visibleStudents = _visibleStudents(
       itemsByStudentId: itemsByStudentId,
       profilesByStudentId: profilesByStudentId,
@@ -841,6 +881,8 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                           items: items,
                           profiles: profiles,
                           caseOwnerLabelByCaseId: caseOwnerLabelByCaseId,
+                          collaborationLabelByCaseId:
+                              collaborationLabelByCaseId,
                           responsibilitySummary: _responsibilitySummary(
                             profiles,
                           ),
@@ -865,6 +907,7 @@ class _OrganizationStudentRow extends StatelessWidget {
     required this.items,
     required this.profiles,
     required this.caseOwnerLabelByCaseId,
+    required this.collaborationLabelByCaseId,
     required this.responsibilitySummary,
     required this.leadLabelForProfile,
     required this.compact,
@@ -875,6 +918,7 @@ class _OrganizationStudentRow extends StatelessWidget {
   final List<V2FocusItem> items;
   final List<WorkspaceStudent> profiles;
   final Map<String, String> caseOwnerLabelByCaseId;
+  final Map<String, String> collaborationLabelByCaseId;
   final String responsibilitySummary;
   final String Function(WorkspaceStudent profile) leadLabelForProfile;
   final bool compact;
@@ -988,6 +1032,7 @@ class _OrganizationStudentRow extends StatelessWidget {
           _OrganizationCaseRow(
             item: item,
             ownerLabel: caseOwnerLabelByCaseId[item.id] ?? '主责信息暂不可用',
+            collaborationLabel: collaborationLabelByCaseId[item.id],
           ),
         if (closedItems.isNotEmpty) ...[
           Padding(
@@ -1006,6 +1051,7 @@ class _OrganizationStudentRow extends StatelessWidget {
             _OrganizationCaseRow(
               item: item,
               ownerLabel: caseOwnerLabelByCaseId[item.id] ?? '主责信息暂不可用',
+              collaborationLabel: collaborationLabelByCaseId[item.id],
               historical: true,
             ),
         ],
@@ -1018,11 +1064,13 @@ class _OrganizationCaseRow extends StatelessWidget {
   const _OrganizationCaseRow({
     required this.item,
     required this.ownerLabel,
+    this.collaborationLabel,
     this.historical = false,
   });
 
   final V2FocusItem item;
   final String ownerLabel;
+  final String? collaborationLabel;
   final bool historical;
 
   @override
@@ -1033,16 +1081,34 @@ class _OrganizationCaseRow extends StatelessWidget {
               '下一步：${item.nextStep} · ${item.dueLabel}';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 2, 4, 8),
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-        title: Text(item.title),
-        subtitle: Text(
-          detail,
-          maxLines: historical ? 1 : 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        isThreeLine: !historical,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            title: Text(item.title),
+            subtitle: Text(
+              detail,
+              maxLines: historical ? 1 : 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            isThreeLine: !historical,
+          ),
+          if (!historical && collaborationLabel != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+              child: Text(
+                collaborationLabel!,
+                key: ValueKey<String>(
+                  'v2-organization-collaboration-${item.id}',
+                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
