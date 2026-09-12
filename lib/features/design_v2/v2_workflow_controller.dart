@@ -175,6 +175,10 @@ class V2WorkflowSaveException implements Exception {
   String toString() => userMessage;
 }
 
+typedef V2QuickCaptureCommandHandler = Future<QuickCaptureReceipt> Function(
+  QuickCaptureCommand command,
+);
+
 class V2WorkflowController {
   V2WorkflowController({
     required this.workspace,
@@ -183,6 +187,7 @@ class V2WorkflowController {
     this.evidenceAttachmentRepository,
     this.caseReopenDraftStore,
     this.sessionUserId,
+    this.quickCaptureCommandHandler,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -192,6 +197,7 @@ class V2WorkflowController {
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
   final CaseReopenDraftStore? caseReopenDraftStore;
   final String? sessionUserId;
+  final V2QuickCaptureCommandHandler? quickCaptureCommandHandler;
   final DateTime Function() _now;
 
   LearningCaseRecordRepository? get _recordRepository =>
@@ -706,19 +712,21 @@ class V2WorkflowController {
     final caseType = _caseTypeFor(write.caseTypeKey);
     _assertAttachmentCapability(write.attachments);
 
-    final receipt = await learningRepository.quickCapture(
-      QuickCaptureCommand(
-        operationId: write.operationId,
-        profileId: profile.profileId,
-        expectedProfileVersion: profile.profileVersion,
-        caseType: caseType.baseType,
-        organizationCaseTypeId: caseType.organizationCaseTypeId,
-        title: _headline(body),
-        description: null,
-        observedAt: write.observedAt ?? _now(),
-        evidenceSummary: body,
-      ),
+    final command = QuickCaptureCommand(
+      operationId: write.operationId,
+      profileId: profile.profileId,
+      expectedProfileVersion: profile.profileVersion,
+      caseType: caseType.baseType,
+      organizationCaseTypeId: caseType.organizationCaseTypeId,
+      title: _headline(body),
+      description: null,
+      observedAt: write.observedAt ?? _now(),
+      evidenceSummary: body,
     );
+    final handler = quickCaptureCommandHandler;
+    final receipt = handler == null
+        ? await learningRepository.quickCapture(command)
+        : await handler(command);
 
     try {
       await _uploadAttachments(

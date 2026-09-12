@@ -6,6 +6,39 @@ import 'package:xueqing/cloud/responsibility_scoped_learning_repository.dart';
 void main() {
   group('ResponsibilityScopedLearningRepository', () {
     test(
+      'Organization Quick Capture uses the observed Lead expectation',
+      () async {
+        final base = _FakeLearningRepository();
+        final writer = _FakeResponsibilityWriteRepository();
+        final gateway = ResponsibilityScopedLearningRepository(
+          base,
+          _FakeResponsibilityReadRepository(_context()),
+          writer,
+        );
+
+        await gateway.loadWorkspace();
+        await gateway.loadContext(organizationId: 'org-1');
+        final receipt = await gateway.quickCaptureForOrganization(
+          _command(profileId: 'profile-org-only'),
+          expectedResponsibilityMembershipId: 'membership-other',
+        );
+
+        expect(receipt.caseId, 'case-scoped');
+        expect(base.legacyQuickCaptureCalls, 0);
+        expect(writer.calls, hasLength(1));
+        expect(
+          writer.calls.single.workspaceScope,
+          WorkspaceWriteScope.organization,
+        );
+        expect(
+          writer.calls.single.expectedResponsibilityMembershipId,
+          'membership-other',
+        );
+        expect(writer.calls.single.command.profileId, 'profile-org-only');
+      },
+    );
+
+    test(
       'Personal Quick Capture uses the loaded membership snapshot',
       () async {
         final base = _FakeLearningRepository();
