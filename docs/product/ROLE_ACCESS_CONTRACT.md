@@ -23,7 +23,7 @@
 - 邀请 `teacher`、`org_admin`、`org_owner`；
 - 停用/恢复成员，以及执行受控账号凭据重发等成员账号生命周期操作。
 
-如果负责人本人存在合法当前 Assignment，则其 **Personal Projection** 只显示本人真实负责的 Today / Students / Lessons / Learning，不因负责人身份混入全机构数据。
+如果负责人本人存在合法当前 Assignment，则其 **Personal Projection** 只显示本人真实负责的 Today / Students / Learning，不因负责人身份混入全机构数据。Lesson / 课程仍是未来领域能力，不是 v0.3.x 当前一级入口。
 
 ## 管理员 `org_admin`
 
@@ -41,7 +41,7 @@
 
 这里以最终 migration 链中的 `can_manage_member_accounts_v2` 与 owner/admin access contract tests 为准；较早 migration 曾允许管理员发起部分邀请，但已被后续安全边界收紧，不再是当前运行时事实。
 
-如果管理员本人存在合法当前 Assignment，则其 **Personal Projection** 同样只显示自己的 Today / Students / Lessons / Learning。
+如果管理员本人存在合法当前 Assignment，则其 **Personal Projection** 同样只显示自己的 Today / Students / Learning。Lesson / 课程仍是未来领域能力，不是 v0.3.x 当前一级入口。
 
 成员显示姓名只是协作资料，不改变角色、登录凭据或机构成员资格，因此负责人和管理员都可维护。
 
@@ -51,7 +51,7 @@
 
 - Personal Projection 只能访问自己当前合法任课范围内的学生与学情；
 - Today 只包含 `assigned_membership_id` 指向当前成员的 pending primary Action；
-- Lessons 继续按合法任课关系与 Teaching Fact Gate 工作；
+- 当前 v0.3.x 不暴露 Lesson / 课程运行时入口；未来引入 Lesson 时仍必须受合法任课关系与 Teaching Fact Gate 约束；
 - 任课关系或教学范围结束后，相关个人教学访问与写权限必须立即失效；
 - 不因普通教师身份获得机构级读取能力。
 
@@ -78,11 +78,13 @@
 
 ## 导航与 Scope
 
-责任模型不删除既有 V1 教师入口。存在个人教学责任时，Personal Projection 的产品入口仍为：
+存在个人教学责任时，v0.3.x 当前生产 V2 的 Personal Projection 产品入口为：
 
 ```text
-今日 / 学生 / 课程 / 学情
+今日 / 学生 / 学情
 ```
+
+Lesson / 课程保留为未来领域能力，是否重新成为一级入口以 `docs/product/LESSON_NAVIGATION_DECISION.md` 的重新评审条件为准。
 
 同时具有机构监督能力的负责人/管理员再增加“机构”入口；如果管理者没有任何当前个人任课责任，可以直接进入机构工作区，而不是展示一组无意义的空 Personal 页面。
 

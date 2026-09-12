@@ -1,8 +1,10 @@
 # Xueqing Information Architecture
 
-状态：Phase 0A.5 foundation baseline
+状态：Phase 0A.5 foundation baseline / target-state reference
 
-最后更新：2026-09-07
+最后更新：2026-09-12
+
+> 运行时说明：v0.3.x 当前生产 V2 的 Personal 一级入口是 `今日 / 学生 / 学情`。本文中的 Lesson / 课程路径保留为未来目标态蓝图，不代表当前已实现入口；当前决策见 `docs/product/LESSON_NAVIGATION_DECISION.md`。
 
 本文件定义“信息放在哪里、为什么先看到、如何进入下一个上下文”。它不定义颜色和精确组件样式；视觉 token 见 `VISUAL_FOUNDATION.md`，实现细节见 `COMPONENTS.md`。
 
@@ -23,13 +25,13 @@ Xueqing 的最小工作对象如下：
 
 ## 2. 一级导航
 
-一级导航固定为四个工作入口，保持浅层结构：
+目标态 IA 保留四个工作对象，但 v0.3.x 当前运行时只开放 `今日 / 学生 / 学情` 三个 Personal 一级入口；`课程` 行描述未来 Lesson 目标态，不是当前可见功能：
 
 | 入口 | 核心任务 | 首要内容 | 不承载 |
 | --- | --- | --- | --- |
 | 今日 | 今天先做什么 | overdue、today、pending verification、future、undated、最近学生、进入课堂 | KPI、图表、总分 |
 | 学生 | 找到并理解一个学生 | 搜索、最近学生、学科上下文、当前重点 | 全量历史默认展开 |
-| 课程 | 从一次教学进入记录 | 最近/今天的 lesson entry、学生与动作 | 排课、考勤、收费 |
+| 课程（未来） | 从一次真实教学会话进入记录 | 未来 lesson entry、学生与动作 | 排课、考勤、收费 |
 | 学情 | 找到需要复盘的 Case | Case 列表、筛选、状态与待验证 | 大数据 dashboard、伪风险 |
 
 详情不是一级导航：`Today → Student Detail → Learning Case` 是主工作路径；从课程也可以进入学生或 Case。Quick Capture 是上下文动作，不在一级导航中占一个永久位置。

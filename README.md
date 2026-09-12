@@ -62,15 +62,16 @@ P0 Gate A / B 的身份可移植性与撤销 Session / 旧 token spike 证据已
 
 ---
 
-## V1 教师端
+## v0.3.x 当前教师端
 
-只做 4 个核心入口：
-- **今日**：到期 / 逾期行动、待验证、重点事项；
-- **学生**：连续主档案、当前重点、时间线；
-- **课程**：快速开始 / 完成真实教学记录；
+当前生产 V2 只开放 3 个真实核心入口：
+- **今日**：明确安排的到期 / 逾期 / 未来 / 待安排行动；
+- **学生**：连续主档案、当前重点、成长记录；
 - **学情**：Case、Evidence、Intervention、Assessment、Next Action。
 
-家校和报告进入 V1.1。
+**课程 / Lesson 不在 v0.3.x 作为一级入口开放。** Lesson 仍是未来领域能力；只有真实 Lesson 数据、Teaching Fact Gate、课堂事务与双平台工作流完成后才重新评审入口。详见 `docs/product/LESSON_NAVIGATION_DECISION.md`。
+
+家校和报告继续后置。
 
 V1 不做收费 / 课消 / 招生 CRM、完整排课、大型题库、成绩预测、学情健康分、家长 / 学生独立 App、AI 自动正式诊断、复杂 offline-first / CRDT。
 
