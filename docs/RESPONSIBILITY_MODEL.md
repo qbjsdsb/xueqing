@@ -51,12 +51,13 @@ active membership
 
 ### Personal Projection
 
-用于“今日 / 学生 / 学情”。
+用于既有 V1 教师主线“今日 / 学生 / 课程 / 学情”。责任模型不会移除 Lessons 入口。
 
 只表达当前登录者自己的教学责任：
 
 - 我的学生：当前成员存在合法有效 Student Teacher Assignment 的 Profile；
 - 我的今日：`pending primary action.assigned_membership_id == currentMembershipId`；
+- 我的课程：只在本人合法 Assignment / Teaching Fact Gate 下进入真实教学会话；
 - 我的学情：当前成员真实任课 Profile 的完整合法成长历史，不按 Case owner 再次切碎历史。
 
 负责人/管理员如果没有真实任课 Assignment，则 Personal Projection 可以为空。
@@ -170,10 +171,12 @@ Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两
 
 导航由“是否有个人教学责任”和“是否有机构监督能力”共同决定，而不是只看角色名。
 
-- 普通任课老师：今日 / 学生 / 学情；
-- 同时任课的负责人/管理员：今日 / 学生 / 学情 / 机构；
+- 普通任课老师：今日 / 学生 / 课程 / 学情；
+- 同时任课的负责人/管理员：今日 / 学生 / 课程 / 学情 / 机构；
 - 没有任课关系的负责人/管理员：直接进入机构工作区；
 - 没有当前任课的普通老师：显示暂无当前任课学生。
+
+这里冻结的是产品语义，不提前决定窄屏如何折叠五个入口；具体 Android / Windows 导航布局属于后续 UI PR。
 
 因此客户端必须逐步淘汰把 `org_owner / org_admin / teacher` 统一折叠成 `hasTeachingAccess` 的旧语义，改为显式区分：
 
@@ -213,7 +216,8 @@ Personal / Organization 是正式 UI scope。
 - handoff 不静默重写历史；
 - Personal Today 只包含 assigned 给当前 membership 的 primary Action；
 - Personal / Organization draft 不串；
-- Android back 与 refresh 不丢失 scope。
+- Android back 与 refresh 不丢失 scope；
+- Responsibility refactor 不删除或绕过既有 Lessons Teaching Fact Gate。
 
 ## 14. 非目标
 
