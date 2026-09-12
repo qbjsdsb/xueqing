@@ -2,6 +2,7 @@
 
 状态：v0.3.x product / UX contract  
 适用范围：Personal Projection 与 Organization Projection 的导航、信息层级和责任表达。  
+实施策略：先收口 Organization 监督信息层级，再独立调整 Workspace Shell，避免把导航、业务写入和责任模型混入同一高风险改动。  
 
 ## 1. 为什么需要双视角
 
