@@ -506,8 +506,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
               : (context, student) =>
                     _exportStudentRecords(context, personalWorkspace, student),
           onExportMyStudents: runtime?.studentLearningRecordRepository != null
-              ? (context) =>
-                    _exportMyStudentRecords(context, personalWorkspace)
+              ? (context) => _exportMyStudentRecords(context, personalWorkspace)
               : null,
           managementPageBuilder: managementPageBuilder,
           updateService: runtime?.updateService,
