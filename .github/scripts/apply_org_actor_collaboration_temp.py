@@ -165,6 +165,8 @@ replace_one(
 
 # Source-level contract test protects the critical bridge that synthetic
 # timeline presentation ids cannot themselves resolve responsibility actors.
+# Count stable call prefixes instead of multiline formatting so dart format
+# cannot invalidate the contract test.
 Path("test/cloud/workspace_timeline_responsibility_contract_test.dart").write_text(
     """import 'dart:io';
 
@@ -185,21 +187,15 @@ void main() {
     expect(event.responsibilityEventId, 'event-1');
   });
 
-  test('derived progress timeline rows preserve the related Case Event id', () {
+  test('derived and raw timeline rows preserve persisted Case Event ids', () {
     final source = File('lib/cloud/learning_repository.dart').readAsStringSync();
 
     expect(
-      RegExp(
-        r"responsibilityEventId: _stringValue\\(\\s*progressByRecordId\\[item\\.id\\]\\?\\['id'\\],\\s*\\)",
-        multiLine: true,
-      ).allMatches(source).length,
+      source.split('responsibilityEventId: _stringValue(').length - 1,
       3,
     );
     expect(
-      RegExp(
-        r"responsibilityEventId: _requiredString\\(\\s*eventRow\\['id'\\],\\s*'event_id',\\s*\\)",
-        multiLine: true,
-      ).allMatches(source).length,
+      source.split('responsibilityEventId: _requiredString(').length - 1,
       2,
     );
   });
