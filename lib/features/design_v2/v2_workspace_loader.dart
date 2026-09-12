@@ -6,6 +6,7 @@ import '../../cloud/composer_draft_store.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
+import '../../cloud/responsibility_read_repository.dart';
 import '../../cloud/student_learning_record_repository.dart';
 import '../../export/learning_record_case_picker.dart';
 import '../../export/learning_record_export.dart';
@@ -14,7 +15,9 @@ import '../teacher_workspace/workspace_runtime.dart';
 import 'v2_fixture.dart';
 import 'v2_management_page.dart';
 import 'v2_read_model_adapter.dart';
+import 'v2_responsibility_projection.dart';
 import 'v2_workflow_controller.dart';
+import 'v2_workspace_data.dart';
 import 'v2_workspace_preview.dart';
 
 typedef V2WorkspaceLoad = Future<TeacherWorkspace> Function();
@@ -26,6 +29,7 @@ class V2WorkspaceLoader extends StatefulWidget {
     this.learningRepository,
     this.progressiveCaseRepository,
     this.evidenceAttachmentRepository,
+    this.responsibilityReadRepository,
     super.key,
   });
 
@@ -34,30 +38,80 @@ class V2WorkspaceLoader extends StatefulWidget {
   final LearningRepository? learningRepository;
   final ProgressiveCaseRepository? progressiveCaseRepository;
   final EvidenceAttachmentRepository? evidenceAttachmentRepository;
+  final ResponsibilityReadRepository? responsibilityReadRepository;
 
   @override
   State<V2WorkspaceLoader> createState() => _V2WorkspaceLoaderState();
 }
 
+class _V2LoadedWorkspace {
+  const _V2LoadedWorkspace({
+    required this.rawWorkspace,
+    required this.personalProjection,
+  });
+
+  final TeacherWorkspace rawWorkspace;
+  final V2PersonalWorkspaceProjection? personalProjection;
+
+  TeacherWorkspace get personalWorkspace =>
+      personalProjection?.workspace ?? rawWorkspace;
+
+  bool get hasPersonalTeachingResponsibility =>
+      personalProjection?.hasPersonalTeachingResponsibility ??
+      rawWorkspace.hasTeachingAccess;
+
+  V2ReadModelSnapshot get snapshot =>
+      personalProjection?.snapshot ??
+      V2ReadModelAdapter.fromWorkspace(rawWorkspace);
+
+  V2WorkspaceData get workspaceData =>
+      personalProjection?.workspaceData ?? snapshot.workspaceData;
+}
+
 class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
-  late Future<TeacherWorkspace> _workspaceFuture;
+  late Future<_V2LoadedWorkspace> _workspaceFuture;
 
   @override
   void initState() {
     super.initState();
-    _workspaceFuture = widget.loadWorkspace();
+    _workspaceFuture = _loadWorkspace();
   }
 
   @override
   void didUpdateWidget(covariant V2WorkspaceLoader oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.loadWorkspace != widget.loadWorkspace) {
-      _workspaceFuture = widget.loadWorkspace();
+    if (oldWidget.loadWorkspace != widget.loadWorkspace ||
+        oldWidget.responsibilityReadRepository !=
+            widget.responsibilityReadRepository) {
+      _workspaceFuture = _loadWorkspace();
     }
   }
 
+  Future<_V2LoadedWorkspace> _loadWorkspace() async {
+    final workspace = await widget.loadWorkspace();
+    final responsibilityRepository = widget.responsibilityReadRepository;
+    final organizationId = workspace.organizationId;
+    if (responsibilityRepository == null || organizationId == null) {
+      return _V2LoadedWorkspace(
+        rawWorkspace: workspace,
+        personalProjection: null,
+      );
+    }
+
+    final responsibility = await responsibilityRepository.loadContext(
+      organizationId: organizationId,
+    );
+    return _V2LoadedWorkspace(
+      rawWorkspace: workspace,
+      personalProjection: V2ResponsibilityProjection.personal(
+        workspace: workspace,
+        responsibility: responsibility,
+      ),
+    );
+  }
+
   void _retry() {
-    final nextWorkspace = widget.loadWorkspace();
+    final nextWorkspace = _loadWorkspace();
     setState(() {
       _workspaceFuture = nextWorkspace;
     });
@@ -75,10 +129,10 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
       _softRefreshQueued = false;
       _softRefreshRunning = true;
       try {
-        final workspace = await widget.loadWorkspace();
+        final workspace = await _loadWorkspace();
         if (!mounted) return;
         setState(() {
-          _workspaceFuture = Future<TeacherWorkspace>.value(workspace);
+          _workspaceFuture = Future<_V2LoadedWorkspace>.value(workspace);
         });
       } catch (_) {
         if (!mounted) return;
@@ -355,7 +409,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<TeacherWorkspace>(
+    return FutureBuilder<_V2LoadedWorkspace>(
       future: _workspaceFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData &&
@@ -380,24 +434,26 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           );
         }
 
-        final workspace = snapshot.requireData;
+        final loaded = snapshot.requireData;
+        final rawWorkspace = loaded.rawWorkspace;
+        final personalWorkspace = loaded.personalWorkspace;
         final runtime = widget.runtime;
         final canOpenManagement =
-            workspace.canManageOrganization &&
-            workspace.organizationId != null &&
+            rawWorkspace.canManageOrganization &&
+            rawWorkspace.organizationId != null &&
             runtime?.organizationManagementRepository != null;
         final WidgetBuilder? managementPageBuilder = canOpenManagement
             ? (_) => V2ManagementPage(
-                workspace: workspace,
+                workspace: rawWorkspace,
                 runtime: runtime!,
                 onChanged: () => unawaited(_softRefresh()),
               )
             : null;
 
-        if (!workspace.hasTeachingAccess) {
+        if (!loaded.hasPersonalTeachingResponsibility) {
           if (canOpenManagement) {
             return V2ManagementPage(
-              workspace: workspace,
+              workspace: rawWorkspace,
               runtime: runtime!,
               rootMode: true,
               onChanged: () => unawaited(_softRefresh()),
@@ -410,7 +466,6 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           );
         }
 
-        final snapshotData = V2ReadModelAdapter.fromWorkspace(workspace);
         final learningRepository =
             widget.runtime?.learningRepository ?? widget.learningRepository;
         final progressiveCaseRepository =
@@ -422,7 +477,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         final workflowController =
             learningRepository != null && progressiveCaseRepository != null
             ? V2WorkflowController(
-                workspace: workspace,
+                workspace: personalWorkspace,
                 learningRepository: learningRepository,
                 progressiveCaseRepository: progressiveCaseRepository,
                 evidenceAttachmentRepository: evidenceAttachmentRepository,
@@ -436,11 +491,11 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
             composerDraftStore != null && sessionUserId != null
             ? quickCaptureComposerScopeKey(
                 sessionUserId: sessionUserId,
-                organizationId: workspace.organizationId,
+                organizationId: personalWorkspace.organizationId,
               )
             : null;
         return V2WorkspacePreview(
-          data: snapshotData.workspaceData,
+          data: loaded.workspaceData,
           composerDraftStore: composerDraftStore,
           composerDraftScopeKey: composerDraftScopeKey,
           workflowController: workflowController,
@@ -448,11 +503,9 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           onExportStudent: runtime?.studentLearningRecordRepository == null
               ? null
               : (context, student) =>
-                    _exportStudentRecords(context, workspace, student),
-          onExportMyStudents:
-              runtime?.studentLearningRecordRepository != null &&
-                  !workspace.canManageOrganization
-              ? (context) => _exportMyStudentRecords(context, workspace)
+                    _exportStudentRecords(context, personalWorkspace, student),
+          onExportMyStudents: runtime?.studentLearningRecordRepository != null
+              ? (context) => _exportMyStudentRecords(context, personalWorkspace)
               : null,
           managementPageBuilder: managementPageBuilder,
           updateService: runtime?.updateService,

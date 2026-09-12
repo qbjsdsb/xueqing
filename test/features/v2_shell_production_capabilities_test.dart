@@ -57,7 +57,8 @@ void main() {
     expect(preview, contains("Key('v2-empty-management')"));
     expect(preview, contains("Key('v2-student-more-actions')"));
 
-    expect(loader, contains('workspace.canManageOrganization'));
+    expect(loader, contains('rawWorkspace.canManageOrganization'));
+    expect(loader, contains('workspace: rawWorkspace'));
     expect(teacherWorkspace, contains("membershipState?.status == 'none'"));
     expect(teacherWorkspace, contains('OrganizationInvitationJoinPage('));
     expect(loader, contains('rootMode: true'));
