@@ -466,7 +466,6 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
           );
         }
 
-        final snapshotData = loaded.snapshot;
         final learningRepository =
             widget.runtime?.learningRepository ?? widget.learningRepository;
         final progressiveCaseRepository =
