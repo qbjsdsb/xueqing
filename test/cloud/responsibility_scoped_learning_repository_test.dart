@@ -12,9 +12,9 @@ void main() {
         final reader = _FakeResponsibilityReadRepository(_context());
         final writer = _FakeResponsibilityWriteRepository();
         final gateway = ResponsibilityScopedLearningRepository(
-          learningRepository: base,
-          responsibilityReadRepository: reader,
-          responsibilityWriteRepository: writer,
+          base,
+          reader,
+          writer,
         );
 
         await gateway.loadWorkspace();
@@ -40,11 +40,9 @@ void main() {
       final base = _FakeLearningRepository();
       final writer = _FakeResponsibilityWriteRepository();
       final gateway = ResponsibilityScopedLearningRepository(
-        learningRepository: base,
-        responsibilityReadRepository: _FakeResponsibilityReadRepository(
-          _context(),
-        ),
-        responsibilityWriteRepository: writer,
+        base,
+        _FakeResponsibilityReadRepository(_context()),
+        writer,
       );
 
       await gateway.loadWorkspace();
@@ -67,11 +65,9 @@ void main() {
       final base = _FakeLearningRepository();
       final writer = _FakeResponsibilityWriteRepository();
       final gateway = ResponsibilityScopedLearningRepository(
-        learningRepository: base,
-        responsibilityReadRepository: _FakeResponsibilityReadRepository(
-          _context(),
-        ),
-        responsibilityWriteRepository: writer,
+        base,
+        _FakeResponsibilityReadRepository(_context()),
+        writer,
       );
 
       await gateway.loadWorkspace();
@@ -94,11 +90,9 @@ void main() {
     test('workspace refresh clears the old responsibility snapshot', () async {
       final writer = _FakeResponsibilityWriteRepository();
       final gateway = ResponsibilityScopedLearningRepository(
-        learningRepository: _FakeLearningRepository(),
-        responsibilityReadRepository: _FakeResponsibilityReadRepository(
-          _context(),
-        ),
-        responsibilityWriteRepository: writer,
+        _FakeLearningRepository(),
+        _FakeResponsibilityReadRepository(_context()),
+        writer,
       );
 
       await gateway.loadWorkspace();
