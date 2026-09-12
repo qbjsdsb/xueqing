@@ -163,9 +163,17 @@ v0.3.8 采用：
 
 ## 9. Handoff
 
-Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同事实。
+Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实，但安全的 handoff command 可以、也通常应该在**一个显式确认的责任迁移计划**里原子处理二者。
 
-结束 Assignment 前如果仍存在由该老师负责的 open Case 或 pending Action，应 fail closed，要求显式处理责任，而不是自动把全部历史与当前责任迁给新老师。
+规则冻结为：
+
+- 单独结束 Assignment、scope 或 membership 时，如果会留下 open Case owner / pending Action assignee orphan，必须 fail closed；
+- `reassign_teacher`、`revoke_teacher_subject_scope_and_handoff`、`disable_membership_and_handoff` 等显式 handoff 命令必须先让 server 根据当前数据生成/验证完整 affected responsibility set；
+- 用户明确确认接手老师与受影响责任后，命令在同一事务锁定并迁移 Assignment、当前 Case owner、pending Action assignee，写 event/audit，并验证 no orphan；
+- 任何 stale assignment、scope、membership、Case/Action version 或责任集合漂移都应 whole rollback，要求重新加载/确认；
+- 已提交的历史 Evidence、Intervention、Assessment 与 Event actor 永不因 handoff 改写。
+
+因此，“Assignment 与 Responsibility 不是同一个事实”不等于必须拆成两个可部分成功的事务；真正禁止的是**只改 Assignment 就静默、无确认地把全部责任自动搬给新老师**。
 
 ## 10. 导航语义
 
@@ -213,7 +221,7 @@ Personal / Organization 是正式 UI scope。
 - 非管理者不能指定其他责任人；
 - 跨机构 membership 拒绝；
 - stale Assignment / stale responsibility 保存拒绝；
-- handoff 不静默重写历史；
+- handoff 只按显式确认计划原子迁移当前责任，不改写历史；
 - Personal Today 只包含 assigned 给当前 membership 的 primary Action；
 - Personal / Organization draft 不串；
 - Android back 与 refresh 不丢失 scope；
