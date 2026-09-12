@@ -1,0 +1,209 @@
+name: One-shot typed organization navigation patch
+
+on:
+  push:
+    branches:
+      - v0.3.8/typed-organization-navigation
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: v0.3.8/typed-organization-navigation
+      - name: Apply exact navigation patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {count}')
+              return text.replace(old, new, 1)
+
+          path = Path('lib/features/design_v2/v2_workspace_preview.dart')
+          text = path.read_text()
+
+          text = replace_once(text,
+          """typedef V2WorkspaceExport = Future<void> Function(BuildContext context);\n\nconst int _studentFocusPreviewLimit = 3;""",
+          """typedef V2WorkspaceExport = Future<void> Function(BuildContext context);\ntypedef V2OrganizationWorkspaceBuilder = Widget Function(\n  BuildContext context,\n  VoidCallback onBackToPersonal,\n);\n\nenum V2WorkspaceDestination { today, students, learning, organization }\n\nIconData _destinationIcon(V2WorkspaceDestination destination) =>\n    switch (destination) {\n      V2WorkspaceDestination.today => Icons.today_outlined,\n      V2WorkspaceDestination.students => Icons.people_outline,\n      V2WorkspaceDestination.learning => Icons.fact_check_outlined,\n      V2WorkspaceDestination.organization => Icons.apartment_outlined,\n    };\n\nIconData _destinationSelectedIcon(V2WorkspaceDestination destination) =>\n    switch (destination) {\n      V2WorkspaceDestination.today => Icons.today,\n      V2WorkspaceDestination.students => Icons.people,\n      V2WorkspaceDestination.learning => Icons.fact_check,\n      V2WorkspaceDestination.organization => Icons.apartment,\n    };\n\nString _destinationLabel(V2WorkspaceDestination destination) =>\n    switch (destination) {\n      V2WorkspaceDestination.today => '今日',\n      V2WorkspaceDestination.students => '学生',\n      V2WorkspaceDestination.learning => '学情',\n      V2WorkspaceDestination.organization => '机构',\n    };\n\nNavigationDestination _compactNavigationDestination(\n  V2WorkspaceDestination destination,\n) => NavigationDestination(\n  icon: Icon(_destinationIcon(destination)),\n  selectedIcon: Icon(_destinationSelectedIcon(destination)),\n  label: _destinationLabel(destination),\n);\n\nconst int _studentFocusPreviewLimit = 3;""",
+          'destination declarations')
+
+          text = replace_once(text,
+          """    this.onExportMyStudents,\n    this.managementPageBuilder,""",
+          """    this.onExportMyStudents,\n    this.organizationPageBuilder,\n    this.managementPageBuilder,""",
+          'preview constructor organization builder')
+          text = replace_once(text,
+          """  final V2WorkspaceExport? onExportMyStudents;\n  final WidgetBuilder? managementPageBuilder;""",
+          """  final V2WorkspaceExport? onExportMyStudents;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final WidgetBuilder? managementPageBuilder;""",
+          'preview field organization builder')
+          text = replace_once(text,
+          """class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {\n  int _destination = 0;""",
+          """class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {\n  V2WorkspaceDestination _destination = V2WorkspaceDestination.today;""",
+          'typed destination state')
+          text = replace_once(text,
+          """      _destination = 1;\n      _selectedStudent = student;""",
+          """      _destination = V2WorkspaceDestination.students;\n      _selectedStudent = student;""",
+          'open case destination')
+          text = replace_once(text,
+          """  void _changeDestination(int value) {\n    setState(() {\n      _destination = value;\n      _showCase = false;\n    });\n  }""",
+          """  void _changeDestination(V2WorkspaceDestination value) {\n    setState(() {\n      _destination = value;\n      _showCase = false;\n    });\n  }""",
+          'typed destination changer')
+          text = replace_once(text,
+          """            if (widget.managementPageBuilder != null)\n              ListTile(""",
+          """            if (widget.organizationPageBuilder == null &&\n                widget.managementPageBuilder != null)\n              ListTile(""",
+          'hide duplicate management menu entry')
+          text = replace_once(text,
+          """                    onBackFromCase: _closeCase,\n                    onOpenMore: () => _showWorkspaceMenu(context),\n                  );""",
+          """                    onBackFromCase: _closeCase,\n                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onOpenMore: () => _showWorkspaceMenu(context),\n                  );""",
+          'compact organization builder')
+          text = replace_once(text,
+          """                  onBackFromCase: _closeCase,\n                  onRefresh: widget.onRefresh == null""",
+          """                  onBackFromCase: _closeCase,\n                  organizationPageBuilder: widget.organizationPageBuilder,\n                  onRefresh: widget.onRefresh == null""",
+          'desktop organization builder')
+          text = replace_once(text,
+          """                  onManage: widget.managementPageBuilder == null\n                      ? null\n                      : () => _openManagement(context),""",
+          """                  onManage:\n                      widget.organizationPageBuilder != null ||\n                          widget.managementPageBuilder == null\n                      ? null\n                      : () => _openManagement(context),""",
+          'desktop duplicate management action')
+
+          text = replace_once(text,
+          """    required this.onBackFromCase,\n    required this.onSettings,\n    required this.refreshing,""",
+          """    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onSettings,\n    required this.refreshing,""",
+          'desktop constructor org builder')
+          text = replace_once(text,
+          """  final int destination;\n  final V2Student selectedStudent;""",
+          """  final V2WorkspaceDestination destination;\n  final V2Student selectedStudent;""",
+          'desktop typed destination field')
+          text = replace_once(text,
+          """  final ValueChanged<int> onDestinationChanged;\n  final ValueChanged<V2Student> onStudentSelected;""",
+          """  final ValueChanged<V2WorkspaceDestination> onDestinationChanged;\n  final ValueChanged<V2Student> onStudentSelected;""",
+          'desktop typed callback')
+          text = replace_once(text,
+          """  final VoidCallback onBackFromCase;\n  final VoidCallback? onRefresh;""",
+          """  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onRefresh;""",
+          'desktop organization field')
+          text = replace_once(text,
+          """              child: _NavigationRail(\n                selectedIndex: destination,\n                expanded: expandedRail,\n                onSelected: onDestinationChanged,""",
+          """              child: _NavigationRail(\n                selectedDestination: destination,\n                expanded: expandedRail,\n                onSelected: onDestinationChanged,\n                showOrganization: organizationPageBuilder != null,""",
+          'desktop typed rail wiring')
+          text = replace_once(text,
+          """            if (destination == 1) ...[""",
+          """            if (destination == V2WorkspaceDestination.students) ...[""",
+          'desktop students branch')
+          text = replace_once(text,
+          """            ] else if (destination == 0) ...[""",
+          """            ] else if (destination == V2WorkspaceDestination.today) ...[""",
+          'desktop today branch')
+          text = replace_once(text,
+          """                    onDestinationChanged(1);""",
+          """                    onDestinationChanged(V2WorkspaceDestination.students);""",
+          'desktop today student jump')
+          text = replace_once(text,
+          """            ] else ...[\n              Expanded(child: _CaseIndexPane(onOpenCase: onOpenCase)),\n            ],""",
+          """            ] else if (destination == V2WorkspaceDestination.learning) ...[\n              Expanded(child: _CaseIndexPane(onOpenCase: onOpenCase)),\n            ] else ...[\n              Expanded(\n                child: organizationPageBuilder!(\n                  context,\n                  () => onDestinationChanged(V2WorkspaceDestination.today),\n                ),\n              ),\n            ],""",
+          'desktop learning and organization branches')
+
+          text = replace_once(text,
+          """    required this.onBackFromCase,\n    required this.onOpenMore,\n  });\n\n  final int destination;""",
+          """    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onOpenMore,\n  });\n\n  final V2WorkspaceDestination destination;""",
+          'compact constructor and typed field')
+          text = replace_once(text,
+          """  final ValueChanged<int> onDestinationChanged;\n  final ValueChanged<V2Student> onStudentSelected;""",
+          """  final ValueChanged<V2WorkspaceDestination> onDestinationChanged;\n  final ValueChanged<V2Student> onStudentSelected;""",
+          'compact typed callback')
+          text = replace_once(text,
+          """  final VoidCallback onBackFromCase;\n  final VoidCallback? onOpenMore;""",
+          """  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onOpenMore;""",
+          'compact organization field')
+          text = replace_once(text,
+          """    } else if (widget.destination == 1 && _studentOpen) {""",
+          """    } else if (\n        widget.destination == V2WorkspaceDestination.students && _studentOpen) {""",
+          'compact student detail branch')
+          text = replace_once(text,
+          """    } else if (widget.destination == 1) {""",
+          """    } else if (widget.destination == V2WorkspaceDestination.students) {""",
+          'compact student list branch')
+          text = replace_once(text,
+          """    } else if (widget.destination == 0) {""",
+          """    } else if (widget.destination == V2WorkspaceDestination.today) {""",
+          'compact today branch')
+          text = replace_once(text,
+          """          widget.onDestinationChanged(1);""",
+          """          widget.onDestinationChanged(V2WorkspaceDestination.students);""",
+          'compact today student jump')
+          text = replace_once(text,
+          """    } else {\n      body = _CaseIndexPane(\n        onOpenCase: widget.onOpenCase,\n        compact: true,\n        onOpenMore: widget.onOpenMore,\n      );\n    }\n\n    final hasInternalHistory = widget.showCase || _studentOpen;\n    final handlesSystemBack = hasInternalHistory || widget.destination != 0;""",
+          """    } else if (widget.destination == V2WorkspaceDestination.learning) {\n      body = _CaseIndexPane(\n        onOpenCase: widget.onOpenCase,\n        compact: true,\n        onOpenMore: widget.onOpenMore,\n      );\n    } else {\n      body = widget.organizationPageBuilder!(\n        context,\n        () {\n          setState(() => _studentOpen = false);\n          widget.onDestinationChanged(V2WorkspaceDestination.today);\n        },\n      );\n    }\n\n    final destinations = <V2WorkspaceDestination>[\n      V2WorkspaceDestination.today,\n      V2WorkspaceDestination.students,\n      V2WorkspaceDestination.learning,\n      if (widget.organizationPageBuilder != null)\n        V2WorkspaceDestination.organization,\n    ];\n    final hasInternalHistory = widget.showCase || _studentOpen;\n    final handlesSystemBack =\n        hasInternalHistory ||\n        (widget.destination != V2WorkspaceDestination.today &&\n            widget.destination != V2WorkspaceDestination.organization);""",
+          'compact organization branch and back gate')
+          text = replace_once(text,
+          """        if (widget.destination != 0) {\n          widget.onDestinationChanged(0);\n        }""",
+          """        if (widget.destination != V2WorkspaceDestination.today &&\n            widget.destination != V2WorkspaceDestination.organization) {\n          widget.onDestinationChanged(V2WorkspaceDestination.today);\n        }""",
+          'compact typed back')
+          text = replace_once(text,
+          """                selectedIndex: widget.destination,\n                onDestinationSelected: (value) {\n                  setState(() => _studentOpen = false);\n                  widget.onDestinationChanged(value);\n                },\n                destinations: const [\n                  NavigationDestination(\n                    icon: Icon(Icons.today_outlined),\n                    selectedIcon: Icon(Icons.today),\n                    label: '今日',\n                  ),\n                  NavigationDestination(\n                    icon: Icon(Icons.people_outline),\n                    selectedIcon: Icon(Icons.people),\n                    label: '学生',\n                  ),\n                  NavigationDestination(\n                    icon: Icon(Icons.fact_check_outlined),\n                    selectedIcon: Icon(Icons.fact_check),\n                    label: '学情',\n                  ),\n                ],""",
+          """                selectedIndex: destinations.indexOf(widget.destination),\n                onDestinationSelected: (index) {\n                  setState(() => _studentOpen = false);\n                  widget.onDestinationChanged(destinations[index]);\n                },\n                destinations: [\n                  for (final destination in destinations)\n                    _compactNavigationDestination(destination),\n                ],""",
+          'compact dynamic nav bar')
+
+          text = replace_once(text,
+          """    required this.selectedIndex,\n    required this.onSelected,\n    required this.onSettings,\n    required this.refreshing,\n    this.expanded = false,""",
+          """    required this.selectedDestination,\n    required this.onSelected,\n    required this.onSettings,\n    required this.refreshing,\n    required this.showOrganization,\n    this.expanded = false,""",
+          'rail constructor typed state')
+          text = replace_once(text,
+          """  final int selectedIndex;\n  final bool expanded;\n  final ValueChanged<int> onSelected;""",
+          """  final V2WorkspaceDestination selectedDestination;\n  final bool expanded;\n  final ValueChanged<V2WorkspaceDestination> onSelected;\n  final bool showOrganization;""",
+          'rail typed fields')
+          text = replace_once(text,
+          """          for (final item in const [\n            (Icons.today_outlined, '今日'),\n            (Icons.people_outline, '学生'),\n            (Icons.fact_check_outlined, '学情'),\n          ].indexed)\n            _RailItem(\n              icon: item.$2.$1,\n              tooltip: item.$2.$2,\n              selected: selectedIndex == item.$1,\n              onTap: () => onSelected(item.$1),\n              expanded: expanded,\n            ),""",
+          """          for (final destination in <V2WorkspaceDestination>[\n            V2WorkspaceDestination.today,\n            V2WorkspaceDestination.students,\n            V2WorkspaceDestination.learning,\n            if (showOrganization) V2WorkspaceDestination.organization,\n          ])\n            _RailItem(\n              icon: _destinationIcon(destination),\n              tooltip: _destinationLabel(destination),\n              selected: selectedDestination == destination,\n              onTap: () => onSelected(destination),\n              expanded: expanded,\n            ),""",
+          'rail dynamic destinations')
+
+          path.write_text(text)
+
+          path = Path('lib/features/design_v2/v2_organization_workspace_page.dart')
+          text = path.read_text()
+          text = replace_once(text,
+          """    required this.runtime,\n    this.rootMode = false,\n    this.onChanged,""",
+          """    required this.runtime,\n    this.rootMode = false,\n    this.embedded = false,\n    this.onBackFromRoot,\n    this.onChanged,""",
+          'organization embedded constructor')
+          text = replace_once(text,
+          """  final AuthenticatedWorkspaceRuntime runtime;\n  final bool rootMode;\n\n  /// Reloads""",
+          """  final AuthenticatedWorkspaceRuntime runtime;\n  final bool rootMode;\n  final bool embedded;\n  final VoidCallback? onBackFromRoot;\n\n  /// Reloads""",
+          'organization embedded fields')
+          text = replace_once(text,
+          """    final canSignOut = widget.rootMode && widget.runtime.onSignOut != null;\n    final handlesInternalBack = _section != _OrganizationSection.learning;\n\n    return PopScope<void>(\n      canPop: !handlesInternalBack,\n      onPopInvokedWithResult: (didPop, _) {\n        if (didPop || !handlesInternalBack) return;\n        setState(() => _section = _OrganizationSection.learning);\n      },""",
+          """    final canSignOut = widget.rootMode && widget.runtime.onSignOut != null;\n    final handlesInternalBack = _section != _OrganizationSection.learning;\n    final interceptsBack = handlesInternalBack || widget.embedded;\n\n    return PopScope<void>(\n      canPop: !interceptsBack,\n      onPopInvokedWithResult: (didPop, _) {\n        if (didPop) return;\n        if (handlesInternalBack) {\n          setState(() => _section = _OrganizationSection.learning);\n          return;\n        }\n        if (widget.embedded) {\n          widget.onBackFromRoot?.call();\n        }\n      },""",
+          'organization embedded back semantics')
+          text = replace_once(text,
+          """          automaticallyImplyLeading: !widget.rootMode,""",
+          """          automaticallyImplyLeading: !widget.rootMode && !widget.embedded,""",
+          'organization embedded app bar')
+          path.write_text(text)
+
+          path = Path('lib/features/design_v2/v2_workspace_loader.dart')
+          text = path.read_text()
+          text = replace_once(text,
+          """        final canOpenManagement =\n            rawWorkspace.canManageOrganization &&\n            rawWorkspace.organizationId != null &&\n            runtime?.organizationManagementRepository != null;\n        final canOpenOrganization =\n            canOpenManagement && responsibility != null && runtime != null;\n        final WidgetBuilder? managementPageBuilder = canOpenOrganization\n            ? (_) => V2OrganizationWorkspacePage(\n                workspace: rawWorkspace,\n                workspaceData: loaded.organizationWorkspaceData,\n                responsibility: responsibility,\n                runtime: runtime,\n                onChanged: () => unawaited(_softRefresh()),\n              )\n            : canOpenManagement\n            ? (_) => V2ManagementPage(\n                workspace: rawWorkspace,\n                runtime: runtime!,\n                onChanged: () => unawaited(_softRefresh()),\n              )\n            : null;""",
+          """        final canOpenManagement =\n            rawWorkspace.canManageOrganization &&\n            rawWorkspace.organizationId != null &&\n            runtime?.organizationManagementRepository != null;\n        final canOpenOrganization =\n            rawWorkspace.canManageOrganization &&\n            rawWorkspace.organizationId != null &&\n            responsibility != null &&\n            runtime != null;\n        final V2OrganizationWorkspaceBuilder? organizationPageBuilder =\n            canOpenOrganization\n            ? (context, onBackToPersonal) => V2OrganizationWorkspacePage(\n                workspace: rawWorkspace,\n                workspaceData: loaded.organizationWorkspaceData,\n                responsibility: responsibility,\n                runtime: runtime,\n                embedded: true,\n                onBackFromRoot: onBackToPersonal,\n                onChanged: () => unawaited(_softRefresh()),\n              )\n            : null;\n        final WidgetBuilder? managementPageBuilder =\n            !canOpenOrganization && canOpenManagement\n            ? (_) => V2ManagementPage(\n                workspace: rawWorkspace,\n                runtime: runtime!,\n                onChanged: () => unawaited(_softRefresh()),\n              )\n            : null;""",
+          'loader separate organization capability')
+          text = replace_once(text,
+          """          managementPageBuilder: managementPageBuilder,\n          updateService:""",
+          """          organizationPageBuilder: organizationPageBuilder,\n          managementPageBuilder: managementPageBuilder,\n          updateService:""",
+          'loader pass organization builder')
+          path.write_text(text)
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lib/features/design_v2/v2_workspace_preview.dart lib/features/design_v2/v2_organization_workspace_page.dart lib/features/design_v2/v2_workspace_loader.dart
+          git diff --cached --check
+          git commit -m "v2: add typed organization top-level navigation"
+          git push origin HEAD:v0.3.8/typed-organization-navigation
