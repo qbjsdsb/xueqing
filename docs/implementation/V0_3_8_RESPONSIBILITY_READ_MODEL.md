@@ -167,8 +167,8 @@ B1 至少验证：
 - ended/expired teaching scope → 立即移出；
 - inactive Profile → 移出；
 - inactive Student → 移出；
-- inactive Organization Subject → 移出；
-- inactive organization → 移出；
+- archived Organization Subject → 移出；
+- archived organization → 移出；
 - 恢复合法状态后 Personal Projection 可恢复；
 - existing RLS / cross-org / old-token regression 继续通过。
 
