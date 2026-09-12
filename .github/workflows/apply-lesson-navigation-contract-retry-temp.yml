@@ -1,0 +1,210 @@
+name: Retry lesson navigation contract resolution temporary
+
+on:
+  push:
+    branches:
+      - docs/resolve-lesson-navigation-contract
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: docs/resolve-lesson-navigation-contract
+          fetch-depth: 0
+
+      - name: Resolve current runtime navigation contract
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_one(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {count}')
+              p.write_text(text.replace(old, new, 1))
+
+          Path('docs/product/LESSON_NAVIGATION_DECISION.md').write_text('''# Xueqing v0.3.x Lesson / 课程导航决策
+
+状态：**Accepted / current v0.3.x contract**
+日期：2026-09-12
+
+## 决策
+
+v0.3.x 当前生产 V2 的 Personal Projection 一级入口保持：
+
+```text
+今日 / 学生 / 学情
+```
+
+**不在 v0.3.x 恢复“课程 / Lesson”一级入口。**
+
+Lesson 仍是 Xueqing 长期领域模型的一部分，但当前主线没有可发布的 Lesson repository、transactional command/read model、真实课堂会话 UI 或与现有 Case / Evidence / Action 闭环完成验证的运行时能力。仅为了满足早期 IA 文档而恢复一个入口，会违反“所有可见功能必须真实可用”和教师优先的产品原则。
+
+## 证据
+
+- 当前 `V2WorkspaceDestination` 只有 `today / students / learning / organization`；Personal 主线真实可用的是今日、学生、学情。
+- UI V2 收口阶段已经主动删除未实现的“课程”占位入口，避免假按钮和假能力。
+- 当前 Supabase migration 链没有 Lesson migration；现有可发布闭环集中在 Student / Learning Case / Evidence / Intervention / Assessment / Action。
+- `DUAL_WORKSPACE_UX.md` 已把当前生产 V2 的个人主线冻结为 `今日 / 学生 / 学情`。
+
+## 对早期文档的解释
+
+Phase 0A.5 / Foundation 文档中“今日 / 学生 / 课程 / 学情”代表**目标态 IA / 领域蓝图**，不再代表 v0.3.x 当前运行时导航。
+
+因此，从本决策起：
+
+- `ROLE_ACCESS_CONTRACT.md`、`RESPONSIBILITY_MODEL.md` 的当前导航合同以三个 Personal 入口为准；
+- `INFORMATION_ARCHITECTURE.md` 和 `SCREEN_SPECS.md` 中 Lesson 相关路径视为未来目标态说明；
+- 不删除 Lesson 领域概念，也不伪造当前 Lesson 能力；
+- Organization scope 仍独立于 Personal，不把机构能力当第四个教师业务页面。
+
+## 何时重新考虑一级入口
+
+只有以下最小能力真实存在并通过双平台验证后，才重新评审“课程”是否值得成为一级入口：
+
+1. 有明确的真实课堂使用场景，而不是排课/收费 ERP；
+2. 有可审计的 Lesson 数据与 participant Teaching Fact Gate；
+3. 有开始 / 记录 / 完成课堂的事务边界与失败恢复；
+4. 能把课堂中的 Evidence / Intervention / Assessment 关联回同一学生成长闭环，而不重复保存 Case 结果；
+5. Android 与 Windows 的入口频率足以证明它值得占一级导航；
+6. 普通老师的操作复杂度不会因此上升。
+
+若这些条件未满足，课堂中的即时事实继续通过现有学生上下文、Quick Capture、Case Progress 和 Today Action 完成。
+
+## 一句话原则
+
+> Lesson 可以是未来的重要教学事实，但在它成为真实可用能力之前，不让一个占位入口挤进老师每天使用的软件。
+''')
+
+          replace_one(
+              'docs/product/ROLE_ACCESS_CONTRACT.md',
+              '如果负责人本人存在合法当前 Assignment，则其 **Personal Projection** 只显示本人真实负责的 Today / Students / Lessons / Learning，不因负责人身份混入全机构数据。',
+              '如果负责人本人存在合法当前 Assignment，则其 **Personal Projection** 只显示本人真实负责的 Today / Students / Learning，不因负责人身份混入全机构数据。Lesson / 课程仍是未来领域能力，不是 v0.3.x 当前一级入口。',
+              'owner personal projection',
+          )
+          replace_one(
+              'docs/product/ROLE_ACCESS_CONTRACT.md',
+              '如果管理员本人存在合法当前 Assignment，则其 **Personal Projection** 同样只显示自己的 Today / Students / Lessons / Learning。',
+              '如果管理员本人存在合法当前 Assignment，则其 **Personal Projection** 同样只显示自己的 Today / Students / Learning。Lesson / 课程仍是未来领域能力，不是 v0.3.x 当前一级入口。',
+              'admin personal projection',
+          )
+          replace_one(
+              'docs/product/ROLE_ACCESS_CONTRACT.md',
+              '- Lessons 继续按合法任课关系与 Teaching Fact Gate 工作；',
+              '- 当前 v0.3.x 不暴露 Lesson / 课程运行时入口；未来引入 Lesson 时仍必须受合法任课关系与 Teaching Fact Gate 约束；',
+              'teacher lesson bullet',
+          )
+          replace_one(
+              'docs/product/ROLE_ACCESS_CONTRACT.md',
+              '责任模型不删除既有 V1 教师入口。存在个人教学责任时，Personal Projection 的产品入口仍为：\n\n```text\n今日 / 学生 / 课程 / 学情\n```',
+              '存在个人教学责任时，v0.3.x 当前生产 V2 的 Personal Projection 产品入口为：\n\n```text\n今日 / 学生 / 学情\n```\n\nLesson / 课程保留为未来领域能力，是否重新成为一级入口以 `docs/product/LESSON_NAVIGATION_DECISION.md` 的重新评审条件为准。',
+              'role nav block',
+          )
+
+          replace_one(
+              'docs/RESPONSIBILITY_MODEL.md',
+              '用于既有 V1 教师主线“今日 / 学生 / 课程 / 学情”。责任模型不会移除 Lessons 入口。',
+              '用于 v0.3.x 当前生产 V2 教师主线“今日 / 学生 / 学情”。Lesson / 课程仍保留为未来领域能力，但当前没有可发布的 Lesson 运行时，因此不作为一级入口。',
+              'responsibility personal intro',
+          )
+          replace_one(
+              'docs/RESPONSIBILITY_MODEL.md',
+              '- 我的课程：只在本人合法 Assignment / Teaching Fact Gate 下进入真实教学会话；',
+              '- 未来我的课程：只有在真实 Lesson 能力上线后，才可在本人合法 Assignment / Teaching Fact Gate 下进入教学会话；当前 v0.3.x 不展示该入口；',
+              'responsibility course bullet',
+          )
+          replace_one(
+              'docs/RESPONSIBILITY_MODEL.md',
+              '- 普通任课老师：今日 / 学生 / 课程 / 学情；\n- 同时任课的负责人/管理员：今日 / 学生 / 课程 / 学情 / 机构；',
+              '- 普通任课老师：今日 / 学生 / 学情；\n- 同时任课的负责人/管理员：今日 / 学生 / 学情，并通过独立机构 scope 进入机构；',
+              'responsibility nav semantics',
+          )
+          replace_one(
+              'docs/RESPONSIBILITY_MODEL.md',
+              '- Responsibility refactor 不删除或绕过既有 Lessons Teaching Fact Gate。',
+              '- 未来引入 Lesson 时，Responsibility refactor 不得删除或绕过 participant Teaching Fact Gate。',
+              'responsibility lesson test contract',
+          )
+
+          replace_one(
+              'docs/product/DUAL_WORKSPACE_UX.md',
+              '`Lesson / 课程` 的领域事实继续保留。早期 IA 文档仍把“课程”列为一级入口，而当前 V2 shell 没有该 destination；这是一个明确的 IA 一致性审计项。本合同不在机构 UX 改造中贸然恢复或删除 Lesson 领域能力，后续应根据真实教师使用路径单独决定它是否需要重新成为一级入口。',
+              '`Lesson / 课程` 的领域概念继续保留，但本轮 IA 审计已经收口：v0.3.x 不恢复“课程”一级入口。早期 IA 中四入口结构视为目标态蓝图；只有 `LESSON_NAVIGATION_DECISION.md` 定义的最小真实 Lesson 能力完成并通过双平台验证后，才重新评审是否值得进入一级导航。',
+              'dual workspace lesson audit',
+          )
+
+          replace_one(
+              'docs/design/INFORMATION_ARCHITECTURE.md',
+              '状态：Phase 0A.5 foundation baseline\n\n最后更新：2026-09-07',
+              '状态：Phase 0A.5 foundation baseline / target-state reference\n\n最后更新：2026-09-12\n\n> 运行时说明：v0.3.x 当前生产 V2 的 Personal 一级入口是 `今日 / 学生 / 学情`。本文中的 Lesson / 课程路径保留为未来目标态蓝图，不代表当前已实现入口；当前决策见 `docs/product/LESSON_NAVIGATION_DECISION.md`。',
+              'ia runtime notice',
+          )
+          replace_one(
+              'docs/design/INFORMATION_ARCHITECTURE.md',
+              '## 2. 一级导航\n\n一级导航固定为四个工作入口，保持浅层结构：',
+              '## 2. 一级导航\n\n目标态 IA 保留四个工作对象，但 v0.3.x 当前运行时只开放 `今日 / 学生 / 学情` 三个 Personal 一级入口；`课程` 行描述未来 Lesson 目标态，不是当前可见功能：',
+              'ia nav intro',
+          )
+          replace_one(
+              'docs/design/INFORMATION_ARCHITECTURE.md',
+              '| 课程 | 从一次教学进入记录 | 最近/今天的 lesson entry、学生与动作 | 排课、考勤、收费 |',
+              '| 课程（未来） | 从一次真实教学会话进入记录 | 未来 lesson entry、学生与动作 | 排课、考勤、收费 |',
+              'ia course row',
+          )
+
+          replace_one(
+              'docs/design/SCREEN_SPECS.md',
+              '状态：Phase 0A.5 implementation-ready screen baseline\n\n最后更新：2026-09-09',
+              '状态：Phase 0A.5 implementation-ready screen baseline / target-state reference\n\n最后更新：2026-09-12\n\n> 运行时说明：v0.3.x 当前生产 V2 不提供 Lesson / 课程一级入口。本文出现的“课程入口 / 开始记录课程 / 课程结束返回”等内容属于未来目标态路径，不应被当前实现伪造成可见按钮；决策见 `docs/product/LESSON_NAVIGATION_DECISION.md`。',
+              'screen specs runtime notice',
+          )
+
+          replace_one(
+              'README.md',
+              '## V1 教师端\n\n只做 4 个核心入口：\n- **今日**：到期 / 逾期行动、待验证、重点事项；\n- **学生**：连续主档案、当前重点、时间线；\n- **课程**：快速开始 / 完成真实教学记录；\n- **学情**：Case、Evidence、Intervention、Assessment、Next Action。\n\n家校和报告进入 V1.1。',
+              '## v0.3.x 当前教师端\n\n当前生产 V2 只开放 3 个真实核心入口：\n- **今日**：明确安排的到期 / 逾期 / 未来 / 待安排行动；\n- **学生**：连续主档案、当前重点、成长记录；\n- **学情**：Case、Evidence、Intervention、Assessment、Next Action。\n\n**课程 / Lesson 不在 v0.3.x 作为一级入口开放。** Lesson 仍是未来领域能力；只有真实 Lesson 数据、Teaching Fact Gate、课堂事务与双平台工作流完成后才重新评审入口。详见 `docs/product/LESSON_NAVIGATION_DECISION.md`。\n\n家校和报告继续后置。',
+              'readme teacher nav',
+          )
+
+          checks = {
+              'docs/product/ROLE_ACCESS_CONTRACT.md': ['今日 / 学生 / 学情', 'LESSON_NAVIGATION_DECISION.md'],
+              'docs/RESPONSIBILITY_MODEL.md': ['普通任课老师：今日 / 学生 / 学情', '当前 v0.3.x 不展示该入口'],
+              'docs/product/DUAL_WORKSPACE_UX.md': ['v0.3.x 不恢复“课程”一级入口'],
+              'docs/design/INFORMATION_ARCHITECTURE.md': ['运行时说明：v0.3.x 当前生产 V2', '课程（未来）'],
+              'docs/design/SCREEN_SPECS.md': ['未来目标态路径'],
+              'README.md': ['当前生产 V2 只开放 3 个真实核心入口', 'LESSON_NAVIGATION_DECISION.md'],
+          }
+          for path, needles in checks.items():
+              text = Path(path).read_text()
+              for needle in needles:
+                  if needle not in text:
+                      raise SystemExit(f'{path}: missing expected contract text: {needle}')
+
+          if '今日 / 学生 / 课程 / 学情' in Path('docs/product/ROLE_ACCESS_CONTRACT.md').read_text():
+              raise SystemExit('ROLE_ACCESS_CONTRACT still claims stale four-tab current runtime')
+          if '普通任课老师：今日 / 学生 / 课程 / 学情' in Path('docs/RESPONSIBILITY_MODEL.md').read_text():
+              raise SystemExit('RESPONSIBILITY_MODEL still claims stale four-tab current runtime')
+          PY
+
+      - name: Commit decision and clean temporary workflows
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-lesson-navigation-contract-temp.yml
+          git rm .github/workflows/apply-lesson-navigation-contract-retry-temp.yml
+          git add README.md docs/RESPONSIBILITY_MODEL.md docs/design/INFORMATION_ARCHITECTURE.md docs/design/SCREEN_SPECS.md docs/product/DUAL_WORKSPACE_UX.md docs/product/ROLE_ACCESS_CONTRACT.md docs/product/LESSON_NAVIGATION_DECISION.md
+          git diff --cached --check
+          git commit -m 'docs: resolve v0.3.x lesson navigation contract'
+          git push origin HEAD:docs/resolve-lesson-navigation-contract
