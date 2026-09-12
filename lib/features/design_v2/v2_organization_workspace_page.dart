@@ -533,6 +533,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
             student.name,
             student.grade,
             ...student.subjects,
+            _responsibilitySummaryForStudent(student),
             for (final item in items) ...[
               item.title,
               item.summary,
@@ -675,6 +676,7 @@ class _OrganizationStudentRow extends StatelessWidget {
     }
 
     return ExpansionTile(
+      controlAffinity: ListTileControlAffinity.leading,
       tilePadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       childrenPadding: const EdgeInsets.only(bottom: 8),
       title: Text(student.name),

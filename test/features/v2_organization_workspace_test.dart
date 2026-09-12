@@ -38,6 +38,7 @@ void main() {
       expect(find.text('机构学情'), findsWidgets);
       expect(find.textContaining('2 名学生 · 2 个正在跟进的问题'), findsOneWidget);
       expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
+      expect(find.byIcon(Icons.expand_more), findsWidgets);
 
       await tester.tap(find.text('机构学生一'));
       await tester.pumpAndSettle();
