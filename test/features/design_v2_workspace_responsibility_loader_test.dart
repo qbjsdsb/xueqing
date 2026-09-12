@@ -93,21 +93,22 @@ void main() {
     },
   );
 
-  testWidgets('responsibility read failure fails closed instead of leaking raw data', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      app(
-        workspace: _workspace(),
-        responsibilityRepository: _ThrowingResponsibilityRepository(),
-      ),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'responsibility read failure fails closed instead of leaking raw data',
+    (tester) async {
+      await tester.pumpWidget(
+        app(
+          workspace: _workspace(),
+          responsibilityRepository: _ThrowingResponsibilityRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('学情暂时无法读取'), findsOneWidget);
-    expect(find.text('我的学生'), findsNothing);
-    expect(find.text('机构其他学生'), findsNothing);
-  });
+      expect(find.text('学情暂时无法读取'), findsOneWidget);
+      expect(find.text('我的学生'), findsNothing);
+      expect(find.text('机构其他学生'), findsNothing);
+    },
+  );
 }
 
 class _FakeResponsibilityRepository implements ResponsibilityReadRepository {
@@ -124,7 +125,8 @@ class _FakeResponsibilityRepository implements ResponsibilityReadRepository {
   }
 }
 
-class _ThrowingResponsibilityRepository implements ResponsibilityReadRepository {
+class _ThrowingResponsibilityRepository
+    implements ResponsibilityReadRepository {
   @override
   Future<WorkspaceResponsibilityContext> loadContext({
     required String organizationId,
