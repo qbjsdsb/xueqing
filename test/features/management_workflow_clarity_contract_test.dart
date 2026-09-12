@@ -13,7 +13,8 @@ void main() {
 
     expect(areas, isNot(contains("'任课老师与交接'")));
     expect(areas, contains("'历史任课记录'"));
-    expect(rows, contains("'暂未安排负责老师'"));
+    expect(rows, contains("'暂未明确主责老师'"));
+    expect(rows, contains("'设置主责老师'"));
     expect(rows, contains('for (final assignment in assignments)'));
     expect(
       rows,
