@@ -1,0 +1,284 @@
+status=1
+---- focused ----
+106:  Expected: contains 'minimumSize: const Size(0, 44)'
+107:    Actual: 'import \'package:flutter/material.dart\';\n'
+233:     Which: does not contain 'minimumSize: const Size(0, 44)'
+283:  Expected: contains 'const _SectionTitle(title: \'最近学生\')'
+284:    Actual: 'import \'dart:async\';\n'
+710:              '    final message = error is V2WorkflowSaveException\n'
+850:              '                        } on V2WorkflowSaveException catch (error) {\n'
+967:              '    } on V2WorkflowSaveException catch (error) {\n'
+4625:     Which: does not contain 'const _SectionTitle(title: \'最近学生\')'
+4690:══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+4691:The following TestFailure was thrown running a test:
+4692:Expected: exactly one matching candidate
+4693:  Actual: _TextWidgetFinder:<Found 2 widgets with text "王同学": [
+4703:   Which: is too many
+4706:#4      main.<anonymous closure> (file:///home/runner/work/xueqing/xueqing/test/features/v2_final_ergonomics_test.dart:204:5)
+4708:#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+4710:#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+4722:  Test failed. See exception logs above.
+4847:  Expected: Color:<Color(alpha: 1.0000, red: 0.8824, green: 0.9255, blue: 0.9059, colorSpace: ColorSpace.sRGB)>
+4848:    Actual: Color:<Color(alpha: 0.0900, red: 0.1765, green: 0.4157, blue: 0.3569, colorSpace: ColorSpace.sRGB)>
+4940:01:08 +394 -4: Some tests failed.
+---- tail ----
+00:39 +186 -2: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_responsibility_loader_test.dart: manager-wide snapshot never leaks into Personal students
+00:39 +187 -2: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_responsibility_loader_test.dart: manager-wide snapshot never leaks into Personal students
+00:40 +187 -2: /home/runner/work/xueqing/xueqing/test/features/v2_final_ergonomics_test.dart: quick capture student picker searches name grade and subject
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 2 widgets with text "王同学": [
+            Text("王同学", debugLabel: (englishLike titleSmall 2021).merge((((blackMountainView
+titleSmall).apply).apply).merge(unknown)), inherit: false, color: Color(alpha: 1.0000, red: 0.1255,
+green: 0.1569, blue: 0.1412, colorSpace: ColorSpace.sRGB), family: Roboto, familyFallback:
+[Microsoft YaHei, Noto Sans CJK SC], size: 14.0, weight: 600, letterSpacing: 0.1, baseline:
+alphabetic, height: 1.4x, leadingDistribution: even, decoration: Color(alpha: 1.0000, red: 0.1255,
+green: 0.1569, blue: 0.1412, colorSpace: ColorSpace.sRGB) TextDecoration.none, dependencies:
+[DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
+            Text("王同学", dependencies: [DefaultSelectionStyle, DefaultTextStyle, MediaQuery]),
+          ]>
+   Which: is too many
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/runner/work/xueqing/xueqing/test/features/v2_final_ergonomics_test.dart:204:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/xueqing/xueqing/test/features/v2_final_ergonomics_test.dart line 204
+The test description was:
+  quick capture student picker searches name grade and subject
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:40 +187 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_responsibility_loader_test.dart: manager-wide snapshot never leaks into Personal students
+00:40 +187 -3: /home/runner/work/xueqing/xueqing/test/features/v2_final_ergonomics_test.dart: quick capture student picker searches name grade and subject [E]
+  Test failed. See exception logs above.
+  The test description was: quick capture student picker searches name grade and subject
+  
+00:40 +188 -3: /home/runner/work/xueqing/xueqing/test/features/v2_final_ergonomics_test.dart: compact shell keeps three primary destinations and moves More to header
+00:40 +189 -3: /home/runner/work/xueqing/xueqing/test/features/v2_final_ergonomics_test.dart: compact shell keeps three primary destinations and moves More to header
+00:40 +190 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_responsibility_loader_test.dart: Today uses Action assignee while Learning keeps complete Profile cases
+00:40 +191 -3: /home/runner/work/xueqing/xueqing/test/features/v2_final_ergonomics_test.dart: operation guide stays reachable without optional account actions
+00:40 +192 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_responsibility_loader_test.dart: responsibility read failure fails closed instead of leaking raw data
+00:41 +193 -3: /home/runner/work/xueqing/xueqing/test/features/v036_action_progress_closure_contract_test.dart: teacher reminder handling uses the full progress closure flow
+00:41 +194 -3: /home/runner/work/xueqing/xueqing/test/features/v2_action_composers_test.dart: reschedule failure keeps selected date and retries in place
+00:42 +195 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: shows a quiet loading state while workspace is pending
+00:42 +196 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: shows a quiet loading state while workspace is pending
+00:42 +197 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: shows a quiet loading state while workspace is pending
+00:43 +198 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: shows a quiet loading state while workspace is pending
+00:43 +199 -3: /home/runner/work/xueqing/xueqing/test/features/v2_action_composers_test.dart: desktop action dialog stays usable in a short window
+00:43 +200 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: maps an authorized workspace into the V2 UI
+00:43 +201 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: does not expose student UI without teaching access
+00:43 +202 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: error state retries the same read boundary
+00:43 +203 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: error state retries the same read boundary
+00:43 +204 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: error state retries the same read boundary
+00:43 +205 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: authorized workspace with zero students uses V2 empty state
+00:43 +206 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_loader_test.dart: manual refresh keeps current data on failure and can recover
+00:44 +207 -3: /home/runner/work/xueqing/xueqing/test/features/evidence_attachment_picker_test.dart: explains Storage permission failures instead of calling them read errors
+00:44 +208 -3: /home/runner/work/xueqing/xueqing/test/features/evidence_attachment_picker_test.dart: uses teacher language when the problem no longer accepts images
+00:44 +209 -3: /home/runner/work/xueqing/xueqing/test/features/evidence_attachment_picker_test.dart: keeps a picked image retryable when the network is unavailable
+00:44 +210 -3: /home/runner/work/xueqing/xueqing/test/features/evidence_attachment_picker_test.dart: keeps unsupported image guidance focused on the accepted formats
+00:44 +211 -3: /home/runner/work/xueqing/xueqing/test/features/evidence_attachment_picker_test.dart: lost-data recovery primes once and returns the recovered image once
+00:44 +212 -3: /home/runner/work/xueqing/xueqing/test/features/evidence_attachment_picker_test.dart: lost-data recovery can be consumed without explicit priming
+00:44 +213 -3: /home/runner/work/xueqing/xueqing/test/features/evidence_attachment_picker_test.dart: lost-data recovery refreshes a stale startup null for a protected draft
+00:44 +214 -3: /home/runner/work/xueqing/xueqing/test/features/evidence_attachment_picker_test.dart: startup recovery errors are deferred until the result is consumed
+00:44 +215 -3: /home/runner/work/xueqing/xueqing/test/features/v032_progress_recovery_test.dart: progress composer restores protected text and lost camera photo
+00:45 +216 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: progress starts with one main input and no manufactured next decision
+00:45 +217 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: progress starts with one main input and no manufactured next decision
+00:46 +218 -3: /home/runner/work/xueqing/xueqing/test/features/v032_progress_recovery_test.dart: progress draft for missing or unauthorized case is cleared
+00:46 +219 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: record type choices appear only when teacher asks for them
+00:46 +220 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: reminder fields appear only after teacher asks for a reminder
+00:46 +221 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: reminder can be saved without repeating a reminder title
+00:46 +222 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: reminder can be saved without repeating a reminder title
+00:46 +223 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: reminder can be saved without repeating a reminder title
+00:46 +224 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: reminder can be saved without repeating a reminder title
+00:46 +225 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: reminder can be saved without repeating a reminder title
+00:46 +226 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: assessment requires the teacher to choose a result explicitly
+00:47 +227 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: assessment result can be saved without manufacturing notes
+00:47 +228 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_page_test.dart: production V2 host loads the workspace without preview chrome
+00:47 +229 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_page_test.dart: production V2 host loads the workspace without preview chrome
+00:48 +230 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_workspace_page_test.dart: production V2 host loads the workspace without preview chrome
+00:48 +231 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: progress can optionally record an explicit closure reason
+00:48 +232 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: a new case can end follow-up directly
+00:48 +233 -3: /home/runner/work/xueqing/xueqing/test/features/progressive_case_forms_test.dart: teacher can explicitly mark a follow-up as resolved
+00:49 +234 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: prototype Case status keeps the Foundation lifecycle
+00:49 +235 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: Today derives work only from explicit Action date buckets
+00:49 +236 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: Today derives work only from explicit Action date buckets
+00:49 +237 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: Today derives work only from explicit Action date buckets
+00:50 +238 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: navigates Student to problem detail without legacy state commands
+00:50 +239 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: navigates Student to problem detail without legacy state commands
+00:50 +240 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: navigates Student to problem detail without legacy state commands
+00:50 +241 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: navigates Student to problem detail without legacy state commands
+00:50 +242 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: uses compact navigation and expanded navigation rail
+00:51 +243 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: Quick Capture records one fact without manufacturing a task
+00:52 +244 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: login form supports reveal, next, and done keyboard flow
+00:52 +245 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: student-context Quick Capture does not ask for the student again
+00:52 +246 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: medium-width rail keeps labels and sign out reachable
+00:52 +247 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: keeps a draft visible for the current preview session
+00:52 +248 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: keeps a draft visible for the current preview session
+00:52 +249 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: Case detail keeps the next action first and bounds older history
+00:53 +250 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: Case detail keeps the next action first and bounds older history
+00:53 +251 -3: /home/runner/work/xueqing/xueqing/test/features/design_prototype_test.dart: focuses student search with the Windows keyboard shortcut
+00:53 +252 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: a completed check without an Action is not a second Today task
+00:53 +253 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: new Quick Capture fact without an Action stays out of Today
+00:53 +254 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: quiet Today uses one useful empty state and hides empty sections
+00:53 +255 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: empty assignment Today does not render a blank recent section
+00:53 +256 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: bounds explicit future and undated reminders until expanded
+00:53 +257 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: student detail keeps priorities concise and removes duplicate problem lists
+00:54 +258 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: reschedules an action from Today
+00:54 +259 -3: /home/runner/work/xueqing/xueqing/test/features/v037_existing_case_continuation_test.dart: Quick Capture transfers fact and photo into an existing Case
+00:54 +260 -3: /home/runner/work/xueqing/xueqing/test/features/v037_existing_case_continuation_test.dart: Quick Capture transfers fact and photo into an existing Case
+00:54 +261 -3: /home/runner/work/xueqing/xueqing/test/features/v037_existing_case_continuation_test.dart: Quick Capture transfers fact and photo into an existing Case
+00:55 +262 -3: /home/runner/work/xueqing/xueqing/test/features/v037_existing_case_continuation_test.dart: Quick Capture transfers fact and photo into an existing Case
+00:55 +263 -3: /home/runner/work/xueqing/xueqing/test/features/v037_existing_case_continuation_test.dart: Quick Capture transfers fact and photo into an existing Case
+00:55 +264 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: reuses operation id after a reschedule response is lost
+00:55 +265 -3: /home/runner/work/xueqing/xueqing/test/features/v037_existing_case_continuation_test.dart: continuing a pending-verification Case stays an observation and keeps text
+00:55 +266 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: uses the organization business date for Case due dates
+00:55 +267 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: uses the organization business date for action display
+00:56 +268 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: orders overdue student groups by their earliest action
+00:56 +269 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: shows students with newer activity first in Recent Students
+00:56 +270 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: keeps the three most actionable Cases in the student summary
+00:56 +271 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: groups a multi-subject student once and keeps every subject reachable
+00:56 +272 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_real_preview_contract_test.dart: real V2 preview uses controlled repositories and remains dev-only
+00:56 +273 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: clears student search in one tap and restores the list
+00:56 +274 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: explains schema drift and lets the user retry
+00:56 +275 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: keeps the single Quick Capture note and reuses operation id after failure
+00:56 +276 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: focuses the problem title after choosing a student
+00:57 +277 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_real_preview_page_test.dart: real preview uses the read loader and exposes explicit sign out
+00:57 +278 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_real_preview_page_test.dart: real preview uses the read loader and exposes explicit sign out
+00:57 +279 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_real_preview_page_test.dart: real preview uses the read loader and exposes explicit sign out
+00:57 +280 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_real_preview_page_test.dart: real preview uses the read loader and exposes explicit sign out
+00:57 +281 -3: /home/runner/work/xueqing/xueqing/test/features/design_v2_real_preview_page_test.dart: real preview uses the read loader and exposes explicit sign out
+00:57 +282 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: sends a selected custom type with its base classification
+00:57 +283 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: Quick Capture chooses a unique student before choosing the subject
+00:58 +284 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: uses bottom sheets for compact Quick Capture selectors
+00:58 +285 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+00:58 +286 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+00:58 +287 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+00:58 +288 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+00:58 +289 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+00:58 +290 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+00:58 +291 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+00:58 +292 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+00:58 +293 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: runs the confirmation command from a new Case
+00:58 +294 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: records an intervention from a confirmed Case
+00:59 +295 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: records verification from an intervening Case
+00:59 +296 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: records verification from an intervening Case
+00:59 +297 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: records a verification result without auto-closing the Case
+00:59 +298 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: validates Case commands and parses command receipts
+00:59 +299 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: validates Evidence and reopen command payloads
+00:59 +300 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: stabilizes a Case after a passed verification
+00:59 +301 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: closes a stable Case after confirmation
+00:59 +302 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: closes a stable Case after confirmation
+00:59 +303 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: closes a stable Case after confirmation
+00:59 +304 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: closes a stable Case after confirmation
+00:59 +305 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: reuses operation id after closing response is lost
+01:00 +306 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: records recurrence Evidence before reopening a closed Case
+01:00 +307 -3: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: restores an unfinished reopen after the page is recreated
+01:00 +307 -4: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: restores an unfinished reopen after the page is recreated
+01:00 +307 -4: /home/runner/work/xueqing/xueqing/test/app/theme_test.dart: builds coherent light and dark Material 3 themes [E]
+  Expected: Color:<Color(alpha: 1.0000, red: 0.8824, green: 0.9255, blue: 0.9059, colorSpace: ColorSpace.sRGB)>
+    Actual: Color:<Color(alpha: 0.0900, red: 0.1765, green: 0.4157, blue: 0.3569, colorSpace: ColorSpace.sRGB)>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test/app/theme_test.dart 21:5                       main.<fn>
+  
+01:00 +308 -4: /home/runner/work/xueqing/xueqing/test/features/teacher_workspace_test.dart: restores an unfinished reopen after the page is recreated
+01:00 +309 -4: /home/runner/work/xueqing/xueqing/test/app/theme_test.dart: follows the system theme at the app root
+01:01 +310 -4: /home/runner/work/xueqing/xueqing/test/app/theme_test.dart: follows the system theme at the app root
+01:01 +311 -4: /home/runner/work/xueqing/xueqing/test/app/theme_test.dart: follows the system theme at the app root
+01:01 +312 -4: /home/runner/work/xueqing/xueqing/test/app/theme_test.dart: follows the system theme at the app root
+01:01 +313 -4: /home/runner/work/xueqing/xueqing/test/app/theme_test.dart: keeps Android system bars aligned with the active app theme
+01:01 +314 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: shows a loading state before configuration is ready
+01:02 +315 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: shows a loading state before configuration is ready
+01:02 +316 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: shows a loading state before configuration is ready
+01:02 +317 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: shows a loading state before configuration is ready
+01:02 +318 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: shows a loading state before configuration is ready
+01:02 +319 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: renders the bootstrap page after configuration loads
+01:02 +320 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: hides development-only controls and routes in production
+01:02 +321 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: normal builds skip the developer bootstrap
+01:03 +322 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: development real V2 route reuses the workspace entry
+01:03 +323 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: development real V2 route reuses the workspace entry
+01:03 +324 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: development real V2 route reuses the workspace entry
+01:03 +325 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: development real V2 route reuses the workspace entry
+01:03 +326 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: shows a safe fallback when bootstrap fails
+01:03 +327 -4: /home/runner/work/xueqing/xueqing/test/app/bootstrap_test.dart: can navigate through the router smoke path
+01:03 +328 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_scoped_learning_repository_test.dart: ResponsibilityScopedLearningRepository Organization Quick Capture uses the observed Lead expectation
+01:03 +329 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_scoped_learning_repository_test.dart: ResponsibilityScopedLearningRepository Personal Quick Capture uses the loaded membership snapshot
+01:03 +330 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_scoped_learning_repository_test.dart: ResponsibilityScopedLearningRepository missing responsibility context fails closed
+01:03 +331 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_scoped_learning_repository_test.dart: ResponsibilityScopedLearningRepository organization-wide Profile cannot leak into Personal write
+01:03 +332 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_scoped_learning_repository_test.dart: ResponsibilityScopedLearningRepository workspace refresh clears the old responsibility snapshot
+01:04 +333 -4: /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard accepts the latest request for the same user
+01:04 +334 -4: /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard rejects a result when the active user id changes
+01:04 +335 -4: /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard rejects an earlier request after an account switch
+01:04 +336 -4: /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard rejects stale work when the same user id returns after a switch
+01:04 +337 -4: /home/runner/work/xueqing/xueqing/test/cloud/session_request_guard_test.dart: SessionRequestGuard rejects in-flight work after sign-out invalidates the session
+01:04 +338 -4: /home/runner/work/xueqing/xueqing/test/cloud/teacher_learning_record_export_sql_contract_test.dart: teacher export stays manager-only, provenance-aware, and path-private
+01:04 +339 -4: /home/runner/work/xueqing/xueqing/test/cloud/student_learning_record_export_sql_contract_test.dart: student export stays teaching-gated, provenance-aware, and path-private
+01:05 +340 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_read_repository_test.dart: WorkspaceResponsibilityContext parses personal assignments and responsibility maps
+01:05 +341 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_read_repository_test.dart: WorkspaceResponsibilityContext manager with zero assignments has no personal responsibility
+01:05 +342 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_read_repository_test.dart: WorkspaceResponsibilityContext rejects duplicate responsibility keys
+01:05 +343 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_read_repository_test.dart: WorkspaceResponsibilityContext rejects duplicate Profile responsibility keys
+01:05 +344 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_read_repository_test.dart: WorkspaceResponsibilityContext rejects malformed personal assignments
+01:05 +345 -4: /home/runner/work/xueqing/xueqing/test/cloud/paged_rows_test.dart: collects every row beyond a one-thousand-row API limit
+01:05 +346 -4: /home/runner/work/xueqing/xueqing/test/cloud/paged_rows_test.dart: checks the active session after every page
+01:05 +347 -4: /home/runner/work/xueqing/xueqing/test/cloud/paged_rows_test.dart: rejects malformed pages without returning partial data
+01:05 +348 -4: /home/runner/work/xueqing/xueqing/test/cloud/teacher_learning_record_export_integrity_sql_contract_test.dart: teacher export removes voided cases before public pagination
+01:05 +349 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: uses the three-role invitation contract
+01:05 +350 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: parses member roles and invitation metadata
+01:05 +351 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: rejects an unknown invitation role instead of silently changing it
+01:05 +352 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps missing production RPCs to a backend compatibility message
+01:05 +353 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps invitation authorization errors to actionable copy
+01:05 +354 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: explains provisioning recovery without asking the operator to duplicate an invite
+01:05 +355 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: parses and filters effective teacher subject setup options
+01:05 +356 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps blocked and stale teacher handoff to actionable guidance
+01:05 +357 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: parses an explicit teaching handoff plan without losing versions
+01:05 +358 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps missing scope for student setup
+01:05 +359 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps archive boundary errors to explicit lifecycle guidance
+01:05 +360 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps duplicate student identity errors to actionable guidance
+01:05 +361 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: parses and explains student teaching lifecycle results
+01:05 +362 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: parses teacher subject scope history and command results
+01:06 +363 -4: /home/runner/work/xueqing/xueqing/test/cloud/organization_management_repository_test.dart: maps teacher scope handoff and concurrency errors
+01:06 +364 -4: /home/runner/work/xueqing/xueqing/test/cloud/responsibility_scoped_quick_capture_contract_test.dart: client scoped Quick Capture matches the v0.3.8 backend contract
+01:06 +365 -4: /home/runner/work/xueqing/xueqing/test/cloud/evidence_attachment_repository_test.dart: parses private Evidence attachment metadata
+01:06 +366 -4: /home/runner/work/xueqing/xueqing/test/cloud/evidence_attachment_repository_test.dart: rejects incomplete attachment metadata
+01:06 +367 -4: /home/runner/work/xueqing/xueqing/test/cloud/evidence_attachment_repository_test.dart: keeps the upload limit aligned with the Storage bucket contract
+01:06 +368 -4: /home/runner/work/xueqing/xueqing/test/cloud/evidence_attachment_repository_test.dart: generates UUIDv4 attachment ids for retry-safe uploads
+01:06 +369 -4: /home/runner/work/xueqing/xueqing/test/cloud/student_learning_record_repository_test.dart: parses a provenance-aware student learning record row strictly
+01:06 +370 -4: /home/runner/work/xueqing/xueqing/test/cloud/student_learning_record_repository_test.dart: rejects a row without its historical record person
+01:06 +371 -4: /home/runner/work/xueqing/xueqing/test/cloud/student_learning_record_repository_test.dart: maps student export authorization and session errors to teacher copy
+01:07 +372 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig allows an empty development configuration
+01:07 +373 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig requires a configured endpoint when requested
+01:07 +374 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig requires URL and publishable key together
+01:07 +375 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig accepts an HTTP development endpoint by default
+01:07 +376 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects HTTP when HTTPS is required
+01:07 +377 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig accepts HTTPS when required
+01:07 +378 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig accepts an HTTPS endpoint in its explicit host allowlist
+01:07 +379 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects a production endpoint without an explicit host allowlist
+01:07 +380 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects a host outside the explicit allowlist
+01:07 +381 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects wildcard or URL-shaped allowlist entries
+01:07 +382 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects endpoint credentials, paths, queries, and fragments
+01:07 +383 -4: /home/runner/work/xueqing/xueqing/test/cloud/cloud_config_test.dart: CloudConfig rejects a non-absolute endpoint
+01:07 +384 -4: /home/runner/work/xueqing/xueqing/test/cloud/workspace_timeline_responsibility_contract_test.dart: timeline item can retain its persisted Case Event identity
+01:07 +385 -4: /home/runner/work/xueqing/xueqing/test/cloud/workspace_timeline_responsibility_contract_test.dart: derived and raw timeline rows preserve persisted Case Event ids
+01:07 +386 -4: /home/runner/work/xueqing/xueqing/test/cloud/quick_capture_contract_test.dart: QuickCaptureCommand allows recording a classroom fact without manufacturing an Action
+01:07 +387 -4: /home/runner/work/xueqing/xueqing/test/cloud/quick_capture_contract_test.dart: QuickCaptureCommand rejects an explicit blank Action title
+01:07 +388 -4: /home/runner/work/xueqing/xueqing/test/cloud/quick_capture_contract_test.dart: QuickCaptureCommand rejects an Action date without an explicit Action title
+01:07 +389 -4: /home/runner/work/xueqing/xueqing/test/cloud/quick_capture_contract_test.dart: QuickCaptureCommand keeps explicit reminders compatible
+01:07 +390 -4: /home/runner/work/xueqing/xueqing/test/cloud/quick_capture_contract_test.dart: QuickCaptureReceipt parses a server receipt without action_id
+01:07 +391 -4: /home/runner/work/xueqing/xueqing/test/android_update_permission_roundtrip_contract_test.dart: Android update permission returns to the same verified APK install
+01:08 +392 -4: /home/runner/work/xueqing/xueqing/test/release_app_icon_contract_test.dart: Android and Windows ship the selected 学情 app icon
+01:08 +393 -4: /home/runner/work/xueqing/xueqing/test/release_product_identity_contract_test.dart: user-facing product name is 学情 across release surfaces
+01:08 +394 -4: Some tests failed.
+
+Failing tests:
+  /home/runner/work/xueqing/xueqing/test/app/theme_test.dart: builds coherent light and dark Material 3 themes
+  /home/runner/work/xueqing/xueqing/test/features/v2_final_ergonomics_test.dart: quick capture student picker searches name grade and subject
+  /home/runner/work/xueqing/xueqing/test/features/v2_refresh_polish_test.dart: V2 visual system stays quiet and editorial
+  /home/runner/work/xueqing/xueqing/test/features/v2_visual_polish_contract_test.dart: V2 core workflow keeps teacher attention on next actions
