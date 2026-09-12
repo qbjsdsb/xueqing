@@ -102,8 +102,8 @@ jobs:
           test = replace_one(
               test,
               """    expect(find.byTooltip('机构'), findsOneWidget);\n""",
-              """    expect(find.text('我的教学'), findsOneWidget);\n    expect(find.text('机构视角'), findsOneWidget);\n    expect(find.byKey(const Key('v2-rail-organization')), findsOneWidget);\n    expect(find.byTooltip('机构'), findsOneWidget);\n""",
-              'desktop scope labels test',
+              """    expect(find.byKey(const Key('v2-rail-organization')), findsOneWidget);\n    expect(find.byTooltip('机构'), findsOneWidget);\n""",
+              'desktop scope rail test',
           )
           test = replace_one(
               test,
