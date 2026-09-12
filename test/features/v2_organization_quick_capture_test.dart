@@ -66,36 +66,34 @@ void main() {
     },
   );
 
-  testWidgets('Organization Quick Capture fails closed when the Profile has no Lead', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'Organization Quick Capture fails closed when the Profile has no Lead',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final learning = _FakeOrganizationLearningRepository();
-    await tester.pumpWidget(
-      _app(
-        learning: learning,
-        responsibility: _responsibility(leadMembershipId: null),
-      ),
-    );
-    await tester.pumpAndSettle();
+      final learning = _FakeOrganizationLearningRepository();
+      await tester.pumpWidget(
+        _app(
+          learning: learning,
+          responsibility: _responsibility(leadMembershipId: null),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.textContaining('未设置主责'), findsOneWidget);
-    await tester.tap(
-      find.byKey(const Key('v2-organization-quick-capture-student-1')),
-    );
-    await tester.pump();
+      expect(find.textContaining('未设置主责'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const Key('v2-organization-quick-capture-student-1')),
+      );
+      await tester.pump();
 
-    expect(find.text('记录新问题'), findsNothing);
-    expect(
-      find.textContaining('先设置主责老师后再建立正式学情'),
-      findsOneWidget,
-    );
-    expect(learning.organizationCalls, 0);
-    expect(learning.legacyCalls, 0);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('记录新问题'), findsNothing);
+      expect(find.textContaining('先设置主责老师后再建立正式学情'), findsOneWidget);
+      expect(learning.organizationCalls, 0);
+      expect(learning.legacyCalls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'stale Lead conflict preserves the draft and asks the supervisor to refresh',
