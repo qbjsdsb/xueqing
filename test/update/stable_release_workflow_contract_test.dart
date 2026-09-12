@@ -63,6 +63,9 @@ void main() {
     expect(workflow, contains('learning_case_record_organization'));
     expect(workflow, contains('selective_learning_record_export'));
     expect(workflow, contains('voided_record_integrity_guard'));
+    expect(workflow, contains('responsibility_read_model'));
+    expect(workflow, contains('organization_profile_responsibility'));
+    expect(workflow, contains('responsibility_safe_quick_capture'));
     expect(
       workflow,
       contains('Production backend is older than this client requires'),
