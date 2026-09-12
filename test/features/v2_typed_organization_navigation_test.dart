@@ -136,6 +136,46 @@ void main() {
       expect(find.text('机构学情'), findsWidgets);
     },
   );
+
+  testWidgets(
+    'manager-teacher switches from Personal projection to full Organization projection',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final workspace = _managerTeacherWorkspace();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => workspace,
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _responsibilityContext(
+                personalProfileIds: const ['profile-personal'],
+              ),
+            ),
+            runtime: _runtime(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      var navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navigation.destinations, hasLength(4));
+      await tester.tap(find.text('学生'));
+      await tester.pumpAndSettle();
+      expect(find.text('我的任课学生'), findsOneWidget);
+      expect(find.text('机构其他学生'), findsNothing);
+
+      await tester.tap(find.text('机构'));
+      await tester.pumpAndSettle();
+      expect(find.text('我的任课学生'), findsOneWidget);
+      expect(find.text('机构其他学生'), findsOneWidget);
+
+      navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navigation.selectedIndex, 3);
+    },
+  );
 }
 
 Widget _previewApp({bool withOrganization = false}) => MaterialApp(
@@ -200,17 +240,33 @@ class _FakeResponsibilityRepository implements ResponsibilityReadRepository {
   }
 }
 
-WorkspaceResponsibilityContext _responsibilityContext() =>
-    WorkspaceResponsibilityContext(
-      organizationId: 'org-1',
-      currentMembershipId: 'membership-manager',
-      personalAssignments: const [],
-      caseOwnerMembershipIds: const {},
-      actionAssignedMembershipIds: const {},
-      eventActorMembershipIds: const {},
-      memberDisplayNames: const {'membership-lead': '张老师'},
-      profileLeadMembershipIds: const {'profile-org': 'membership-lead'},
-    );
+WorkspaceResponsibilityContext _responsibilityContext({
+  List<String> personalProfileIds = const [],
+}) => WorkspaceResponsibilityContext(
+  organizationId: 'org-1',
+  currentMembershipId: 'membership-manager',
+  personalAssignments: [
+    for (final profileId in personalProfileIds)
+      WorkspacePersonalAssignment(
+        assignmentId: 'assignment-$profileId',
+        profileId: profileId,
+        membershipId: 'membership-manager',
+        assignmentRole: 'collaborator',
+        businessDate: DateTime(2026, 9, 12),
+      ),
+  ],
+  caseOwnerMembershipIds: const {},
+  actionAssignedMembershipIds: const {},
+  eventActorMembershipIds: const {},
+  memberDisplayNames: const {
+    'membership-manager': '李老师',
+    'membership-lead': '张老师',
+  },
+  profileLeadMembershipIds: const {
+    'profile-org': 'membership-lead',
+    'profile-personal': 'membership-manager',
+  },
+);
 
 TeacherWorkspace _managerWorkspace() => TeacherWorkspace(
   viewerName: '李老师',
@@ -222,12 +278,31 @@ TeacherWorkspace _managerWorkspace() => TeacherWorkspace(
   roles: const ['org_admin'],
   loadedAt: DateTime(2026, 9, 12, 12),
   businessDate: DateTime(2026, 9, 12),
+  students: [_profile('student-org', 'profile-org', '机构学生')],
+);
+
+TeacherWorkspace _managerTeacherWorkspace() => TeacherWorkspace(
+  viewerName: '李老师',
+  organizationName: '测试机构',
+  organizationTimeZone: 'Asia/Shanghai',
+  organizationId: 'org-1',
+  hasTeachingAccess: true,
+  canManageOrganization: true,
+  roles: const ['org_admin', 'teacher'],
+  loadedAt: DateTime(2026, 9, 12, 12),
+  businessDate: DateTime(2026, 9, 12),
   students: [
+    _profile('student-personal', 'profile-personal', '我的任课学生'),
+    _profile('student-org', 'profile-org', '机构其他学生'),
+  ],
+);
+
+WorkspaceStudent _profile(String id, String profileId, String name) =>
     WorkspaceStudent(
-      id: 'student-org',
-      profileId: 'profile-org',
+      id: id,
+      profileId: profileId,
       profileVersion: 1,
-      name: '机构学生',
+      name: name,
       grade: '初三',
       subject: '语文',
       context: '',
@@ -236,6 +311,4 @@ TeacherWorkspace _managerWorkspace() => TeacherWorkspace(
       cadenceNote: null,
       cases: const [],
       recentFacts: const [],
-    ),
-  ],
-);
+    );
