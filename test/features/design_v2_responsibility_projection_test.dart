@@ -29,10 +29,10 @@ void main() {
 
         // The collaborator-owned next step does not remove the Case from the
         // teacher's longitudinal learning view for a Profile they teach.
-        expect(
-          projection.snapshot.focusItems.map((item) => item.id).toSet(),
-          {'case-mine', 'case-collaborator'},
-        );
+        expect(projection.snapshot.focusItems.map((item) => item.id).toSet(), {
+          'case-mine',
+          'case-collaborator',
+        });
         expect(
           projection.workspaceData.focusItems.map((item) => item.id).toSet(),
           {'case-mine', 'case-collaborator'},
@@ -53,10 +53,9 @@ void main() {
       );
 
       expect(projection.todayCaseIds, {'case-mine'});
-      expect(
-        projection.workspaceData.todayFocusItems.map((item) => item.id),
-        ['case-mine'],
-      );
+      expect(projection.workspaceData.todayFocusItems.map((item) => item.id), [
+        'case-mine',
+      ]);
     });
 
     test('manager visibility alone produces an empty Personal projection', () {
@@ -93,18 +92,21 @@ void main() {
       );
     });
 
-    test('fails closed when Assignment references a missing workspace Profile', () {
-      expect(
-        () => V2ResponsibilityProjection.personal(
-          workspace: _workspace(),
-          responsibility: _context(
-            personalProfileIds: const ['profile-missing'],
-            actionAssignees: const {},
+    test(
+      'fails closed when Assignment references a missing workspace Profile',
+      () {
+        expect(
+          () => V2ResponsibilityProjection.personal(
+            workspace: _workspace(),
+            responsibility: _context(
+              personalProfileIds: const ['profile-missing'],
+              actionAssignees: const {},
+            ),
           ),
-        ),
-        throwsFormatException,
-      );
-    });
+          throwsFormatException,
+        );
+      },
+    );
   });
 }
 
