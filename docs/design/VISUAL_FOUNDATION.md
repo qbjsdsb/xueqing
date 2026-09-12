@@ -179,6 +179,22 @@ Organization 学情同样不是 KPI dashboard。顶部事实、筛选和学生�
 
 这些 token 服务于 prototype 和生产组件；不要在 feature 内另写一套颜色、间距或字体常量，除非先更新本文件并说明原因。
 
+### 8.1 Adaptive workspace contract
+
+生产工作区只使用共享 `ResponsiveBreakpoints` 定义结构尺寸，不允许 V2、机构页或弹窗再建立第二套结构断点。
+
+| size class | 宽度 | Shell | 学生工作流 | modal |
+| --- | --- | --- | --- | --- |
+| Compact | `<600` | Bottom Navigation | 单栏逐级进入 | Bottom Sheet |
+| Medium | `600–1023` | 72px Navigation Rail | 单栏逐级进入；内容按剩余 pane 宽度继续适配 | Dialog |
+| Expanded | `>=1024` | Navigation Rail | Student master-detail，其余保持单主工作面 | Dialog |
+
+`1280` 可以作为**内容密度阈值**，例如展开 rail 标签、稍微增加学生列表宽度；它不能决定“手机还是桌面”、Bottom Sheet/Dialog 或单栏/master-detail。类似地，feature 不得再用 `720`、`900` 等私有数字建立另一套结构语义。
+
+嵌套页面必须按自己真实得到的 `BoxConstraints.maxWidth` 判断布局；只有 modal/sheet 这种针对整个应用窗口的呈现方式才使用 `ResponsiveBreakpoints.of(context)` / `isCompact(context)`。这样 Windows 窄窗口、平板分屏和 rail 后的内容区不会因为读取整窗宽度而误判。
+
+Medium 的目标不是“把桌面版硬塞进小窗口”，也不是“放大手机版”：它保留键鼠高效的 rail，同时保持单工作面与逐级进入，直到 `>=1024` 才建立稳定 master-detail。
+
 ## 9. Production visual review gates
 
 视觉验收不能只证明“控件存在”。每轮生产 UI 修改至少覆盖：

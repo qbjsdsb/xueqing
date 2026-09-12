@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/layout/responsive.dart';
 import '../../app/theme/app_motion.dart';
 
 import '../../update/update_installer.dart';
@@ -224,7 +225,7 @@ Future<void> _showV2QuickCaptureStudentPicker(BuildContext context) async {
     return;
   }
 
-  final compact = MediaQuery.sizeOf(context).width < 720;
+  final compact = ResponsiveBreakpoints.isCompact(context);
   final selected = compact
       ? await showModalBottomSheet<V2Student>(
           context: context,
@@ -610,7 +611,7 @@ Future<void> _showV2VoidedCasesForStudent(
 ) async {
   final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
   if (controller == null) return;
-  final compact = MediaQuery.sizeOf(context).width < 720;
+  final compact = ResponsiveBreakpoints.isCompact(context);
   final content = _V2VoidedCasesView(
     student: student,
     controller: controller,
@@ -993,7 +994,7 @@ Future<void> _showV2ProgressCasePicker(
     },
   );
 
-  final compact = MediaQuery.sizeOf(context).width < 720;
+  final compact = ResponsiveBreakpoints.isCompact(context);
   final selected = compact
       ? await showModalBottomSheet<V2FocusItem>(
           context: context,
@@ -1309,7 +1310,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   }
 
   Future<void> _showOperationGuide(BuildContext context) async {
-    if (MediaQuery.sizeOf(context).width < 720) {
+    if (ResponsiveBreakpoints.isCompact(context)) {
       await showModalBottomSheet<void>(
         context: context,
         useSafeArea: true,
@@ -1427,7 +1428,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
       ),
     );
 
-    if (MediaQuery.sizeOf(context).width < 720) {
+    if (ResponsiveBreakpoints.isCompact(context)) {
       await showModalBottomSheet<void>(
         context: context,
         useSafeArea: true,
@@ -1471,7 +1472,10 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                 _selectedStudent ?? widget.data.students.first;
             return LayoutBuilder(
               builder: (context, constraints) {
-                if (constraints.maxWidth < 720) {
+                final sizeClass = ResponsiveBreakpoints.classify(
+                  constraints.maxWidth,
+                );
+                if (sizeClass == WindowSizeClass.compact) {
                   return _CompactWorkspace(
                     destination: _destination,
                     selectedStudent: selectedStudent,
@@ -1483,6 +1487,29 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     onBackFromCase: _closeCase,
                     organizationPageBuilder: widget.organizationPageBuilder,
                     onOpenMore: () => _showWorkspaceMenu(context),
+                  );
+                }
+                if (sizeClass == WindowSizeClass.medium) {
+                  return _MediumWorkspace(
+                    destination: _destination,
+                    selectedStudent: selectedStudent,
+                    selectedCase: _selectedCase,
+                    showCase: _showCase,
+                    onDestinationChanged: _changeDestination,
+                    onStudentSelected: _openStudent,
+                    onOpenCase: _openCase,
+                    onBackFromCase: _closeCase,
+                    organizationPageBuilder: widget.organizationPageBuilder,
+                    onRefresh: widget.onRefresh == null
+                        ? null
+                        : () => _refreshWorkspace(),
+                    refreshing: _refreshing,
+                    onManage:
+                        widget.organizationPageBuilder != null ||
+                            widget.managementPageBuilder == null
+                        ? null
+                        : () => _openManagement(context),
+                    onSettings: () => _showWorkspaceMenu(context),
                   );
                 }
                 return _DesktopWorkspace(
@@ -1593,8 +1620,9 @@ class _DesktopWorkspace extends StatelessWidget {
     final border = Theme.of(context).colorScheme.outlineVariant;
     final width = MediaQuery.sizeOf(context).width;
     final expandedRail = width >= 1280;
-    final studentPaneWidth = width < 900 ? 288.0 : 320.0;
+    final studentPaneWidth = expandedRail ? 320.0 : 288.0;
     return Scaffold(
+      key: const Key('v2-expanded-shell'),
       body: SafeArea(
         child: Row(
           children: [
@@ -1661,6 +1689,165 @@ class _DesktopWorkspace extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MediumWorkspace extends StatefulWidget {
+  const _MediumWorkspace({
+    required this.destination,
+    required this.selectedStudent,
+    required this.selectedCase,
+    required this.showCase,
+    required this.onDestinationChanged,
+    required this.onStudentSelected,
+    required this.onOpenCase,
+    required this.onBackFromCase,
+    required this.organizationPageBuilder,
+    required this.onSettings,
+    required this.refreshing,
+    this.onRefresh,
+    this.onManage,
+  });
+
+  final V2WorkspaceDestination destination;
+  final V2Student selectedStudent;
+  final V2FocusItem? selectedCase;
+  final bool showCase;
+  final ValueChanged<V2WorkspaceDestination> onDestinationChanged;
+  final ValueChanged<V2Student> onStudentSelected;
+  final ValueChanged<V2FocusItem> onOpenCase;
+  final VoidCallback onBackFromCase;
+  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
+  final VoidCallback? onRefresh;
+  final bool refreshing;
+  final VoidCallback? onManage;
+  final VoidCallback onSettings;
+
+  @override
+  State<_MediumWorkspace> createState() => _MediumWorkspaceState();
+}
+
+class _MediumWorkspaceState extends State<_MediumWorkspace> {
+  bool _studentOpen = false;
+
+  void _changeDestination(V2WorkspaceDestination destination) {
+    if (_studentOpen) setState(() => _studentOpen = false);
+    widget.onDestinationChanged(destination);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final border = Theme.of(context).colorScheme.outlineVariant;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The rail is structural; the page itself adapts to the remaining pane.
+        // This keeps a 600px window from pretending its 527px content pane is
+        // a wide desktop surface while still avoiding mobile bottom navigation.
+        final paneWidth = (constraints.maxWidth - 73).clamp(
+          0.0,
+          double.infinity,
+        );
+        final paneCompact =
+            ResponsiveBreakpoints.classify(paneWidth.toDouble()) ==
+            WindowSizeClass.compact;
+
+        Widget body;
+        if (widget.showCase && widget.selectedCase != null) {
+          body = _CaseDetailPane(
+            student: widget.selectedStudent,
+            item: widget.selectedCase!,
+            onBack: widget.onBackFromCase,
+            compact: paneCompact,
+          );
+        } else if (widget.destination == V2WorkspaceDestination.students &&
+            _studentOpen) {
+          body = _StudentDetailPane(
+            student: widget.selectedStudent,
+            onOpenCase: widget.onOpenCase,
+            compact: paneCompact,
+            onBack: () => setState(() => _studentOpen = false),
+          );
+        } else if (widget.destination == V2WorkspaceDestination.students) {
+          body = _StudentListPane(
+            selectedStudent: widget.selectedStudent,
+            compact: true,
+            onSelected: (student) {
+              widget.onStudentSelected(student);
+              setState(() => _studentOpen = true);
+            },
+          );
+        } else if (widget.destination == V2WorkspaceDestination.today) {
+          body = _TodayPane(
+            onOpenCase: widget.onOpenCase,
+            onOpenStudent: (student) {
+              widget.onStudentSelected(student);
+              widget.onDestinationChanged(V2WorkspaceDestination.students);
+              setState(() => _studentOpen = true);
+            },
+            compact: paneCompact,
+          );
+        } else if (widget.destination == V2WorkspaceDestination.learning) {
+          body = _CaseIndexPane(
+            onOpenCase: widget.onOpenCase,
+            compact: paneCompact,
+          );
+        } else {
+          body = widget.organizationPageBuilder!(context, () {
+            setState(() => _studentOpen = false);
+            widget.onDestinationChanged(V2WorkspaceDestination.today);
+          });
+        }
+
+        final hasInternalHistory = widget.showCase || _studentOpen;
+        final handlesSystemBack =
+            hasInternalHistory ||
+            (widget.destination != V2WorkspaceDestination.today &&
+                widget.destination != V2WorkspaceDestination.organization);
+
+        return PopScope<void>(
+          canPop: !handlesSystemBack,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (widget.showCase) {
+              widget.onBackFromCase();
+              return;
+            }
+            if (_studentOpen) {
+              setState(() => _studentOpen = false);
+              return;
+            }
+            if (widget.destination != V2WorkspaceDestination.today &&
+                widget.destination != V2WorkspaceDestination.organization) {
+              widget.onDestinationChanged(V2WorkspaceDestination.today);
+            }
+          },
+          child: Scaffold(
+            key: const Key('v2-medium-shell'),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            body: SafeArea(
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 72,
+                    child: _NavigationRail(
+                      selectedDestination: widget.destination,
+                      onSelected: _changeDestination,
+                      showOrganization: widget.organizationPageBuilder != null,
+                      onRefresh: widget.onRefresh,
+                      refreshing: widget.refreshing,
+                      onManage: widget.onManage,
+                      onSettings: widget.onSettings,
+                    ),
+                  ),
+                  VerticalDivider(width: 1, color: border),
+                  Expanded(child: body),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1781,6 +1968,7 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         }
       },
       child: Scaffold(
+        key: const Key('v2-compact-shell'),
         backgroundColor: Theme.of(context).colorScheme.surface,
         body: SafeArea(
           child: showPersonalScopeBar
@@ -2853,7 +3041,7 @@ class _TimelineRow extends StatelessWidget {
         resolveEvidencePhotos &&
         entry.evidenceId != null &&
         attachmentRepository != null;
-    final compact = MediaQuery.sizeOf(context).width < 720;
+    final compact = ResponsiveBreakpoints.isCompact(context);
     final lineHeight = entry.photoCount > 0 || canResolveRealPhotos
         ? 144.0
         : 96.0;
@@ -2960,7 +3148,7 @@ Future<void> _showV2EvidencePhotoPreview(
   BuildContext context,
   String signedUrl,
 ) {
-  final compact = MediaQuery.sizeOf(context).width < 720;
+  final compact = ResponsiveBreakpoints.isCompact(context);
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.86),
