@@ -300,14 +300,18 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     super.dispose();
   }
 
-  Map<String, String?> get _leadByCaseId {
-    final result = <String, String?>{};
+  Map<String, String> get _leadLabelByCaseId {
+    final result = <String, String>{};
     for (final profile in widget.workspace.students) {
-      final leadName = widget.responsibility.leadDisplayNameForProfile(
+      final leadMembershipId = widget.responsibility.leadMembershipIdForProfile(
         profile.profileId,
       );
+      final leadLabel = leadMembershipId == null
+          ? '未设置主责'
+          : widget.responsibility.displayNameForMembership(leadMembershipId) ??
+                '主责老师';
       for (final learningCase in profile.cases) {
-        result[learningCase.id] = leadName;
+        result[learningCase.id] = leadLabel;
       }
     }
     return result;
@@ -321,7 +325,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
   List<V2Student> get _visibleStudents {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return widget.data.students;
-    final leadByCase = _leadByCaseId;
+    final leadLabelByCase = _leadLabelByCaseId;
     return widget.data.students
         .where((student) {
           final items = _itemsForStudent(student);
@@ -334,7 +338,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
               item.summary,
               item.nextStep,
               item.subject,
-              leadByCase[item.id] ?? '未设置主责',
+              leadLabelByCase[item.id] ?? '主责信息暂不可用',
             ],
           ].join(' ').toLowerCase();
           return haystack.contains(query);
@@ -418,7 +422,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                         return _OrganizationStudentRow(
                           student: student,
                           items: items,
-                          leadByCaseId: _leadByCaseId,
+                          leadLabelByCaseId: _leadLabelByCaseId,
                         );
                       },
                     ),
@@ -434,12 +438,12 @@ class _OrganizationStudentRow extends StatelessWidget {
   const _OrganizationStudentRow({
     required this.student,
     required this.items,
-    required this.leadByCaseId,
+    required this.leadLabelByCaseId,
   });
 
   final V2Student student;
   final List<V2FocusItem> items;
-  final Map<String, String?> leadByCaseId;
+  final Map<String, String> leadLabelByCaseId;
 
   @override
   Widget build(BuildContext context) {
@@ -471,7 +475,7 @@ class _OrganizationStudentRow extends StatelessWidget {
               title: Text(item.title),
               subtitle: Text(
                 '${item.subject} · ${_caseStatusLabel(item)} · '
-                '当前负责：${leadByCaseId[item.id] ?? '未设置主责'}\n'
+                '当前负责：${leadLabelByCaseId[item.id] ?? '主责信息暂不可用'}\n'
                 '${item.closed ? '该问题已结束' : '下一步：${item.nextStep} · ${item.dueLabel}'}',
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
