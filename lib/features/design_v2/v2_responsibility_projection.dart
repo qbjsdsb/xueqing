@@ -31,7 +31,10 @@ class V2PersonalWorkspaceProjection {
     // the scheduling signal when the primary Action belongs to somebody else.
     focusItems: [
       for (final item in snapshot.focusItems)
-        if (todayCaseIds.contains(item.id)) item else _withoutPersonalTiming(item),
+        if (todayCaseIds.contains(item.id))
+          item
+        else
+          _withoutPersonalTiming(item),
     ],
     closedItems: snapshot.closedItems,
     timeline: snapshot.timeline,
