@@ -58,6 +58,10 @@ void main() {
     expect(preview, isNot(contains('Icons.menu_book_outlined')));
     expect(preview, isNot(contains("label: '更多'")));
     expect(preview, contains("Key('v2-compact-more')"));
+    expect(preview, contains("Key('v2-open-organization-scope')"));
+    expect(preview, contains("Key('v2-rail-organization')"));
+    expect(preview, contains("const _RailGroupLabel('我的教学')"));
+    expect(preview, contains("const _RailGroupLabel('机构视角')"));
     expect(preview, contains("tooltip: '管理'"));
     expect(preview, contains("tooltip: '设置'"));
     expect(preview, contains("title: const Text('检查更新')"));
