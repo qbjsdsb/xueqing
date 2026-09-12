@@ -141,21 +141,41 @@ Selected Profiles 必须在 command 调用前已经 inactive。
 
 ## 9. Reassign / responsibility handoff
 
-Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实。
+Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实，但 V1 的安全交接必须由**显式 handoff command + 明确 responsibility plan** 原子执行。
 
-已有安全策略应继续 fail closed：如果结束当前 Assignment 会让 open Case owner 或 pending Action assignee 成为不再合法的责任人，则先要求显式处理 Case/Action responsibility；不得因为换老师就无声重写学生成长历史。
+不能把“Assignment 改了”直接等价成“所有责任自动跟着换人”；也不能拆成两个可能部分成功的事务。
 
-未来 responsibility handoff command 需要：旧/新 assignment + Case owner + pending Action assignee + event/audit + final no-orphan validation，并使用 operation_id、expected versions/locks 保证并发安全。
+安全路径：
+
+```text
+读取当前 assignment / owner / pending Actions
+→ server 生成或校验 affected responsibility set
+→ 用户明确确认接手老师与责任迁移
+→ lock/revalidate assignment + target scope + Cases + Actions
+→ 同事务结束旧 assignment / 建立或切换新 assignment
+→ 同事务迁移当前 Case owner / pending Action assignee
+→ 写 handoff event/audit
+→ final no-orphan validation
+→ commit
+```
+
+任一 current relation、scope、membership、Case/Action version 或 responsibility set 漂移 → `stale_plan/version_conflict`，whole rollback，重新加载后再确认。
+
+如果只是尝试结束 Assignment，而没有显式 handoff plan，且会留下 open Case owner 或 pending Action assignee orphan，则必须 fail closed。
+
+历史 Evidence、Intervention、Assessment、Event actor 绝不因 handoff 改写。
 
 ## 10. Teacher exits one subject
 
-`revoke_teacher_subject_scope_and_handoff`：只处理目标 subject 的 assignments/owners/Actions + scope end；其他科不受影响。单事务、operation_id、expected versions/locks、no orphan。
+`revoke_teacher_subject_scope_and_handoff`：只处理目标 subject 的 assignments/owners/Actions + scope end；其他科不受影响。它本身就是显式 handoff command，因此必须先确定接手责任并在**同一事务**执行迁移、operation_id、expected versions/locks、no orphan。
 
-若现有实现采用“先阻止 scope/assignment 结束，要求显式责任处理”的更严格策略，应继续 fail closed，不得为了文档形式上的原子 handoff 而静默重写历史。
+如果没有合法接手老师、责任计划不完整或 current data 已 drift，则整个命令 fail closed；不能先撤 scope 再留下孤儿责任，也不能静默猜测接手人。
 
 ## 11. Membership disable
 
-业务 DB handoff/责任清理必须先保证 assignments/owners/Actions/scopes 不留下 orphan responsibility；Auth session revoke 若属外部事务域则 fail-closed 重试。历史 actor 不重写。
+`disable_membership_and_handoff` 同理：业务 DB 层先按显式责任计划原子收口 assignments/owners/Actions/scopes，确保 no orphan，再提交 membership disable 相关业务状态。Auth session revoke 属外部事务域时采用 fail-closed/retry；membership disabled 后业务访问已经拒绝。
+
+没有完整 handoff plan 时，若成员仍承担 current teaching responsibility，普通 disable 必须拒绝。历史 actor 不重写。
 
 ## 12. Today
 
@@ -203,4 +223,5 @@ Scope/Assignment 正常结束保留历史区间。离职/换科/停科/merge 不
 - reactivate staging failure → old complete state；
 - Student 第 N Profile stale → whole Student command rollback；
 - target teacher scope changed after preview → stale_plan；
+- handoff plan 缺失或 stale → whole handoff 拒绝，不留下 orphan；
 - handoff response lost → same operation_id returns original result。
