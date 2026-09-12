@@ -99,11 +99,9 @@ jobs:
           import json
           import os
 
+          required_schema = "20260911193000"
           version = tuple(
               int(part) for part in os.environ["RELEASE_VERSION_NAME"].split(".")
-          )
-          required_schema = (
-              "20260913001000" if version >= (0, 3, 9) else "20260911193000"
           )
           payload = json.loads(os.environ["BACKEND_JSON"])
           actual_schema = str(payload.get("schema_version", ""))

@@ -4,9 +4,10 @@
 --   * previewed, explicit teaching responsibility handoff;
 --   * establishing a missing active Lead for an active student-subject service.
 --
--- A stable client must never expose these controls against a backend that does
--- not implement the matching atomic RPCs. Keep the public probe data-free and
--- callable with the publishable-key role.
+-- `schema_version` remains the stable structural/integrity floor shared with
+-- older clients. Newer optional release requirements are advertised as named
+-- capabilities so an older stable client is not coupled to a later migration
+-- timestamp. A v0.3.9 publisher must require the two capabilities below.
 
 do $block$
 begin
@@ -40,7 +41,7 @@ set search_path = ''
 as $function$
   select jsonb_build_object(
     'contract_version', 1,
-    'schema_version', '20260913001000',
+    'schema_version', '20260911193000',
     'capabilities', jsonb_build_object(
       'student_profile_edit',
         to_regprocedure('public.update_organization_student_profile(uuid,uuid,uuid,integer,text,text,text,text,text)') is not null,
@@ -99,4 +100,4 @@ grant execute on function public.xueqing_backend_compatibility()
   to anon, authenticated, service_role;
 
 comment on function public.xueqing_backend_compatibility() is
-  'Data-free stable-release compatibility contract. v0.3.9 additionally requires explicit teaching handoff and missing-Lead assignment RPCs before those client controls may ship.';
+  'Data-free stable-release compatibility contract. v0.3.9 adds capability flags for explicit teaching handoff and missing-Lead assignment while preserving the stable structural schema floor.';

@@ -11,8 +11,8 @@ select has_function(
 
 select is(
   public.xueqing_backend_compatibility() ->> 'schema_version',
-  '20260913001000',
-  'v0.3.9 advertises the release compatibility schema version'
+  '20260911193000',
+  'v0.3.9 preserves the stable structural schema floor'
 );
 
 select is(

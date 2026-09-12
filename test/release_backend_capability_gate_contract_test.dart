@@ -20,15 +20,9 @@ void main() {
       isNot(contains("python3 -c 'import json, os; required_schema=")),
     );
 
+    expect(workflow, contains('required_schema = "20260911193000"'));
     expect(workflow, contains('version >= (0, 3, 8)'));
     expect(workflow, contains('version >= (0, 3, 9)'));
-    expect(
-      workflow,
-      contains(
-        '"20260913001000" if version >= (0, 3, 9) else '
-        '"20260911193000"',
-      ),
-    );
 
     for (final capability in <String>[
       'responsibility_read_model',
