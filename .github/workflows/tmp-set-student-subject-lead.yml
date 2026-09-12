@@ -1,0 +1,59 @@
+name: Temporary set student subject Lead patch
+
+on:
+  push:
+    branches:
+      - feat/set-student-subject-lead
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/set-student-subject-lead
+          fetch-depth: 0
+      - name: Apply integration patch
+        shell: bash
+        run: |
+          if grep -q "Future<OrganizationStudentSubjectLeadResult> setStudentSubjectLead" lib/cloud/organization_management_repository.dart; then
+            echo "Patch already applied"
+          else
+            python tool/tmp_patch_set_student_subject_lead.py
+          fi
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+      - name: Install packages
+        run: flutter pub get
+      - name: Format touched Dart files
+        run: |
+          dart format \
+            lib/cloud/organization_management_repository.dart \
+            lib/features/organization_management/presentation/organization_management_page.dart \
+            lib/features/organization_management/presentation/organization_management_learning_actions.dart \
+            lib/features/organization_management/presentation/organization_management_areas.dart \
+            lib/features/organization_management/presentation/organization_management_rows.dart \
+            lib/features/organization_management/presentation/organization_student_subject_lead_dialog.dart \
+            test/features/organization_management_test.dart
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No patch changes to commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lib test
+            git commit -m "feat: wire missing Lead repair into management"
+            git push origin HEAD:feat/set-student-subject-lead
+          fi
+      - name: Analyze
+        run: flutter analyze
+      - name: Test organization management
+        run: flutter test test/features/organization_management_test.dart
