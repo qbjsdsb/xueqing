@@ -118,7 +118,7 @@ void main() {
 
     expect(find.text('还没有安排下一步的问题'), findsNothing);
     expect(find.text('待安排下一步'), findsNothing);
-    expect(find.text('今天暂时没有需要处理的提醒'), findsOneWidget);
+    expect(find.text('今天没有待处理事项'), findsOneWidget);
   });
 
   testWidgets(
@@ -149,7 +149,28 @@ void main() {
 
       expect(find.text('等待稳定性复查的问题'), findsNothing);
       expect(find.text('待验证'), findsNothing);
-      expect(find.text('今天暂时没有需要处理的提醒'), findsOneWidget);
+      expect(find.text('今天没有待处理事项'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Today keeps students reachable when there is no recent activity',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const data = V2WorkspaceData(
+        students: _students,
+        focusItems: [],
+        timeline: [],
+      );
+
+      await tester.pumpWidget(_app(data));
+      await tester.pumpAndSettle();
+
+      expect(find.text('我的学生'), findsOneWidget);
+      expect(find.text('林同学'), findsOneWidget);
+      expect(find.text('王同学'), findsOneWidget);
+      expect(find.text('今天没有待处理事项'), findsOneWidget);
     },
   );
 
@@ -166,6 +187,12 @@ void main() {
 
     await tester.pumpWidget(_app(data));
     await tester.pumpAndSettle();
+
+    final backgroundWangCount = find.text('王同学').evaluate().length;
+    final backgroundLinCount = find.text('林同学').evaluate().length;
+    expect(backgroundWangCount, greaterThanOrEqualTo(1));
+    expect(backgroundLinCount, greaterThanOrEqualTo(1));
+
     await tester.tap(find.byKey(const Key('v2-today-quick-capture')));
     await tester.pumpAndSettle();
 
@@ -180,8 +207,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('找到 1 位'), findsOneWidget);
-    expect(find.text('王同学'), findsOneWidget);
-    expect(find.text('林同学'), findsNothing);
+    expect(find.text('王同学'), findsNWidgets(backgroundWangCount + 1));
+    expect(find.text('林同学'), findsNWidgets(backgroundLinCount));
   });
 
   testWidgets(

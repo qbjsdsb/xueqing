@@ -43,7 +43,12 @@ void main() {
     expect(source, contains("_SectionTitle(title: '现在要做'"));
     expect(source, contains("_SectionTitle(title: '待安排'"));
     expect(source, contains("title: const Text('之后')"));
-    expect(source, contains("const _SectionTitle(title: '最近学生')"));
+    expect(
+      source,
+      contains(
+        "_SectionTitle(title: recentStudents.isEmpty ? '我的学生' : '最近学生')",
+      ),
+    );
     expect(source, contains('· 待复检'));
     expect(source, contains('switch (item.effectiveStatus)'));
     expect(source, contains("return '新记录';"));

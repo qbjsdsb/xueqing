@@ -16,7 +16,7 @@ abstract final class AppTheme {
     final textTheme = _textTheme(colorScheme);
     final isDark = brightness == Brightness.dark;
     final fieldFill = isDark
-        ? colorScheme.surfaceContainerHigh
+        ? colorScheme.surfaceContainerLow
         : colorScheme.surfaceContainerLowest;
 
     return ThemeData(
@@ -133,30 +133,46 @@ abstract final class AppTheme {
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 80,
-        backgroundColor: colorScheme.surfaceContainer,
+        height: 72,
+        backgroundColor: colorScheme.surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: colorScheme.primaryContainer,
+        indicatorColor: colorScheme.primary.withValues(
+          alpha: isDark ? 0.12 : 0.09,
+        ),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.small),
+        ),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
+          );
+        }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(
             fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             color: selected
-                ? colorScheme.onPrimaryContainer
+                ? colorScheme.onSurface
                 : colorScheme.onSurfaceVariant,
             fontFamilyFallback: fontFallback,
           );
         }),
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: colorScheme.surfaceContainerLow,
-        indicatorColor: colorScheme.primaryContainer,
-        selectedIconTheme: IconThemeData(color: colorScheme.onPrimaryContainer),
+        backgroundColor: colorScheme.surface,
+        indicatorColor: colorScheme.primary.withValues(
+          alpha: isDark ? 0.11 : 0.08,
+        ),
+        selectedIconTheme: IconThemeData(color: colorScheme.primary),
         unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
         selectedLabelTextStyle: TextStyle(
-          color: colorScheme.onPrimaryContainer,
+          color: colorScheme.onSurface,
           fontFamilyFallback: fontFallback,
+          fontWeight: FontWeight.w600,
         ),
         unselectedLabelTextStyle: TextStyle(
           color: colorScheme.onSurfaceVariant,
@@ -170,7 +186,7 @@ abstract final class AppTheme {
           foregroundColor: colorScheme.primary,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.medium),
+            borderRadius: BorderRadius.circular(AppRadii.small),
           ),
         ),
       ),
@@ -261,10 +277,10 @@ abstract final class AppTheme {
         onPrimary: Colors.white,
         primaryContainer: AppColors.surfaceAccent,
         onPrimaryContainer: AppColors.accentStrong,
-        secondary: AppColors.warning,
+        secondary: AppColors.accent,
         onSecondary: Colors.white,
-        secondaryContainer: AppColors.warningSurface,
-        onSecondaryContainer: AppColors.warning,
+        secondaryContainer: AppColors.surfaceAccent,
+        onSecondaryContainer: AppColors.accentStrong,
         tertiary: AppColors.info,
         onTertiary: Colors.white,
         tertiaryContainer: AppColors.infoSurface,
@@ -277,26 +293,26 @@ abstract final class AppTheme {
       );
     }
     return generated.copyWith(
-      surface: const Color(0xFF101412),
-      surfaceDim: const Color(0xFF0B0F0D),
-      surfaceBright: const Color(0xFF303833),
-      surfaceContainerLowest: const Color(0xFF0B0F0D),
-      surfaceContainerLow: const Color(0xFF171C19),
-      surfaceContainer: const Color(0xFF1B211E),
-      surfaceContainerHigh: const Color(0xFF252C28),
-      surfaceContainerHighest: const Color(0xFF303833),
-      onSurface: const Color(0xFFE4E7E3),
-      onSurfaceVariant: const Color(0xFFBEC8C1),
-      outline: const Color(0xFF8A948D),
-      outlineVariant: const Color(0xFF3F4842),
-      primary: const Color(0xFF86D5BF),
-      onPrimary: const Color(0xFF00382D),
-      primaryContainer: const Color(0xFF005143),
-      onPrimaryContainer: const Color(0xFFAAEFDB),
-      secondary: const Color(0xFFE7C27C),
-      onSecondary: const Color(0xFF3E2E00),
-      secondaryContainer: const Color(0xFF5A4500),
-      onSecondaryContainer: const Color(0xFFFFDFA0),
+      surface: const Color(0xFF121412),
+      surfaceDim: const Color(0xFF0E100F),
+      surfaceBright: const Color(0xFF2C302D),
+      surfaceContainerLowest: const Color(0xFF121412),
+      surfaceContainerLow: const Color(0xFF171A18),
+      surfaceContainer: const Color(0xFF1B1E1C),
+      surfaceContainerHigh: const Color(0xFF222623),
+      surfaceContainerHighest: const Color(0xFF2A2F2B),
+      onSurface: const Color(0xFFE5E9E6),
+      onSurfaceVariant: const Color(0xFFB9C1BC),
+      outline: const Color(0xFF737C76),
+      outlineVariant: const Color(0xFF363C38),
+      primary: const Color(0xFF84CDB7),
+      onPrimary: const Color(0xFF07372D),
+      primaryContainer: const Color(0xFF183D33),
+      onPrimaryContainer: const Color(0xFFC5EBDD),
+      secondary: const Color(0xFF84CDB7),
+      onSecondary: const Color(0xFF07372D),
+      secondaryContainer: const Color(0xFF22322D),
+      onSecondaryContainer: const Color(0xFFD7E7E0),
       tertiary: const Color(0xFFA9C7EF),
       onTertiary: const Color(0xFF103352),
       tertiaryContainer: const Color(0xFF294A6B),

@@ -34,13 +34,14 @@ class _ManagementHeader extends StatelessWidget {
             vertical: AppSpacing.xxs,
           ),
           decoration: BoxDecoration(
-            color: colorScheme.primaryContainer.withValues(alpha: 0.55),
+            color: colorScheme.surfaceContainerLow,
+            border: Border.all(color: colorScheme.outlineVariant),
             borderRadius: BorderRadius.circular(AppRadii.pill),
           ),
           child: Text(
             roleLabel,
             style: Theme.of(context).textTheme.labelMedium
-                ?.copyWith(color: colorScheme.onPrimaryContainer),
+                ?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
         ),
       ],
@@ -58,14 +59,10 @@ class _ManagementHeader extends StatelessWidget {
           : const Icon(Icons.refresh_outlined),
     );
 
+    // Embedded Organization workspace already owns the scope-level refresh.
+    // Do not expose a second, visually identical refresh affordance inside it.
     if (!showTitle) {
-      return Row(
-        children: [
-          Expanded(child: identity),
-          const SizedBox(width: AppSpacing.xs),
-          refreshButton,
-        ],
-      );
+      return identity;
     }
 
     return Column(
@@ -211,67 +208,38 @@ class _ManagementAreaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 520;
-        return Material(
-          color: colorScheme.surfaceContainerLowest,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.medium),
-            side: BorderSide(color: colorScheme.outlineVariant),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer.withValues(
-                          alpha: 0.55,
-                        ),
-                        borderRadius: BorderRadius.circular(AppRadii.small),
-                      ),
-                      child: Icon(
-                        icon,
-                        size: 20,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: AppSpacing.xxs),
-                          Text(
-                            description,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: colorScheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: compact ? AppSpacing.md : AppSpacing.lg),
-                child,
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
             ),
-          ),
-        );
-      },
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    description,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Divider(height: 1, color: colorScheme.outlineVariant),
+        const SizedBox(height: AppSpacing.lg),
+        child,
+      ],
     );
   }
 }
@@ -346,12 +314,18 @@ class _ManagementSetupHint extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
-        color: ready
-            ? colorScheme.primaryContainer.withValues(alpha: 0.35)
-            : colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadii.small),
+        color: colorScheme.surfaceContainerLow,
+        border: Border(
+          left: BorderSide(
+            color: ready ? colorScheme.primary : colorScheme.outline,
+            width: 2,
+          ),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,20 +357,12 @@ class _ManagementEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.8),
-        ),
-        borderRadius: BorderRadius.circular(AppRadii.small),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: colorScheme.onSurfaceVariant),
+          Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -404,7 +370,11 @@ class _ManagementEmptyState extends StatelessWidget {
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: AppSpacing.xxs),
-                Text(message, style: Theme.of(context).textTheme.bodyMedium),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
               ],
             ),
           ),

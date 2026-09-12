@@ -709,20 +709,20 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
         .toList(growable: false);
   }
 
-  String _summaryText({
-    required int activeCount,
+  String _summaryText({required int activeCount}) =>
+      '${widget.data.students.length} 名学生 · $activeCount 个问题正在跟进';
+
+  String? _attentionSummaryText({
     required int pendingCount,
     required int overdueCount,
     required int unassignedProfileCount,
   }) {
     final parts = <String>[
-      '${widget.data.students.length} 名学生',
-      '$activeCount 个问题正在跟进',
       if (pendingCount > 0) '$pendingCount 个待复检',
       if (overdueCount > 0) '$overdueCount 个已逾期',
       if (unassignedProfileCount > 0) '$unassignedProfileCount 个学科未明确主责',
     ];
-    return parts.join(' · ');
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 
   String _filterLabel(_OrganizationLearningFilter filter) => switch (filter) {
@@ -767,6 +767,11 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
               null,
         )
         .length;
+    final attentionSummary = _attentionSummaryText(
+      pendingCount: pendingCount,
+      overdueCount: overdueCount,
+      unassignedProfileCount: unassignedProfileCount,
+    );
     final compact = MediaQuery.sizeOf(context).width < 720;
     final horizontalPadding = compact ? 16.0 : 24.0;
 
@@ -785,17 +790,21 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _summaryText(
-                    activeCount: activeCaseCount,
-                    pendingCount: pendingCount,
-                    overdueCount: overdueCount,
-                    unassignedProfileCount: unassignedProfileCount,
-                  ),
+                  _summaryText(activeCount: activeCaseCount),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
+                if (attentionSummary != null) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    '需要关注：$attentionSummary',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 5),
                 Text(
-                  '监督全机构学情与协作进度；机构操作不会自动改变教师主责。',
+                  '查看全机构当前问题、主责与下一步；机构操作不会自动改变教师主责。',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -957,14 +966,30 @@ class _OrganizationStudentRow extends StatelessWidget {
     return parts.join(' · ');
   }
 
-  String _subjectResponsibilityPreview() {
-    if (profiles.isEmpty) return responsibilitySummary;
-    final rows = [
-      for (final profile in profiles)
-        '${profile.subject} · ${leadLabelForProfile(profile)}',
-    ];
-    if (rows.length <= 2) return rows.join('  /  ');
-    return '${rows.take(2).join('  /  ')}  /  另 ${rows.length - 2} 门';
+  Widget _subjectResponsibilityPreview(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall
+        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
+    if (profiles.isEmpty) {
+      return Text(responsibilitySummary, style: style);
+    }
+    final limit = compact ? 2 : 3;
+    final visibleProfiles = profiles.take(limit).toList(growable: false);
+    return Wrap(
+      spacing: 16,
+      runSpacing: 4,
+      children: [
+        for (final profile in visibleProfiles)
+          Text(
+            '${profile.subject} · ${leadLabelForProfile(profile)}',
+            style: style,
+          ),
+        if (profiles.length > visibleProfiles.length)
+          Text(
+            '另 ${profiles.length - visibleProfiles.length} 门学科',
+            style: style,
+          ),
+      ],
+    );
   }
 
   @override
@@ -992,10 +1017,16 @@ class _OrganizationStudentRow extends StatelessWidget {
           ],
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 5),
-          child: Text('当前没有需要跟进的问题\n${_subjectResponsibilityPreview()}'),
+          padding: const EdgeInsets.only(top: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('当前没有需要跟进的问题', style: subtitleStyle),
+              const SizedBox(height: 6),
+              _subjectResponsibilityPreview(context),
+            ],
+          ),
         ),
-        isThreeLine: true,
         trailing: _recordButton(),
       );
     }
@@ -1017,13 +1048,19 @@ class _OrganizationStudentRow extends StatelessWidget {
         ],
       ),
       subtitle: Padding(
-        padding: const EdgeInsets.only(top: 5),
-        child: Text(
-          activeItems.isEmpty
-              ? '当前没有需要跟进的问题${closedItems.isEmpty ? '' : ' · ${closedItems.length} 个历史问题'}\n${_subjectResponsibilityPreview()}'
-              : '${_statusSummary(activeItems)}\n${_subjectResponsibilityPreview()}',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        padding: const EdgeInsets.only(top: 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              activeItems.isEmpty
+                  ? '当前没有需要跟进的问题${closedItems.isEmpty ? '' : ' · ${closedItems.length} 个历史问题'}'
+                  : _statusSummary(activeItems),
+              style: subtitleStyle,
+            ),
+            const SizedBox(height: 6),
+            _subjectResponsibilityPreview(context),
+          ],
         ),
       ),
       trailing: _recordButton(),
@@ -1075,39 +1112,53 @@ class _OrganizationCaseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final detail = historical
-        ? '${item.subject} · 已结束 · 主责：$ownerLabel'
-        : '${item.subject} · ${_caseStatusLabel(item)} · 主责：$ownerLabel\n'
-              '下一步：${item.nextStep} · ${item.dueLabel}';
+    final theme = Theme.of(context);
+    final mutedStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 2, 4, 8),
+      padding: EdgeInsets.fromLTRB(
+        40,
+        historical ? 7 : 10,
+        8,
+        historical ? 7 : 12,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-            title: Text(item.title),
-            subtitle: Text(
-              detail,
-              maxLines: historical ? 1 : 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            isThreeLine: !historical,
-          ),
-          if (!historical && collaborationLabel != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
-              child: Text(
-                collaborationLabel!,
-                key: ValueKey<String>(
-                  'v2-organization-collaboration-${item.id}',
-                ),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+          Text(item.title, style: theme.textTheme.titleSmall),
+          const SizedBox(height: 5),
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
+            children: [
+              Text(item.subject, style: mutedStyle),
+              Text(
+                historical ? '已结束' : _caseStatusLabel(item),
+                style: mutedStyle,
               ),
+              Text('主责：$ownerLabel', style: mutedStyle),
+            ],
+          ),
+          if (!historical) ...[
+            const SizedBox(height: 7),
+            Wrap(
+              spacing: 14,
+              runSpacing: 4,
+              children: [
+                Text('下一步：${item.nextStep}', style: theme.textTheme.bodyMedium),
+                Text(item.dueLabel, style: mutedStyle),
+              ],
             ),
+          ],
+          if (!historical && collaborationLabel != null) ...[
+            const SizedBox(height: 5),
+            Text(
+              collaborationLabel!,
+              key: ValueKey<String>('v2-organization-collaboration-${item.id}'),
+              style: mutedStyle,
+            ),
+          ],
         ],
       ),
     );
