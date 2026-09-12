@@ -54,7 +54,10 @@ void main() {
       expect(context.eventActorMembershipIds['event-admin'], 'member-admin');
       expect(context.leadMembershipIdForProfile('profile-a'), 'member-lead');
       expect(context.leadDisplayNameForProfile('profile-a'), '主责老师');
-      expect(context.profileLeadMembershipIds.containsKey('profile-no-lead'), isTrue);
+      expect(
+        context.profileLeadMembershipIds.containsKey('profile-no-lead'),
+        isTrue,
+      );
       expect(context.leadMembershipIdForProfile('profile-no-lead'), isNull);
       expect(context.displayNameForMembership('member-lead'), '主责老师');
       expect(context.displayNameForMembership('missing'), isNull);
