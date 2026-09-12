@@ -49,6 +49,8 @@ class _FakeOrganizationManagementRepository
   int studentProfileUpdateCount = 0;
   int teacherScopeUpdateCount = 0;
   int assignmentTransferCount = 0;
+  int handoffPreviewCount = 0;
+  int handoffCommitCount = 0;
   int studentSubjectAddCount = 0;
   int studentSubjectEndCount = 0;
   int studentSubjectRestoreCount = 0;
@@ -629,6 +631,7 @@ class _FakeOrganizationManagementRepository
     required String assignmentId,
     required String replacementMembershipId,
   }) async {
+    handoffPreviewCount++;
     final assignment = studentTeacherAssignments.firstWhere(
       (item) => item.assignmentId == assignmentId,
     );
@@ -652,8 +655,24 @@ class _FakeOrganizationManagementRepository
       replacementMembershipId: replacement.membershipId,
       replacementTeacherName: replacement.displayName,
       replacementScopeId: 'scope-preview-${replacement.membershipId}',
-      affectedCases: const <OrganizationTeachingHandoffCase>[],
-      affectedActions: const <OrganizationTeachingHandoffAction>[],
+      affectedCases: const <OrganizationTeachingHandoffCase>[
+        OrganizationTeachingHandoffCase(
+          id: 'case-handoff-1',
+          title: '分数运算容易粗心',
+          status: 'intervening',
+          version: 2,
+          ownerMembershipId: 'membership-1',
+          movesOwner: true,
+        ),
+      ],
+      affectedActions: const <OrganizationTeachingHandoffAction>[
+        OrganizationTeachingHandoffAction(
+          id: 'action-handoff-1',
+          caseId: 'case-handoff-1',
+          title: '周五复检分数运算',
+          version: 3,
+        ),
+      ],
     );
   }
 
@@ -663,6 +682,7 @@ class _FakeOrganizationManagementRepository
     required String operationId,
     required OrganizationTeachingHandoffPlan plan,
   }) {
+    handoffCommitCount++;
     return transferStudentTeacherAssignment(
       operationId: operationId,
       organizationId: plan.organizationId,
@@ -1835,9 +1855,24 @@ void main() {
       ),
       findsOneWidget,
     );
-    await tester.tap(find.text('确认交接'));
+    expect(find.text('继续核对'), findsOneWidget);
+    await tester.tap(find.text('继续核对'));
     await tester.pumpAndSettle();
 
+    expect(repository.handoffPreviewCount, 1);
+    expect(find.text('确认教学责任交接'), findsOneWidget);
+    expect(find.text('原老师 → 新老师'), findsOneWidget);
+    expect(find.text('分数运算容易粗心'), findsOneWidget);
+    expect(find.text('周五复检分数运算'), findsOneWidget);
+    expect(
+      find.text('历史证据、教学处理、检查结果和历史记录不会修改。交接只改变从现在开始由谁继续负责。'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('handoff-confirm-submit')));
+    await tester.pumpAndSettle();
+
+    expect(repository.handoffCommitCount, 1);
     expect(repository.assignmentTransferCount, 1);
     expect(repository.updatedTeacherAssignment?.status, 'transferred');
     expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');

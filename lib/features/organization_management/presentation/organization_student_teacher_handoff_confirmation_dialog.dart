@@ -88,11 +88,7 @@ class OrganizationStudentTeacherHandoffConfirmationDialog
 }
 
 class _HandoffCountRow extends StatelessWidget {
-  const _HandoffCountRow({
-    required this.label,
-    required this.count,
-    super.key,
-  });
+  const _HandoffCountRow({required this.label, required this.count, super.key});
 
   final String label;
   final int count;

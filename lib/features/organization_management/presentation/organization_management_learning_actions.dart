@@ -510,18 +510,60 @@ mixin _OrganizationManagementLearningActions on _OrganizationManagementCore {
                 ),
           );
       if (!mounted || draft == null) return;
-      await _runMutation(
-        () => widget.repository.transferStudentTeacherAssignment(
-          operationId: draft.operationId,
+
+      setState(() {
+        _busy = true;
+        _errorMessage = null;
+      });
+      OrganizationTeachingHandoffPlan plan;
+      try {
+        plan = await widget.repository.previewStudentTeacherHandoff(
           organizationId: widget.organizationId,
           assignmentId: assignment.assignmentId,
-          expectedAssignmentVersion: assignment.version,
           replacementMembershipId: draft.replacementMembershipId,
-        ),
-        '已将 ${assignment.studentName} 的 ${assignment.subjectName} '
-        '${_studentAssignmentRoleLabel(assignment.assignmentRole)}交接给 '
-        '${draft.replacementTeacherName}。',
+        );
+      } catch (error) {
+        if (mounted) setState(() => _errorMessage = _describeError(error));
+        return;
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      if (!mounted) return;
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) =>
+            OrganizationStudentTeacherHandoffConfirmationDialog(plan: plan),
       );
+      if (!mounted || confirmed != true) return;
+
+      setState(() {
+        _busy = true;
+        _errorMessage = null;
+      });
+      try {
+        final result = await widget.repository.commitStudentTeacherHandoff(
+          operationId: draft.operationId,
+          plan: plan,
+        );
+        await _refresh();
+        if (!mounted) return;
+        widget.onChanged?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '已将 ${assignment.studentName} 的 ${assignment.subjectName} '
+              '${_studentAssignmentRoleLabel(assignment.assignmentRole)}交接给 '
+              '${result.replacementTeacherName}；同时迁移 '
+              '${plan.affectedCases.length} 个问题、${plan.affectedActions.length} 个行动。',
+            ),
+          ),
+        );
+      } catch (error) {
+        if (mounted) setState(() => _errorMessage = _describeError(error));
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
     } catch (error) {
       if (mounted) setState(() => _errorMessage = _describeError(error));
     }
