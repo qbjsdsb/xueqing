@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(16);
 
 -- Fictional dual-role actor: organization owner + real teaching collaborator.
 insert into auth.users (
