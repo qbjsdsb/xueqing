@@ -19,9 +19,9 @@ env:
   RELEASE_TAG: v0.3.9
   RELEASE_VERSION: 0.3.9+17
   RELEASE_COMMIT: 8ac75a32b58f0d44b802a5e264dc3c98d3e8ec63
-  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '' }}
-  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '' }}
-  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '' }}
+  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || 'https://czuctoulgnfytcfonkhc.supabase.co' }}
+  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_yjUy-gjUSSFkCpbK_AjLSA_I0FgOXTI' }}
+  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || 'czuctoulgnfytcfonkhc.supabase.co' }}
   XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
 
 jobs:
@@ -74,6 +74,39 @@ jobs:
           fi
 
           echo "Required release variables and secrets are configured. Secret values were not printed."
+
+      - name: Verify production backend compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          backend_json="$(curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            -X POST "${XUEQING_SUPABASE_URL%/}/rest/v1/rpc/xueqing_backend_compatibility" \
+            -H "apikey: $XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}')"
+          BACKEND_JSON="$backend_json" python3 - <<'PY'
+          import json, os
+          payload = json.loads(os.environ['BACKEND_JSON'])
+          if str(payload.get('schema_version', '')) < '20260911193000':
+              raise SystemExit('Production backend schema floor is too old for v0.3.9.')
+          caps = payload.get('capabilities') or {}
+          required = [
+              'student_profile_edit',
+              'learning_record_export_attachments',
+              'learning_case_record_organization',
+              'selective_learning_record_export',
+              'voided_record_integrity_guard',
+              'responsibility_read_model',
+              'organization_profile_responsibility',
+              'responsibility_safe_quick_capture',
+              'explicit_teaching_handoff',
+              'set_student_subject_lead',
+          ]
+          missing = [name for name in required if caps.get(name) is not True]
+          if missing:
+              raise SystemExit('Production backend is missing required capabilities: ' + ', '.join(missing))
+          print('Production backend compatibility Gate passed for v0.3.9.')
+          PY
 
       - name: Verify frozen release commit is still on main
         shell: bash
@@ -130,5 +163,8 @@ jobs:
             --ref main \
             -f release_tag="$RELEASE_TAG" \
             -f app_version="$RELEASE_VERSION" \
-            -f release_notes=$'明确“我的教学 / 机构”双工作区边界\n机构学情收口为学生优先的监督工作台\n记录前显示真实教学主责，管理协作不再混同责任\n新增显式教学责任交接，Case / Action 当前责任原子迁移且历史不改写\n新增缺失主责补齐入口，并强化保存成功/刷新失败的真实反馈'
+            -f release_notes=$'明确“我的教学 / 机构”双工作区边界\n机构学情收口为学生优先的监督工作台\n记录前显示真实教学主责，管理协作不再混同责任\n新增显式教学责任交接，Case / Action 当前责任原子迁移且历史不改写\n新增缺失主责补齐入口，并强化保存成功/刷新失败的真实反馈' \
+            -f supabase_url="$XUEQING_SUPABASE_URL" \
+            -f supabase_publishable_key="$XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            -f supabase_allowed_hosts="$XUEQING_SUPABASE_ALLOWED_HOSTS"
           echo "Stable release workflow dispatched for $RELEASE_TAG ($RELEASE_VERSION)."
