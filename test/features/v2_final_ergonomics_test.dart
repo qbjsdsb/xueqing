@@ -153,25 +153,26 @@ void main() {
     },
   );
 
-  testWidgets('Today keeps students reachable when there is no recent activity', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    const data = V2WorkspaceData(
-      students: _students,
-      focusItems: [],
-      timeline: [],
-    );
+  testWidgets(
+    'Today keeps students reachable when there is no recent activity',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const data = V2WorkspaceData(
+        students: _students,
+        focusItems: [],
+        timeline: [],
+      );
 
-    await tester.pumpWidget(_app(data));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_app(data));
+      await tester.pumpAndSettle();
 
-    expect(find.text('我的学生'), findsOneWidget);
-    expect(find.text('林同学'), findsOneWidget);
-    expect(find.text('王同学'), findsOneWidget);
-    expect(find.text('今天没有待处理事项'), findsOneWidget);
-  });
+      expect(find.text('我的学生'), findsOneWidget);
+      expect(find.text('林同学'), findsOneWidget);
+      expect(find.text('王同学'), findsOneWidget);
+      expect(find.text('今天没有待处理事项'), findsOneWidget);
+    },
+  );
 
   testWidgets('quick capture student picker searches name grade and subject', (
     tester,
