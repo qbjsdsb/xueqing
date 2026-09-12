@@ -1,4 +1,4 @@
-name: D1b navigation focused diagnostic
+name: D1b navigation failure diagnostic
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  focused-test:
+  failure-diagnostic:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -21,5 +21,17 @@ jobs:
           flutter-version: '3.47.1'
           cache: true
       - run: flutter pub get
-      - name: Run focused typed navigation tests
-        run: flutter test test/features/v2_typed_organization_navigation_test.dart --reporter expanded
+      - name: Run full suite and print only failure tail
+        shell: bash
+        run: |
+          set +e
+          flutter test --reporter expanded > /tmp/full-tests.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo '===== FULL TEST FAILURE TAIL ====='
+            tail -n 500 /tmp/full-tests.log
+          else
+            echo 'Full test suite passed.'
+          fi
+          exit "$status"
