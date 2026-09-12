@@ -1,0 +1,5 @@
+--- 44dp expectations ---
+test/features/v2_refresh_polish_test.dart:35:    expect(theme, contains('minimumSize: const Size(0, 44)'));
+--- recent students expectations ---
+test/features/v2_visual_polish_contract_test.dart:46:    expect(source, contains("const _SectionTitle(title: '最近学生')"));
+--- primary container expectations ---
