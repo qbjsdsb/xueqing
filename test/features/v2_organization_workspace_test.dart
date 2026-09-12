@@ -50,6 +50,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('语文 · 跟进中 · 主责：张老师'), findsOneWidget);
       expect(find.textContaining('下一步：下一次继续检查'), findsOneWidget);
+      expect(find.text('最近记录：李老师 · 机构协作'), findsOneWidget);
 
       await tester.tap(find.text('机构学生二'));
       await tester.pumpAndSettle();
@@ -57,6 +58,7 @@ void main() {
       // Profile B still has no current Lead. Existing Case B nevertheless keeps
       // its persisted Case owner instead of inheriting the Profile Lead state.
       expect(find.textContaining('语文 · 未设置主责'), findsOneWidget);
+      expect(find.text('最近记录：王老师 · 机构协作'), findsNothing);
 
       await tester.enterText(
         find.byKey(const Key('v2-organization-learning-search')),
@@ -228,7 +230,10 @@ WorkspaceResponsibilityContext _context({
       'action-a': 'membership-lead',
       'action-b': 'membership-other',
     },
-    eventActorMembershipIds: const {},
+    eventActorMembershipIds: const {
+      'event-manager-a': 'membership-manager',
+      'event-owner-b': 'membership-other',
+    },
     memberDisplayNames: const {
       'membership-manager': '李老师',
       'membership-lead': '张老师',
@@ -260,6 +265,15 @@ TeacherWorkspace _workspace() {
         caseId: 'case-a',
         actionId: 'action-a',
         title: '阅读概括遗漏要点',
+        timeline: [
+          WorkspaceTimelineEvent(
+            id: 'evidence:evidence-a',
+            responsibilityEventId: 'event-manager-a',
+            occurredAt: DateTime(2026, 9, 12, 11),
+            typeLabel: '学生表现',
+            text: '负责人补充了一次课堂观察。',
+          ),
+        ],
       ),
       _profile(
         studentId: 'student-b',
@@ -268,6 +282,15 @@ TeacherWorkspace _workspace() {
         caseId: 'case-b',
         actionId: 'action-b',
         title: '作文立意不稳定',
+        timeline: [
+          WorkspaceTimelineEvent(
+            id: 'event-owner-b',
+            responsibilityEventId: 'event-owner-b',
+            occurredAt: DateTime(2026, 9, 12, 10),
+            typeLabel: '记录',
+            text: '王老师继续跟进。',
+          ),
+        ],
       ),
     ],
   );
@@ -280,6 +303,7 @@ WorkspaceStudent _profile({
   required String caseId,
   required String actionId,
   required String title,
+  List<WorkspaceTimelineEvent> timeline = const <WorkspaceTimelineEvent>[],
 }) {
   return WorkspaceStudent(
     id: studentId,
@@ -321,7 +345,7 @@ WorkspaceStudent _profile({
             businessDueDate: DateTime(2026, 9, 12),
           ),
         ],
-        timeline: const [],
+        timeline: timeline,
       ),
     ],
   );
