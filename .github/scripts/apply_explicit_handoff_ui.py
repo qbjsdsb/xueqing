@@ -1,0 +1,215 @@
+from pathlib import Path
+
+page = Path('lib/features/organization_management/presentation/organization_management_page.dart')
+text = page.read_text()
+old = "import 'organization_student_teacher_assignment_transfer_dialog.dart';\n"
+new = old + "import 'organization_student_teacher_handoff_confirmation_dialog.dart';\n"
+if text.count(old) != 1:
+    raise SystemExit('management page import anchor mismatch')
+page.write_text(text.replace(old, new, 1))
+
+actions = Path('lib/features/organization_management/presentation/organization_management_learning_actions.dart')
+text = actions.read_text()
+start_marker = '  Future<void> _transferStudentTeacherAssignment(\n'
+end_marker = '  Future<void> _addStudent() async {\n'
+start = text.index(start_marker)
+end = text.index(end_marker, start)
+replacement = r'''  Future<void> _transferStudentTeacherAssignment(
+    OrganizationStudentTeacherAssignment assignment,
+  ) async {
+    if (_busy) return;
+    try {
+      final snapshot = await _snapshotFuture;
+      if (!mounted) return;
+      final activeScopeKeys = <String>{
+        for (final scope in snapshot.teacherSubjectScopes)
+          if (scope.isActive && scope.membershipStatus == 'active')
+            _teacherScopeKey(scope.membershipId, scope.organizationSubjectId),
+      };
+      final candidates = <OrganizationSetupTeacher>[
+        for (final teacher in snapshot.setupOptions.teachers)
+          if (teacher.membershipId != assignment.membershipId &&
+              activeScopeKeys.contains(
+                _teacherScopeKey(
+                  teacher.membershipId,
+                  assignment.organizationSubjectId,
+                ),
+              ))
+            teacher,
+      ];
+      if (candidates.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('当前没有具备该学科有效授权的在岗接收老师。')));
+        return;
+      }
+      final draft =
+          await showDialog<OrganizationStudentTeacherAssignmentTransferDraft>(
+            context: context,
+            builder: (context) =>
+                OrganizationStudentTeacherAssignmentTransferDialog(
+                  assignment: assignment,
+                  candidates: candidates,
+                ),
+          );
+      if (!mounted || draft == null) return;
+
+      setState(() {
+        _busy = true;
+        _errorMessage = null;
+      });
+      OrganizationTeachingHandoffPlan plan;
+      try {
+        plan = await widget.repository.previewStudentTeacherHandoff(
+          organizationId: widget.organizationId,
+          assignmentId: assignment.assignmentId,
+          replacementMembershipId: draft.replacementMembershipId,
+        );
+      } catch (error) {
+        if (mounted) setState(() => _errorMessage = _describeError(error));
+        return;
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      if (!mounted) return;
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) =>
+            OrganizationStudentTeacherHandoffConfirmationDialog(plan: plan),
+      );
+      if (!mounted || confirmed != true) return;
+
+      setState(() {
+        _busy = true;
+        _errorMessage = null;
+      });
+      try {
+        final result = await widget.repository.commitStudentTeacherHandoff(
+          operationId: draft.operationId,
+          plan: plan,
+        );
+        await _refresh();
+        if (!mounted) return;
+        widget.onChanged?.call();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '已将 ${assignment.studentName} 的 ${assignment.subjectName} '
+              '${_studentAssignmentRoleLabel(assignment.assignmentRole)}交接给 '
+              '${result.replacementTeacherName}；同时迁移 '
+              '${plan.affectedCases.length} 个问题、${plan.affectedActions.length} 个行动。',
+            ),
+          ),
+        );
+      } catch (error) {
+        if (mounted) setState(() => _errorMessage = _describeError(error));
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _errorMessage = _describeError(error));
+    }
+  }
+
+'''
+actions.write_text(text[:start] + replacement + text[end:])
+
+test = Path('test/features/organization_management_test.dart')
+text = test.read_text()
+old = '  int assignmentTransferCount = 0;\n'
+new = old + '  int handoffPreviewCount = 0;\n  int handoffCommitCount = 0;\n'
+if text.count(old) != 1:
+    raise SystemExit('handoff counter anchor mismatch')
+text = text.replace(old, new, 1)
+
+preview_start = text.index('  @override\n  Future<OrganizationTeachingHandoffPlan> previewStudentTeacherHandoff({\n')
+commit_start = text.index(
+    '  @override\n  Future<OrganizationStudentTeacherAssignmentTransferResult>\n  commitStudentTeacherHandoff({\n',
+    preview_start,
+)
+preview_replacement = r'''  @override
+  Future<OrganizationTeachingHandoffPlan> previewStudentTeacherHandoff({
+    required String organizationId,
+    required String assignmentId,
+    required String replacementMembershipId,
+  }) async {
+    handoffPreviewCount++;
+    final assignment = studentTeacherAssignments.firstWhere(
+      (item) => item.assignmentId == assignmentId,
+    );
+    final replacement = setupOptions.teachers.firstWhere(
+      (item) => item.membershipId == replacementMembershipId,
+    );
+    return OrganizationTeachingHandoffPlan(
+      organizationId: organizationId,
+      businessDate: DateTime(2026, 9, 4),
+      studentSubjectProfileId: assignment.studentSubjectProfileId,
+      studentId: assignment.studentId,
+      studentName: assignment.studentName,
+      organizationSubjectId: assignment.organizationSubjectId,
+      subjectName: assignment.subjectName,
+      subjectCode: assignment.subjectCode,
+      assignmentId: assignment.assignmentId,
+      assignmentRole: assignment.assignmentRole,
+      assignmentVersion: assignment.version,
+      sourceMembershipId: assignment.membershipId,
+      sourceTeacherName: assignment.teacherName,
+      replacementMembershipId: replacement.membershipId,
+      replacementTeacherName: replacement.displayName,
+      replacementScopeId: 'scope-preview-${replacement.membershipId}',
+      affectedCases: const <OrganizationTeachingHandoffCase>[
+        OrganizationTeachingHandoffCase(
+          id: 'case-handoff-1',
+          title: '分数运算容易粗心',
+          status: 'intervening',
+          version: 2,
+          ownerMembershipId: 'membership-1',
+          movesOwner: true,
+        ),
+      ],
+      affectedActions: const <OrganizationTeachingHandoffAction>[
+        OrganizationTeachingHandoffAction(
+          id: 'action-handoff-1',
+          caseId: 'case-handoff-1',
+          title: '周五复检分数运算',
+          version: 3,
+        ),
+      ],
+    );
+  }
+
+'''
+text = text[:preview_start] + preview_replacement + text[commit_start:]
+
+commit_start = text.index(
+    '  @override\n  Future<OrganizationStudentTeacherAssignmentTransferResult>\n  commitStudentTeacherHandoff({\n'
+)
+commit_end = text.index(
+    '  @override\n  Future<List<OrganizationStudentRecord>> listStudents({\n',
+    commit_start,
+)
+commit_replacement = r'''  @override
+  Future<OrganizationStudentTeacherAssignmentTransferResult>
+  commitStudentTeacherHandoff({
+    required String operationId,
+    required OrganizationTeachingHandoffPlan plan,
+  }) {
+    handoffCommitCount++;
+    return transferStudentTeacherAssignment(
+      operationId: operationId,
+      organizationId: plan.organizationId,
+      assignmentId: plan.assignmentId,
+      expectedAssignmentVersion: plan.assignmentVersion,
+      replacementMembershipId: plan.replacementMembershipId,
+    );
+  }
+
+'''
+text = text[:commit_start] + commit_replacement + text[commit_end:]
+
+old_test = """    await tester.tap(find.text('确认交接'));\n    await tester.pumpAndSettle();\n\n    expect(repository.assignmentTransferCount, 1);\n    expect(repository.updatedTeacherAssignment?.status, 'transferred');\n    expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');\n    expect(find.text('主责老师：新老师'), findsOneWidget);\n"""
+new_test = """    expect(find.text('继续核对'), findsOneWidget);\n    await tester.tap(find.text('继续核对'));\n    await tester.pumpAndSettle();\n\n    expect(repository.handoffPreviewCount, 1);\n    expect(find.text('确认教学责任交接'), findsOneWidget);\n    expect(find.text('原老师 → 新老师'), findsOneWidget);\n    expect(find.text('分数运算容易粗心'), findsOneWidget);\n    expect(find.text('周五复检分数运算'), findsOneWidget);\n    expect(\n      find.text('历史证据、教学处理、检查结果和历史记录不会修改。交接只改变从现在开始由谁继续负责。'),\n      findsOneWidget,\n    );\n\n    await tester.tap(find.byKey(const ValueKey('handoff-confirm-submit')));\n    await tester.pumpAndSettle();\n\n    expect(repository.handoffCommitCount, 1);\n    expect(repository.assignmentTransferCount, 1);\n    expect(repository.updatedTeacherAssignment?.status, 'transferred');\n    expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');\n    expect(find.text('主责老师：新老师'), findsOneWidget);\n"""
+if text.count(old_test) != 1:
+    raise SystemExit(f'handoff integration test anchor mismatch: {text.count(old_test)}')
+test.write_text(text.replace(old_test, new_test, 1))
