@@ -130,12 +130,14 @@ V1 暂不做 campus 独立时区。
 
 为了保持零额外付费，V1 不把 SMTP / Email OTP / SMS / 域名作为登录硬依赖。
 
+当前最终 migration 链把成员账号生命周期写权限收紧为 `org_owner` only；`org_admin` 可以管理机构教学业务并查看成员/邀请状态，但不能创建/处理邀请、停用/恢复成员或重发成员凭据。
+
 ```text
-org_admin provision_member
+org_owner provision_member / invitation
     ↓
 Auth User + membership(onboarding)
     ↓
-强随机临时密码 + onboarding_expires_at
+强随机临时密码 / 一次性邀请 + onboarding_expires_at
     ↓
 教师登录，只能进入账号接管
     ↓
@@ -161,13 +163,13 @@ JWT user
 
 因此被撤销的旧 Access Token 即使自身尚未到 `exp`，也不能继续读取学生业务数据。
 
-reset 必须**先 membership → onboarding，再更新 Auth 临时密码**。
+reset 必须**先 membership → onboarding，再更新 Auth 临时密码**，并且只能由通过 owner-only server helper 的负责人发起。
 
-临时密码：强随机、短有效期、只显示一次、不进 DB / log / audit / GitHub；如果成功响应丢失，不找回旧明文，而是 reissue 新凭据。
+临时密码：强随机、短有效期、只显示一次、不进 DB / log / audit / GitHub；如果成功响应丢失，不找回旧明文，而是由负责人 reissue 新凭据。
 
 ### V1 身份边界
 
-数据库支持多个 organization，但同一个 Auth User 在 V1 同一时点最多一个 `onboarding / active` membership。未来若确需跨机构同账号，再先升级为中央身份恢复 / OTP / SSO 等不会让单一机构管理员控制全局 credential 的方案。
+数据库支持多个 organization，但同一个 Auth User 在 V1 同一时点最多一个 `onboarding / active` membership。未来若确需跨机构同账号，再先升级为中央身份恢复 / OTP / SSO 等不会让单一机构负责人控制跨机构全局 credential 的方案。
 
 详见 `docs/AUTH_AND_PERMISSIONS.md`。
 
@@ -227,7 +229,7 @@ V1 不在学生敏感业务表默认启用 Realtime，也不让业务正确性�
 
 ```text
 ChatGPT Project + Work / Luna
-→ Private GitHub + Free Actions
+→ Public GitHub + Free Actions（仅虚构数据与无 Secret 源码）
 → Supabase Local CLI（compatibility）
 → Free Remote Development（仅虚构数据的 compatibility/security Spike）
 → Gated Production Pilot（仅 P0 Gate A/B + Go/No-Go 后）
