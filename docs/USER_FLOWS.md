@@ -2,13 +2,15 @@
 
 > 页面开发前先确认服务哪个真实流程；不能改善闭环的功能默认后置。
 
-## Flow A｜机构初始化 / 管理员接管
+## Flow A｜机构初始化 / 负责人接管
 
-受信任运维 bootstrap org_admin → membership onboarding → 设置新密码 → revoke old sessions → membership active → 强制重新登录。onboarding/old token 无学生业务权限。
+受信任运维 bootstrap org_owner → membership onboarding → 设置新密码 → revoke old sessions → membership active → 强制重新登录。onboarding/old token 无学生业务权限。
 
-## Flow B｜管理员开通成员
+## Flow B｜负责人开通成员
 
-org_admin 可直接邀请 teacher，也可提名 org_owner；负责人提名进入 `pending_owner_approval`，只能由现有 org_owner 审批。org_admin 不可创建 org_admin 邀请。邀请撤销由具有机构管理能力的 owner/admin 执行。
+当前运行时只允许 `org_owner` 执行成员账号生命周期写操作：创建 `teacher` / `org_admin` / `org_owner` 邀请、审批/撤销/重新发放邀请、停用/恢复成员以及受控凭据重发。`org_admin` 可以查看成员与邀请状态、维护显示姓名，并管理学生/学科/任课关系等业务，但不能创建或处理邀请，也不能改变成员账号生命周期。
+
+较早 migration 曾允许管理员发起部分邀请；后续 owner-only helper 与自动化测试已经收紧这一能力，最终 migration 链优先。
 
 ## Flow C｜App Startup Authorization Gate
 
@@ -155,22 +157,24 @@ Student archived→inactive；Profiles 保持 archived。
 
 ## Flow N｜Teacher handoff / 离职 / 退单科
 
-Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实。
-
-当前安全流程：
+Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实，但安全交接使用**一个显式 handoff plan + 一个原子 command**完成。
 
 ```text
 盘点 current Assignment / open Case owner / pending Action assignee
-→ 验证接手人 membership + scope + Profile relationship
-→ 如果旧老师仍承担 open Case 或 pending Action responsibility：fail closed
-→ 先通过显式责任治理/交接处理 Case 与 Action
-→ 重新读取最新状态
-→ 再执行 Assignment handoff
-→ no orphan validation
-→ 收口旧 assignment / scope / membership（按对应治理命令）
+→ server 生成/校验完整 affected responsibility set
+→ 验证接手人 active membership + teaching scope + Profile relationship
+→ 用户明确确认接手老师与本次责任迁移
+→ lock/re-read Assignment / Cases / Actions / target scope
+→ 同一事务结束旧 Assignment、建立/切换新 Assignment
+→ 同一事务迁移 current Case owner + pending Action assignee
+→ 写 handoff event/audit
+→ final no-orphan validation
+→ commit
 ```
 
-不得因为换老师、退单科或停用成员就静默把历史 Case owner、Action 或历史 actor 整批改成新老师。历史教学事实保留原 actor；任何责任迁移必须留下显式可审计事实。
+如果没有完整 handoff plan、接手人不合法、或 Assignment/Case/Action/scope 在确认后发生漂移，则 whole rollback，要求重新加载确认；不能出现“责任先迁成功、Assignment 后迁失败”的中间状态。
+
+不得因为换老师、退单科或停用成员就无确认地静默批量改写责任；历史 Evidence、Intervention、Assessment 与 Event actor 永远保留原事实。`reassign_teacher`、`revoke_teacher_subject_scope_and_handoff`、`disable_membership_and_handoff` 均遵循同一原子合同。
 
 ## Flow O｜网络失败 / timeout
 
@@ -219,6 +223,7 @@ Remote Dev 只用虚构数据。Phase 0B.0 先验证 Auth identity、old-token r
 ## V1 明确不应出现
 
 - revoked/onboarding/disabled 能读学生数据；
+- org_admin 绕过 owner-only member-account helper 创建/处理邀请或停用成员；
 - management-only 在 Personal Scope 把自己当作 Responsible Teacher Quick Capture；
 - Organization Scope 绕过合法 Assignment/active Lead 创建无人负责或由管理身份伪装负责的 Case；
 - inactive/archived Profile 新 teaching Case/Lesson；
@@ -227,7 +232,7 @@ Remote Dev 只用虚构数据。Phase 0B.0 先验证 Auth identity、old-token r
 - archive/停科伪造 Case closed；
 - `reactivate_student` 暗中跨事务 unarchive；
 - Student command 部分学科成功、部分失败作为正常结果；
-- Assignment handoff 静默批量改写 Case/Action responsibility；
+- Assignment handoff 分成两个可能部分成功的责任/Assignment 提交；
 - unsafe merge 猜测处理双 Profile/双 Lead；
 - timeout 后客户端多 CRUD 补状态；
 - finalized communication/report 被后来事实回写；
