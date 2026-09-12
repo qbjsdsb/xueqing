@@ -1,16 +1,21 @@
 # Xueqing Visual Foundation
 
-状态：Phase 0A.5 visual baseline
-
-最后更新：2026-09-02
+状态：v0.3.x production visual baseline  
+最后更新：2026-09-13
 
 本文件把信息架构转成可实现的视觉语言。数值是起始 token，不是对每个页面的像素锁死；页面先遵循关系和优先级，再使用 token。
 
 ## 1. 视觉判断
 
-Xueqing 采用浅色、低装饰、编辑部/专业工作台式的视觉秩序：中性画布、白色工作面、深色正文、低饱和语义色、细分隔线和少量边界明确的容器。
+Xueqing 采用低装饰、编辑部/专业工作台式的视觉秩序：中性画布、稳定工作面、清楚正文、低饱和语义色、细分隔线和少量边界明确的容器。
 
 不使用大面积渐变、玻璃、glow、neon、AI 星星/魔法棒、巨大 KPI、环形/雷达图、彩色胶囊泛滥或每行一个 Card。阴影只服务于 modal/sheet 的层级，不服务于“显得高级”。应用同时提供浅色和深色 ColorScheme，由 `ThemeMode.system` 跟随系统；页面不直接读取固定语义色。
+
+生产 V2 与应用外围必须共享同一套视觉事实源。`V2Theme` 只可作为兼容/组合边界存在，不能重新定义第二套 Palette、触控尺寸、圆角或暗色 surface。
+
+一句话原则：
+
+> **用排版建立关系，用留白建立层级，用颜色表达行动与状态；只有真的需要边界时才出现容器。**
 
 ## 2. Color tokens
 
@@ -32,7 +37,25 @@ Xueqing 采用浅色、低装饰、编辑部/专业工作台式的视觉秩序�
 
 正文颜色按 WCAG AA 4.5:1 普通文字基线检查；小号 metadata 不使用更浅的灰替代信息。颜色值仍需在真实平台字体和系统高对比度模式下复测。
 
-### 2.2 语义状态色
+### 2.2 深色 surface 规则
+
+暗色模式不把“有层级”理解为“尽可能多种黑色”。生产界面以连续 canvas 为主，只在真实需要独立工作面、输入、dialog/sheet 时提升 surface。
+
+当前共享暗色基线：
+
+| 角色 | 值 | 使用原则 |
+| --- | --- | --- |
+| `surface / surfaceContainerLowest` | `#121412` | 页面、scope bar、主工作面尽量连续 |
+| `surfaceContainerLow` | `#171A18` | 输入、轻微选中或局部需要边界的区域 |
+| `surfaceContainer` | `#1B1E1C` | 少量辅助 surface |
+| `surfaceContainerHigh` | `#222623` | dialog / popup 等临时任务层 |
+| `surfaceContainerHighest` | `#2A2F2B` | disabled / 明确需要更高层次的状态 |
+
+不得为了区分 AppBar、页面正文、底部导航、普通列表行而机械使用不同深色。它们属于同一空间时应使用同一 surface，通过分隔线、排版和间距表达结构。
+
+绿色只承担交互、焦点、选中和少量语义状态，不承担大面积页面分区。selected indicator 优先使用低透明度 accent，而不是整块高饱和 `primaryContainer`。
+
+### 2.3 语义状态色
 
 | 状态 | foreground | background | 文字/结构冗余 |
 | --- | --- | --- | --- |
@@ -55,7 +78,7 @@ Windows: system Chinese font → Microsoft YaHei → Noto Sans CJK SC
 Android: system Chinese font → Noto Sans CJK SC → Microsoft YaHei
 ```
 
-Flutter 先通过 `fontFamilyFallback` 保留上述 fallback，不在 Phase 0A.5 引入网络字体。英数字段与中文混排不得依赖英文 SaaS 字体的紧凑字宽。
+Flutter 通过 `fontFamilyFallback` 保留上述 fallback，不引入网络字体。英数字段与中文混排不得依赖英文 SaaS 字体的紧凑字宽。
 
 ### 3.2 类型层级
 
@@ -105,8 +128,8 @@ Flutter 先通过 `fontFamilyFallback` 保留上述 fallback，不在 Phase 0A.5
 | 普通 border | 1px `border` |
 | 强 border / focus 外围 | 1–2px `borderStrong` / `accent` |
 | 紧凑控件 radius | 4px |
-| 普通行/轻容器 radius | 8px |
-| dialog/sheet radius | 28px（Material 3 modal/sheet），仅顶部或外框 |
+| 普通行/轻容器 radius | 8–12px |
+| dialog/sheet radius | 单层、克制；按共享 `AppRadii` 与平台形态实现 |
 | 默认 elevation | 0 |
 | modal/sheet elevation | 低、单层，避免漂浮叠层 |
 
@@ -120,45 +143,54 @@ Flutter 先通过 `fontFamilyFallback` 保留上述 fallback，不在 Phase 0A.5
 | hover | 轻微 surface 变化或 borderStrong | 鼠标当前所在位置，不改变布局 |
 | focus | 2px accent ring，offset 2 | 键盘当前可操作元素 |
 | pressed | accentStrong 或 surfaceAccent | 已经触发操作 |
-| selected | 淡背景 + 3px selected indicator / 字重 | 当前导航/筛选位置，不能只靠色彩 |
+| selected | 低透明度 accent + 字重/图标变化 | 当前导航/筛选位置，不能只靠色彩 |
 | disabled | 降低对比度、不可点击光标 | 为什么不可操作若会造成疑惑 |
 | loading | 原内容保留结构，局部 progress/label | 正在做什么，不跳动整页 |
 | saving | 主按钮显示“保存中…”并暂时避免重复提交 | 输入仍保留 |
 | save failed | 错误文字 + 重试/保留内容 | 用户下一步是什么 |
 
-## 7. Surface 规则
+## 7. Surface 与信息层级规则
 
-页面层级最多使用三层：
+页面层级通常只使用：
 
-1. canvas：全局背景。
-2. surface：工作内容和输入。
+1. canvas / base surface：全局页面和主要工作区。
+2. subtle surface：输入、selected、真正需要独立边界的小区域。
 3. modal/sheet：当前需要聚焦的短任务。
 
 不使用透明玻璃、背景模糊、光晕或渐变。Today 的 action row、Student 的 case row、Case 的 timeline item 优先作为平面行存在；如果需要边界，使用 divider 和低对比度 surface。
+
+机构管理尤其不得形成 `Area Card → Section → Empty Card` 的 Card 套 Card。默认使用“标题 / 说明 / divider / rows”组织，只有错误、危险操作和真正需要用户立即处理的 setup next step 可以拥有独立语义 surface。
+
+Organization 学情同样不是 KPI dashboard。顶部事实、筛选和学生列表必须服务“哪里值得关注”，而不是通过彩色统计卡制造管理感。
 
 ## 8. Flutter token mapping
 
 | 设计事实 | Flutter 落点 |
 | --- | --- |
-| color | `lib/app/theme/app_colors.dart` 的 `AppColors` |
+| color | `lib/app/theme/app_colors.dart` 的 `AppColors` + `AppTheme` 暗色角色 |
 | spacing/radius/border | `lib/app/theme/app_spacing.dart` 的 `AppSpacing`、`AppRadii`、`AppBorders` |
 | type/color scheme | `lib/app/theme/app_theme.dart` 的 `AppTheme.light()` / `AppTheme.dark()`；应用根使用 `ThemeMode.system` |
+| V2 compatibility | `lib/features/design_v2/v2_theme.dart` 只从 `AppTheme` 派生，不建立第二套 palette |
 | size class | `lib/app/layout/responsive.dart` 的 `ResponsiveBreakpoints` |
 | focus/keyboard | Material controls + `FocusTraversalGroup` / `Shortcuts` |
 | safe area/IME | `SafeArea` + `MediaQuery.viewInsetsOf` |
 | semantics | `Semantics`、清楚的 button label、状态文字 |
 | key touch target | `AppSpacing.touchTarget` + `AppTheme` 中的 button/icon constraints |
 
-这些 token 服务于 prototype 和后续生产组件；不要在 feature 内另写一套颜色、间距或字体常量，除非先更新本文件并说明原因。
+这些 token 服务于 prototype 和生产组件；不要在 feature 内另写一套颜色、间距或字体常量，除非先更新本文件并说明原因。
 
-## 9. Phase 0A theme audit
+## 9. Production visual review gates
 
-| 现有基础 | 判断 | Phase 0A.5 处理 |
-| --- | --- | --- |
-| `AppColors` 的中性画布、深色正文、青绿色 accent | 值得保留的方向，与产品关键词一致 | 保留色相关系；补充 surface、focus、borderStrong、info 和语义背景，降低把颜色当装饰分类的风险 |
-| 原 `surface` 同时承担页面背景和工作面 | 命名/层级不足 | 分成 `canvas` 与 `surface`；页面背景使用 canvas，工作面使用白色 surface |
-| 4/8/12/16/24/32 间距骨架 | 值得保留 | 增加 20/40 供中文长内容和页面呼吸；不在 feature 内另建间距；48dp 触控目标单独作为交互 token |
-| 6/10/12 radius | 可用但偏向 bootstrap | 收敛普通控件 radius 到 4/8/12 关系，保留小号 6 以兼容既有 bootstrap；dialog/sheet 单独使用 Material 3 的 28，不大面积使用圆角 |
-| Microsoft YaHei / Noto Sans CJK SC fallback | 只是工程占位，不等于完成中文排版 | 按中文真实层级调整字号/行高；保留 fallback，后续在目标设备复测系统字体 |
-| Material 3 seed color / CardTheme | 可作为 Flutter 基线 | 覆盖 surface、outline、button、input、navigation 状态；原型优先使用 rows/dividers，Card 不作为默认分组 |
-| expanded rail、compact/mobile AppBar | 结构起点 | 补上 medium compact rail，并在设计 prototype 中验证 expanded/medium/compact 三种关系 |
+视觉验收不能只证明“控件存在”。每轮生产 UI 修改至少覆盖：
+
+- 浅色 / 深色；
+- Android compact 与 Windows medium/expanded；
+- 0 个待办、少量待办、大量待办；
+- 有学生但无最近活动；
+- 机构中无异常、少量异常、大量 Case；
+- 中文长标题与字体放大；
+- hover / keyboard focus / 48dp touch target；
+- empty、loading、error、saving、save failed；
+- Personal / Organization scope 是否始终可辨，但不靠大片背景色区分。
+
+CI 的 source/widget contract 用于防止交互和 token 回退；截图/golden 或真实设备视觉验收用于发现“CI 全绿但层级仍然难看”的问题，两者不能互相替代。
