@@ -36,7 +36,20 @@ void main() {
     );
     expect(router, contains('V2WorkspacePage(runtime: runtime)'));
     expect(workspacePage, contains('V2WorkspaceLoader('));
-    expect(workspacePage, contains('runtime.learningRepository.loadWorkspace'));
+    expect(
+      workspacePage,
+      contains('effectiveRuntime.learningRepository.loadWorkspace'),
+    );
+    expect(workspacePage, contains('ResponsibilityScopedLearningRepository('));
+    expect(workspacePage, contains('runtime.learningRepository'));
+    expect(
+      workspacePage,
+      contains('SupabaseResponsibilityReadRepository(CloudClient.client)'),
+    );
+    expect(
+      workspacePage,
+      contains('SupabaseResponsibilityWriteRepository(CloudClient.client)'),
+    );
     expect(workspacePage, isNot(contains('V2 真实学情预览')));
     expect(workspacePage, isNot(contains('返回开发工具')));
 
