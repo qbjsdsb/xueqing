@@ -210,3 +210,16 @@ Medium 的目标不是“把桌面版硬塞进小窗口”，也不是“放大�
 - Personal / Organization scope 是否始终可辨，但不靠大片背景色区分。
 
 CI 的 source/widget contract 用于防止交互和 token 回退；截图/golden 或真实设备视觉验收用于发现“CI 全绿但层级仍然难看”的问题，两者不能互相替代。
+
+## Page Rhythm Contract
+
+Top-level V2 workspaces share one editorial content-header grammar. Personal and Organization may expose different scope actions, but they should not look like different applications.
+
+- Today / Student / Learning / Organization begin with the same title-context-action rhythm.
+- Compact manager accounts do not add a permanent scope strip above Personal pages; Organization is a quiet header action while bottom navigation remains exactly Today / Student / Learning.
+- Embedded Organization uses an in-content header rather than a nested AppBar. Its Learning / Management switch belongs to that header as a local section control.
+- Compact embedded Organization exposes an explicit return-to-Personal affordance without changing system-back semantics.
+- Embedded Organization Management does not repeat organization identity already owned by the parent header.
+- Organization Learning and embedded Management align to the same centered content width and horizontal rhythm.
+
+See `docs/design/PAGE_RHYTHM_AUDIT.md` for the audit and acceptance matrix.

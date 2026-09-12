@@ -62,7 +62,7 @@ class _ManagementHeader extends StatelessWidget {
     // Embedded Organization workspace already owns the scope-level refresh.
     // Do not expose a second, visually identical refresh affordance inside it.
     if (!showTitle) {
-      return identity;
+      return const SizedBox.shrink();
     }
 
     return Column(
