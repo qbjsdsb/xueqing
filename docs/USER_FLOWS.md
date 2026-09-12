@@ -8,7 +8,7 @@
 
 ## Flow B｜管理员开通成员
 
-org_admin provision → Auth identity + onboarding membership + roles/scopes → 随机临时密码一次显示 → 可信渠道交付。响应丢失不找回旧密码，reissue 新凭据。
+org_admin 可直接邀请 teacher，也可提名 org_owner；负责人提名进入 `pending_owner_approval`，只能由现有 org_owner 审批。org_admin 不可创建 org_admin 邀请。邀请撤销由具有机构管理能力的 owner/admin 执行。
 
 ## Flow C｜App Startup Authorization Gate
 
@@ -26,7 +26,7 @@ revoked/onboarding/disabled 不能先闪学生页。
 
 Student → active Subject Profile → 合法 teacher assignment → 定位/优势 → candidate problems → Evidence → Learning Cases → primary Actions。
 
-管理员可以建立关系，但不能代教师绕过 Teaching Fact Gate 写教学事实。
+管理员可以建立关系并在 Organization Scope 监督初诊过程，但管理身份不能替代 Responsible Teacher 的 Teaching Fact Gate。Organization Scope 如需建立正式 Case，责任必须由 server 解析到合法 active Lead/Assignment；无合法主责时先明确任课关系。
 
 ## Flow F｜Quick Capture / 课堂发现新问题
 
@@ -38,8 +38,9 @@ lesson/student page
 → new Case
 ```
 
-### 云端创建 Gate
-必须：
+### Personal Scope｜本人教学责任
+
+当前成员以本人责任创建云端 Case 时必须：
 
 ```text
 live session
@@ -53,9 +54,20 @@ live session
 
 因此：
 - Advisor-only 不能创建 teaching Case；
-- pure Subject Lead/Admin 不能 Quick Capture；
+- 只有管理角色、没有真实 teaching scope/Assignment 的负责人或管理员不能在 Personal Scope 把自己作为责任老师 Quick Capture；
 - Profile inactive/archived 拒绝；
 - 无网络时只保留 encrypted local draft，恢复同步时重新验证 Gate。
+
+### Organization Scope｜机构监督发起
+
+org_owner / org_admin 可以从机构视角发起 responsibility-aware new Case，但管理身份只提供监督/命令资格：
+
+- server 必须把 Responsible Teacher 解析到目标 Profile 当前合法 active teaching assignment；
+- 默认责任人为 active Lead；
+- 如未来允许显式选择 Collaborator，也必须重新验证其当前合法 Assignment；
+- 没有 active Lead 时 fail closed，先明确主责老师；
+- Case/Event 必须分别保留真实 actor 与真实 teaching responsibility；
+- 管理者本人只有在确实拥有该 Profile 的合法 Assignment 时才能成为 Case owner。
 
 目标仍是 10–20 秒，不强迫课中 root cause/taxonomy/三阶全部完成。
 
@@ -143,7 +155,22 @@ Student archived→inactive；Profiles 保持 archived。
 
 ## Flow N｜Teacher handoff / 离职 / 退单科
 
-盘点 assignments/owners/pending Actions → 验证接手人 scope/Profile relationship → 单事务迁移 → no orphan → scope/membership 收口。历史 actor 保留。
+Student Teacher Assignment handoff 与 Case/Action responsibility handoff 是两个不同业务事实。
+
+当前安全流程：
+
+```text
+盘点 current Assignment / open Case owner / pending Action assignee
+→ 验证接手人 membership + scope + Profile relationship
+→ 如果旧老师仍承担 open Case 或 pending Action responsibility：fail closed
+→ 先通过显式责任治理/交接处理 Case 与 Action
+→ 重新读取最新状态
+→ 再执行 Assignment handoff
+→ no orphan validation
+→ 收口旧 assignment / scope / membership（按对应治理命令）
+```
+
+不得因为换老师、退单科或停用成员就静默把历史 Case owner、Action 或历史 actor 整批改成新老师。历史教学事实保留原 actor；任何责任迁移必须留下显式可审计事实。
 
 ## Flow O｜网络失败 / timeout
 
@@ -155,7 +182,7 @@ High-risk command：复用 operation_id。
 
 ## Flow P｜跨学科查看
 
-本科教师本科详细；Advisor 综合必要摘要；Subject Lead 本 leadership scope；无权限不显示成“没有数据”。
+本科教师本科详细；管理者 Organization Projection 按机构监督合同读取；无权限不显示成“没有数据”。Personal Projection 不因为机构可见性扩大。
 
 ## Flow Q｜重复 Student / Merge
 
@@ -192,13 +219,15 @@ Remote Dev 只用虚构数据。Phase 0B.0 先验证 Auth identity、old-token r
 ## V1 明确不应出现
 
 - revoked/onboarding/disabled 能读学生数据；
-- management-only Quick Capture；
+- management-only 在 Personal Scope 把自己当作 Responsible Teacher Quick Capture；
+- Organization Scope 绕过合法 Assignment/active Lead 创建无人负责或由管理身份伪装负责的 Case；
 - inactive/archived Profile 新 teaching Case/Lesson；
 - reopen 新增第七 status；
 - passed 自动 stable/closed；
 - archive/停科伪造 Case closed；
 - `reactivate_student` 暗中跨事务 unarchive；
 - Student command 部分学科成功、部分失败作为正常结果；
+- Assignment handoff 静默批量改写 Case/Action responsibility；
 - unsafe merge 猜测处理双 Profile/双 Lead；
 - timeout 后客户端多 CRUD 补状态；
 - finalized communication/report 被后来事实回写；
