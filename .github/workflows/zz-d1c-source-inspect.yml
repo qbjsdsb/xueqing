@@ -20,6 +20,7 @@ jobs:
           channel: stable
           flutter-version: '3.47.1'
           cache: true
+      - run: python3 tool/d1c_fix_patch_script.py
       - run: python3 tool/d1c_apply.py
       - run: dart format lib/cloud/responsibility_scoped_learning_repository.dart lib/features/design_v2/v2_workflow_controller.dart lib/features/design_v2/v2_organization_workspace_page.dart test/cloud/responsibility_scoped_learning_repository_test.dart
       - run: flutter pub get
