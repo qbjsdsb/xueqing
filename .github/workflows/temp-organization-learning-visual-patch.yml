@@ -1,0 +1,42 @@
+name: Apply organization learning visual patch
+
+on:
+  push:
+    branches:
+      - 'ui/v2-visual-refinement'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ui/v2-visual-refinement
+          fetch-depth: 1
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply, format and verify focused patch
+        run: |
+          python3 .github/scripts/apply_organization_learning_visual_patch.py
+          dart format lib/features/design_v2/v2_organization_workspace_page.dart test/features/v2_organization_workspace_test.dart
+          rm .github/scripts/apply_organization_learning_visual_patch.py
+          rm .github/workflows/temp-organization-learning-visual-patch.yml
+          git diff --check
+          flutter analyze
+          flutter test test/features/v2_organization_workspace_test.dart
+
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor(ui): structure organization learning for scanning'
+          git push origin HEAD:ui/v2-visual-refinement
