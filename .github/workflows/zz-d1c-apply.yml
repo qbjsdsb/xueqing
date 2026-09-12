@@ -1,0 +1,134 @@
+name: One-shot D1c implementation
+
+on:
+  push:
+    branches:
+      - v0.3.8/organization-quick-capture-responsibility
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: v0.3.8/organization-quick-capture-responsibility
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.1'
+          cache: true
+      - name: Apply exact D1c patches
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              s = p.read_text()
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected 1 match, got {count}: {old[:80]!r}')
+              p.write_text(s.replace(old, new, 1))
+
+          repo = 'lib/cloud/responsibility_scoped_learning_repository.dart'
+          replace_once(repo,
+          "abstract interface class ResponsibilityWriteRepository {\n",
+          "abstract interface class OrganizationQuickCaptureRepository {\n  Future<QuickCaptureReceipt> quickCaptureForOrganization(\n    QuickCaptureCommand command, {\n    required String expectedResponsibilityMembershipId,\n  });\n}\n\nabstract interface class ResponsibilityWriteRepository {\n")
+          replace_once(repo,
+          "class ResponsibilityScopedLearningRepository\n    implements LearningRepository, ResponsibilityReadRepository {",
+          "class ResponsibilityScopedLearningRepository\n    implements\n        LearningRepository,\n        ResponsibilityReadRepository,\n        OrganizationQuickCaptureRepository {")
+          replace_once(repo,
+          "  @override\n  Future<WorkspaceCaseType> createCaseType({",
+          "  @override\n  Future<QuickCaptureReceipt> quickCaptureForOrganization(\n    QuickCaptureCommand command, {\n    required String expectedResponsibilityMembershipId,\n  }) {\n    final context = _responsibilityContext;\n    if (context == null) {\n      throw StateError('organization_responsibility_context_required');\n    }\n    if (!context.profileLeadMembershipIds.containsKey(command.profileId)) {\n      throw StateError('organization_profile_responsibility_required');\n    }\n    return _responsibilityWriteRepository.quickCaptureInScope(\n      command: command,\n      workspaceScope: WorkspaceWriteScope.organization,\n      expectedResponsibilityMembershipId: expectedResponsibilityMembershipId,\n    );\n  }\n\n  @override\n  Future<WorkspaceCaseType> createCaseType({")
+
+          controller = 'lib/features/design_v2/v2_workflow_controller.dart'
+          replace_once(controller,
+          "class V2WorkflowController {\n",
+          "typedef V2QuickCaptureCommandHandler = Future<QuickCaptureReceipt> Function(\n  QuickCaptureCommand command,\n);\n\nclass V2WorkflowController {\n")
+          replace_once(controller,
+          "    this.sessionUserId,\n    DateTime Function()? now,",
+          "    this.sessionUserId,\n    this.quickCaptureCommandHandler,\n    DateTime Function()? now,")
+          replace_once(controller,
+          "  final String? sessionUserId;\n  final DateTime Function() _now;",
+          "  final String? sessionUserId;\n  final V2QuickCaptureCommandHandler? quickCaptureCommandHandler;\n  final DateTime Function() _now;")
+          old_receipt = """    final receipt = await learningRepository.quickCapture(\n      QuickCaptureCommand(\n        operationId: write.operationId,\n        profileId: profile.profileId,\n        expectedProfileVersion: profile.profileVersion,\n        caseType: caseType.baseType,\n        organizationCaseTypeId: caseType.organizationCaseTypeId,\n        title: _headline(body),\n        description: null,\n        observedAt: write.observedAt ?? _now(),\n        evidenceSummary: body,\n      ),\n    );\n"""
+          new_receipt = """    final command = QuickCaptureCommand(\n      operationId: write.operationId,\n      profileId: profile.profileId,\n      expectedProfileVersion: profile.profileVersion,\n      caseType: caseType.baseType,\n      organizationCaseTypeId: caseType.organizationCaseTypeId,\n      title: _headline(body),\n      description: null,\n      observedAt: write.observedAt ?? _now(),\n      evidenceSummary: body,\n    );\n    final handler = quickCaptureCommandHandler;\n    final receipt = handler == null\n        ? await learningRepository.quickCapture(command)\n        : await handler(command);\n"""
+          replace_once(controller, old_receipt, new_receipt)
+
+          org = 'lib/features/design_v2/v2_organization_workspace_page.dart'
+          replace_once(org,
+          "import '../../cloud/learning_repository.dart';\nimport '../../cloud/responsibility_read_repository.dart';",
+          "import '../../cloud/composer_draft_store.dart';\nimport '../../cloud/learning_repository.dart';\nimport '../../cloud/responsibility_read_repository.dart';\nimport '../../cloud/responsibility_scoped_learning_repository.dart';")
+          replace_once(org,
+          "import 'v2_fixture.dart';\nimport 'v2_update_flow.dart';\nimport 'v2_workspace_data.dart';",
+          "import 'v2_composers.dart';\nimport 'v2_fixture.dart';\nimport 'v2_update_flow.dart';\nimport 'v2_workflow_controller.dart';\nimport 'v2_workspace_data.dart';")
+          replace_once(org,
+          "/// D1a is deliberately read-only on the learning side. Organization authority\n/// may inspect the already-authorized workspace and see the current teaching\n/// responsibility, but Quick Capture remains a separate D1b write boundary.",
+          "/// Organization authority may supervise the already-authorized workspace and\n/// record a new fact without taking over teaching responsibility. Organization\n/// Quick Capture stays bound to the selected Profile's current active Lead.")
+          replace_once(org,
+          "  Future<void> _checkForUpdates() async {",
+          """  V2WorkflowController? _organizationWorkflowController() {\n    final progressiveRepository = widget.runtime.progressiveCaseRepository;\n    final learningRepository = widget.runtime.learningRepository;\n    if (progressiveRepository == null ||\n        learningRepository is! OrganizationQuickCaptureRepository) {\n      return null;\n    }\n    return V2WorkflowController(\n      workspace: widget.workspace,\n      learningRepository: widget.runtime.learningRepository,\n      progressiveCaseRepository: progressiveRepository,\n      evidenceAttachmentRepository: widget.runtime.evidenceAttachmentRepository,\n      quickCaptureCommandHandler: (command) async {\n        final leadMembershipId = widget.responsibility\n            .leadMembershipIdForProfile(command.profileId);\n        if (leadMembershipId == null) {\n          throw const V2WorkflowSaveException(\n            '这个学科还没有明确主责老师。先设置主责老师后再建立正式学情，避免问题无人跟进。',\n            recordMayBeSaved: false,\n          );\n        }\n        try {\n          return await learningRepository.quickCaptureForOrganization(\n            command,\n            expectedResponsibilityMembershipId: leadMembershipId,\n          );\n        } catch (error) {\n          final detail = error.toString().toLowerCase();\n          if (detail.contains('responsibility_conflict')) {\n            throw V2WorkflowSaveException(\n              '主责老师刚刚发生变化，请关闭当前窗口，刷新学情后再记录。',\n              recordMayBeSaved: false,\n              cause: error,\n            );\n          }\n          if (detail.contains('case_responsibility_required')) {\n            throw V2WorkflowSaveException(\n              '这个学科还没有明确主责老师。先设置主责老师后再建立正式学情，避免问题无人跟进。',\n              recordMayBeSaved: false,\n              cause: error,\n            );\n          }\n          rethrow;\n        }\n      },\n    );\n  }\n\n  Future<void> _checkForUpdates() async {""")
+          replace_once(org,
+          "                        responsibility: widget.responsibility,\n                      )",
+          "                        responsibility: widget.responsibility,\n                        workflowController: _organizationWorkflowController(),\n                        composerDraftStore: widget.runtime.composerDraftStore,\n                        composerDraftScopeKey:\n                            widget.runtime.composerDraftStore != null &&\n                                widget.runtime.sessionUserId != null\n                            ? '${quickCaptureComposerScopeKey(sessionUserId: widget.runtime.sessionUserId!, organizationId: widget.workspace.organizationId)}:organization'\n                            : null,\n                        onChanged: widget.onChanged,\n                      )")
+          replace_once(org,
+          "    required this.responsibility,\n  });\n\n  final TeacherWorkspace workspace;\n  final V2WorkspaceData data;\n  final WorkspaceResponsibilityContext responsibility;",
+          "    required this.responsibility,\n    required this.workflowController,\n    required this.composerDraftStore,\n    required this.composerDraftScopeKey,\n    required this.onChanged,\n  });\n\n  final TeacherWorkspace workspace;\n  final V2WorkspaceData data;\n  final WorkspaceResponsibilityContext responsibility;\n  final V2WorkflowController? workflowController;\n  final ComposerDraftStore? composerDraftStore;\n  final String? composerDraftScopeKey;\n  final VoidCallback? onChanged;")
+          replace_once(org,
+          "  List<V2FocusItem> _itemsForStudent(V2Student student) => [",
+          """  Future<void> _openQuickCapture(\n    BuildContext context,\n    V2Student student,\n  ) async {\n    final controller = widget.workflowController;\n    if (controller == null) {\n      ScaffoldMessenger.of(context).showSnackBar(\n        const SnackBar(content: Text('当前版本暂时不能安全记录机构学情，请刷新或更新后再试。')),\n      );\n      return;\n    }\n    final profiles = widget.workspace.students\n        .where((profile) => profile.id == student.id)\n        .toList(growable: false);\n    if (profiles.isEmpty) return;\n    final hasLead = profiles.any(\n      (profile) =>\n          widget.responsibility.leadMembershipIdForProfile(profile.profileId) !=\n          null,\n    );\n    if (!hasLead) {\n      ScaffoldMessenger.of(context).showSnackBar(\n        const SnackBar(\n          content: Text(\n            '这个学生当前学科还没有明确主责老师。先设置主责老师后再建立正式学情，避免问题无人跟进。',\n          ),\n        ),\n      );\n      return;\n    }\n\n    final draftStore = widget.composerDraftStore;\n    final draftScopeKey = widget.composerDraftScopeKey;\n    ComposerDraftSnapshot? initialDraft;\n    if (draftStore != null && draftScopeKey != null) {\n      final stored = await draftStore.load(draftScopeKey);\n      if (stored?.studentId == student.id) initialDraft = stored;\n    }\n    if (!context.mounted) return;\n    final storedOperationId = initialDraft?.state['operation_id'];\n    final operationId =\n        storedOperationId is String && storedOperationId.trim().isNotEmpty\n        ? storedOperationId\n        : createOperationId();\n    final persistence = draftStore != null && draftScopeKey != null\n        ? V2QuickCapturePersistence(\n            store: draftStore,\n            scopeKey: draftScopeKey,\n            studentId: student.id,\n            operationId: operationId,\n            initialDraft: initialDraft,\n          )\n        : null;\n    final activeItems = widget.data.focusItemsForStudent(student);\n    final existingCases = activeItems\n        .map(\n          (item) => V2ExistingCaseOption(\n            id: item.id,\n            title: item.title,\n            subject: item.subject,\n            statusLabel: _caseStatusLabel(item),\n            nextStepLabel: item.nextStep,\n            dueLabel: item.dueLabel,\n          ),\n        )\n        .toList(growable: false);\n    final problemTypes = controller.caseTypeChoices\n        .map(\n          (choice) => V2ProblemTypeOption(key: choice.key, label: choice.label),\n        )\n        .toList(growable: false);\n    final saved = await showV2QuickCapture(\n      context,\n      studentName: student.name,\n      subjects: student.subjects,\n      problemTypes: problemTypes,\n      existingCases: existingCases,\n      persistence: persistence,\n      onSave: (draft) => controller.quickCapture(\n        V2QuickCaptureWrite(\n          operationId: operationId,\n          studentId: student.id,\n          subject: draft.subject,\n          caseTypeKey: draft.caseTypeKey,\n          body: draft.body,\n          attachments: draft.attachments,\n        ),\n      ),\n    );\n    if (saved && context.mounted) {\n      widget.onChanged?.call();\n    }\n  }\n\n  String _responsibilitySummaryForStudent(V2Student student) {\n    final labels = <String>[];\n    for (final profile in widget.workspace.students.where(\n      (profile) => profile.id == student.id,\n    )) {\n      final leadMembershipId = widget.responsibility\n          .leadMembershipIdForProfile(profile.profileId);\n      final leadName = leadMembershipId == null\n          ? '未设置主责'\n          : widget.responsibility.displayNameForMembership(leadMembershipId) ??\n                '主责老师';\n      labels.add('${profile.subject} $leadName');\n    }\n    return labels.isEmpty ? '主责信息暂不可用' : labels.join(' · ');\n  }\n\n  List<V2FocusItem> _itemsForStudent(V2Student student) => [""")
+          replace_once(org,
+          "                          leadLabelByCaseId: _leadLabelByCaseId,\n                        );",
+          "                          leadLabelByCaseId: _leadLabelByCaseId,\n                          responsibilitySummary: _responsibilitySummaryForStudent(\n                            student,\n                          ),\n                          onQuickCapture: () =>\n                              _openQuickCapture(context, student),\n                        );")
+          replace_once(org,
+          "    required this.leadLabelByCaseId,\n  });\n\n  final V2Student student;\n  final List<V2FocusItem> items;\n  final Map<String, String> leadLabelByCaseId;",
+          "    required this.leadLabelByCaseId,\n    required this.responsibilitySummary,\n    required this.onQuickCapture,\n  });\n\n  final V2Student student;\n  final List<V2FocusItem> items;\n  final Map<String, String> leadLabelByCaseId;\n  final String responsibilitySummary;\n  final VoidCallback onQuickCapture;")
+          replace_once(org,
+          "        subtitle: Text('${student.grade} · $subjectLabel · 暂无学情记录'),\n      );",
+          "        subtitle: Text(\n          '${student.grade} · $subjectLabel · 暂无学情记录\\n主责：$responsibilitySummary',\n        ),\n        isThreeLine: true,\n        trailing: IconButton(\n          key: Key('v2-organization-quick-capture-${student.id}'),\n          tooltip: '记录问题',\n          onPressed: onQuickCapture,\n          icon: const Icon(Icons.note_add_outlined),\n        ),\n      );")
+          replace_once(org,
+          "      subtitle: Text(\n        '${student.grade} · $subjectLabel · '\n        '${activeCount == 0 ? '暂无进行中问题' : '$activeCount 个进行中问题'}',\n      ),\n      children: [",
+          "      subtitle: Text(\n        '${student.grade} · $subjectLabel · '\n        '${activeCount == 0 ? '暂无进行中问题' : '$activeCount 个进行中问题'}\\n'\n        '主责：$responsibilitySummary',\n      ),\n      trailing: IconButton(\n        key: Key('v2-organization-quick-capture-${student.id}'),\n        tooltip: '记录问题',\n        onPressed: onQuickCapture,\n        icon: const Icon(Icons.note_add_outlined),\n      ),\n      children: [")
+
+          test = Path('test/cloud/responsibility_scoped_learning_repository_test.dart')
+          s = test.read_text()
+          marker = "void main() {\n"
+          if s.count(marker) != 1:
+              raise SystemExit('responsibility scoped test main marker mismatch')
+          addition = r'''  test('Organization Quick Capture sends the observed Lead as responsibility', () async {
+    final writer = _RecordingResponsibilityWriteRepository();
+    final repository = ResponsibilityScopedLearningRepository(
+      _FakeLearningRepository(_workspace()),
+      _FakeResponsibilityReadRepository(_context()),
+      writer,
+    );
+    await repository.loadWorkspace();
+    await repository.loadContext(organizationId: 'org-1');
+
+    await repository.quickCaptureForOrganization(
+      _command(profileId: 'profile-mine'),
+      expectedResponsibilityMembershipId: 'membership-lead',
+    );
+
+    expect(writer.lastScope, WorkspaceWriteScope.organization);
+    expect(writer.lastExpectedMembershipId, 'membership-lead');
+  });
+
+'''
+          test.write_text(s.replace(marker, marker + addition, 1))
+          PY
+          dart format lib/cloud/responsibility_scoped_learning_repository.dart lib/features/design_v2/v2_workflow_controller.dart lib/features/design_v2/v2_organization_workspace_page.dart test/cloud/responsibility_scoped_learning_repository_test.dart
+          flutter pub get
+          flutter analyze
+          flutter test test/cloud/responsibility_scoped_learning_repository_test.dart test/cloud/responsibility_scoped_quick_capture_contract_test.dart test/features/v2_typed_organization_navigation_test.dart
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lib/cloud/responsibility_scoped_learning_repository.dart lib/features/design_v2/v2_workflow_controller.dart lib/features/design_v2/v2_organization_workspace_page.dart test/cloud/responsibility_scoped_learning_repository_test.dart
+          git commit -m "v2: wire responsibility-safe Organization Quick Capture"
+          git push origin HEAD:v0.3.8/organization-quick-capture-responsibility
