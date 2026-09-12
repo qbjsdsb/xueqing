@@ -1,4 +1,4 @@
-name: One-shot D1c source inspection
+name: One-shot D1c apply and verify
 
 on:
   push:
@@ -6,25 +6,29 @@ on:
       - v0.3.8/organization-quick-capture-responsibility
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  inspect:
+  apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Inspect organization workspace and quick capture seams
+        with:
+          ref: v0.3.8/organization-quick-capture-responsibility
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.1'
+          cache: true
+      - run: python3 tool/d1c_apply.py
+      - run: dart format lib/cloud/responsibility_scoped_learning_repository.dart lib/features/design_v2/v2_workflow_controller.dart lib/features/design_v2/v2_organization_workspace_page.dart test/cloud/responsibility_scoped_learning_repository_test.dart
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test test/cloud/responsibility_scoped_learning_repository_test.dart test/cloud/responsibility_scoped_quick_capture_contract_test.dart test/features/v2_typed_organization_navigation_test.dart
+      - name: Commit verified implementation
         run: |
-          echo '=== organization symbols ==='
-          grep -n "OrganizationLearningView\|V2OrganizationWorkspacePage\|workspaceData.students\|responsibility" lib/features/design_v2/v2_organization_workspace_page.dart | head -120
-          echo '=== organization learning view ==='
-          start=$(grep -n "class _OrganizationLearningView" lib/features/design_v2/v2_organization_workspace_page.dart | cut -d: -f1 | head -1)
-          if [ -n "$start" ]; then sed -n "${start},$((start+360))p" lib/features/design_v2/v2_organization_workspace_page.dart; fi
-          echo '=== controller quick capture ==='
-          grep -n "Future<V2WorkflowResult> quickCapture" lib/features/design_v2/v2_workflow_controller.dart
-          q=$(grep -n "Future<V2WorkflowResult> quickCapture" lib/features/design_v2/v2_workflow_controller.dart | cut -d: -f1 | head -1)
-          sed -n "$((q-25)),$((q+140))p" lib/features/design_v2/v2_workflow_controller.dart
-          echo '=== loader workflow seam ==='
-          grep -n "workflowController\|organizationPageBuilder" lib/features/design_v2/v2_workspace_loader.dart
-          echo '=== draft scope ==='
-          grep -n "scopeKey\|quick.*draft\|QuickCapturePersistence" lib/features/design_v2/v2_workspace_loader.dart | head -120
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lib/cloud/responsibility_scoped_learning_repository.dart lib/features/design_v2/v2_workflow_controller.dart lib/features/design_v2/v2_organization_workspace_page.dart test/cloud/responsibility_scoped_learning_repository_test.dart
+          git commit -m "v2: wire responsibility-safe Organization Quick Capture"
+          git push origin HEAD:v0.3.8/organization-quick-capture-responsibility
