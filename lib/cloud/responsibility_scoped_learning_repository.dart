@@ -12,6 +12,13 @@ extension WorkspaceWriteScopeWire on WorkspaceWriteScope {
   };
 }
 
+abstract interface class OrganizationQuickCaptureRepository {
+  Future<QuickCaptureReceipt> quickCaptureForOrganization(
+    QuickCaptureCommand command, {
+    required String expectedResponsibilityMembershipId,
+  });
+}
+
 abstract interface class ResponsibilityWriteRepository {
   Future<QuickCaptureReceipt> quickCaptureInScope({
     required QuickCaptureCommand command,
@@ -94,7 +101,10 @@ class SupabaseResponsibilityWriteRepository
 /// snapshot that produced the Personal Projection. A failed/missing context
 /// therefore fails closed instead of silently falling back to legacy writes.
 class ResponsibilityScopedLearningRepository
-    implements LearningRepository, ResponsibilityReadRepository {
+    implements
+        LearningRepository,
+        ResponsibilityReadRepository,
+        OrganizationQuickCaptureRepository {
   ResponsibilityScopedLearningRepository(
     this._learningRepository,
     this._responsibilityReadRepository,
@@ -152,6 +162,25 @@ class ResponsibilityScopedLearningRepository
       command: command,
       workspaceScope: WorkspaceWriteScope.personal,
       expectedResponsibilityMembershipId: context.currentMembershipId,
+    );
+  }
+
+  @override
+  Future<QuickCaptureReceipt> quickCaptureForOrganization(
+    QuickCaptureCommand command, {
+    required String expectedResponsibilityMembershipId,
+  }) {
+    final context = _responsibilityContext;
+    if (context == null) {
+      throw StateError('organization_responsibility_context_required');
+    }
+    if (!context.profileLeadMembershipIds.containsKey(command.profileId)) {
+      throw StateError('organization_profile_responsibility_required');
+    }
+    return _responsibilityWriteRepository.quickCaptureInScope(
+      command: command,
+      workspaceScope: WorkspaceWriteScope.organization,
+      expectedResponsibilityMembershipId: expectedResponsibilityMembershipId,
     );
   }
 

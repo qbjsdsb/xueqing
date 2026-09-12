@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../cloud/composer_draft_store.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/responsibility_read_repository.dart';
+import '../../cloud/responsibility_scoped_learning_repository.dart';
 import '../organization_management/presentation/organization_management_page.dart';
 import '../teacher_workspace/presentation/teacher_workspace_page.dart';
 import '../teacher_workspace/workspace_runtime.dart';
+import 'v2_composers.dart';
 import 'v2_fixture.dart';
 import 'v2_update_flow.dart';
+import 'v2_workflow_controller.dart';
 import 'v2_workspace_data.dart';
 
 enum _OrganizationSection { learning, management }
@@ -17,9 +21,9 @@ enum _OrganizationPageAction { checkUpdate, signOut }
 
 /// Organization-scope workspace for owners/admins.
 ///
-/// D1a is deliberately read-only on the learning side. Organization authority
-/// may inspect the already-authorized workspace and see the current teaching
-/// responsibility, but Quick Capture remains a separate D1b write boundary.
+/// Organization authority may supervise the already-authorized workspace and
+/// record a new fact without taking over teaching responsibility. Organization
+/// Quick Capture stays bound to the selected Profile's current active Lead.
 class V2OrganizationWorkspacePage extends StatefulWidget {
   const V2OrganizationWorkspacePage({
     required this.workspace,
@@ -60,6 +64,56 @@ class _V2OrganizationWorkspacePageState
   void dispose() {
     _managementScrollController.dispose();
     super.dispose();
+  }
+
+  V2WorkflowController? _organizationWorkflowController() {
+    final progressiveRepository = widget.runtime.progressiveCaseRepository;
+    final learningRepository = widget.runtime.learningRepository;
+    if (progressiveRepository == null ||
+        learningRepository is! OrganizationQuickCaptureRepository) {
+      return null;
+    }
+    final organizationRepository =
+        learningRepository as OrganizationQuickCaptureRepository;
+    return V2WorkflowController(
+      workspace: widget.workspace,
+      learningRepository: widget.runtime.learningRepository,
+      progressiveCaseRepository: progressiveRepository,
+      evidenceAttachmentRepository: widget.runtime.evidenceAttachmentRepository,
+      quickCaptureCommandHandler: (command) async {
+        final leadMembershipId = widget.responsibility
+            .leadMembershipIdForProfile(command.profileId);
+        if (leadMembershipId == null) {
+          throw const V2WorkflowSaveException(
+            '这个学科还没有明确主责老师。先设置主责老师后再建立正式学情，避免问题无人跟进。',
+            recordMayBeSaved: false,
+          );
+        }
+        try {
+          return await organizationRepository.quickCaptureForOrganization(
+            command,
+            expectedResponsibilityMembershipId: leadMembershipId,
+          );
+        } catch (error) {
+          final detail = error.toString().toLowerCase();
+          if (detail.contains('responsibility_conflict')) {
+            throw V2WorkflowSaveException(
+              '主责老师刚刚发生变化，请关闭当前窗口，刷新学情后再记录。',
+              recordMayBeSaved: false,
+              cause: error,
+            );
+          }
+          if (detail.contains('case_responsibility_required')) {
+            throw V2WorkflowSaveException(
+              '这个学科还没有明确主责老师。先设置主责老师后再建立正式学情，避免问题无人跟进。',
+              recordMayBeSaved: false,
+              cause: error,
+            );
+          }
+          rethrow;
+        }
+      },
+    );
   }
 
   Future<void> _checkForUpdates() async {
@@ -272,6 +326,14 @@ class _V2OrganizationWorkspacePageState
                         workspace: widget.workspace,
                         data: widget.workspaceData,
                         responsibility: widget.responsibility,
+                        workflowController: _organizationWorkflowController(),
+                        composerDraftStore: widget.runtime.composerDraftStore,
+                        composerDraftScopeKey:
+                            widget.runtime.composerDraftStore != null &&
+                                widget.runtime.sessionUserId != null
+                            ? '${quickCaptureComposerScopeKey(sessionUserId: widget.runtime.sessionUserId!, organizationId: widget.workspace.organizationId)}:organization'
+                            : null,
+                        onChanged: widget.onChanged,
                       )
                     : Scrollbar(
                         controller: _managementScrollController,
@@ -300,11 +362,19 @@ class _OrganizationLearningView extends StatefulWidget {
     required this.workspace,
     required this.data,
     required this.responsibility,
+    required this.workflowController,
+    required this.composerDraftStore,
+    required this.composerDraftScopeKey,
+    required this.onChanged,
   });
 
   final TeacherWorkspace workspace;
   final V2WorkspaceData data;
   final WorkspaceResponsibilityContext responsibility;
+  final V2WorkflowController? workflowController;
+  final ComposerDraftStore? composerDraftStore;
+  final String? composerDraftScopeKey;
+  final VoidCallback? onChanged;
 
   @override
   State<_OrganizationLearningView> createState() =>
@@ -336,6 +406,115 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
       }
     }
     return result;
+  }
+
+  Future<void> _openQuickCapture(
+    BuildContext context,
+    V2Student student,
+  ) async {
+    final controller = widget.workflowController;
+    if (controller == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('当前版本暂时不能安全记录机构学情，请刷新或更新后再试。')),
+      );
+      return;
+    }
+    final profiles = widget.workspace.students
+        .where((profile) => profile.id == student.id)
+        .toList(growable: false);
+    if (profiles.isEmpty) return;
+    final hasLead = profiles.any(
+      (profile) =>
+          widget.responsibility.leadMembershipIdForProfile(profile.profileId) !=
+          null,
+    );
+    if (!hasLead) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('这个学生当前学科还没有明确主责老师。先设置主责老师后再建立正式学情，避免问题无人跟进。'),
+        ),
+      );
+      return;
+    }
+
+    final draftStore = widget.composerDraftStore;
+    final draftScopeKey = widget.composerDraftScopeKey;
+    ComposerDraftSnapshot? initialDraft;
+    if (draftStore != null && draftScopeKey != null) {
+      final stored = await draftStore.load(draftScopeKey);
+      if (stored?.studentId == student.id) initialDraft = stored;
+    }
+    if (!context.mounted) return;
+    final storedOperationId = initialDraft?.state['operation_id'];
+    final operationId =
+        storedOperationId is String && storedOperationId.trim().isNotEmpty
+        ? storedOperationId
+        : createOperationId();
+    final persistence = draftStore != null && draftScopeKey != null
+        ? V2QuickCapturePersistence(
+            store: draftStore,
+            scopeKey: draftScopeKey,
+            studentId: student.id,
+            operationId: operationId,
+            initialDraft: initialDraft,
+          )
+        : null;
+    final activeItems = widget.data.focusItemsForStudent(student);
+    final existingCases = activeItems
+        .map(
+          (item) => V2ExistingCaseOption(
+            id: item.id,
+            title: item.title,
+            subject: item.subject,
+            statusLabel: _caseStatusLabel(item),
+            nextStepLabel: item.nextStep,
+            dueLabel: item.dueLabel,
+          ),
+        )
+        .toList(growable: false);
+    final problemTypes = controller.caseTypeChoices
+        .map(
+          (choice) => V2ProblemTypeOption(key: choice.key, label: choice.label),
+        )
+        .toList(growable: false);
+    final saved = await showV2QuickCapture(
+      context,
+      studentName: student.name,
+      subjects: student.subjects,
+      problemTypes: problemTypes,
+      existingCases: existingCases,
+      persistence: persistence,
+      onSave: (draft) => controller.quickCapture(
+        V2QuickCaptureWrite(
+          operationId: operationId,
+          studentId: student.id,
+          subject: draft.subject,
+          caseTypeKey: draft.caseTypeKey,
+          body: draft.body,
+          attachments: draft.attachments,
+        ),
+      ),
+    );
+    if (saved && context.mounted) {
+      widget.onChanged?.call();
+    }
+  }
+
+  String _responsibilitySummaryForStudent(V2Student student) {
+    final labels = <String>[];
+    for (final profile in widget.workspace.students.where(
+      (profile) => profile.id == student.id,
+    )) {
+      final leadMembershipId = widget.responsibility.leadMembershipIdForProfile(
+        profile.profileId,
+      );
+      final leadName = leadMembershipId == null
+          ? '未设置主责'
+          : widget.responsibility.displayNameForMembership(leadMembershipId) ??
+                '主责老师';
+      labels.add('${profile.subject} $leadName');
+    }
+    return labels.isEmpty ? '主责信息暂不可用' : labels.join(' · ');
   }
 
   List<V2FocusItem> _itemsForStudent(V2Student student) => [
@@ -444,6 +623,10 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                           student: student,
                           items: items,
                           leadLabelByCaseId: _leadLabelByCaseId,
+                          responsibilitySummary:
+                              _responsibilitySummaryForStudent(student),
+                          onQuickCapture: () =>
+                              _openQuickCapture(context, student),
                         );
                       },
                     ),
@@ -460,11 +643,15 @@ class _OrganizationStudentRow extends StatelessWidget {
     required this.student,
     required this.items,
     required this.leadLabelByCaseId,
+    required this.responsibilitySummary,
+    required this.onQuickCapture,
   });
 
   final V2Student student;
   final List<V2FocusItem> items;
   final Map<String, String> leadLabelByCaseId;
+  final String responsibilitySummary;
+  final VoidCallback onQuickCapture;
 
   @override
   Widget build(BuildContext context) {
@@ -474,7 +661,16 @@ class _OrganizationStudentRow extends StatelessWidget {
       return ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         title: Text(student.name),
-        subtitle: Text('${student.grade} · $subjectLabel · 暂无学情记录'),
+        subtitle: Text(
+          '${student.grade} · $subjectLabel · 暂无学情记录 · 主责：$responsibilitySummary',
+        ),
+        isThreeLine: true,
+        trailing: IconButton(
+          key: Key('v2-organization-quick-capture-${student.id}'),
+          tooltip: '记录问题',
+          onPressed: onQuickCapture,
+          icon: const Icon(Icons.note_add_outlined),
+        ),
       );
     }
 
@@ -484,7 +680,13 @@ class _OrganizationStudentRow extends StatelessWidget {
       title: Text(student.name),
       subtitle: Text(
         '${student.grade} · $subjectLabel · '
-        '${activeCount == 0 ? '暂无进行中问题' : '$activeCount 个进行中问题'}',
+        '${activeCount == 0 ? '暂无进行中问题' : '$activeCount 个进行中问题'} · 主责：$responsibilitySummary',
+      ),
+      trailing: IconButton(
+        key: Key('v2-organization-quick-capture-${student.id}'),
+        tooltip: '记录问题',
+        onPressed: onQuickCapture,
+        icon: const Icon(Icons.note_add_outlined),
       ),
       children: [
         for (final item in items)
