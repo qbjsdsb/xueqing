@@ -8,7 +8,7 @@ void main() {
         .readAsStringSync();
 
     expect(workflow, contains('required_schema="20260911193000"'));
-    expect(workflow, contains('RELEASE_VERSION_NAME="$version_name"'));
+    expect(workflow, contains(r'RELEASE_VERSION_NAME="$version_name"'));
     expect(workflow, contains('version >= (0, 3, 8)'));
     expect(workflow, contains('"responsibility_read_model"'));
     expect(workflow, contains('"responsibility_safe_quick_capture"'));
