@@ -25,7 +25,9 @@ void main() {
     );
     expect(
       rows,
-      contains('border: Border(bottom: BorderSide(color: colorScheme.outlineVariant))'),
+      contains(
+        'border: Border(bottom: BorderSide(color: colorScheme.outlineVariant))',
+      ),
     );
 
     final roleChipStart = rows.indexOf('class _ManagementRoleChip');

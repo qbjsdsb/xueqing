@@ -33,8 +33,8 @@ class _MemberTile extends StatelessWidget {
     return _ManagementRowShell(
       leading: CircleAvatar(
         radius: 20,
-        backgroundColor: colorScheme.primaryContainer,
-        foregroundColor: colorScheme.onPrimaryContainer,
+        backgroundColor: colorScheme.surfaceContainer,
+        foregroundColor: colorScheme.onSurfaceVariant,
         child: Text(initials),
       ),
       child: Column(
@@ -703,16 +703,17 @@ class _ManagementRowShell extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppRadii.medium),
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 40, child: Center(child: leading)),
+          SizedBox(width: 36, child: Center(child: leading)),
           const SizedBox(width: AppSpacing.sm),
           Expanded(child: child),
         ],
@@ -728,11 +729,24 @@ class _ManagementRoleChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
-      side: BorderSide.none,
-      backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(AppRadii.small),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }
@@ -749,12 +763,21 @@ class _ManagementStatusChip extends StatelessWidget {
     final color = isPositive
         ? colorScheme.primary
         : colorScheme.onSurfaceVariant;
-    return Chip(
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
-      side: BorderSide.none,
-      backgroundColor: color.withValues(alpha: 0.12),
-      labelStyle: TextStyle(color: color),
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isPositive ? 0.08 : 0.06),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+        borderRadius: BorderRadius.circular(AppRadii.small),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: color, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }

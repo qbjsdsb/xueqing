@@ -223,3 +223,15 @@ Top-level V2 workspaces share one editorial content-header grammar. Personal and
 - Organization Learning and embedded Management align to the same centered content width and horizontal rhythm.
 
 See `docs/design/PAGE_RHYTHM_AUDIT.md` for the audit and acceptance matrix.
+
+## Organization Management Density Contract
+
+Organization Management remains information-dense, but repeated records should read as a quiet work list rather than a stack of mini cards.
+
+- repeated member / student / assignment rows use spacing and thin dividers instead of rounded filled containers;
+- role and identity metadata stays neutral and compact;
+- status may use a restrained semantic tint, but should not become a wall of Material Chips;
+- setup guidance may emphasize the next step with a slim semantic edge, not a large primary-tinted block;
+- local actions remain near the record they affect; visual reduction must not hide real operational capability.
+
+See `docs/design/MANAGEMENT_DENSITY_AUDIT.md` for the audit boundary.
