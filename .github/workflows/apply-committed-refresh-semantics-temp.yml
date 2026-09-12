@@ -1,0 +1,279 @@
+name: Apply committed write refresh reliability temporary
+
+on:
+  push:
+    branches:
+      - fix/committed-write-refresh-semantics
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/committed-write-refresh-semantics
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - name: Apply refresh reliability changes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 anchor, found {count}')
+              return text.replace(old, new, 1)
+
+          learning = Path('lib/features/organization_management/presentation/organization_management_learning_actions.dart')
+          text = learning.read_text()
+
+          text = replace_once(
+              text,
+              """      if (!mounted || result == null) return;\n      await _refresh();\n      if (!mounted) return;\n      widget.onChanged?.call();\n      ScaffoldMessenger.of(\n        context,\n      ).showSnackBar(SnackBar(content: Text('已添加学科：${result.subjectName}。')));\n""",
+              """      if (!mounted || result == null) return;\n      await _finishCommittedMutation(\n        successMessage: '已添加学科：${result.subjectName}。',\n      );\n""",
+              'add subject committed refresh',
+          )
+
+          text = replace_once(
+              text,
+              """        await _refresh();\n        if (!mounted) return;\n        widget.onChanged?.call();\n        ScaffoldMessenger.of(context).showSnackBar(\n          SnackBar(\n            content: Text(\n              '已将 ${assignment.studentName} 的 ${assignment.subjectName} '\n              '${_studentAssignmentRoleLabel(assignment.assignmentRole)}交接给 '\n              '${result.replacementTeacherName}；同时迁移 '\n              '${plan.affectedCases.length} 个问题、${plan.affectedActions.length} 个行动。',\n            ),\n          ),\n        );\n""",
+              """        await _finishCommittedMutation(\n          successMessage:\n              '已将 ${assignment.studentName} 的 ${assignment.subjectName} '\n              '${_studentAssignmentRoleLabel(assignment.assignmentRole)}交接给 '\n              '${result.replacementTeacherName}；同时迁移 '\n              '${plan.affectedCases.length} 个问题、${plan.affectedActions.length} 个行动。',\n        );\n""",
+              'handoff committed refresh',
+          )
+
+          text = replace_once(
+              text,
+              """      if (!mounted || result == null) return;\n      await _refresh();\n      if (!mounted) return;\n      widget.onChanged?.call();\n      ScaffoldMessenger.of(context).showSnackBar(\n        SnackBar(\n          content: Text(\n            '已添加 ${result.studentName} · ${result.subjectName} · '\n            '${result.teacherDisplayName}',\n          ),\n        ),\n      );\n""",
+              """      if (!mounted || result == null) return;\n      await _finishCommittedMutation(\n        successMessage:\n            '已添加 ${result.studentName} · ${result.subjectName} · '\n            '${result.teacherDisplayName}',\n      );\n""",
+              'add student committed refresh',
+          )
+
+          text = replace_once(
+              text,
+              """      if (!mounted || result == null) return;\n      await _refresh();\n      if (!mounted) return;\n      widget.onChanged?.call();\n      ScaffoldMessenger.of(context).showSnackBar(\n        SnackBar(content: Text('已更新 ${result.studentName} 的基础资料。')),\n      );\n""",
+              """      if (!mounted || result == null) return;\n      await _finishCommittedMutation(\n        successMessage: '已更新 ${result.studentName} 的基础资料。',\n      );\n""",
+              'edit student committed refresh',
+          )
+          learning.write_text(text)
+
+          member = Path('lib/features/organization_management/presentation/organization_management_member_actions.dart')
+          text = member.read_text()
+
+          text = replace_once(
+              text,
+              """      await _refresh();\n      if (!mounted) return;\n      widget.onChanged?.call();\n      final displayName = member.displayName ?? member.email;\n      final message = result.status == 'disabled'\n          ? '已停用 $displayName；结束了 ${result.endedScopeCount + result.endedAssignmentCount} 条当前教学关系。'\n          : '已恢复 $displayName 的机构访问；需要的教学关系请重新配置。';\n      ScaffoldMessenger.of(context)\n          .showSnackBar(SnackBar(content: Text(message)));\n""",
+              """      final displayName = member.displayName ?? member.email;\n      final message = result.status == 'disabled'\n          ? '已停用 $displayName；结束了 ${result.endedScopeCount + result.endedAssignmentCount} 条当前教学关系。'\n          : '已恢复 $displayName 的机构访问；需要的教学关系请重新配置。';\n      await _finishCommittedMutation(successMessage: message);\n""",
+              'member status committed refresh',
+          )
+
+          text = replace_once(
+              text,
+              """      if (mounted) await _refresh();\n""",
+              """      if (mounted) await _finishCommittedMutation();\n""",
+              'invite member committed refresh',
+          )
+
+          text = replace_once(
+              text,
+              """      await _refresh();\n      if (!mounted) return;\n      widget.onChanged?.call();\n      ScaffoldMessenger.of(\n        context,\n      ).showSnackBar(SnackBar(content: Text('已更新成员姓名：${result.displayName}。')));\n""",
+              """      await _finishCommittedMutation(\n        successMessage: '已更新成员姓名：${result.displayName}。',\n      );\n""",
+              'member name committed refresh',
+          )
+
+          text = replace_once(
+              text,
+              """      if (mounted) {\n        await _showProvisioningResult(result);\n        await _refresh();\n      }\n""",
+              """      if (mounted) {\n        await _showProvisioningResult(result);\n        await _finishCommittedMutation();\n      }\n""",
+              'provision invitation committed refresh',
+          )
+
+          text = replace_once(
+              text,
+              """      if (mounted) {\n        await _showTemporaryPassword(result);\n        await _refresh();\n      }\n""",
+              """      if (mounted) {\n        await _showTemporaryPassword(result);\n        await _finishCommittedMutation();\n      }\n""",
+              'reissue credential committed refresh',
+          )
+          member.write_text(text)
+
+          test = Path('test/features/organization_management_test.dart')
+          text = test.read_text()
+
+          text = replace_once(
+              text,
+              """  int assignmentTransferCount = 0;\n  int handoffPreviewCount = 0;\n  int handoffCommitCount = 0;\n  int studentSubjectAddCount = 0;\n""",
+              """  int assignmentTransferCount = 0;\n  int handoffPreviewCount = 0;\n  int handoffCommitCount = 0;\n  int listStudentsCount = 0;\n  bool failNextListStudents = false;\n  int studentSubjectAddCount = 0;\n""",
+              'fake refresh controls',
+          )
+
+          text = replace_once(
+              text,
+              """  Future<List<OrganizationStudentRecord>> listStudents({\n    required String organizationId,\n  }) async {\n    return students;\n  }\n""",
+              """  Future<List<OrganizationStudentRecord>> listStudents({\n    required String organizationId,\n  }) async {\n    listStudentsCount++;\n    if (failNextListStudents) {\n      failNextListStudents = false;\n      throw StateError('simulated refresh failure');\n    }\n    return students;\n  }\n""",
+              'fake listStudents failure',
+          )
+
+          approval_anchor = """  testWidgets('admin can view members but cannot disable them', (tester) async {\n"""
+          approval_test = r'''  testWidgets(
+    'committed mutation reports refresh failure without pretending the write failed',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: [_ownerNomination()],
+      );
+      await _pumpManagement(tester, repository);
+
+      repository.failNextListStudents = true;
+      final approveFinder = find.text('通过负责人提名');
+      await tester.ensureVisible(approveFinder);
+      await tester.tap(approveFinder);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(repository.approveCount, 1);
+      expect(repository.listStudentsCount, greaterThanOrEqualTo(2));
+      expect(find.textContaining('负责人提名已通过'), findsOneWidget);
+      expect(find.textContaining('最新列表暂时没有刷新成功'), findsOneWidget);
+      expect(find.textContaining('不要重复提交'), findsOneWidget);
+      expect(find.textContaining('操作未完成'), findsNothing);
+    },
+  );
+
+'''
+          if text.count(approval_anchor) != 1:
+              raise SystemExit('approval test insertion anchor mismatch')
+          text = text.replace(approval_anchor, approval_test + approval_anchor, 1)
+
+          handoff_anchor = """  testWidgets('student subject shows lead and collaborator together', (\n"""
+          handoff_test = r'''  testWidgets(
+    'committed teaching handoff is not reported as failed when refresh fails',
+    (tester) async {
+      final repository = _FakeOrganizationManagementRepository(
+        members: const [],
+        invitations: const [],
+        students: [_studentRecord()],
+        studentTeacherAssignments: [_studentTeacherAssignment()],
+        setupOptions: const OrganizationSetupOptions(
+          subjects: [
+            OrganizationSetupSubject(id: 'subject-1', displayName: '数学'),
+          ],
+          teachers: [
+            OrganizationSetupTeacher(
+              membershipId: 'membership-1',
+              displayName: '原老师',
+              email: 'old-teacher@example.com',
+              organizationSubjectIds: ['subject-1'],
+            ),
+            OrganizationSetupTeacher(
+              membershipId: 'membership-2',
+              displayName: '新老师',
+              email: 'new-teacher@example.com',
+              organizationSubjectIds: ['subject-1'],
+            ),
+          ],
+        ),
+        teacherSubjectScopes: [
+          OrganizationTeacherSubjectScope(
+            scopeId: 'scope-1',
+            membershipId: 'membership-1',
+            organizationSubjectId: 'subject-1',
+            teacherName: '原老师',
+            teacherEmail: 'old-teacher@example.com',
+            membershipStatus: 'active',
+            subjectName: '数学',
+            subjectCode: 'math',
+            scopeKind: 'teaching',
+            status: 'active',
+            version: 1,
+            activeFrom: DateTime(2026, 9, 1),
+            activeTo: null,
+          ),
+          OrganizationTeacherSubjectScope(
+            scopeId: 'scope-2',
+            membershipId: 'membership-2',
+            organizationSubjectId: 'subject-1',
+            teacherName: '新老师',
+            teacherEmail: 'new-teacher@example.com',
+            membershipStatus: 'active',
+            subjectName: '数学',
+            subjectCode: 'math',
+            scopeKind: 'teaching',
+            status: 'active',
+            version: 1,
+            activeFrom: DateTime(2026, 9, 1),
+            activeTo: null,
+          ),
+        ],
+      );
+      await _pumpManagement(tester, repository);
+
+      final transferButton = find.byKey(
+        const ValueKey<String>('student-assignment-transfer-assignment-1'),
+      );
+      await tester.ensureVisible(transferButton);
+      await tester.tap(transferButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('继续核对'));
+      await tester.pumpAndSettle();
+
+      repository.failNextListStudents = true;
+      await tester.tap(find.byKey(const ValueKey('handoff-confirm-submit')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(repository.handoffCommitCount, 1);
+      expect(repository.assignmentTransferCount, 1);
+      expect(repository.updatedTeacherAssignment?.replacementTeacherName, '新老师');
+      expect(find.textContaining('已将 原学生 的 数学 主责老师交接给 新老师'), findsOneWidget);
+      expect(find.textContaining('最新列表暂时没有刷新成功'), findsOneWidget);
+      expect(find.textContaining('不要重复提交'), findsOneWidget);
+      expect(find.textContaining('操作未完成'), findsNothing);
+      // The visible list is intentionally allowed to remain stale until a
+      // successful refresh; server truth must not be confused with UI freshness.
+      expect(find.text('主责老师：原老师'), findsOneWidget);
+    },
+  );
+
+'''
+          if text.count(handoff_anchor) != 1:
+              raise SystemExit('handoff test insertion anchor mismatch')
+          text = text.replace(handoff_anchor, handoff_test + handoff_anchor, 1)
+          test.write_text(text)
+          PY
+
+      - name: Format and validate
+        shell: bash
+        run: |
+          dart format \
+            lib/features/organization_management/presentation/organization_management_core.dart \
+            lib/features/organization_management/presentation/organization_management_learning_actions.dart \
+            lib/features/organization_management/presentation/organization_management_member_actions.dart \
+            test/features/organization_management_test.dart
+          flutter pub get
+          flutter analyze
+          flutter test test/features/organization_management_test.dart
+
+      - name: Commit implementation and remove temporary helper
+        shell: bash
+        run: |
+          rm .github/workflows/apply-committed-refresh-semantics-temp.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/features/organization_management/presentation/organization_management_core.dart \
+            lib/features/organization_management/presentation/organization_management_learning_actions.dart \
+            lib/features/organization_management/presentation/organization_management_member_actions.dart \
+            test/features/organization_management_test.dart \
+            .github/workflows/apply-committed-refresh-semantics-temp.yml
+          git commit -m "fix: preserve committed-write truth when refresh fails"
+          git push origin HEAD:fix/committed-write-refresh-semantics
