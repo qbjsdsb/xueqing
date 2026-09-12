@@ -14,6 +14,7 @@ import '../../export/learning_record_export_feedback.dart';
 import '../teacher_workspace/workspace_runtime.dart';
 import 'v2_fixture.dart';
 import 'v2_management_page.dart';
+import 'v2_organization_workspace_page.dart';
 import 'v2_read_model_adapter.dart';
 import 'v2_responsibility_projection.dart';
 import 'v2_workflow_controller.dart';
@@ -48,10 +49,12 @@ class _V2LoadedWorkspace {
   const _V2LoadedWorkspace({
     required this.rawWorkspace,
     required this.personalProjection,
+    required this.responsibilityContext,
   });
 
   final TeacherWorkspace rawWorkspace;
   final V2PersonalWorkspaceProjection? personalProjection;
+  final WorkspaceResponsibilityContext? responsibilityContext;
 
   TeacherWorkspace get personalWorkspace =>
       personalProjection?.workspace ?? rawWorkspace;
@@ -66,6 +69,9 @@ class _V2LoadedWorkspace {
 
   V2WorkspaceData get workspaceData =>
       personalProjection?.workspaceData ?? snapshot.workspaceData;
+
+  V2WorkspaceData get organizationWorkspaceData =>
+      V2ReadModelAdapter.fromWorkspace(rawWorkspace).workspaceData;
 }
 
 class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
@@ -95,6 +101,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
       return _V2LoadedWorkspace(
         rawWorkspace: workspace,
         personalProjection: null,
+        responsibilityContext: null,
       );
     }
 
@@ -107,6 +114,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         workspace: workspace,
         responsibility: responsibility,
       ),
+      responsibilityContext: responsibility,
     );
   }
 
@@ -437,12 +445,23 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         final loaded = snapshot.requireData;
         final rawWorkspace = loaded.rawWorkspace;
         final personalWorkspace = loaded.personalWorkspace;
+        final responsibility = loaded.responsibilityContext;
         final runtime = widget.runtime;
         final canOpenManagement =
             rawWorkspace.canManageOrganization &&
             rawWorkspace.organizationId != null &&
             runtime?.organizationManagementRepository != null;
-        final WidgetBuilder? managementPageBuilder = canOpenManagement
+        final canOpenOrganization =
+            canOpenManagement && responsibility != null && runtime != null;
+        final WidgetBuilder? managementPageBuilder = canOpenOrganization
+            ? (_) => V2OrganizationWorkspacePage(
+                workspace: rawWorkspace,
+                workspaceData: loaded.organizationWorkspaceData,
+                responsibility: responsibility,
+                runtime: runtime,
+                onChanged: () => unawaited(_softRefresh()),
+              )
+            : canOpenManagement
             ? (_) => V2ManagementPage(
                 workspace: rawWorkspace,
                 runtime: runtime!,
@@ -451,6 +470,16 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
             : null;
 
         if (!loaded.hasPersonalTeachingResponsibility) {
+          if (canOpenOrganization) {
+            return V2OrganizationWorkspacePage(
+              workspace: rawWorkspace,
+              workspaceData: loaded.organizationWorkspaceData,
+              responsibility: responsibility,
+              runtime: runtime,
+              rootMode: true,
+              onChanged: () => unawaited(_softRefresh()),
+            );
+          }
           if (canOpenManagement) {
             return V2ManagementPage(
               workspace: rawWorkspace,
