@@ -383,6 +383,233 @@ class OrganizationStudentTeacherAssignmentTransferResult {
   }
 }
 
+class OrganizationTeachingHandoffCase {
+  const OrganizationTeachingHandoffCase({
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.version,
+    required this.ownerMembershipId,
+    required this.movesOwner,
+  });
+
+  final String id;
+  final String title;
+  final String status;
+  final int version;
+  final String ownerMembershipId;
+  final bool movesOwner;
+
+  factory OrganizationTeachingHandoffCase.fromJson(Map<String, dynamic> json) {
+    return OrganizationTeachingHandoffCase(
+      id: _requiredString(json['id'], 'handoff_case_id'),
+      title: _stringValue(json['title']) ?? '未命名问题',
+      status: _stringValue(json['status']) ?? 'unknown',
+      version: _requiredPositiveInt(json['version'], 'handoff_case_version'),
+      ownerMembershipId: _requiredString(
+        json['owner_membership_id'],
+        'handoff_case_owner_membership_id',
+      ),
+      movesOwner: json['moves_owner'] == true,
+    );
+  }
+
+  Map<String, dynamic> toPlanJson() => <String, dynamic>{
+    'id': id,
+    'title': title,
+    'status': status,
+    'version': version,
+    'owner_membership_id': ownerMembershipId,
+    'moves_owner': movesOwner,
+  };
+}
+
+class OrganizationTeachingHandoffAction {
+  const OrganizationTeachingHandoffAction({
+    required this.id,
+    required this.caseId,
+    required this.title,
+    required this.version,
+  });
+
+  final String id;
+  final String caseId;
+  final String title;
+  final int version;
+
+  factory OrganizationTeachingHandoffAction.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return OrganizationTeachingHandoffAction(
+      id: _requiredString(json['id'], 'handoff_action_id'),
+      caseId: _requiredString(json['case_id'], 'handoff_action_case_id'),
+      title: _stringValue(json['title']) ?? '未命名行动',
+      version: _requiredPositiveInt(json['version'], 'handoff_action_version'),
+    );
+  }
+
+  Map<String, dynamic> toPlanJson() => <String, dynamic>{
+    'id': id,
+    'case_id': caseId,
+    'title': title,
+    'version': version,
+  };
+}
+
+class OrganizationTeachingHandoffPlan {
+  const OrganizationTeachingHandoffPlan({
+    required this.organizationId,
+    required this.businessDate,
+    required this.studentSubjectProfileId,
+    required this.studentId,
+    required this.studentName,
+    required this.organizationSubjectId,
+    required this.subjectName,
+    required this.subjectCode,
+    required this.assignmentId,
+    required this.assignmentRole,
+    required this.assignmentVersion,
+    required this.sourceMembershipId,
+    required this.sourceTeacherName,
+    required this.replacementMembershipId,
+    required this.replacementTeacherName,
+    required this.replacementScopeId,
+    required this.affectedCases,
+    required this.affectedActions,
+  });
+
+  final String organizationId;
+  final DateTime businessDate;
+  final String studentSubjectProfileId;
+  final String studentId;
+  final String studentName;
+  final String organizationSubjectId;
+  final String subjectName;
+  final String subjectCode;
+  final String assignmentId;
+  final String assignmentRole;
+  final int assignmentVersion;
+  final String sourceMembershipId;
+  final String sourceTeacherName;
+  final String replacementMembershipId;
+  final String replacementTeacherName;
+  final String replacementScopeId;
+  final List<OrganizationTeachingHandoffCase> affectedCases;
+  final List<OrganizationTeachingHandoffAction> affectedActions;
+
+  int get affectedCaseCount => affectedCases.length;
+  int get affectedActionCount => affectedActions.length;
+
+  List<Map<String, dynamic>> get expectedCasesPayload => <Map<String, dynamic>>[
+    for (final item in affectedCases) item.toPlanJson(),
+  ];
+
+  List<Map<String, dynamic>> get expectedActionsPayload =>
+      <Map<String, dynamic>>[
+        for (final item in affectedActions) item.toPlanJson(),
+      ];
+
+  factory OrganizationTeachingHandoffPlan.fromJson(Map<String, dynamic> json) {
+    final rawCases = json['affected_cases'];
+    final rawActions = json['affected_actions'];
+    if (rawCases is! List || rawActions is! List) {
+      throw const FormatException(
+        'Teaching handoff plan returned invalid responsibility lists.',
+      );
+    }
+    final cases = <OrganizationTeachingHandoffCase>[
+      for (final item in rawCases)
+        if (item is Map)
+          OrganizationTeachingHandoffCase.fromJson(
+            Map<String, dynamic>.from(item),
+          )
+        else
+          throw const FormatException(
+            'Teaching handoff plan returned an invalid Case item.',
+          ),
+    ];
+    final actions = <OrganizationTeachingHandoffAction>[
+      for (final item in rawActions)
+        if (item is Map)
+          OrganizationTeachingHandoffAction.fromJson(
+            Map<String, dynamic>.from(item),
+          )
+        else
+          throw const FormatException(
+            'Teaching handoff plan returned an invalid Action item.',
+          ),
+    ];
+    final businessDate = _dateTimeValue(json['business_date']);
+    if (businessDate == null) {
+      throw const FormatException(
+        'Teaching handoff plan returned invalid business_date.',
+      );
+    }
+    final plan = OrganizationTeachingHandoffPlan(
+      organizationId: _requiredString(
+        json['organization_id'],
+        'organization_id',
+      ),
+      businessDate: businessDate,
+      studentSubjectProfileId: _requiredString(
+        json['student_subject_profile_id'],
+        'student_subject_profile_id',
+      ),
+      studentId: _requiredString(json['student_id'], 'student_id'),
+      studentName: _stringValue(json['student_name']) ?? '未命名学生',
+      organizationSubjectId: _requiredString(
+        json['organization_subject_id'],
+        'organization_subject_id',
+      ),
+      subjectName: _stringValue(json['subject_name']) ?? '未命名学科',
+      subjectCode: _stringValue(json['subject_code']) ?? '—',
+      assignmentId: _requiredString(json['assignment_id'], 'assignment_id'),
+      assignmentRole: _requiredString(
+        json['assignment_role'],
+        'assignment_role',
+      ),
+      assignmentVersion: _requiredPositiveInt(
+        json['assignment_version'],
+        'assignment_version',
+      ),
+      sourceMembershipId: _requiredString(
+        json['source_membership_id'],
+        'source_membership_id',
+      ),
+      sourceTeacherName: _stringValue(json['source_teacher_name']) ?? '未命名老师',
+      replacementMembershipId: _requiredString(
+        json['replacement_membership_id'],
+        'replacement_membership_id',
+      ),
+      replacementTeacherName:
+          _stringValue(json['replacement_teacher_name']) ?? '未命名老师',
+      replacementScopeId: _requiredString(
+        json['replacement_scope_id'],
+        'replacement_scope_id',
+      ),
+      affectedCases: List<OrganizationTeachingHandoffCase>.unmodifiable(cases),
+      affectedActions: List<OrganizationTeachingHandoffAction>.unmodifiable(
+        actions,
+      ),
+    );
+    final reportedCaseCount = _intValue(json['affected_case_count']);
+    final reportedActionCount = _intValue(json['affected_action_count']);
+    if (reportedCaseCount != null &&
+        reportedCaseCount != plan.affectedCaseCount) {
+      throw const FormatException(
+        'Teaching handoff plan returned inconsistent Case count.',
+      );
+    }
+    if (reportedActionCount != null &&
+        reportedActionCount != plan.affectedActionCount) {
+      throw const FormatException(
+        'Teaching handoff plan returned inconsistent Action count.',
+      );
+    }
+    return plan;
+  }
+}
+
 class OrganizationSetupSubject {
   const OrganizationSetupSubject({required this.id, required this.displayName});
 
@@ -954,6 +1181,18 @@ abstract interface class OrganizationManagementRepository {
     required String replacementMembershipId,
   });
 
+  Future<OrganizationTeachingHandoffPlan> previewStudentTeacherHandoff({
+    required String organizationId,
+    required String assignmentId,
+    required String replacementMembershipId,
+  });
+
+  Future<OrganizationStudentTeacherAssignmentTransferResult>
+  commitStudentTeacherHandoff({
+    required String operationId,
+    required OrganizationTeachingHandoffPlan plan,
+  });
+
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   });
@@ -1203,6 +1442,8 @@ String? organizationStudentTeacherAssignmentErrorMessage(Object error) {
     'teacher_assignment_same_teacher' => '接收老师不能与原任课老师相同。',
     'teacher_assignment_already_active' => '接收老师已经拥有同类型的有效任课关系，请刷新后重试。',
     'teacher_scope_handoff_required' => '该老师仍负责未关闭学情或待执行行动，请先完成对应交接，再变更任课关系。',
+    'invalid_student_teacher_handoff_input' => '教学责任交接信息不完整，请重新打开交接窗口。',
+    'teacher_handoff_plan_stale' => '交接范围刚刚发生变化，请重新核对问题和行动后再确认。',
     'operation_id_reuse_conflict' => '这次操作编号已被用于另一项操作，请重新打开后再试。',
     'operation_incomplete' => '上一次操作还没有完成，请稍后重试。',
     'invalid_live_session' => '登录状态已失效，请重新登录。',
@@ -1660,6 +1901,54 @@ class SupabaseOrganizationManagementRepository
   }
 
   @override
+  Future<OrganizationTeachingHandoffPlan> previewStudentTeacherHandoff({
+    required String organizationId,
+    required String assignmentId,
+    required String replacementMembershipId,
+  }) async {
+    if (organizationId.trim().isEmpty ||
+        assignmentId.trim().isEmpty ||
+        replacementMembershipId.trim().isEmpty) {
+      throw ArgumentError('Teaching handoff preview identity is invalid.');
+    }
+    final response = await _call(
+      'preview_organization_student_teacher_handoff',
+      <String, dynamic>{
+        'p_organization_id': organizationId,
+        'p_assignment_id': assignmentId,
+        'p_replacement_membership_id': replacementMembershipId,
+      },
+    );
+    return OrganizationTeachingHandoffPlan.fromJson(_mapResponse(response));
+  }
+
+  @override
+  Future<OrganizationStudentTeacherAssignmentTransferResult>
+  commitStudentTeacherHandoff({
+    required String operationId,
+    required OrganizationTeachingHandoffPlan plan,
+  }) async {
+    if (operationId.trim().isEmpty) {
+      throw ArgumentError('Teaching handoff operation identity is invalid.');
+    }
+    final response = await _call(
+      'commit_organization_student_teacher_handoff',
+      <String, dynamic>{
+        'p_operation_id': operationId,
+        'p_organization_id': plan.organizationId,
+        'p_assignment_id': plan.assignmentId,
+        'p_expected_assignment_version': plan.assignmentVersion,
+        'p_replacement_membership_id': plan.replacementMembershipId,
+        'p_expected_cases': plan.expectedCasesPayload,
+        'p_expected_actions': plan.expectedActionsPayload,
+      },
+    );
+    return OrganizationStudentTeacherAssignmentTransferResult.fromJson(
+      _mapResponse(response),
+    );
+  }
+
+  @override
   Future<List<OrganizationStudentRecord>> listStudents({
     required String organizationId,
   }) async {
@@ -1968,6 +2257,14 @@ int? _intValue(Object? value) {
     return value;
   }
   return int.tryParse(value?.toString() ?? '');
+}
+
+int _requiredPositiveInt(Object? value, String field) {
+  final parsed = _intValue(value);
+  if (parsed == null || parsed <= 0) {
+    throw FormatException('Missing organization management field: $field');
+  }
+  return parsed;
 }
 
 String _requiredString(Object? value, String field) {

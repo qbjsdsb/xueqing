@@ -168,13 +168,65 @@ void main() {
     expect(options.teachersForSubject('subject-2'), isEmpty);
   });
 
-  test('maps blocked teacher handoff to actionable guidance', () {
+  test('maps blocked and stale teacher handoff to actionable guidance', () {
     expect(
       organizationStudentTeacherAssignmentErrorMessage(
         const AuthException('teacher_scope_handoff_required'),
       ),
       '该老师仍负责未关闭学情或待执行行动，请先完成对应交接，再变更任课关系。',
     );
+    expect(
+      organizationStudentTeacherAssignmentErrorMessage(
+        const AuthException('teacher_handoff_plan_stale'),
+      ),
+      '交接范围刚刚发生变化，请重新核对问题和行动后再确认。',
+    );
+  });
+
+  test('parses an explicit teaching handoff plan without losing versions', () {
+    final plan = OrganizationTeachingHandoffPlan.fromJson({
+      'organization_id': 'org-1',
+      'business_date': '2026-09-12',
+      'student_subject_profile_id': 'profile-1',
+      'student_id': 'student-1',
+      'student_name': '示例学生',
+      'organization_subject_id': 'subject-1',
+      'subject_name': '语文',
+      'subject_code': 'chinese',
+      'assignment_id': 'assignment-1',
+      'assignment_role': 'lead',
+      'assignment_version': 3,
+      'source_membership_id': 'teacher-old',
+      'source_teacher_name': '王老师',
+      'replacement_membership_id': 'teacher-new',
+      'replacement_teacher_name': '李老师',
+      'replacement_scope_id': 'scope-new',
+      'affected_cases': [
+        {
+          'id': 'case-1',
+          'title': '阅读概括遗漏要点',
+          'status': 'intervening',
+          'version': 7,
+          'owner_membership_id': 'teacher-old',
+          'moves_owner': true,
+        },
+      ],
+      'affected_actions': [
+        {'id': 'action-1', 'case_id': 'case-1', 'title': '周五复检', 'version': 4},
+      ],
+      'affected_case_count': 1,
+      'affected_action_count': 1,
+    });
+
+    expect(plan.assignmentVersion, 3);
+    expect(plan.sourceTeacherName, '王老师');
+    expect(plan.replacementTeacherName, '李老师');
+    expect(plan.affectedCaseCount, 1);
+    expect(plan.affectedActionCount, 1);
+    expect(plan.affectedCases.single.version, 7);
+    expect(plan.affectedActions.single.version, 4);
+    expect(plan.expectedCasesPayload.single['moves_owner'], isTrue);
+    expect(plan.expectedActionsPayload.single['case_id'], 'case-1');
   });
 
   test('maps missing scope for student setup', () {
