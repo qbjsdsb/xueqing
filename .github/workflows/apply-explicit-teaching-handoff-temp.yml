@@ -24,17 +24,21 @@ jobs:
           flutter-version: 3.47.1
           cache: true
       - name: Apply client contract
-        run: python3 .github/scripts/apply_explicit_teaching_handoff_client.py
+        run: |
+          python3 .github/scripts/apply_explicit_teaching_handoff_client.py
+          python3 .github/scripts/patch_explicit_teaching_handoff_fake.py
       - name: Format and validate Dart contract
         shell: bash
         run: |
           dart format \
             lib/cloud/organization_management_repository.dart \
             lib/cloud/learning_repository.dart \
-            test/cloud/organization_management_repository_test.dart
+            test/cloud/organization_management_repository_test.dart \
+            test/features/organization_management_test.dart
           flutter pub get
           flutter analyze
           flutter test test/cloud/organization_management_repository_test.dart
+          flutter test test/features/organization_management_test.dart
       - name: Commit implementation and clean temporary helpers
         shell: bash
         run: |
@@ -42,10 +46,12 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/apply-explicit-teaching-handoff-temp.yml
           git rm .github/scripts/apply_explicit_teaching_handoff_client.py
+          git rm .github/scripts/patch_explicit_teaching_handoff_fake.py
           git add \
             lib/cloud/organization_management_repository.dart \
             lib/cloud/learning_repository.dart \
             test/cloud/organization_management_repository_test.dart \
+            test/features/organization_management_test.dart \
             supabase/migrations/20260912130000_explicit_teaching_handoff_plan.sql \
             supabase/tests/explicit_teaching_handoff_plan_test.sql
           git diff --cached --check
