@@ -1,6 +1,6 @@
 begin;
 
-select plan(16);
+select plan(20);
 
 -- Fictional dual-role actor: organization owner + real teaching collaborator.
 insert into auth.users (
@@ -321,9 +321,10 @@ select throws_ok(
 
 reset role;
 
--- Simulate a completed Lead handoff before submission: the old Lead is still a
--- valid teacher, but there is no current Lead. Organization scope must not fall
--- back to either the manager or an arbitrary collaborator.
+-- Simulate a completed Lead handoff before a retry/new submission: the old Lead
+-- is still a valid teacher, but there is no current Lead. A retry of an already
+-- committed operation must return its original receipt, while a genuinely new
+-- Organization capture must fail closed.
 update public.student_teacher_assignments
 set assignment_role = 'collaborator'
 where id = '68000000-0000-0000-0000-000000000001';
@@ -343,6 +344,61 @@ select set_config(
     'session_id', '2f520000-0000-0000-0000-000000000001'
   )::text,
   true
+);
+
+select is(
+  public.quick_capture_case_in_scope(
+    '2f720000-0000-0000-0000-000000000002',
+    '67000000-0000-0000-0000-000000000001',
+    999,
+    'knowledge',
+    '重试不应写入新的标题',
+    null,
+    timestamptz '2026-09-12 16:35:00+08',
+    '模拟第一次已提交但客户端未收到响应。',
+    null,
+    null,
+    null,
+    'organization',
+    '61000000-0000-0000-0000-000000000001'
+  )->>'case_id',
+  (
+    select id::text
+    from public.learning_cases
+    where title = 'Organization 视角：负责人补充观察'
+  ),
+  'committed Organization capture retry returns the original receipt after Lead responsibility changes'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from public.learning_cases
+    where title = '重试不应写入新的标题'
+  ),
+  0,
+  'committed retry does not execute the changed retry payload'
+);
+
+select throws_ok(
+  $$select public.quick_capture_case_in_scope(
+      '2f720000-0000-0000-0000-000000000002',
+      '67000000-0000-0000-0000-000000000001',
+      1,
+      'knowledge',
+      '同 operationId 不允许跨 scope 复用',
+      null,
+      timestamptz '2026-09-12 16:36:00+08',
+      '同一幂等键不能把 Organization 操作冒充 Personal 操作。',
+      null,
+      null,
+      null,
+      'personal',
+      '2f320000-0000-0000-0000-000000000001'
+    )$$,
+  'P0001',
+  'operation_scope_conflict',
+  'committed operation id cannot be replayed under a different workspace scope'
 );
 
 select throws_ok(
@@ -380,8 +436,15 @@ reset role;
 
 select is(
   public.xueqing_backend_compatibility()->>'schema_version',
-  '20260912030000',
-  'backend compatibility advertises the scoped Quick Capture schema version'
+  '20260911193000',
+  'backend compatibility keeps the stable v0.3.6 schema floor for older clients'
+);
+
+select is(
+  public.xueqing_backend_compatibility()
+    ->'capabilities'->>'responsibility_read_model',
+  'true',
+  'backend compatibility advertises the v0.3.8 responsibility read model capability'
 );
 
 select is(
