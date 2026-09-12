@@ -95,7 +95,45 @@ jobs:
             -H "apikey: $XUEQING_SUPABASE_PUBLISHABLE_KEY" \
             -H "Content-Type: application/json" \
             -d '{}')"
-          BACKEND_JSON="$backend_json" RELEASE_VERSION_NAME="$version_name" python3 -c 'import json, os; required_schema="20260911193000"; version=tuple(int(part) for part in os.environ["RELEASE_VERSION_NAME"].split(".")); payload=json.loads(os.environ["BACKEND_JSON"]); actual_schema=str(payload.get("schema_version", "")); capabilities=payload.get("capabilities") or {}; required=["student_profile_edit", "learning_record_export_attachments", "learning_case_record_organization", "selective_learning_record_export", "voided_record_integrity_guard"]; required += ["responsibility_read_model", "organization_profile_responsibility", "responsibility_safe_quick_capture"] if version >= (0, 3, 8) else []; missing=[name for name in required if capabilities.get(name) is not True]; actual_schema >= required_schema or (_ for _ in ()).throw(SystemExit(f"Production backend is older than this client requires: {actual_schema!r} < {required_schema}.")); not missing or (_ for _ in ()).throw(SystemExit("Production backend is missing required capabilities: " + ", ".join(missing))); print(f"production backend schema {actual_schema} is compatible with app {os.environ[\"RELEASE_VERSION_NAME\"]}")'
+          BACKEND_JSON="$backend_json" RELEASE_VERSION_NAME="$version_name" python3 - <<'PY'
+          import json
+          import os
+
+          required_schema = "20260911193000"
+          version = tuple(
+              int(part) for part in os.environ["RELEASE_VERSION_NAME"].split(".")
+          )
+          payload = json.loads(os.environ["BACKEND_JSON"])
+          actual_schema = str(payload.get("schema_version", ""))
+          capabilities = payload.get("capabilities") or {}
+          required = [
+              "student_profile_edit",
+              "learning_record_export_attachments",
+              "learning_case_record_organization",
+              "selective_learning_record_export",
+              "voided_record_integrity_guard",
+          ]
+          required += [
+              "responsibility_read_model",
+              "organization_profile_responsibility",
+              "responsibility_safe_quick_capture",
+          ] if version >= (0, 3, 8) else []
+          missing = [name for name in required if capabilities.get(name) is not True]
+          if actual_schema < required_schema:
+              raise SystemExit(
+                  f"Production backend is older than this client requires: "
+                  f"{actual_schema!r} < {required_schema}."
+              )
+          if missing:
+              raise SystemExit(
+                  "Production backend is missing required capabilities: "
+                  + ", ".join(missing)
+              )
+          print(
+              f"production backend schema {actual_schema} is compatible with app "
+              f"{os.environ['RELEASE_VERSION_NAME']}"
+          )
+          PY
           expected_cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
           if [[ ! "$expected_cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
             echo "XUEQING_ANDROID_CERT_SHA256 must be the pinned 64-hex SHA-256 fingerprint of the permanent Android release certificate."
