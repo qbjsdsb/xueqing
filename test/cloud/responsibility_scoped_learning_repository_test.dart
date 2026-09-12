@@ -5,30 +5,36 @@ import 'package:xueqing/cloud/responsibility_scoped_learning_repository.dart';
 
 void main() {
   group('ResponsibilityScopedLearningRepository', () {
-    test('Personal Quick Capture uses the loaded membership snapshot', () async {
-      final base = _FakeLearningRepository();
-      final reader = _FakeResponsibilityReadRepository(_context());
-      final writer = _FakeResponsibilityWriteRepository();
-      final gateway = ResponsibilityScopedLearningRepository(
-        learningRepository: base,
-        responsibilityReadRepository: reader,
-        responsibilityWriteRepository: writer,
-      );
+    test(
+      'Personal Quick Capture uses the loaded membership snapshot',
+      () async {
+        final base = _FakeLearningRepository();
+        final reader = _FakeResponsibilityReadRepository(_context());
+        final writer = _FakeResponsibilityWriteRepository();
+        final gateway = ResponsibilityScopedLearningRepository(
+          learningRepository: base,
+          responsibilityReadRepository: reader,
+          responsibilityWriteRepository: writer,
+        );
 
-      await gateway.loadWorkspace();
-      await gateway.loadContext(organizationId: 'org-1');
-      final receipt = await gateway.quickCapture(_command());
+        await gateway.loadWorkspace();
+        await gateway.loadContext(organizationId: 'org-1');
+        final receipt = await gateway.quickCapture(_command());
 
-      expect(receipt.caseId, 'case-scoped');
-      expect(base.legacyQuickCaptureCalls, 0);
-      expect(writer.calls, hasLength(1));
-      expect(writer.calls.single.workspaceScope, WorkspaceWriteScope.personal);
-      expect(
-        writer.calls.single.expectedResponsibilityMembershipId,
-        'membership-me',
-      );
-      expect(writer.calls.single.command.profileId, 'profile-mine');
-    });
+        expect(receipt.caseId, 'case-scoped');
+        expect(base.legacyQuickCaptureCalls, 0);
+        expect(writer.calls, hasLength(1));
+        expect(
+          writer.calls.single.workspaceScope,
+          WorkspaceWriteScope.personal,
+        );
+        expect(
+          writer.calls.single.expectedResponsibilityMembershipId,
+          'membership-me',
+        );
+        expect(writer.calls.single.command.profileId, 'profile-mine');
+      },
+    );
 
     test('missing responsibility context fails closed', () async {
       final base = _FakeLearningRepository();
@@ -168,8 +174,7 @@ class _FakeResponsibilityWriteRepository
       _ScopedCall(
         command: command,
         workspaceScope: workspaceScope,
-        expectedResponsibilityMembershipId:
-            expectedResponsibilityMembershipId,
+        expectedResponsibilityMembershipId: expectedResponsibilityMembershipId,
       ),
     );
     return QuickCaptureReceipt(
@@ -210,9 +215,7 @@ WorkspaceResponsibilityContext _context() {
     caseOwnerMembershipIds: const <String, String>{},
     actionAssignedMembershipIds: const <String, String>{},
     eventActorMembershipIds: const <String, String>{},
-    memberDisplayNames: const <String, String>{
-      'membership-me': '乔老师',
-    },
+    memberDisplayNames: const <String, String>{'membership-me': '乔老师'},
     profileLeadMembershipIds: const <String, String?>{
       'profile-mine': 'membership-me',
       'profile-org-only': 'membership-other',
