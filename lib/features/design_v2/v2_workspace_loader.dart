@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/layout/responsive.dart';
 import '../../cloud/composer_draft_store.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
@@ -192,7 +193,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
       },
     );
 
-    if (MediaQuery.sizeOf(context).width < 720) {
+    if (ResponsiveBreakpoints.isCompact(context)) {
       return showModalBottomSheet<WorkspaceStudent>(
         context: context,
         useSafeArea: true,

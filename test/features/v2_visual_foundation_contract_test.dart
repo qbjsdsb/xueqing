@@ -46,7 +46,9 @@ void main() {
 
       expect(
         source,
-        contains("if (!showTitle) {\n      return identity;\n    }"),
+        contains(
+          "if (!showTitle) {\n      return const SizedBox.shrink();\n    }",
+        ),
       );
       expect(
         source,

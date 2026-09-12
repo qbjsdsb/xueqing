@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/layout/responsive.dart';
 import '../../app/theme/app_motion.dart';
+import '../../app/theme/app_spacing.dart';
 
 import '../../update/update_installer.dart';
 import '../../update/update_service.dart';
@@ -16,6 +17,7 @@ import 'v2_action_composers.dart';
 import 'v2_reopen_composer.dart';
 import 'v2_composers.dart';
 import 'v2_fixture.dart';
+import 'v2_page_header.dart';
 import 'v2_update_flow.dart';
 import 'v2_workflow_controller.dart';
 import 'v2_workspace_data.dart';
@@ -1772,6 +1774,12 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
           body = _StudentListPane(
             selectedStudent: widget.selectedStudent,
             compact: true,
+            headerPadding: EdgeInsets.fromLTRB(
+              paneCompact ? AppSpacing.mdPlus : AppSpacing.xl,
+              paneCompact ? AppSpacing.mdPlus : AppSpacing.xl,
+              paneCompact ? AppSpacing.mdPlus : AppSpacing.xl,
+              12,
+            ),
             onSelected: (student) {
               widget.onStudentSelected(student);
               setState(() => _studentOpen = true);
@@ -1886,6 +1894,13 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
 
   @override
   Widget build(BuildContext context) {
+    final VoidCallback? onOpenOrganization =
+        widget.organizationPageBuilder == null
+        ? null
+        : () {
+            setState(() => _studentOpen = false);
+            widget.onDestinationChanged(V2WorkspaceDestination.organization);
+          };
     Widget body;
     if (widget.showCase && widget.selectedCase != null) {
       body = _CaseDetailPane(
@@ -1906,6 +1921,7 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       body = _StudentListPane(
         selectedStudent: widget.selectedStudent,
         compact: true,
+        onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
         onSelected: (student) {
           widget.onStudentSelected(student);
@@ -1921,12 +1937,14 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
           setState(() => _studentOpen = true);
         },
         compact: true,
+        onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
       );
     } else if (widget.destination == V2WorkspaceDestination.learning) {
       body = _CaseIndexPane(
         onOpenCase: widget.onOpenCase,
         compact: true,
+        onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
       );
     } else {
@@ -1942,10 +1960,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       V2WorkspaceDestination.learning,
     ];
     final hasInternalHistory = widget.showCase || _studentOpen;
-    final showPersonalScopeBar =
-        widget.organizationPageBuilder != null &&
-        widget.destination != V2WorkspaceDestination.organization &&
-        !hasInternalHistory;
     final handlesSystemBack =
         hasInternalHistory ||
         (widget.destination != V2WorkspaceDestination.today &&
@@ -1970,23 +1984,7 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       child: Scaffold(
         key: const Key('v2-compact-shell'),
         backgroundColor: Theme.of(context).colorScheme.surface,
-        body: SafeArea(
-          child: showPersonalScopeBar
-              ? Column(
-                  children: [
-                    _CompactScopeBar(
-                      onOpenOrganization: () {
-                        setState(() => _studentOpen = false);
-                        widget.onDestinationChanged(
-                          V2WorkspaceDestination.organization,
-                        );
-                      },
-                    ),
-                    Expanded(child: body),
-                  ],
-                )
-              : body,
-        ),
+        body: SafeArea(child: body),
         bottomNavigationBar:
             hasInternalHistory ||
                 widget.destination == V2WorkspaceDestination.organization
@@ -2003,50 +2001,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
                     _compactNavigationDestination(destination),
                 ],
               ),
-      ),
-    );
-  }
-}
-
-class _CompactScopeBar extends StatelessWidget {
-  const _CompactScopeBar({required this.onOpenOrganization});
-
-  final VoidCallback onOpenOrganization;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 5, 8, 5),
-        child: Row(
-          children: [
-            Icon(
-              Icons.person_outline,
-              size: 18,
-              color: scheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '我的教学',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            TextButton.icon(
-              key: const Key('v2-open-organization-scope'),
-              onPressed: onOpenOrganization,
-              icon: const Icon(Icons.apartment_outlined, size: 18),
-              label: const Text('进入机构'),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -2255,12 +2209,16 @@ class _StudentListPane extends StatefulWidget {
     required this.selectedStudent,
     required this.onSelected,
     this.compact = false,
+    this.headerPadding,
+    this.onOpenOrganization,
     this.onOpenMore,
   });
 
   final V2Student selectedStudent;
   final ValueChanged<V2Student> onSelected;
   final bool compact;
+  final EdgeInsets? headerPadding;
+  final VoidCallback? onOpenOrganization;
   final VoidCallback? onOpenMore;
 
   @override
@@ -2310,23 +2268,28 @@ class _StudentListPaneState extends State<_StudentListPane> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              widget.compact ? 18 : 24,
-              24,
-              widget.compact ? 18 : 20,
-              12,
-            ),
+            padding:
+                widget.headerPadding ??
+                EdgeInsets.fromLTRB(
+                  widget.compact ? AppSpacing.mdPlus : AppSpacing.lg,
+                  widget.compact ? AppSpacing.mdPlus : AppSpacing.lg,
+                  AppSpacing.mdPlus,
+                  12,
+                ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '学生',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                V2PageHeader(
+                  key: const Key('v2-students-page-header'),
+                  title: '学生',
+                  actions: [
+                    if (widget.onOpenOrganization != null)
+                      IconButton(
+                        key: const Key('v2-open-organization-scope'),
+                        tooltip: '进入机构视角',
+                        onPressed: widget.onOpenOrganization,
+                        icon: const Icon(Icons.apartment_outlined),
                       ),
-                    ),
                     if (widget.compact && widget.onOpenMore != null)
                       IconButton(
                         key: const Key('v2-compact-more'),
@@ -3728,12 +3691,14 @@ class _TodayPane extends StatelessWidget {
     required this.onOpenCase,
     required this.onOpenStudent,
     this.compact = false,
+    this.onOpenOrganization,
     this.onOpenMore,
   });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final ValueChanged<V2Student> onOpenStudent;
   final bool compact;
+  final VoidCallback? onOpenOrganization;
   final VoidCallback? onOpenMore;
 
   static int _priority(V2FocusItem item) => switch (item.actionTiming) {
@@ -3799,80 +3764,42 @@ class _TodayPane extends StatelessWidget {
           );
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(compact ? 18 : 32),
+      padding: EdgeInsets.all(compact ? AppSpacing.mdPlus : AppSpacing.xl),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final copy = Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '今日',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        _todayLabel(data.businessDate),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        currentItems.isEmpty && undatedItems.isEmpty
-                            ? '今天没有已安排的跟进。'
-                            : '先处理已经安排好的跟进。',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  );
-                  final quickCapture = TextButton.icon(
+              V2PageHeader(
+                key: const Key('v2-today-page-header'),
+                title: '今日',
+                meta: _todayLabel(data.businessDate),
+                description: currentItems.isEmpty && undatedItems.isEmpty
+                    ? '今天没有已安排的跟进。'
+                    : '先处理已经安排好的跟进。',
+                actions: [
+                  TextButton.icon(
                     key: const Key('v2-today-quick-capture'),
                     onPressed: () => _showV2QuickCaptureStudentPicker(context),
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('记录问题'),
-                  );
-                  final more = compact && onOpenMore != null
-                      ? IconButton(
-                          key: const Key('v2-compact-more'),
-                          tooltip: '更多操作',
-                          onPressed: onOpenMore,
-                          icon: const Icon(Icons.more_vert),
-                        )
-                      : null;
-                  final stackActions = compact && constraints.maxWidth < 440;
-                  if (stackActions) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: copy),
-                            if (more != null) ...[
-                              const SizedBox(width: 4),
-                              more,
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        quickCapture,
-                      ],
-                    );
-                  }
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: copy),
-                      const SizedBox(width: 12),
-                      quickCapture,
-                      if (more != null) ...[const SizedBox(width: 4), more],
-                    ],
-                  );
-                },
+                  ),
+                  if (onOpenOrganization != null)
+                    IconButton(
+                      key: const Key('v2-open-organization-scope'),
+                      tooltip: '进入机构视角',
+                      onPressed: onOpenOrganization,
+                      icon: const Icon(Icons.apartment_outlined),
+                    ),
+                  if (compact && onOpenMore != null)
+                    IconButton(
+                      key: const Key('v2-compact-more'),
+                      tooltip: '更多操作',
+                      onPressed: onOpenMore,
+                      icon: const Icon(Icons.more_vert),
+                    ),
+                ],
               ),
               const SizedBox(height: 28),
               if (currentItems.isEmpty && undatedItems.isEmpty)
@@ -4188,11 +4115,13 @@ class _CaseIndexPane extends StatefulWidget {
   const _CaseIndexPane({
     required this.onOpenCase,
     this.compact = false,
+    this.onOpenOrganization,
     this.onOpenMore,
   });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
+  final VoidCallback? onOpenOrganization;
   final VoidCallback? onOpenMore;
 
   @override
@@ -4246,21 +4175,27 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
     final data = V2WorkspaceDataScope.of(context);
     final visibleItems = _visibleItems(data);
     return SingleChildScrollView(
-      padding: EdgeInsets.all(widget.compact ? 18 : 32),
+      padding: EdgeInsets.all(
+        widget.compact ? AppSpacing.mdPlus : AppSpacing.xl,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '学情',
-                      style: Theme.of(context).textTheme.headlineSmall,
+              V2PageHeader(
+                key: const Key('v2-learning-page-header'),
+                title: '学情',
+                description: _showClosed ? '回看已经结束的跟进记录' : '找到仍需要复盘的问题',
+                actions: [
+                  if (widget.onOpenOrganization != null)
+                    IconButton(
+                      key: const Key('v2-open-organization-scope'),
+                      tooltip: '进入机构视角',
+                      onPressed: widget.onOpenOrganization,
+                      icon: const Icon(Icons.apartment_outlined),
                     ),
-                  ),
                   if (widget.compact && widget.onOpenMore != null)
                     IconButton(
                       key: const Key('v2-compact-more'),
@@ -4269,11 +4204,6 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
                       icon: const Icon(Icons.more_vert),
                     ),
                 ],
-              ),
-              const SizedBox(height: 5),
-              Text(
-                _showClosed ? '回看已经结束的跟进记录' : '找到仍需要复盘的问题',
-                style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
               SegmentedButton<bool>(

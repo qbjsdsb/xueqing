@@ -103,6 +103,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(
+        find.byKey(const Key('v2-organization-page-header')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('v2-organization-back-personal')),
+        findsOneWidget,
+      );
+      expect(find.byType(AppBar), findsNothing);
+
       await tester.tap(find.text('管理'));
       await tester.pumpAndSettle();
       expect(find.text('当前账号没有可用的机构管理权限。'), findsOneWidget);

@@ -35,6 +35,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('机构'), findsOneWidget);
+      expect(
+        find.byKey(const Key('v2-organization-page-header')),
+        findsOneWidget,
+      );
+      expect(find.byType(AppBar), findsNothing);
       expect(find.text('机构学情'), findsNothing);
       expect(find.text('学情'), findsOneWidget);
       expect(find.text('管理'), findsOneWidget);
