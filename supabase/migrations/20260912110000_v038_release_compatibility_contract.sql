@@ -6,9 +6,21 @@
 -- backend: the client loads an empty profile_responsibilities map and safely
 -- blocks Organization Quick Capture even though the release was allowed.
 --
--- Keep the stable schema floor additive and strengthen the named capability so
--- v0.3.8 is only published when the responsibility read model includes the
--- Organization Profile responsibility wrapper introduced by 20260912040000.
+-- Validate the private prerequisite while this migration runs with migration
+-- privileges, then advertise the installed capability without making anon or
+-- authenticated compatibility callers resolve objects in the private schema.
+
+do $block$
+begin
+  if to_regprocedure(
+    'private.workspace_responsibility_context_with_profile_leads_v2(uuid)'
+  ) is null then
+    raise exception using
+      errcode = 'P0001',
+      message = 'v038_profile_responsibility_prerequisite_missing';
+  end if;
+end
+$block$;
 
 create or replace function public.xueqing_backend_compatibility()
 returns jsonb
@@ -51,10 +63,8 @@ as $function$
             )
         ),
       'responsibility_read_model',
-        to_regprocedure('public.get_workspace_responsibility_context(uuid)') is not null
-        and to_regprocedure('private.workspace_responsibility_context_with_profile_leads_v2(uuid)') is not null,
-      'organization_profile_responsibility',
-        to_regprocedure('private.workspace_responsibility_context_with_profile_leads_v2(uuid)') is not null,
+        to_regprocedure('public.get_workspace_responsibility_context(uuid)') is not null,
+      'organization_profile_responsibility', true,
       'responsibility_safe_quick_capture',
         to_regprocedure(
           'public.quick_capture_case_in_scope(uuid,uuid,integer,text,text,text,timestamp with time zone,text,text,timestamp with time zone,uuid,text,uuid)'
@@ -69,4 +79,4 @@ grant execute on function public.xueqing_backend_compatibility()
   to anon, authenticated, service_role;
 
 comment on function public.xueqing_backend_compatibility() is
-  'Data-free release compatibility contract. responsibility_read_model is true only when Organization Profile responsibility/Lead data is available to v0.3.8 clients.';
+  'Data-free release compatibility contract. The v0.3.8 migration validates Organization Profile responsibility support before advertising the capability, while keeping the public probe callable without private-schema access.';
