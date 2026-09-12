@@ -1749,14 +1749,16 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       });
     }
 
-    final destinations = <V2WorkspaceDestination>[
+    const destinations = <V2WorkspaceDestination>[
       V2WorkspaceDestination.today,
       V2WorkspaceDestination.students,
       V2WorkspaceDestination.learning,
-      if (widget.organizationPageBuilder != null)
-        V2WorkspaceDestination.organization,
     ];
     final hasInternalHistory = widget.showCase || _studentOpen;
+    final showPersonalScopeBar =
+        widget.organizationPageBuilder != null &&
+        widget.destination != V2WorkspaceDestination.organization &&
+        !hasInternalHistory;
     final handlesSystemBack =
         hasInternalHistory ||
         (widget.destination != V2WorkspaceDestination.today &&
@@ -1780,8 +1782,26 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
-        body: SafeArea(child: body),
-        bottomNavigationBar: hasInternalHistory
+        body: SafeArea(
+          child: showPersonalScopeBar
+              ? Column(
+                  children: [
+                    _CompactScopeBar(
+                      onOpenOrganization: () {
+                        setState(() => _studentOpen = false);
+                        widget.onDestinationChanged(
+                          V2WorkspaceDestination.organization,
+                        );
+                      },
+                    ),
+                    Expanded(child: body),
+                  ],
+                )
+              : body,
+        ),
+        bottomNavigationBar:
+            hasInternalHistory ||
+                widget.destination == V2WorkspaceDestination.organization
             ? null
             : NavigationBar(
                 backgroundColor: Theme.of(context).colorScheme.surface,
@@ -1795,6 +1815,50 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
                     _compactNavigationDestination(destination),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class _CompactScopeBar extends StatelessWidget {
+  const _CompactScopeBar({required this.onOpenOrganization});
+
+  final VoidCallback onOpenOrganization;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
+        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 5, 8, 5),
+        child: Row(
+          children: [
+            Icon(
+              Icons.person_outline,
+              size: 18,
+              color: scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '我的教学',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              key: const Key('v2-open-organization-scope'),
+              onPressed: onOpenOrganization,
+              icon: const Icon(Icons.apartment_outlined, size: 18),
+              label: const Text('进入机构'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1837,12 +1901,12 @@ class _NavigationRail extends StatelessWidget {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 22),
-          for (final destination in <V2WorkspaceDestination>[
+          const SizedBox(height: 16),
+          if (showOrganization && expanded) const _RailGroupLabel('我的教学'),
+          for (final destination in const <V2WorkspaceDestination>[
             V2WorkspaceDestination.today,
             V2WorkspaceDestination.students,
             V2WorkspaceDestination.learning,
-            if (showOrganization) V2WorkspaceDestination.organization,
           ])
             _RailItem(
               icon: _destinationIcon(destination),
@@ -1851,6 +1915,22 @@ class _NavigationRail extends StatelessWidget {
               onTap: () => onSelected(destination),
               expanded: expanded,
             ),
+          if (showOrganization) ...[
+            Padding(
+              padding: EdgeInsets.fromLTRB(14, expanded ? 8 : 10, 14, 8),
+              child: Divider(height: 1, color: scheme.outlineVariant),
+            ),
+            if (expanded) const _RailGroupLabel('机构视角'),
+            _RailItem(
+              key: const Key('v2-rail-organization'),
+              icon: _destinationIcon(V2WorkspaceDestination.organization),
+              tooltip: _destinationLabel(V2WorkspaceDestination.organization),
+              selected:
+                  selectedDestination == V2WorkspaceDestination.organization,
+              onTap: () => onSelected(V2WorkspaceDestination.organization),
+              expanded: expanded,
+            ),
+          ],
           const Spacer(),
           if (onRefresh != null)
             _RailItem(
@@ -1875,6 +1955,31 @@ class _NavigationRail extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
+      ),
+    );
+  }
+}
+
+class _RailGroupLabel extends StatelessWidget {
+  const _RailGroupLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 12, 5),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
+          ),
+        ),
       ),
     );
   }
