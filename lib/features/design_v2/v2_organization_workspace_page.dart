@@ -12,6 +12,7 @@ import 'v2_update_flow.dart';
 import 'v2_workspace_data.dart';
 
 enum _OrganizationSection { learning, management }
+
 enum _OrganizationPageAction { checkUpdate, signOut }
 
 /// Organization-scope workspace for owners/admins.
@@ -321,22 +322,24 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return widget.data.students;
     final leadByCase = _leadByCaseId;
-    return widget.data.students.where((student) {
-      final items = _itemsForStudent(student);
-      final haystack = <String>[
-        student.name,
-        student.grade,
-        ...student.subjects,
-        for (final item in items) ...[
-          item.title,
-          item.summary,
-          item.nextStep,
-          item.subject,
-          leadByCase[item.id] ?? '未设置主责',
-        ],
-      ].join(' ').toLowerCase();
-      return haystack.contains(query);
-    }).toList(growable: false);
+    return widget.data.students
+        .where((student) {
+          final items = _itemsForStudent(student);
+          final haystack = <String>[
+            student.name,
+            student.grade,
+            ...student.subjects,
+            for (final item in items) ...[
+              item.title,
+              item.summary,
+              item.nextStep,
+              item.subject,
+              leadByCase[item.id] ?? '未设置主责',
+            ],
+          ].join(' ').toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -360,10 +363,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '机构学情',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+                Text('机构学情', style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 4),
                 Text(
                   '${widget.data.students.length} 名学生 · '
