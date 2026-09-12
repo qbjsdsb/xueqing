@@ -500,11 +500,20 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     }
   }
 
-  String _responsibilitySummaryForStudent(V2Student student) {
-    final labels = <String>[];
-    for (final profile in widget.workspace.students.where(
-      (profile) => profile.id == student.id,
-    )) {
+  Map<String, List<V2FocusItem>> _itemsByStudentId() {
+    final result = <String, List<V2FocusItem>>{};
+    for (final item in widget.data.focusItems) {
+      result.putIfAbsent(item.studentId, () => <V2FocusItem>[]).add(item);
+    }
+    for (final item in widget.data.closedItems) {
+      result.putIfAbsent(item.studentId, () => <V2FocusItem>[]).add(item);
+    }
+    return result;
+  }
+
+  Map<String, String> _responsibilitySummaryByStudentId() {
+    final labelsByStudentId = <String, List<String>>{};
+    for (final profile in widget.workspace.students) {
       final leadMembershipId = widget.responsibility.leadMembershipIdForProfile(
         profile.profileId,
       );
@@ -512,34 +521,37 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
           ? '未设置主责'
           : widget.responsibility.displayNameForMembership(leadMembershipId) ??
                 '主责老师';
-      labels.add('${profile.subject} $leadName');
+      labelsByStudentId
+          .putIfAbsent(profile.id, () => <String>[])
+          .add('${profile.subject} $leadName');
     }
-    return labels.isEmpty ? '主责信息暂不可用' : labels.join(' · ');
+    return <String, String>{
+      for (final entry in labelsByStudentId.entries)
+        entry.key: entry.value.join(' · '),
+    };
   }
 
-  List<V2FocusItem> _itemsForStudent(V2Student student) => [
-    ...widget.data.focusItemsForStudent(student),
-    ...widget.data.closedItemsForStudent(student),
-  ];
-
-  List<V2Student> get _visibleStudents {
+  List<V2Student> _visibleStudents({
+    required Map<String, List<V2FocusItem>> itemsByStudentId,
+    required Map<String, String> responsibilitySummaryByStudentId,
+    required Map<String, String> leadLabelByCaseId,
+  }) {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return widget.data.students;
-    final leadLabelByCase = _leadLabelByCaseId;
     return widget.data.students
         .where((student) {
-          final items = _itemsForStudent(student);
+          final items = itemsByStudentId[student.id] ?? const <V2FocusItem>[];
           final haystack = <String>[
             student.name,
             student.grade,
             ...student.subjects,
-            _responsibilitySummaryForStudent(student),
+            responsibilitySummaryByStudentId[student.id] ?? '主责信息暂不可用',
             for (final item in items) ...[
               item.title,
               item.summary,
               item.nextStep,
               item.subject,
-              leadLabelByCase[item.id] ?? '主责信息暂不可用',
+              leadLabelByCaseId[item.id] ?? '主责信息暂不可用',
             ],
           ].join(' ').toLowerCase();
           return haystack.contains(query);
@@ -549,7 +561,17 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleStudents = _visibleStudents;
+    // Build immutable lookup maps once per frame. Previously each visible row
+    // rescanned every profile/case to derive the same labels and item lists.
+    final itemsByStudentId = _itemsByStudentId();
+    final responsibilitySummaryByStudentId =
+        _responsibilitySummaryByStudentId();
+    final leadLabelByCaseId = _leadLabelByCaseId;
+    final visibleStudents = _visibleStudents(
+      itemsByStudentId: itemsByStudentId,
+      responsibilitySummaryByStudentId: responsibilitySummaryByStudentId,
+      leadLabelByCaseId: leadLabelByCaseId,
+    );
     final activeCaseCount = widget.data.focusItems.length;
     final compact = MediaQuery.sizeOf(context).width < 720;
     final horizontalPadding = compact ? 16.0 : 24.0;
@@ -619,13 +641,16 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                       separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final student = visibleStudents[index];
-                        final items = _itemsForStudent(student);
+                        final items =
+                            itemsByStudentId[student.id] ??
+                            const <V2FocusItem>[];
                         return _OrganizationStudentRow(
                           student: student,
                           items: items,
-                          leadLabelByCaseId: _leadLabelByCaseId,
+                          leadLabelByCaseId: leadLabelByCaseId,
                           responsibilitySummary:
-                              _responsibilitySummaryForStudent(student),
+                              responsibilitySummaryByStudentId[student.id] ??
+                              '主责信息暂不可用',
                           onQuickCapture: () =>
                               _openQuickCapture(context, student),
                         );
