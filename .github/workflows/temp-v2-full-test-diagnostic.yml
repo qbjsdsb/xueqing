@@ -1,0 +1,58 @@
+name: Temporary V2 full test diagnostic
+
+on:
+  push:
+    branches:
+      - ui/v2-visual-refinement
+    paths:
+      - .github/diagnostic-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    name: Capture full Flutter test failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ui/v2-visual-refinement
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Run full Flutter tests and capture diagnostics
+        shell: bash
+        run: |
+          set +e
+          flutter test --reporter expanded > /tmp/flutter-test.log 2>&1
+          status=$?
+          set -e
+
+          if [ "$status" -ne 0 ]; then
+            {
+              echo "status=$status"
+              echo "---- focused ----"
+              grep -n -E 'Test failed|Expected:|Actual:|Which:|══╡|Some tests failed|\.dart:[0-9]+|Exception|Failure' /tmp/flutter-test.log | tail -n 240 || true
+              echo "---- tail ----"
+              tail -n 260 /tmp/flutter-test.log
+            } > .github/flutter-test-failure.txt
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/flutter-test-failure.txt
+            git commit -m "chore: capture temporary Flutter test diagnostics"
+            git push origin HEAD:ui/v2-visual-refinement
+          fi
+
+          exit "$status"
