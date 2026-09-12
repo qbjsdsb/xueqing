@@ -11,7 +11,6 @@ import 'package:xueqing/features/design_v2/v2_read_model_adapter.dart';
 import 'package:xueqing/features/design_v2/v2_theme.dart';
 import 'package:xueqing/features/teacher_workspace/workspace_runtime.dart';
 import 'package:xueqing/update/update_installer.dart';
-import 'package:xueqing/update/update_models.dart';
 import 'package:xueqing/update/update_service.dart';
 
 void main() {
