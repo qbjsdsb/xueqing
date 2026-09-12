@@ -200,9 +200,16 @@ void main() {
     );
     await tester.pump();
 
+    final picker = find.byType(BottomSheet);
     expect(find.text('找到 1 位'), findsOneWidget);
-    expect(find.text('王同学'), findsOneWidget);
-    expect(find.text('林同学'), findsNothing);
+    expect(
+      find.descendant(of: picker, matching: find.text('王同学')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: picker, matching: find.text('林同学')),
+      findsNothing,
+    );
   });
 
   testWidgets(
