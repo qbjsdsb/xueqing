@@ -118,6 +118,10 @@ jobs:
               "organization_profile_responsibility",
               "responsibility_safe_quick_capture",
           ] if version >= (0, 3, 8) else []
+          required += [
+              "explicit_teaching_handoff",
+              "set_student_subject_lead",
+          ] if version >= (0, 3, 9) else []
           missing = [name for name in required if capabilities.get(name) is not True]
           if actual_schema < required_schema:
               raise SystemExit(
