@@ -1,6 +1,7 @@
 name: One-shot organization UI hardening
 
-on: [push]
+on:
+  push:
 
 permissions:
   contents: write
@@ -20,71 +21,8 @@ jobs:
       - name: Apply exact patches
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace_once(path, old, new):
-              p = Path(path)
-              source = p.read_text()
-              count = source.count(old)
-              if count != 1:
-                  raise SystemExit(f'{path}: expected exactly one match, got {count}')
-              p.write_text(source.replace(old, new, 1))
-
-          org = 'lib/features/design_v2/v2_organization_workspace_page.dart'
-          replace_once(
-              org,
-              """            ...student.subjects,
-            for (final item in items) ...[""",
-              """            ...student.subjects,
-            _responsibilitySummaryForStudent(student),
-            for (final item in items) ...[""",
-          )
-          replace_once(
-              org,
-              """    return ExpansionTile(
-      tilePadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),""",
-              """    return ExpansionTile(
-      controlAffinity: ListTileControlAffinity.leading,
-      tilePadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),""",
-          )
-
-          capture_test = 'test/features/v2_organization_quick_capture_test.dart'
-          replace_once(
-              capture_test,
-              """      expect(find.textContaining('主责：语文 张老师'), findsOneWidget);
-      await tester.tap(
-        find.byKey(const Key('v2-organization-quick-capture-student-1')),
-      );""",
-              """      expect(find.textContaining('主责：语文 张老师'), findsOneWidget);
-      await tester.enterText(
-        find.byKey(const Key('v2-organization-learning-search')),
-        '张老师',
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('机构学生'), findsOneWidget);
-      await tester.enterText(
-        find.byKey(const Key('v2-organization-learning-search')),
-        '',
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const Key('v2-organization-quick-capture-student-1')),
-      );""",
-          )
-
-          workspace_test = 'test/features/v2_organization_workspace_test.dart'
-          replace_once(
-              workspace_test,
-              """      expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
-
-      await tester.tap(find.text('机构学生一'));""",
-              """      expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
-      expect(find.byIcon(Icons.expand_more), findsWidgets);
-
-      await tester.tap(find.text('机构学生一'));""",
-          )
-          PY
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpkZWYgcmVwbGFjZV9vbmNlKHBhdGgsIG9sZCwgbmV3KToKICAgIHAgPSBQYXRoKHBhdGgpCiAgICBzb3VyY2UgPSBwLnJlYWRfdGV4dCgpCiAgICBjb3VudCA9IHNvdXJjZS5jb3VudChvbGQpCiAgICBpZiBjb3VudCAhPSAxOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoZid7cGF0aH06IGV4cGVjdGVkIGV4YWN0bHkgb25lIG1hdGNoLCBnb3Qge2NvdW50fScpCiAgICBwLndyaXRlX3RleHQoc291cmNlLnJlcGxhY2Uob2xkLCBuZXcsIDEpKQoKb3JnID0gJ2xpYi9mZWF0dXJlcy9kZXNpZ25fdjIvdjJfb3JnYW5pemF0aW9uX3dvcmtzcGFjZV9wYWdlLmRhcnQnCnJlcGxhY2Vfb25jZSgKICAgIG9yZywKICAgICIiIiAgICAgICAgICAgIC4uLnN0dWRlbnQuc3ViamVjdHMsCiAgICAgICAgICAgIGZvciAoZmluYWwgaXRlbSBpbiBpdGVtcykgLi4uWyIiIiwKICAgICIiIiAgICAgICAgICAgIC4uLnN0dWRlbnQuc3ViamVjdHMsCiAgICAgICAgICAgIF9yZXNwb25zaWJpbGl0eVN1bW1hcnlGb3JTdHVkZW50KHN0dWRlbnQpLAogICAgICAgICAgICBmb3IgKGZpbmFsIGl0ZW0gaW4gaXRlbXMpIC4uLlsiIiIsCikKcmVwbGFjZV9vbmNlKAogICAgb3JnLAogICAgIiIiICAgIHJldHVybiBFeHBhbnNpb25UaWxlKAogICAgICB0aWxlUGFkZGluZzogY29uc3QgRWRnZUluc2V0cy5zeW1tZXRyaWMoaG9yaXpvbnRhbDogNCwgdmVydGljYWw6IDQpLCIiIiwKICAgICIiIiAgICByZXR1cm4gRXhwYW5zaW9uVGlsZSgKICAgICAgY29udHJvbEFmZmluaXR5OiBMaXN0VGlsZUNvbnRyb2xBZmZpbml0eS5sZWFkaW5nLAogICAgICB0aWxlUGFkZGluZzogY29uc3QgRWRnZUluc2V0cy5zeW1tZXRyaWMoaG9yaXpvbnRhbDogNCwgdmVydGljYWw6IDQpLCIiIiwKKQoKY2FwdHVyZV90ZXN0ID0gJ3Rlc3QvZmVhdHVyZXMvdjJfb3JnYW5pemF0aW9uX3F1aWNrX2NhcHR1cmVfdGVzdC5kYXJ0JwpyZXBsYWNlX29uY2UoCiAgICBjYXB0dXJlX3Rlc3QsCiAgICAiIiIgICAgICBleHBlY3QoZmluZC50ZXh0Q29udGFpbmluZygn5Li76LSj77ya6K+t5paHIOW8oOiAgeW4iCcpLCBmaW5kc09uZVdpZGdldCk7CiAgICAgIGF3YWl0IHRlc3Rlci50YXAoCiAgICAgICAgZmluZC5ieUtleShjb25zdCBLZXkoJ3YyLW9yZ2FuaXphdGlvbi1xdWljay1jYXB0dXJlLXN0dWRlbnQtMScpKSwKICAgICAgKTsiIiIsCiAgICAiIiIgICAgICBleHBlY3QoZmluZC50ZXh0Q29udGFpbmluZygn5Li76LSj77ya6K+t5paHIOW8oOiAgeW4iCcpLCBmaW5kc09uZVdpZGdldCk7CiAgICAgIGF3YWl0IHRlc3Rlci5lbnRlclRleHQoCiAgICAgICAgZmluZC5ieUtleShjb25zdCBLZXkoJ3YyLW9yZ2FuaXphdGlvbi1sZWFybmluZy1zZWFyY2gnKSksCiAgICAgICAgJ+W8oOiAgeW4iCcsCiAgICAgICk7CiAgICAgIGF3YWl0IHRlc3Rlci5wdW1wQW5kU2V0dGxlKCk7CiAgICAgIGV4cGVjdChmaW5kLnRleHQoJ+acuuaehOWtpueUnycpLCBmaW5kc09uZVdpZGdldCk7CiAgICAgIGF3YWl0IHRlc3Rlci5lbnRlclRleHQoCiAgICAgICAgZmluZC5ieUtleShjb25zdCBLZXkoJ3YyLW9yZ2FuaXphdGlvbi1sZWFybmluZy1zZWFyY2gnKSksCiAgICAgICAgJycsCiAgICAgICk7CiAgICAgIGF3YWl0IHRlc3Rlci5wdW1wQW5kU2V0dGxlKCk7CiAgICAgIGF3YWl0IHRlc3Rlci50YXAoCiAgICAgICAgZmluZC5ieUtleShjb25zdCBLZXkoJ3YyLW9yZ2FuaXphdGlvbi1xdWljay1jYXB0dXJlLXN0dWRlbnQtMScpKSwKICAgICAgKTsiIiIsCikKCndvcmtzcGFjZV90ZXN0ID0gJ3Rlc3QvZmVhdHVyZXMvdjJfb3JnYW5pemF0aW9uX3dvcmtzcGFjZV90ZXN0LmRhcnQnCnJlcGxhY2Vfb25jZSgKICAgIHdvcmtzcGFjZV90ZXN0LAogICAgIiIiICAgICAgZXhwZWN0KGZpbmQuYnlLZXkoY29uc3QgS2V5KCd2Mi10b2RheS1xdWljay1jYXB0dXJlJykpLCBmaW5kc05vdGhpbmcpOwoKICAgICAgYXdhaXQgdGVzdGVyLnRhcChmaW5kLnRleHQoJ+acuuaehOWtpueUn+S4gCcpKTsiIiIsCiAgICAiIiIgICAgICBleHBlY3QoZmluZC5ieUtleShjb25zdCBLZXkoJ3YyLXRvZGF5LXF1aWNrLWNhcHR1cmUnKSksIGZpbmRzTm90aGluZyk7CiAgICAgIGV4cGVjdChmaW5kLmJ5SWNvbihJY29ucy5leHBhbmRfbW9yZSksIGZpbmRzV2lkZ2V0cyk7CgogICAgICBhd2FpdCB0ZXN0ZXIudGFwKGZpbmQudGV4dCgn5py65p6E5a2m55Sf5LiAJykpOyIiIiwKKQo=' | base64 -d > /tmp/v038_patch.py
+          python3 /tmp/v038_patch.py
       - run: flutter pub get
       - run: dart format lib/features/design_v2/v2_organization_workspace_page.dart test/features/v2_organization_quick_capture_test.dart test/features/v2_organization_workspace_test.dart
       - run: flutter analyze
