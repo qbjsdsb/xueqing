@@ -1,0 +1,25 @@
+name: D1b navigation focused diagnostic
+
+on:
+  push:
+    branches:
+      - v0.3.8/typed-organization-navigation
+
+permissions:
+  contents: read
+
+jobs:
+  focused-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: v0.3.8/typed-organization-navigation
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.1'
+          cache: true
+      - run: flutter pub get
+      - name: Run focused typed navigation tests
+        run: flutter test test/features/v2_typed_organization_navigation_test.dart --reporter expanded
