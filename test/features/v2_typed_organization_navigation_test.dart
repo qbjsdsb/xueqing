@@ -14,44 +14,48 @@ import 'package:xueqing/update/update_installer.dart';
 import 'package:xueqing/update/update_service.dart';
 
 void main() {
-  testWidgets('ordinary compact teacher keeps exactly three personal destinations', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'ordinary compact teacher keeps exactly three personal destinations',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(_previewApp());
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_previewApp());
+      await tester.pumpAndSettle();
 
-    final navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(navigation.destinations, hasLength(3));
-    expect(find.text('机构'), findsNothing);
-  });
+      final navigation = tester.widget<NavigationBar>(
+        find.byType(NavigationBar),
+      );
+      expect(navigation.destinations, hasLength(3));
+      expect(find.text('机构'), findsNothing);
+    },
+  );
 
-  testWidgets('manager-teacher gets Organization as a fourth compact destination', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'manager-teacher gets Organization as a fourth compact destination',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(_previewApp(withOrganization: true));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_previewApp(withOrganization: true));
+      await tester.pumpAndSettle();
 
-    var navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(navigation.destinations, hasLength(4));
-    expect(find.text('机构'), findsOneWidget);
+      var navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navigation.destinations, hasLength(4));
+      expect(find.text('机构'), findsOneWidget);
 
-    await tester.tap(find.text('机构'));
-    await tester.pumpAndSettle();
-    expect(find.text('机构测试页'), findsOneWidget);
+      await tester.tap(find.text('机构'));
+      await tester.pumpAndSettle();
+      expect(find.text('机构测试页'), findsOneWidget);
 
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
 
-    expect(find.text('机构测试页'), findsNothing);
-    navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(navigation.selectedIndex, 0);
-  });
+      expect(find.text('机构测试页'), findsNothing);
+      navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navigation.selectedIndex, 0);
+    },
+  );
 
   testWidgets('desktop manager-teacher gets Organization in the primary rail', (
     tester,

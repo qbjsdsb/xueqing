@@ -1702,8 +1702,8 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         onBack: widget.onBackFromCase,
         compact: true,
       );
-    } else if (
-        widget.destination == V2WorkspaceDestination.students && _studentOpen) {
+    } else if (widget.destination == V2WorkspaceDestination.students &&
+        _studentOpen) {
       body = _StudentDetailPane(
         student: widget.selectedStudent,
         onOpenCase: widget.onOpenCase,
@@ -1738,13 +1738,10 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         onOpenMore: widget.onOpenMore,
       );
     } else {
-      body = widget.organizationPageBuilder!(
-        context,
-        () {
-          setState(() => _studentOpen = false);
-          widget.onDestinationChanged(V2WorkspaceDestination.today);
-        },
-      );
+      body = widget.organizationPageBuilder!(context, () {
+        setState(() => _studentOpen = false);
+        widget.onDestinationChanged(V2WorkspaceDestination.today);
+      });
     }
 
     final destinations = <V2WorkspaceDestination>[
