@@ -3,14 +3,14 @@ name: One-shot v0.3.8 UI hardening
 on:
   push:
     branches:
-      - release/v0.3.8-final-hardening
+      - "release/v0.3.8-final-hardening"
 
 permissions:
   contents: write
 
 jobs:
   harden:
-    if: github.actor != 'github-actions[bot]'
+    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
