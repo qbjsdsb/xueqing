@@ -1,0 +1,301 @@
+name: Apply organization responsibility preview temporary
+
+on:
+  push:
+    branches:
+      - ux/organization-responsibility-preview
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/organization-responsibility-preview
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Apply responsibility preview
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_one(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, found {count}')
+              return text.replace(old, new, 1)
+
+          composers_path = Path('lib/features/design_v2/v2_composers.dart')
+          composers = composers_path.read_text()
+
+          composers = replace_one(
+              composers,
+              """class V2ExistingCaseOption {\n  const V2ExistingCaseOption({\n    required this.id,\n    required this.title,\n    required this.subject,\n    required this.statusLabel,\n    required this.nextStepLabel,\n    required this.dueLabel,\n  });\n\n  final String id;\n  final String title;\n  final String subject;\n  final String statusLabel;\n  final String nextStepLabel;\n  final String dueLabel;\n}\n\ntypedef V2QuickCaptureContinueExisting = Future<void> Function(\n""",
+              """class V2ExistingCaseOption {\n  const V2ExistingCaseOption({\n    required this.id,\n    required this.title,\n    required this.subject,\n    required this.statusLabel,\n    required this.nextStepLabel,\n    required this.dueLabel,\n  });\n\n  final String id;\n  final String title;\n  final String subject;\n  final String statusLabel;\n  final String nextStepLabel;\n  final String dueLabel;\n}\n\nclass V2QuickCaptureSubjectContext {\n  const V2QuickCaptureSubjectContext({\n    required this.label,\n    required this.helperText,\n    this.canSave = true,\n  });\n\n  final String label;\n  final String helperText;\n  final bool canSave;\n}\n\ntypedef V2QuickCaptureContinueExisting = Future<void> Function(\n""",
+              'subject context model',
+          )
+
+          composers = replace_one(
+              composers,
+              """  List<V2ProblemTypeOption> problemTypes = v2PreviewProblemTypeOptions,\n  List<V2ExistingCaseOption> existingCases = const <V2ExistingCaseOption>[],\n  V2QuickCaptureSave? onSave,\n""",
+              """  List<V2ProblemTypeOption> problemTypes = v2PreviewProblemTypeOptions,\n  List<V2ExistingCaseOption> existingCases = const <V2ExistingCaseOption>[],\n  Map<String, V2QuickCaptureSubjectContext> subjectContexts =\n      const <String, V2QuickCaptureSubjectContext>{},\n  V2QuickCaptureSave? onSave,\n""",
+              'show quick capture signature',
+          )
+
+          composers = replace_one(
+              composers,
+              """          problemTypes: problemTypes,\n          existingCases: existingCases,\n          onSave: onSave,\n""",
+              """          problemTypes: problemTypes,\n          existingCases: existingCases,\n          subjectContexts: subjectContexts,\n          onSave: onSave,\n""",
+              'show quick capture pass-through',
+          )
+
+          composers = replace_one(
+              composers,
+              """    this.existingCases = const <V2ExistingCaseOption>[],\n    this.onSave,\n""",
+              """    this.existingCases = const <V2ExistingCaseOption>[],\n    this.subjectContexts = const <String, V2QuickCaptureSubjectContext>{},\n    this.onSave,\n""",
+              'composer constructor contexts',
+          )
+
+          composers = replace_one(
+              composers,
+              """  final List<V2ExistingCaseOption> existingCases;\n  final V2QuickCaptureSave? onSave;\n""",
+              """  final List<V2ExistingCaseOption> existingCases;\n  final Map<String, V2QuickCaptureSubjectContext> subjectContexts;\n  final V2QuickCaptureSave? onSave;\n""",
+              'composer contexts field',
+          )
+
+          composers = replace_one(
+              composers,
+              """  bool get _canSave =>\n      !_saving &&\n      _selectedSubject != null &&\n      _controller.text.trim().isNotEmpty;\n\n  List<V2ExistingCaseOption> get _matchingExistingCases {\n""",
+              """  V2QuickCaptureSubjectContext? get _selectedSubjectContext {\n    final subject = _selectedSubject;\n    if (subject == null) return null;\n    return widget.subjectContexts[subject];\n  }\n\n  bool get _canSave =>\n      !_saving &&\n      _selectedSubject != null &&\n      (_selectedSubjectContext?.canSave ?? true) &&\n      _controller.text.trim().isNotEmpty;\n\n  List<V2ExistingCaseOption> get _matchingExistingCases {\n""",
+              'composer save gate',
+          )
+
+          composers = replace_one(
+              composers,
+              """              const SizedBox(height: 22),\n            ],\n            Text('今天发现什么？', style: Theme.of(context).textTheme.titleMedium),\n""",
+              """              const SizedBox(height: 14),\n            ],\n            if (_selectedSubjectContext != null) ...[\n              _QuickCaptureSubjectContextPanel(\n                subjectContext: _selectedSubjectContext!,\n              ),\n              const SizedBox(height: 18),\n            ],\n            Text('今天发现什么？', style: Theme.of(context).textTheme.titleMedium),\n""",
+              'composer context panel placement',
+          )
+
+          composers = replace_one(
+              composers,
+              """class _ExistingCaseContinuationPanel extends StatelessWidget {\n""",
+              """class _QuickCaptureSubjectContextPanel extends StatelessWidget {\n  const _QuickCaptureSubjectContextPanel({required this.subjectContext});\n\n  final V2QuickCaptureSubjectContext subjectContext;\n\n  @override\n  Widget build(BuildContext context) {\n    final scheme = Theme.of(context).colorScheme;\n    final blocked = !subjectContext.canSave;\n    return Container(\n      key: const Key('v2-quick-capture-subject-context'),\n      width: double.infinity,\n      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),\n      decoration: BoxDecoration(\n        color: scheme.surfaceContainerLow,\n        borderRadius: BorderRadius.circular(12),\n        border: Border.all(\n          color: blocked ? scheme.error : scheme.outlineVariant,\n        ),\n      ),\n      child: Row(\n        crossAxisAlignment: CrossAxisAlignment.start,\n        children: [\n          Icon(\n            blocked ? Icons.person_off_outlined : Icons.person_outline,\n            size: 19,\n            color: blocked ? scheme.error : scheme.onSurfaceVariant,\n          ),\n          const SizedBox(width: 10),\n          Expanded(\n            child: Column(\n              crossAxisAlignment: CrossAxisAlignment.start,\n              children: [\n                Text(\n                  subjectContext.label,\n                  style: Theme.of(context).textTheme.labelLarge?.copyWith(\n                    color: blocked ? scheme.error : scheme.onSurface,\n                    fontWeight: FontWeight.w600,\n                  ),\n                ),\n                const SizedBox(height: 3),\n                Text(\n                  subjectContext.helperText,\n                  style: Theme.of(context).textTheme.bodySmall?.copyWith(\n                    color: scheme.onSurfaceVariant,\n                  ),\n                ),\n              ],\n            ),\n          ),\n        ],\n      ),\n    );\n  }\n}\n\nclass _ExistingCaseContinuationPanel extends StatelessWidget {\n""",
+              'subject context panel class',
+          )
+
+          composers_path.write_text(composers)
+
+          org_path = Path('lib/features/design_v2/v2_organization_workspace_page.dart')
+          org = org_path.read_text()
+
+          org = replace_one(
+              org,
+              """    if (profiles.isEmpty) return;\n    final hasLead = profiles.any(\n      (profile) =>\n          widget.responsibility.leadMembershipIdForProfile(profile.profileId) !=\n          null,\n    );\n    if (!hasLead) {\n""",
+              """    if (profiles.isEmpty) return;\n    final subjectContexts = <String, V2QuickCaptureSubjectContext>{};\n    for (final subject in student.subjects) {\n      final matchingProfiles = profiles\n          .where((profile) => profile.subject == subject)\n          .toList(growable: false);\n      if (matchingProfiles.length != 1) {\n        subjectContexts[subject] = const V2QuickCaptureSubjectContext(\n          label: '主责信息暂不可用',\n          helperText: '当前学科的责任关系无法安全确认，请刷新学情后再记录。',\n          canSave: false,\n        );\n        continue;\n      }\n      final profile = matchingProfiles.single;\n      final leadMembershipId = widget.responsibility.leadMembershipIdForProfile(\n        profile.profileId,\n      );\n      if (leadMembershipId == null) {\n        subjectContexts[subject] = const V2QuickCaptureSubjectContext(\n          label: '尚未明确主责老师',\n          helperText: '正式学情必须有人持续负责。请先在机构管理中设置主责老师。',\n          canSave: false,\n        );\n        continue;\n      }\n      final leadLabel =\n          widget.responsibility.displayNameForMembership(leadMembershipId) ??\n          '主责老师';\n      final currentTeacherSuffix =\n          leadMembershipId == widget.responsibility.currentMembershipId\n          ? '（你）'\n          : '';\n      subjectContexts[subject] = V2QuickCaptureSubjectContext(\n        label: '教学主责：$leadLabel$currentTeacherSuffix',\n        helperText: '你正在以机构视角记录，本次记录不会改变主责老师。',\n      );\n    }\n    final hasLead = subjectContexts.values.any((context) => context.canSave);\n    if (!hasLead) {\n""",
+              'organization responsibility contexts',
+          )
+
+          org = replace_one(
+              org,
+              """      problemTypes: problemTypes,\n      existingCases: existingCases,\n      persistence: persistence,\n""",
+              """      problemTypes: problemTypes,\n      existingCases: existingCases,\n      subjectContexts: subjectContexts,\n      persistence: persistence,\n""",
+              'organization context pass-through',
+          )
+          org_path.write_text(org)
+
+          test_path = Path('test/features/v2_organization_quick_capture_test.dart')
+          test = test_path.read_text()
+
+          test = replace_one(
+              test,
+              """      expect(find.text('记录新问题'), findsOneWidget);\n      expect(drafts.lastLoadedScope, isNotNull);\n""",
+              """      expect(find.text('记录新问题'), findsOneWidget);\n      expect(find.text('教学主责：张老师'), findsOneWidget);\n      expect(\n        find.text('你正在以机构视角记录，本次记录不会改变主责老师。'),\n        findsOneWidget,\n      );\n      expect(drafts.lastLoadedScope, isNotNull);\n""",
+              'assigned responsibility preview assertion',
+          )
+
+          insertion = """
+  testWidgets(
+    'Organization Quick Capture shows mixed subject responsibility before save',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final learning = _FakeOrganizationLearningRepository();
+      await tester.pumpWidget(
+        _app(
+          learning: learning,
+          workspace: _multiSubjectWorkspace(),
+          responsibility: _multiSubjectResponsibility(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('v2-organization-quick-capture-student-1')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('选择学科'), findsOneWidget);
+      expect(find.text('教学主责：张老师'), findsNothing);
+
+      await tester.tap(find.text('历史'));
+      await tester.pump();
+      expect(find.text('尚未明确主责老师'), findsOneWidget);
+      expect(
+        find.text('正式学情必须有人持续负责。请先在机构管理中设置主责老师。'),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('v2-quick-capture-body')),
+        '历史材料题暴露出新的问题。',
+      );
+      await tester.pump();
+      var save = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '记录问题'),
+      );
+      expect(save.onPressed, isNull);
+      expect(learning.organizationCalls, 0);
+
+      await tester.tap(find.text('语文'));
+      await tester.pump();
+      expect(find.text('教学主责：张老师'), findsOneWidget);
+      expect(find.text('尚未明确主责老师'), findsNothing);
+      save = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, '记录问题'),
+      );
+      expect(save.onPressed, isNotNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+"""
+          marker = """  testWidgets(\n    'Organization Quick Capture fails closed when the Profile has no Lead',\n"""
+          if marker not in test:
+              raise SystemExit('mixed responsibility test insertion marker missing')
+          test = test.replace(marker, insertion + marker, 1)
+
+          test = replace_one(
+              test,
+              """Widget _app({\n  required _FakeOrganizationLearningRepository learning,\n  required WorkspaceResponsibilityContext responsibility,\n  ComposerDraftStore? drafts,\n}) {\n  final workspace = _workspace();\n""",
+              """Widget _app({\n  required _FakeOrganizationLearningRepository learning,\n  required WorkspaceResponsibilityContext responsibility,\n  ComposerDraftStore? drafts,\n  TeacherWorkspace? workspace,\n}) {\n  final resolvedWorkspace = workspace ?? _workspace();\n""",
+              'test app optional workspace',
+          )
+          test = replace_one(
+              test,
+              """      workspace: workspace,\n      workspaceData: V2ReadModelAdapter.fromWorkspace(workspace).workspaceData,\n""",
+              """      workspace: resolvedWorkspace,\n      workspaceData: V2ReadModelAdapter.fromWorkspace(resolvedWorkspace)\n          .workspaceData,\n""",
+              'test app resolved workspace',
+          )
+
+          helpers = """
+TeacherWorkspace _multiSubjectWorkspace() => TeacherWorkspace(
+  viewerName: '李老师',
+  organizationName: '测试机构',
+  organizationTimeZone: 'Asia/Shanghai',
+  organizationId: 'org-1',
+  hasTeachingAccess: true,
+  canManageOrganization: true,
+  roles: const ['org_admin'],
+  loadedAt: DateTime(2026, 9, 12, 12),
+  businessDate: DateTime(2026, 9, 12),
+  students: [
+    WorkspaceStudent(
+      id: 'student-1',
+      profileId: 'profile-cn',
+      profileVersion: 3,
+      name: '机构学生',
+      grade: '初三',
+      subject: '语文',
+      context: '',
+      positioning: null,
+      strengths: null,
+      cadenceNote: null,
+      cases: const [],
+      recentFacts: const [],
+    ),
+    WorkspaceStudent(
+      id: 'student-1',
+      profileId: 'profile-history',
+      profileVersion: 1,
+      name: '机构学生',
+      grade: '初三',
+      subject: '历史',
+      context: '',
+      positioning: null,
+      strengths: null,
+      cadenceNote: null,
+      cases: const [],
+      recentFacts: const [],
+    ),
+  ],
+);
+
+WorkspaceResponsibilityContext _multiSubjectResponsibility() =>
+    WorkspaceResponsibilityContext(
+      organizationId: 'org-1',
+      currentMembershipId: 'membership-manager',
+      personalAssignments: const [],
+      caseOwnerMembershipIds: const {},
+      actionAssignedMembershipIds: const {},
+      eventActorMembershipIds: const {},
+      memberDisplayNames: const {
+        'membership-manager': '李老师',
+        'membership-lead': '张老师',
+      },
+      profileLeadMembershipIds: const {
+        'profile-cn': 'membership-lead',
+        'profile-history': null,
+      },
+    );
+
+"""
+          helper_marker = """WorkspaceResponsibilityContext _responsibility({\n"""
+          if helper_marker not in test:
+              raise SystemExit('helper insertion marker missing')
+          test = test.replace(helper_marker, helpers + helper_marker, 1)
+          test_path.write_text(test)
+          PY
+
+      - name: Format changed Dart files
+        run: |
+          dart format \
+            lib/features/design_v2/v2_composers.dart \
+            lib/features/design_v2/v2_organization_workspace_page.dart \
+            test/features/v2_organization_quick_capture_test.dart
+
+      - name: Run targeted tests
+        run: |
+          flutter pub get
+          flutter test \
+            test/features/design_v2_composers_test.dart \
+            test/features/v2_organization_quick_capture_test.dart \
+            test/features/v2_organization_workspace_test.dart
+
+      - name: Commit refinement and remove temporary workflow
+        shell: bash
+        run: |
+          rm .github/workflows/apply-org-responsibility-preview-temp.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/features/design_v2/v2_composers.dart \
+            lib/features/design_v2/v2_organization_workspace_page.dart \
+            test/features/v2_organization_quick_capture_test.dart \
+            .github/workflows/apply-org-responsibility-preview-temp.yml
+          git commit -m "feat: preview organization teaching responsibility before save"
+          git push origin HEAD:ux/organization-responsibility-preview
