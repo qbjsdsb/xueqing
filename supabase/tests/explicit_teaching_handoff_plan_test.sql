@@ -179,8 +179,7 @@ insert into public.case_events (
   event_type,
   actor_app_user_id,
   actor_membership_id,
-  metadata,
-  operation_event_key
+  metadata
 )
 values (
   '8d500000-0000-0000-0000-000000000001',
@@ -189,8 +188,7 @@ values (
   'case_created',
   '10000000-0000-0000-0000-000000000001',
   '61000000-0000-0000-0000-000000000001',
-  '{}'::jsonb,
-  'fixture-created'
+  '{}'::jsonb
 );
 
 set local role authenticated;
