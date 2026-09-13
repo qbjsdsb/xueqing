@@ -34,7 +34,7 @@ jobs:
           )
           text = text.replace(
               "expect(find.textContaining('未设置主责'), findsOneWidget);",
-              "expect(find.textContaining('未明确主责'), findsOneWidget);",
+              "expect(find.text('1 门学科未明确主责'), findsOneWidget);",
               1,
           )
           path.write_text(text)
