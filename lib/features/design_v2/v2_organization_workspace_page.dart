@@ -765,11 +765,18 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
         '主责老师';
   }
 
-  bool _hasUnassignedProfile(List<WorkspaceStudent> profiles) => profiles.any(
-    (profile) =>
-        widget.responsibility.leadMembershipIdForProfile(profile.profileId) ==
-        null,
-  );
+  int _unassignedProfileCount(List<WorkspaceStudent> profiles) => profiles
+      .where(
+        (profile) =>
+            widget.responsibility.leadMembershipIdForProfile(
+              profile.profileId,
+            ) ==
+            null,
+      )
+      .length;
+
+  bool _hasUnassignedProfile(List<WorkspaceStudent> profiles) =>
+      _unassignedProfileCount(profiles) > 0;
 
   String _responsibilitySummary(List<WorkspaceStudent> profiles) {
     final assigned = <String>{};
@@ -1075,8 +1082,8 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                                   return _OrganizationStudentSelectionRow(
                                     student: student,
                                     items: items,
-                                    responsibilitySummary:
-                                        _responsibilitySummary(profiles),
+                                    unassignedProfileCount:
+                                        _unassignedProfileCount(profiles),
                                     selected: student.id == selectedStudent?.id,
                                     onTap: () => setState(
                                       () => _selectedStudentId = student.id,
@@ -1269,14 +1276,12 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                             return _OrganizationStudentRow(
                               student: student,
                               items: items,
-                              profiles: profiles,
+                              unassignedProfileCount: _unassignedProfileCount(
+                                profiles,
+                              ),
                               caseOwnerLabelByCaseId: caseOwnerLabelByCaseId,
                               collaborationLabelByCaseId:
                                   collaborationLabelByCaseId,
-                              responsibilitySummary: _responsibilitySummary(
-                                profiles,
-                              ),
-                              leadLabelForProfile: _leadLabelForProfile,
                               compact: compact,
                               onQuickCapture: () =>
                                   _openQuickCapture(context, student),
@@ -1293,18 +1298,86 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
   }
 }
 
+class _OrganizationStudentAttentionSummary {
+  const _OrganizationStudentAttentionSummary({
+    required this.label,
+    required this.needsAttention,
+  });
+
+  final String label;
+  final bool needsAttention;
+}
+
+_OrganizationStudentAttentionSummary _organizationStudentAttentionSummary(
+  List<V2FocusItem> activeItems, {
+  required int unassignedProfileCount,
+}) {
+  final overdueCount = activeItems
+      .where((item) => item.actionTiming == V2ActionTiming.overdue)
+      .length;
+  final pendingCount = activeItems
+      .where(
+        (item) =>
+            item.actionTiming != V2ActionTiming.overdue &&
+            (item.pendingVerification ||
+                item.effectiveStatus == V2CaseStatus.pendingVerification),
+      )
+      .length;
+  final undatedCount = activeItems
+      .where(
+        (item) =>
+            item.actionTiming == V2ActionTiming.undated &&
+            !item.pendingVerification &&
+            item.effectiveStatus != V2CaseStatus.pendingVerification,
+      )
+      .length;
+
+  final attentionCount =
+      overdueCount + pendingCount + unassignedProfileCount + undatedCount;
+  if (attentionCount == 0) {
+    return _OrganizationStudentAttentionSummary(
+      label: activeItems.isEmpty ? '暂无跟进' : '${activeItems.length} 个跟进中',
+      needsAttention: false,
+    );
+  }
+
+  late final String primaryLabel;
+  late final int primaryCount;
+  if (overdueCount > 0) {
+    primaryCount = overdueCount;
+    primaryLabel = '$overdueCount 个已逾期';
+  } else if (pendingCount > 0) {
+    primaryCount = pendingCount;
+    primaryLabel = '$pendingCount 个待复检';
+  } else if (unassignedProfileCount > 0) {
+    primaryCount = unassignedProfileCount;
+    primaryLabel = '$unassignedProfileCount 门学科未明确主责';
+  } else {
+    primaryCount = undatedCount;
+    primaryLabel = '$undatedCount 个待安排日期';
+  }
+
+  final remainingCount = attentionCount - primaryCount;
+  return _OrganizationStudentAttentionSummary(
+    label: remainingCount > 0
+        ? '$primaryLabel · 另 $remainingCount 项需关注'
+        : primaryLabel,
+    needsAttention: true,
+  );
+}
+
 class _OrganizationStudentSelectionRow extends StatelessWidget {
   const _OrganizationStudentSelectionRow({
     required this.student,
     required this.items,
-    required this.responsibilitySummary,
+    required this.unassignedProfileCount,
     required this.selected,
     required this.onTap,
   });
 
   final V2Student student;
   final List<V2FocusItem> items;
-  final String responsibilitySummary;
+  final int unassignedProfileCount;
   final bool selected;
   final VoidCallback onTap;
 
@@ -1315,21 +1388,10 @@ class _OrganizationStudentSelectionRow extends StatelessWidget {
     final activeItems = items
         .where((item) => !item.closed)
         .toList(growable: false);
-    final pendingCount = activeItems
-        .where(
-          (item) =>
-              item.pendingVerification ||
-              item.effectiveStatus == V2CaseStatus.pendingVerification,
-        )
-        .length;
-    final overdueCount = activeItems
-        .where((item) => item.actionTiming == V2ActionTiming.overdue)
-        .length;
-    final statusParts = <String>[
-      activeItems.isEmpty ? '暂无跟进' : '${activeItems.length} 个跟进中',
-      if (pendingCount > 0) '$pendingCount 个待复检',
-      if (overdueCount > 0) '$overdueCount 个已逾期',
-    ];
+    final attention = _organizationStudentAttentionSummary(
+      activeItems,
+      unassignedProfileCount: unassignedProfileCount,
+    );
 
     return Material(
       color: selected
@@ -1366,23 +1428,16 @@ class _OrganizationStudentSelectionRow extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                statusParts.join(' · '),
+                attention.label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+                  color: attention.needsAttention
+                      ? scheme.onSurface
+                      : scheme.onSurfaceVariant,
+                  fontWeight: attention.needsAttention ? FontWeight.w600 : null,
                 ),
               ),
-              if (responsibilitySummary.contains('未')) ...[
-                const SizedBox(height: 4),
-                Text(
-                  responsibilitySummary,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -1551,22 +1606,18 @@ class _OrganizationStudentRow extends StatelessWidget {
   const _OrganizationStudentRow({
     required this.student,
     required this.items,
-    required this.profiles,
+    required this.unassignedProfileCount,
     required this.caseOwnerLabelByCaseId,
     required this.collaborationLabelByCaseId,
-    required this.responsibilitySummary,
-    required this.leadLabelForProfile,
     required this.compact,
     required this.onQuickCapture,
   });
 
   final V2Student student;
   final List<V2FocusItem> items;
-  final List<WorkspaceStudent> profiles;
+  final int unassignedProfileCount;
   final Map<String, String> caseOwnerLabelByCaseId;
   final Map<String, String> collaborationLabelByCaseId;
-  final String responsibilitySummary;
-  final String Function(WorkspaceStudent profile) leadLabelForProfile;
   final bool compact;
   final VoidCallback onQuickCapture;
 
@@ -1584,51 +1635,6 @@ class _OrganizationStudentRow extends StatelessWidget {
           label: const Text('记录问题'),
         );
 
-  String _statusSummary(List<V2FocusItem> activeItems) {
-    final pendingCount = activeItems
-        .where(
-          (item) =>
-              item.pendingVerification ||
-              item.effectiveStatus == V2CaseStatus.pendingVerification,
-        )
-        .length;
-    final overdueCount = activeItems
-        .where((item) => item.actionTiming == V2ActionTiming.overdue)
-        .length;
-    final parts = <String>[
-      '${activeItems.length} 个跟进中',
-      if (pendingCount > 0) '$pendingCount 个待复检',
-      if (overdueCount > 0) '$overdueCount 个已逾期',
-    ];
-    return parts.join(' · ');
-  }
-
-  Widget _subjectResponsibilityPreview(BuildContext context) {
-    final style = Theme.of(context).textTheme.bodySmall
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
-    if (profiles.isEmpty) {
-      return Text(responsibilitySummary, style: style);
-    }
-    final limit = compact ? 2 : 3;
-    final visibleProfiles = profiles.take(limit).toList(growable: false);
-    return Wrap(
-      spacing: 16,
-      runSpacing: 4,
-      children: [
-        for (final profile in visibleProfiles)
-          Text(
-            '${profile.subject} · ${leadLabelForProfile(profile)}',
-            style: style,
-          ),
-        if (profiles.length > visibleProfiles.length)
-          Text(
-            '另 ${profiles.length - visibleProfiles.length} 门学科',
-            style: style,
-          ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final activeItems = items
@@ -1638,6 +1644,10 @@ class _OrganizationStudentRow extends StatelessWidget {
         .where((item) => item.closed)
         .toList(growable: false);
     final subtitleStyle = Theme.of(context).textTheme.bodySmall;
+    final attention = _organizationStudentAttentionSummary(
+      activeItems,
+      unassignedProfileCount: unassignedProfileCount,
+    );
 
     if (items.isEmpty) {
       return ListTile(
@@ -1655,13 +1665,11 @@ class _OrganizationStudentRow extends StatelessWidget {
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('当前没有需要跟进的问题', style: subtitleStyle),
-              const SizedBox(height: 6),
-              _subjectResponsibilityPreview(context),
-            ],
+          child: Text(
+            attention.needsAttention ? attention.label : '当前没有需要跟进的问题',
+            style: subtitleStyle?.copyWith(
+              fontWeight: attention.needsAttention ? FontWeight.w600 : null,
+            ),
           ),
         ),
         trailing: _recordButton(),
@@ -1686,18 +1694,13 @@ class _OrganizationStudentRow extends StatelessWidget {
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              activeItems.isEmpty
-                  ? '当前没有需要跟进的问题${closedItems.isEmpty ? '' : ' · ${closedItems.length} 个历史问题'}'
-                  : _statusSummary(activeItems),
-              style: subtitleStyle,
-            ),
-            const SizedBox(height: 6),
-            _subjectResponsibilityPreview(context),
-          ],
+        child: Text(
+          activeItems.isEmpty && !attention.needsAttention
+              ? '当前没有需要跟进的问题${closedItems.isEmpty ? '' : ' · ${closedItems.length} 个历史问题'}'
+              : '${attention.label}${activeItems.isEmpty && closedItems.isNotEmpty ? ' · ${closedItems.length} 个历史问题' : ''}',
+          style: subtitleStyle?.copyWith(
+            fontWeight: attention.needsAttention ? FontWeight.w600 : null,
+          ),
         ),
       ),
       trailing: _recordButton(),
