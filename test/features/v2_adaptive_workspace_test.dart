@@ -10,13 +10,14 @@ void main() {
     theme: V2Theme.light(),
     home: V2WorkspacePreview(
       organizationPageBuilder: withOrganization
-          ? (context, onBackToPersonal) => PopScope<void>(
-              canPop: false,
-              onPopInvokedWithResult: (didPop, _) {
-                if (!didPop) onBackToPersonal();
-              },
-              child: const Center(child: Text('机构测试页')),
-            )
+          ? (context, onBackToPersonal, section, onSectionChanged) =>
+                PopScope<void>(
+                  canPop: false,
+                  onPopInvokedWithResult: (didPop, _) {
+                    if (!didPop) onBackToPersonal();
+                  },
+                  child: const Center(child: Text('机构测试页')),
+                )
           : null,
     ),
   );
@@ -202,9 +203,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
-    expect(find.byKey(const Key('v2-rail-organization')), findsOneWidget);
+    expect(
+      find.byKey(const Key('v2-rail-organization-learning')),
+      findsOneWidget,
+    );
     expect(find.byType(NavigationBar), findsNothing);
-    await tester.tap(find.byTooltip('机构'));
+    await tester.tap(find.byTooltip('学情监督'));
     await tester.pumpAndSettle();
     expect(find.text('机构测试页'), findsOneWidget);
   });
