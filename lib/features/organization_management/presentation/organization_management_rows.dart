@@ -1,5 +1,9 @@
 part of 'organization_management_page.dart';
 
+enum _MemberMoreAction { editName, reissueCredential, toggleStatus }
+
+enum _TeacherScopeMoreAction { end }
+
 class _MemberTile extends StatelessWidget {
   const _MemberTile({
     required this.member,
@@ -67,36 +71,52 @@ class _MemberTile extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
-          const SizedBox(height: AppSpacing.xs),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              if (canEditName && onEditName != null)
-                TextButton.icon(
-                  onPressed: busy ? null : onEditName,
-                  icon: const Icon(Icons.badge_outlined, size: 18),
-                  label: Text(hasDisplayName ? '修改姓名' : '补充姓名'),
+          if ((canEditName && onEditName != null) ||
+              (member.isOnboarding && onReissueCredential != null) ||
+              !member.isOnboarding) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: PopupMenuButton<_MemberMoreAction>(
+                key: ValueKey<String>(
+                  'member-more-actions-${member.membershipId}',
                 ),
-              if (member.isOnboarding && onReissueCredential != null)
-                TextButton.icon(
-                  onPressed: busy ? null : onReissueCredential,
-                  icon: const Icon(Icons.key_outlined, size: 18),
-                  label: const Text('重新发放临时密码'),
-                )
-              else if (!member.isOnboarding)
-                TextButton.icon(
-                  onPressed: lifecycleBusy ? null : onToggleStatus,
-                  icon: Icon(
-                    member.status == 'disabled'
-                        ? Icons.restore_outlined
-                        : Icons.person_off_outlined,
-                    size: 18,
-                  ),
-                  label: Text(member.status == 'disabled' ? '恢复成员' : '停用成员'),
-                ),
-            ],
-          ),
+                tooltip: '成员操作',
+                enabled: !busy,
+                icon: const Icon(Icons.more_horiz),
+                onSelected: (action) {
+                  switch (action) {
+                    case _MemberMoreAction.editName:
+                      onEditName?.call();
+                    case _MemberMoreAction.reissueCredential:
+                      onReissueCredential?.call();
+                    case _MemberMoreAction.toggleStatus:
+                      onToggleStatus();
+                  }
+                },
+                itemBuilder: (_) => [
+                  if (canEditName && onEditName != null)
+                    PopupMenuItem<_MemberMoreAction>(
+                      value: _MemberMoreAction.editName,
+                      child: Text(hasDisplayName ? '修改姓名' : '补充姓名'),
+                    ),
+                  if (member.isOnboarding && onReissueCredential != null)
+                    const PopupMenuItem<_MemberMoreAction>(
+                      value: _MemberMoreAction.reissueCredential,
+                      child: Text('重新发放临时密码'),
+                    ),
+                  if (!member.isOnboarding)
+                    PopupMenuItem<_MemberMoreAction>(
+                      value: _MemberMoreAction.toggleStatus,
+                      enabled: !lifecycleBusy,
+                      child: Text(
+                        member.status == 'disabled' ? '恢复成员' : '停用成员',
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -234,18 +254,23 @@ class _TeacherSubjectScopeGroupTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xs),
-                  _ManagementStatusChip(label: '可教学', isPositive: true),
-                  const SizedBox(width: AppSpacing.xxs),
-                  TextButton(
+                  PopupMenuButton<_TeacherScopeMoreAction>(
                     key: ValueKey<String>(
-                      'teacher-scope-stop-${scope.scopeId}',
+                      'teacher-scope-actions-${scope.scopeId}',
                     ),
-                    onPressed: busy
-                        ? null
-                        : () {
-                            onToggle(scope);
-                          },
-                    child: const Text('停用'),
+                    tooltip: '学科操作',
+                    enabled: !busy,
+                    icon: const Icon(Icons.more_horiz, size: 20),
+                    onSelected: (_) => onToggle(scope),
+                    itemBuilder: (_) => [
+                      PopupMenuItem<_TeacherScopeMoreAction>(
+                        key: ValueKey<String>(
+                          'teacher-scope-stop-${scope.scopeId}',
+                        ),
+                        value: _TeacherScopeMoreAction.end,
+                        child: const Text('停用该学科'),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -388,10 +413,10 @@ class _OrganizationStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final details = <String>[
-      if (student.studentCode != null) '编号 ${student.studentCode}',
       if (student.grade != null) student.grade!,
       if (student.className != null) student.className!,
       if (student.campus != null) student.campus!,
+      if (student.studentCode != null) '编号 ${student.studentCode}',
     ];
     return _ManagementRowShell(
       leading: Icon(
@@ -405,18 +430,22 @@ class _OrganizationStudentTile extends StatelessWidget {
             student.studentName,
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xxs,
-            children: [
-              _ManagementStatusChip(
-                label: _studentStatusLabel(student.status),
-                isPositive: student.isActive,
+          if (!student.isActive) ...[
+            const SizedBox(height: AppSpacing.xs),
+            _ManagementStatusChip(
+              label: _studentStatusLabel(student.status),
+              isPositive: false,
+            ),
+          ],
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              details.join(' · '),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              for (final detail in details) _ManagementRoleChip(label: detail),
-            ],
-          ),
+            ),
+          ],
           if (student.subjectServices.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
             Column(
