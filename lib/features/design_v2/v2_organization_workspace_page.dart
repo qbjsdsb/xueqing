@@ -69,6 +69,7 @@ class _V2OrganizationWorkspacePageState
     extends State<V2OrganizationWorkspacePage> {
   final ScrollController _managementScrollController = ScrollController();
   _OrganizationSection _section = _OrganizationSection.learning;
+  bool _managementActivated = false;
   bool _checkingForUpdates = false;
 
   @override
@@ -390,7 +391,14 @@ class _V2OrganizationWorkspacePageState
                               ],
                               selected: {_section},
                               onSelectionChanged: (selection) {
-                                setState(() => _section = selection.single);
+                                final nextSection = selection.single;
+                                setState(() {
+                                  _section = nextSection;
+                                  if (nextSection ==
+                                      _OrganizationSection.management) {
+                                    _managementActivated = true;
+                                  }
+                                });
                               },
                             ),
                           ),
@@ -400,23 +408,24 @@ class _V2OrganizationWorkspacePageState
                   ),
                   const Divider(height: 1),
                   Expanded(
-                    child: _section == _OrganizationSection.learning
-                        ? _OrganizationLearningView(
-                            workspace: widget.workspace,
-                            data: widget.workspaceData,
-                            responsibility: widget.responsibility,
-                            workflowController:
-                                _organizationWorkflowController(),
-                            composerDraftStore:
-                                widget.runtime.composerDraftStore,
-                            composerDraftScopeKey:
-                                widget.runtime.composerDraftStore != null &&
-                                    widget.runtime.sessionUserId != null
-                                ? '${quickCaptureComposerScopeKey(sessionUserId: widget.runtime.sessionUserId!, organizationId: widget.workspace.organizationId)}:organization'
-                                : null,
-                            onChanged: widget.onChanged,
-                          )
-                        : Scrollbar(
+                    child: IndexedStack(
+                      index: _section == _OrganizationSection.learning ? 0 : 1,
+                      children: [
+                        _OrganizationLearningView(
+                          workspace: widget.workspace,
+                          data: widget.workspaceData,
+                          responsibility: widget.responsibility,
+                          workflowController: _organizationWorkflowController(),
+                          composerDraftStore: widget.runtime.composerDraftStore,
+                          composerDraftScopeKey:
+                              widget.runtime.composerDraftStore != null &&
+                                  widget.runtime.sessionUserId != null
+                              ? '${quickCaptureComposerScopeKey(sessionUserId: widget.runtime.sessionUserId!, organizationId: widget.workspace.organizationId)}:organization'
+                              : null,
+                          onChanged: widget.onChanged,
+                        ),
+                        if (_managementActivated)
+                          Scrollbar(
                             controller: _managementScrollController,
                             thumbVisibility: !compact,
                             interactive: !compact,
@@ -428,7 +437,11 @@ class _V2OrganizationWorkspacePageState
                                   ? SelectionArea(child: _managementContent())
                                   : _managementContent(),
                             ),
-                          ),
+                          )
+                        else
+                          const SizedBox.shrink(),
+                      ],
+                    ),
                   ),
                 ],
               ),

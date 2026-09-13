@@ -34,3 +34,5 @@ For a manager who also teaches, the embedded Organization workspace is one conti
 - preserving these presentation states must not change Personal responsibility, Organization authority, Case owner, Profile Lead, or write semantics.
 
 The loader therefore gives the embedded Organization workspace a stable identity across adaptive shell replacement. Window width may change presentation, but it must not recreate the supervisor's current working context.
+
+Switching between Organization Learning and Management is also presentation/workspace navigation, not a request to clear the supervisor's Learning context. Learning search, attention filter and selected student remain alive while Management is visited. Management is initialized lazily on first entry so preserving state does not add eager management work to the default Learning view.
