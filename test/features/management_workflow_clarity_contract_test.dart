@@ -26,13 +26,20 @@ void main() {
     );
   });
 
-  test('management exposes one export entry and concrete setup next steps', () {
+  test('management keeps one quiet export tool and concrete setup next steps', () {
     final areas = File(
       'lib/features/organization_management/presentation/organization_management_areas.dart',
     ).readAsStringSync();
+    final layout = File(
+      'lib/features/organization_management/presentation/organization_management_layout.dart',
+    ).readAsStringSync();
 
-    expect(areas, contains("label: const Text('导出记录')"));
+    expect(areas, contains('_ManagementToolbar('));
+    expect(areas, contains('? _showExportRecords'));
     expect(areas, contains("title: const Text('导出记录')"));
+    expect(layout, contains("key: const Key('management-export-records')"));
+    expect(layout, contains("tooltip: '导出记录'"));
+    expect(layout, contains("label: const Text('导出记录')"));
     expect(areas, isNot(contains("label: const Text('导出老师记录')")));
     expect(areas, isNot(contains("label: const Text('导出学生记录')")));
     expect(areas, contains("title = '先添加机构学科';"));
