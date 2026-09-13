@@ -34,10 +34,17 @@ void main() {
       expect(navigation.destinations, hasLength(3));
       expect(
         find.byKey(const Key('v2-open-organization-scope')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('v2-compact-more')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('v2-compact-more')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('v2-menu-open-organization')),
         findsOneWidget,
       );
-
-      await tester.tap(find.byKey(const Key('v2-open-organization-scope')));
+      await tester.tap(find.byKey(const Key('v2-menu-open-organization')));
       await tester.pumpAndSettle();
       expect(find.text('机构权限测试页'), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
@@ -51,6 +58,13 @@ void main() {
       navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
       expect(navigation.destinations, hasLength(3));
       expect(navigation.selectedIndex, 0);
+
+      await tester.tap(find.byKey(const Key('v2-compact-more')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('v2-menu-open-organization')),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
     },
   );
