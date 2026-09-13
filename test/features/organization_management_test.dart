@@ -1214,9 +1214,14 @@ void main() {
     await _selectManagementArea(tester, '成员');
 
     expect(find.text('示例老师'), findsOneWidget);
-    final disableFinder = find.widgetWithText(TextButton, '停用成员');
+    final moreFinder = find.byTooltip('成员操作');
+    expect(moreFinder, findsOneWidget);
+    await tester.tap(moreFinder);
+    await tester.pumpAndSettle();
+    final disableFinder = find.text('停用成员');
     expect(disableFinder, findsOneWidget);
-    expect(tester.widget<TextButton>(disableFinder).onPressed, isNull);
+    await tester.tap(disableFinder);
+    await tester.pumpAndSettle();
     expect(repository.memberStatusUpdateCount, 0);
   });
 
@@ -1585,7 +1590,7 @@ void main() {
         'active',
       );
       expect(repository.studentTeacherAssignments.single.status, 'active');
-      expect(find.text('正常教学'), findsOneWidget);
+      expect(find.text('暂不教学'), findsNothing);
     },
   );
 
@@ -1844,8 +1849,11 @@ void main() {
       expect(repository.teacherScopeUpdateCount, 1);
       expect(find.text('示例老师'), findsOneWidget);
       expect(find.text('数学'), findsOneWidget);
-      final stop = find.text('停用');
-      await tester.ensureVisible(stop);
+      final scopeMore = find.byTooltip('学科操作');
+      await tester.ensureVisible(scopeMore);
+      await tester.tap(scopeMore);
+      await tester.pumpAndSettle();
+      final stop = find.text('停用该学科');
       await tester.tap(stop);
       await tester.pumpAndSettle();
       expect(find.text('停用这门可教学科？'), findsOneWidget);
