@@ -10,6 +10,7 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 areas_path = Path('lib/features/organization_management/presentation/organization_management_areas.dart')
 layout_path = Path('lib/features/organization_management/presentation/organization_management_layout.dart')
 test_path = Path('test/features/management_visual_density_test.dart')
+organization_test_path = Path('test/features/organization_management_test.dart')
 
 areas = areas_path.read_text()
 areas = replace_once(
@@ -66,3 +67,12 @@ needle = """    expect(statusBlock, contains('AppRadii.small'));\n  });\n}\n"""
 replacement = """    expect(statusBlock, contains('AppRadii.small'));\n\n    final areaCardStart = layout.indexOf('class _ManagementAreaCard');\n    final sectionStart = layout.indexOf('class _ManagementSection');\n    expect(areaCardStart, greaterThanOrEqualTo(0));\n    expect(sectionStart, greaterThan(areaCardStart));\n    final areaCardBlock = layout.substring(areaCardStart, sectionStart);\n    expect(areaCardBlock, contains('Widget build(BuildContext context) => child;'));\n    expect(areaCardBlock, isNot(contains('Divider(')));\n    expect(areaCardBlock, isNot(contains('description')));\n\n    expect(layout, contains('class _ManagementToolbar'));\n    expect(layout, contains("tooltip: '导出记录'"));\n    expect(layout, contains("label: const Text('导出记录')"));\n  });\n}\n"""
 test = replace_once(test, needle, replacement, 'extend density contract')
 test_path.write_text(test)
+
+organization_test = organization_test_path.read_text()
+organization_test = replace_once(
+    organization_test,
+    "    expect(find.text('基础设置'), findsOneWidget);\n",
+    "    expect(find.text('机构学科'), findsOneWidget);\n",
+    'update settings-first behavior contract',
+)
+organization_test_path.write_text(organization_test)
