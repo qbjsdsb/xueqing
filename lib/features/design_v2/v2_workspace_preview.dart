@@ -2229,29 +2229,19 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
             hasInternalHistory ||
                 widget.destination == V2WorkspaceDestination.organization
             ? null
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                  NavigationBar(
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    selectedIndex: _compactPrimaryDestinations.indexOf(
-                      widget.destination,
-                    ),
-                    onDestinationSelected: (index) {
-                      widget.onDestinationChanged(
-                        _compactPrimaryDestinations[index],
-                      );
-                    },
-                    destinations: [
-                      for (final destination in _compactPrimaryDestinations)
-                        _compactNavigationDestination(destination),
-                    ],
-                  ),
+            : NavigationBar(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                selectedIndex: _compactPrimaryDestinations.indexOf(
+                  widget.destination,
+                ),
+                onDestinationSelected: (index) {
+                  widget.onDestinationChanged(
+                    _compactPrimaryDestinations[index],
+                  );
+                },
+                destinations: [
+                  for (final destination in _compactPrimaryDestinations)
+                    _compactNavigationDestination(destination),
                 ],
               ),
       ),
