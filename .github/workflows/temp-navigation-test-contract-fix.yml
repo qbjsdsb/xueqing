@@ -1,0 +1,78 @@
+name: Temporary navigation contract test fix
+
+on:
+  push:
+    branches:
+      - fix/navigation-simplification-test-contracts
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: ${{ !contains(github.event.head_commit.message, '[verified]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout fix branch
+        uses: actions/checkout@v6
+        with:
+          ref: fix/navigation-simplification-test-contracts
+          fetch-depth: 0
+
+      - name: Verify production candidate base
+        run: |
+          git merge-base --is-ancestor 34dd2875a6f1947603b2c0e7d8a00c2764df938d HEAD
+          test -z "$(git diff --name-only 34dd2875a6f1947603b2c0e7d8a00c2764df938d -- lib supabase pubspec.yaml pubspec.lock)"
+
+      - name: Apply test contract fixes
+        run: python .github/temp_navigation_test_contract_fix.py
+
+      - name: Remove temporary machinery
+        run: |
+          rm .github/temp_navigation_test_contract_fix.py
+          rm .github/workflows/temp-navigation-test-contract-fix.yml
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Format and verify diff
+        run: |
+          dart format \
+            test/features/v2_organization_capability_reconciliation_test.dart \
+            test/features/v2_shell_production_capabilities_test.dart \
+            test/features/v2_typed_organization_navigation_test.dart
+          git diff --exit-code -- pubspec.lock
+          git diff --check
+          test -z "$(git diff --name-only 34dd2875a6f1947603b2c0e7d8a00c2764df938d -- lib supabase pubspec.yaml pubspec.lock .github)"
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run targeted regression tests
+        run: |
+          flutter test \
+            test/features/v2_organization_capability_reconciliation_test.dart \
+            test/features/v2_shell_production_capabilities_test.dart \
+            test/features/v2_typed_organization_navigation_test.dart
+
+      - name: Run full Flutter suite
+        run: flutter test
+
+      - name: Commit verified test-only fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            test/features/v2_organization_capability_reconciliation_test.dart \
+            test/features/v2_shell_production_capabilities_test.dart \
+            test/features/v2_typed_organization_navigation_test.dart
+          git commit -m "[verified] test: align navigation simplification contracts"
+          git push origin HEAD:fix/navigation-simplification-test-contracts
