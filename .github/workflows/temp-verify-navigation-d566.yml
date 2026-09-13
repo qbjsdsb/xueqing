@@ -1,0 +1,56 @@
+name: Temporary verify navigation d566
+
+on:
+  push:
+    branches:
+      - verify/navigation-simplification-d566
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v6
+        with:
+          ref: verify/navigation-simplification-d566
+          fetch-depth: 0
+
+      - name: Verify exact production candidate ancestry
+        run: |
+          git merge-base --is-ancestor d566822650bfa70e6053c9f8e268033dc0dd5db9 HEAD
+          test -z "$(git diff --name-only d566822650bfa70e6053c9f8e268033dc0dd5db9 -- lib supabase pubspec.yaml pubspec.lock test)"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Verify lockfile
+        run: git diff --exit-code -- pubspec.lock
+
+      - name: Check formatting
+        run: |
+          dart format .
+          git diff --exit-code -- . ':(exclude).github/workflows/temp-verify-navigation-d566.yml'
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Targeted navigation regressions
+        run: |
+          flutter test \
+            test/features/v2_organization_capability_reconciliation_test.dart \
+            test/features/v2_shell_production_capabilities_test.dart \
+            test/features/v2_typed_organization_navigation_test.dart
+
+      - name: Full Flutter suite
+        run: flutter test
