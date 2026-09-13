@@ -1075,6 +1075,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   V2Student? _selectedStudent;
   V2FocusItem? _selectedCase;
   bool _showCase = false;
+  bool _showStudentDetail = false;
   bool _checkingForUpdates = false;
   bool _refreshing = false;
   bool _composerDraftRecoveryScheduled = false;
@@ -1095,6 +1096,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
         _destination == V2WorkspaceDestination.organization) {
       _destination = V2WorkspaceDestination.today;
       _showCase = false;
+      _showStudentDetail = false;
     }
     if (oldWidget.composerDraftScopeKey != widget.composerDraftScopeKey ||
         oldWidget.composerDraftStore != widget.composerDraftStore) {
@@ -1219,6 +1221,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
       _selectedStudent = null;
       _selectedCase = null;
       _showCase = false;
+      _showStudentDetail = false;
       return;
     }
 
@@ -1249,6 +1252,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
       _selectedStudent = student;
       _selectedCase = null;
       _showCase = false;
+      _showStudentDetail = true;
     });
   }
 
@@ -1267,10 +1271,15 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
 
   void _closeCase() => setState(() => _showCase = false);
 
+  void _closeStudentDetail() => setState(() => _showStudentDetail = false);
+
   void _changeDestination(V2WorkspaceDestination value) {
     setState(() {
       _destination = value;
       _showCase = false;
+      if (value != V2WorkspaceDestination.students) {
+        _showStudentDetail = false;
+      }
     });
   }
 
@@ -1483,8 +1492,10 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     selectedStudent: selectedStudent,
                     selectedCase: _selectedCase,
                     showCase: _showCase,
+                    showStudentDetail: _showStudentDetail,
                     onDestinationChanged: _changeDestination,
                     onStudentSelected: _openStudent,
+                    onBackFromStudent: _closeStudentDetail,
                     onOpenCase: _openCase,
                     onBackFromCase: _closeCase,
                     organizationPageBuilder: widget.organizationPageBuilder,
@@ -1497,8 +1508,10 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     selectedStudent: selectedStudent,
                     selectedCase: _selectedCase,
                     showCase: _showCase,
+                    showStudentDetail: _showStudentDetail,
                     onDestinationChanged: _changeDestination,
                     onStudentSelected: _openStudent,
+                    onBackFromStudent: _closeStudentDetail,
                     onOpenCase: _openCase,
                     onBackFromCase: _closeCase,
                     organizationPageBuilder: widget.organizationPageBuilder,
@@ -1701,8 +1714,10 @@ class _MediumWorkspace extends StatefulWidget {
     required this.selectedStudent,
     required this.selectedCase,
     required this.showCase,
+    required this.showStudentDetail,
     required this.onDestinationChanged,
     required this.onStudentSelected,
+    required this.onBackFromStudent,
     required this.onOpenCase,
     required this.onBackFromCase,
     required this.organizationPageBuilder,
@@ -1716,8 +1731,10 @@ class _MediumWorkspace extends StatefulWidget {
   final V2Student selectedStudent;
   final V2FocusItem? selectedCase;
   final bool showCase;
+  final bool showStudentDetail;
   final ValueChanged<V2WorkspaceDestination> onDestinationChanged;
   final ValueChanged<V2Student> onStudentSelected;
+  final VoidCallback onBackFromStudent;
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
@@ -1731,10 +1748,11 @@ class _MediumWorkspace extends StatefulWidget {
 }
 
 class _MediumWorkspaceState extends State<_MediumWorkspace> {
-  bool _studentOpen = false;
-
   void _changeDestination(V2WorkspaceDestination destination) {
-    if (_studentOpen) setState(() => _studentOpen = false);
+    if (destination == V2WorkspaceDestination.students &&
+        widget.showStudentDetail) {
+      widget.onBackFromStudent();
+    }
     widget.onDestinationChanged(destination);
   }
 
@@ -1763,12 +1781,12 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
             compact: paneCompact,
           );
         } else if (widget.destination == V2WorkspaceDestination.students &&
-            _studentOpen) {
+            widget.showStudentDetail) {
           body = _StudentDetailPane(
             student: widget.selectedStudent,
             onOpenCase: widget.onOpenCase,
             compact: paneCompact,
-            onBack: () => setState(() => _studentOpen = false),
+            onBack: widget.onBackFromStudent,
           );
         } else if (widget.destination == V2WorkspaceDestination.students) {
           body = _StudentListPane(
@@ -1780,10 +1798,7 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
               paneCompact ? AppSpacing.mdPlus : AppSpacing.xl,
               12,
             ),
-            onSelected: (student) {
-              widget.onStudentSelected(student);
-              setState(() => _studentOpen = true);
-            },
+            onSelected: widget.onStudentSelected,
           );
         } else if (widget.destination == V2WorkspaceDestination.today) {
           body = _TodayPane(
@@ -1791,7 +1806,6 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
             onOpenStudent: (student) {
               widget.onStudentSelected(student);
               widget.onDestinationChanged(V2WorkspaceDestination.students);
-              setState(() => _studentOpen = true);
             },
             compact: paneCompact,
           );
@@ -1802,12 +1816,11 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
           );
         } else {
           body = widget.organizationPageBuilder!(context, () {
-            setState(() => _studentOpen = false);
             widget.onDestinationChanged(V2WorkspaceDestination.today);
           });
         }
 
-        final hasInternalHistory = widget.showCase || _studentOpen;
+        final hasInternalHistory = widget.showCase || widget.showStudentDetail;
         final handlesSystemBack =
             hasInternalHistory ||
             (widget.destination != V2WorkspaceDestination.today &&
@@ -1821,8 +1834,8 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
               widget.onBackFromCase();
               return;
             }
-            if (_studentOpen) {
-              setState(() => _studentOpen = false);
+            if (widget.showStudentDetail) {
+              widget.onBackFromStudent();
               return;
             }
             if (widget.destination != V2WorkspaceDestination.today &&
@@ -1866,8 +1879,10 @@ class _CompactWorkspace extends StatefulWidget {
     required this.selectedStudent,
     required this.selectedCase,
     required this.showCase,
+    required this.showStudentDetail,
     required this.onDestinationChanged,
     required this.onStudentSelected,
+    required this.onBackFromStudent,
     required this.onOpenCase,
     required this.onBackFromCase,
     required this.organizationPageBuilder,
@@ -1878,8 +1893,10 @@ class _CompactWorkspace extends StatefulWidget {
   final V2Student selectedStudent;
   final V2FocusItem? selectedCase;
   final bool showCase;
+  final bool showStudentDetail;
   final ValueChanged<V2WorkspaceDestination> onDestinationChanged;
   final ValueChanged<V2Student> onStudentSelected;
+  final VoidCallback onBackFromStudent;
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
@@ -1890,15 +1907,12 @@ class _CompactWorkspace extends StatefulWidget {
 }
 
 class _CompactWorkspaceState extends State<_CompactWorkspace> {
-  bool _studentOpen = false;
-
   @override
   Widget build(BuildContext context) {
     final VoidCallback? onOpenOrganization =
         widget.organizationPageBuilder == null
         ? null
         : () {
-            setState(() => _studentOpen = false);
             widget.onDestinationChanged(V2WorkspaceDestination.organization);
           };
     Widget body;
@@ -1910,12 +1924,12 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         compact: true,
       );
     } else if (widget.destination == V2WorkspaceDestination.students &&
-        _studentOpen) {
+        widget.showStudentDetail) {
       body = _StudentDetailPane(
         student: widget.selectedStudent,
         onOpenCase: widget.onOpenCase,
         compact: true,
-        onBack: () => setState(() => _studentOpen = false),
+        onBack: widget.onBackFromStudent,
       );
     } else if (widget.destination == V2WorkspaceDestination.students) {
       body = _StudentListPane(
@@ -1923,10 +1937,7 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         compact: true,
         onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
-        onSelected: (student) {
-          widget.onStudentSelected(student);
-          setState(() => _studentOpen = true);
-        },
+        onSelected: widget.onStudentSelected,
       );
     } else if (widget.destination == V2WorkspaceDestination.today) {
       body = _TodayPane(
@@ -1934,7 +1945,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         onOpenStudent: (student) {
           widget.onStudentSelected(student);
           widget.onDestinationChanged(V2WorkspaceDestination.students);
-          setState(() => _studentOpen = true);
         },
         compact: true,
         onOpenOrganization: onOpenOrganization,
@@ -1949,7 +1959,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       );
     } else {
       body = widget.organizationPageBuilder!(context, () {
-        setState(() => _studentOpen = false);
         widget.onDestinationChanged(V2WorkspaceDestination.today);
       });
     }
@@ -1959,7 +1968,7 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       V2WorkspaceDestination.students,
       V2WorkspaceDestination.learning,
     ];
-    final hasInternalHistory = widget.showCase || _studentOpen;
+    final hasInternalHistory = widget.showCase || widget.showStudentDetail;
     final handlesSystemBack =
         hasInternalHistory ||
         (widget.destination != V2WorkspaceDestination.today &&
@@ -1972,8 +1981,8 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
           widget.onBackFromCase();
           return;
         }
-        if (_studentOpen) {
-          setState(() => _studentOpen = false);
+        if (widget.showStudentDetail) {
+          widget.onBackFromStudent();
           return;
         }
         if (widget.destination != V2WorkspaceDestination.today &&
@@ -1993,7 +2002,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
                 backgroundColor: Theme.of(context).colorScheme.surface,
                 selectedIndex: destinations.indexOf(widget.destination),
                 onDestinationSelected: (index) {
-                  setState(() => _studentOpen = false);
                   widget.onDestinationChanged(destinations[index]);
                 },
                 destinations: [

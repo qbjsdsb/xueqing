@@ -65,6 +65,84 @@ void main() {
     expect(find.byType(NavigationBar), findsNothing);
   });
 
+  testWidgets(
+    'student detail survives medium expanded medium resize after selection',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('学生'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('林同学').first);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-student-search')), findsNothing);
+      expect(find.text('现在最重要'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(const Size(1024, 844));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-expanded-shell')), findsOneWidget);
+      expect(find.text('现在最重要'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(const Size(800, 844));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
+      expect(find.byKey(const Key('v2-student-search')), findsNothing);
+      expect(find.text('现在最重要'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('student detail survives compact medium compact resize', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(599, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('学生').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('林同学').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('v2-student-search')), findsNothing);
+    expect(find.text('现在最重要'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(const Size(800, 844));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
+    expect(find.byKey(const Key('v2-student-search')), findsNothing);
+    expect(find.text('现在最重要'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(const Size(599, 844));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('v2-compact-shell')), findsOneWidget);
+    expect(find.byKey(const Key('v2-student-search')), findsNothing);
+    expect(find.text('现在最重要'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('medium Students rail returns an open student detail to list', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('学生'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('林同学').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('v2-student-search')), findsNothing);
+
+    await tester.tap(find.byTooltip('学生'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('v2-student-search')), findsOneWidget);
+    expect(find.text('现在最重要'), findsNothing);
+  });
+
   testWidgets('expanded Student preserves master detail', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1024, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));

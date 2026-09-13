@@ -195,6 +195,12 @@ Organization 学情同样不是 KPI dashboard。顶部事实、筛选和学生�
 
 Medium 的目标不是“把桌面版硬塞进小窗口”，也不是“放大手机版”：它保留键鼠高效的 rail，同时保持单工作面与逐级进入，直到 `>=1024` 才建立稳定 master-detail。
 
+
+### 8.2 Navigation state continuity
+
+Responsive shells may change presentation, but resizing must not silently change the teacher's meaningful location. Student-detail drill-down is owned by workspace state rather than Compact / Medium widget-local state.
+
+
 ## 9. Production visual review gates
 
 视觉验收不能只证明“控件存在”。每轮生产 UI 修改至少覆盖：
