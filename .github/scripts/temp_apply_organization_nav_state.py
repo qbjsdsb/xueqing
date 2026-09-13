@@ -199,4 +199,4 @@ For a manager who also teaches, the embedded Organization workspace is one conti
 The loader therefore gives the embedded Organization workspace a stable identity across adaptive shell replacement. Window width may change presentation, but it must not recreate the supervisor's current working context.
 """
 if "## Organization scope continuity" not in audit:
-    audit_path.write_text(audit.rstrip() + section + "\n", encoding="utf-8")
+    audit_path.write_text((audit.rstrip() + section).rstrip() + "\n", encoding="utf-8")
