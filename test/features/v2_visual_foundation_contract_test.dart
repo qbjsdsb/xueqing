@@ -59,7 +59,10 @@ void main() {
       expect(areaCardStart, greaterThanOrEqualTo(0));
       expect(sectionStart, greaterThan(areaCardStart));
       final areaCardBlock = source.substring(areaCardStart, sectionStart);
-      expect(areaCardBlock, contains('Widget build(BuildContext context) => child;'));
+      expect(
+        areaCardBlock,
+        contains('Widget build(BuildContext context) => child;'),
+      );
       expect(areaCardBlock, isNot(contains('Divider(')));
     },
   );
