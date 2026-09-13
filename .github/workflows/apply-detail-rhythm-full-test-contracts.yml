@@ -1,0 +1,91 @@
+name: Apply detail rhythm full-suite test contracts
+
+on:
+  push:
+    paths:
+      - '.github/detail-rhythm-full-test-contracts.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  test-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply test contract fixes
+        run: python .github/patches/apply_detail_rhythm_full_test_contracts.py
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Format affected tests
+        run: dart format test/features/v2_typed_organization_navigation_test.dart test/features/design_v2_workspace_data_injection_test.dart
+
+      - name: Verify diff hygiene
+        run: |
+          git diff --check
+          python - <<'PY'
+          import subprocess
+          allowed = {
+              'test/features/v2_typed_organization_navigation_test.dart',
+              'test/features/design_v2_workspace_data_injection_test.dart',
+              '.github/patches/apply_detail_rhythm_full_test_contracts.py',
+              '.github/workflows/apply-detail-rhythm-full-test-contracts.yml',
+              '.github/detail-rhythm-full-test-contracts.trigger',
+          }
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only']).decode().splitlines())
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit(f'unexpected files: {sorted(unexpected)}')
+          PY
+
+      - name: Run affected tests
+        run: |
+          flutter test test/features/v2_typed_organization_navigation_test.dart
+          flutter test test/features/design_v2_workspace_data_injection_test.dart
+          flutter test test/features/v2_student_focus_presentation_test.dart
+          flutter test test/features/design_v2_workspace_test.dart
+
+      - name: Analyze affected tests
+        run: flutter analyze test/features/v2_typed_organization_navigation_test.dart test/features/design_v2_workspace_data_injection_test.dart
+
+      - name: Remove temporary test machinery
+        run: |
+          rm -f .github/patches/apply_detail_rhythm_full_test_contracts.py
+          rm -f .github/workflows/apply-detail-rhythm-full-test-contracts.yml
+          rm -f .github/detail-rhythm-full-test-contracts.trigger
+          git diff --check
+
+      - name: Commit clean test fixes
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --quiet && exit 0
+          python - <<'PY'
+          import subprocess
+          allowed = {
+              'test/features/v2_typed_organization_navigation_test.dart',
+              'test/features/design_v2_workspace_data_injection_test.dart',
+              '.github/patches/apply_detail_rhythm_full_test_contracts.py',
+              '.github/workflows/apply-detail-rhythm-full-test-contracts.yml',
+              '.github/detail-rhythm-full-test-contracts.trigger',
+          }
+          changed = set(subprocess.check_output(['git', 'diff', '--cached', '--name-only']).decode().splitlines())
+          unexpected = changed - allowed
+          if unexpected:
+              raise SystemExit(f'final commit contains unexpected files: {sorted(unexpected)}')
+          PY
+          git commit -m "test(v2): align detail rhythm behavior contracts"
+          git push origin HEAD
