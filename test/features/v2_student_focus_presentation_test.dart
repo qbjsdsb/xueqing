@@ -127,4 +127,70 @@ void main() {
     expect(find.text('当前问题 4'), findsNothing);
     expect(find.text('现在最重要'), findsOneWidget);
   });
+
+  testWidgets(
+    'compact student detail keeps one identity row and only actionable primary controls',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(app(dataWith(const [])));
+      await tester.pumpAndSettle();
+      final navigation = tester.widget<NavigationBar>(
+        find.byType(NavigationBar),
+      );
+      navigation.onDestinationSelected!(1);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('测试学生').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('v2-student-detail-context-row')),
+        findsOneWidget,
+      );
+      expect(find.text('学生 · 测试学生'), findsNothing);
+      expect(find.widgetWithText(FilledButton, '记录问题'), findsOneWidget);
+      expect(find.text('记进展'), findsNothing);
+      expect(find.byTooltip('返回学生列表'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'student detail promotes progress only when there is an active case and case context stays compact',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final data = dataWith(const [
+        V2FocusItem(
+          id: 'active-case',
+          studentId: 'student-1',
+          title: '阅读概括遗漏要点',
+          summary: '概括题容易漏掉条件',
+          nextStep: '再做一组概括题',
+          dueLabel: '今天',
+          subject: '语文',
+        ),
+      ]);
+
+      await tester.pumpWidget(app(data));
+      await tester.pumpAndSettle();
+      final navigation = tester.widget<NavigationBar>(
+        find.byType(NavigationBar),
+      );
+      navigation.onDestinationSelected!(1);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('测试学生').first);
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(FilledButton, '记进展'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, '记录问题'), findsOneWidget);
+
+      await tester.tap(find.text('阅读概括遗漏要点'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-case-context-row')), findsOneWidget);
+      expect(find.byTooltip('返回'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

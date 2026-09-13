@@ -113,10 +113,8 @@ void main() {
 
     expect(find.text('暂无进行中的问题'), findsOneWidget);
     expect(find.text('王老师负责语文'), findsOneWidget);
-    final progressButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, '记进展'),
-    );
-    expect(progressButton.onPressed, isNull);
+    expect(find.text('记进展'), findsNothing);
+    expect(find.widgetWithText(FilledButton, '记录问题'), findsOneWidget);
   });
 
   testWidgets('Today opens the exact student and Case identity', (
