@@ -47,6 +47,7 @@ void main() {
         find.byKey(const Key('v2-open-organization-scope')),
         findsOneWidget,
       );
+      expect(find.widgetWithText(TextButton, '机构'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('v2-open-organization-scope')));
       await tester.pumpAndSettle();
@@ -62,6 +63,147 @@ void main() {
       expect(navigation.selectedIndex, 0);
     },
   );
+
+  testWidgets(
+    'compact Organization visit returns to the previous Personal destination',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(_previewApp(withOrganization: true));
+      await tester.pumpAndSettle();
+
+      var navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      navigation.onDestinationSelected!(1);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-student-search')), findsOneWidget);
+      expect(find.widgetWithText(TextButton, '机构'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('v2-open-organization-scope')));
+      await tester.pumpAndSettle();
+      expect(find.text('机构测试页'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navigation.selectedIndex, 1);
+      expect(find.byKey(const Key('v2-student-search')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'medium Organization visit preserves an open Personal student detail',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(_previewApp(withOrganization: true));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('学生'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('林同学').first);
+      await tester.pumpAndSettle();
+      expect(find.text('学生 · 林同学'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('机构'));
+      await tester.pumpAndSettle();
+      expect(find.text('机构测试页'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
+      expect(find.text('学生 · 林同学'), findsOneWidget);
+      expect(find.byKey(const Key('v2-student-search')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'medium Organization visit preserves an open Personal case detail',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(_previewApp(withOrganization: true));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('学生'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('林同学').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('阅读概括不完整').first);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('v2-case-status-case-lin-reading')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('机构'));
+      await tester.pumpAndSettle();
+      expect(find.text('机构测试页'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('v2-case-status-case-lin-reading')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'expanded Organization visit preserves an open Personal case detail',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(_previewApp(withOrganization: true));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('学生'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('阅读概括不完整').first);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('v2-case-status-case-lin-reading')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('机构'));
+      await tester.pumpAndSettle();
+      expect(find.text('机构测试页'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('v2-expanded-shell')), findsOneWidget);
+      expect(
+        find.byKey(const Key('v2-case-status-case-lin-reading')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('compact manager Organization entry stays visible at 320px', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(_previewApp(withOrganization: true));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextButton, '机构'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('desktop manager-teacher gets Organization in the primary rail', (
     tester,
@@ -102,6 +244,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('v2-organization-page-header')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('v2-organization-back-personal')),
+        findsOneWidget,
+      );
+      expect(find.byType(AppBar), findsNothing);
 
       await tester.tap(find.text('管理'));
       await tester.pumpAndSettle();
@@ -185,6 +337,261 @@ void main() {
       expect(find.text('我的任课学生'), findsOneWidget);
       expect(find.text('机构其他学生'), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'embedded Organization keeps management section across adaptive shell resize',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final workspace = _managerTeacherWorkspace();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => workspace,
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _responsibilityContext(
+                personalProfileIds: const ['profile-personal'],
+              ),
+            ),
+            runtime: _runtime(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('v2-open-organization-scope')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('管理').last);
+      await tester.pumpAndSettle();
+      expect(find.text('当前账号没有可用的机构管理权限。'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(const Size(800, 844));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
+      expect(find.text('当前账号没有可用的机构管理权限。'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(const Size(1100, 844));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-expanded-shell')), findsOneWidget);
+      expect(find.text('当前账号没有可用的机构管理权限。'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'embedded Organization keeps learning query and selected student across resize',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final workspace = _managerTeacherWorkspace();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => workspace,
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _responsibilityContext(
+                personalProfileIds: const ['profile-personal'],
+              ),
+            ),
+            runtime: _runtime(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('机构'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('v2-organization-learning-search')),
+        '学生',
+      );
+      await tester.tap(
+        find.byKey(const Key('v2-organization-student-select-student-org')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('v2-organization-quick-capture-student-org')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('v2-organization-quick-capture-student-personal')),
+        findsNothing,
+      );
+
+      await tester.binding.setSurfaceSize(const Size(800, 844));
+      await tester.pumpAndSettle();
+      var search = tester.widget<TextField>(
+        find.byKey(const Key('v2-organization-learning-search')),
+      );
+      expect(search.controller?.text, '学生');
+
+      await tester.binding.setSurfaceSize(const Size(1100, 844));
+      await tester.pumpAndSettle();
+      search = tester.widget<TextField>(
+        find.byKey(const Key('v2-organization-learning-search')),
+      );
+      expect(search.controller?.text, '学生');
+      expect(
+        find.byKey(const Key('v2-organization-quick-capture-student-org')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('v2-organization-quick-capture-student-personal')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'embedded Organization keeps attention filter across adaptive shell resize',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final workspace = _managerTeacherWorkspace();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => workspace,
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _responsibilityContext(
+                personalProfileIds: const ['profile-personal'],
+              ),
+            ),
+            runtime: _runtime(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('机构'));
+      await tester.pumpAndSettle();
+      final filterFinder = find.byKey(
+        const Key('v2-organization-filter-unassigned'),
+      );
+      await tester.tap(filterFinder);
+      await tester.pumpAndSettle();
+      expect(tester.widget<ChoiceChip>(filterFinder).selected, isTrue);
+
+      await tester.binding.setSurfaceSize(const Size(800, 844));
+      await tester.pumpAndSettle();
+      expect(tester.widget<ChoiceChip>(filterFinder).selected, isTrue);
+
+      await tester.binding.setSurfaceSize(const Size(1100, 844));
+      await tester.pumpAndSettle();
+      expect(tester.widget<ChoiceChip>(filterFinder).selected, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Organization keeps learning search and selected student while visiting Management',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final workspace = _managerTeacherWorkspace();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => workspace,
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _responsibilityContext(
+                personalProfileIds: const ['profile-personal'],
+              ),
+            ),
+            runtime: _runtime(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('机构'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('v2-organization-learning-search')),
+        '学生',
+      );
+      await tester.tap(
+        find.byKey(const Key('v2-organization-student-select-student-org')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('v2-organization-quick-capture-student-org')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('管理').last);
+      await tester.pumpAndSettle();
+      expect(find.text('当前账号没有可用的机构管理权限。'), findsOneWidget);
+
+      await tester.tap(find.text('学情').last);
+      await tester.pumpAndSettle();
+      final search = tester.widget<TextField>(
+        find.byKey(const Key('v2-organization-learning-search')),
+      );
+      expect(search.controller?.text, '学生');
+      expect(
+        find.byKey(const Key('v2-organization-quick-capture-student-org')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('v2-organization-quick-capture-student-personal')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Organization keeps learning attention filter while visiting Management',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final workspace = _managerTeacherWorkspace();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => workspace,
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _responsibilityContext(
+                personalProfileIds: const ['profile-personal'],
+              ),
+            ),
+            runtime: _runtime(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('机构'));
+      await tester.pumpAndSettle();
+      final filterFinder = find.byKey(
+        const Key('v2-organization-filter-unassigned'),
+      );
+      await tester.tap(filterFinder);
+      await tester.pumpAndSettle();
+      expect(tester.widget<ChoiceChip>(filterFinder).selected, isTrue);
+
+      await tester.tap(find.text('管理').last);
+      await tester.pumpAndSettle();
+      expect(find.text('当前账号没有可用的机构管理权限。'), findsOneWidget);
+
+      await tester.tap(find.text('学情').last);
+      await tester.pumpAndSettle();
+      expect(tester.widget<ChoiceChip>(filterFinder).selected, isTrue);
+      expect(tester.takeException(), isNull);
     },
   );
 }

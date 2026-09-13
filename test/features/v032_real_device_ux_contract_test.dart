@@ -11,6 +11,7 @@ void main() {
     ).readAsStringSync();
 
     expect(source, contains('PopScope<void>('));
+    expect(source, contains('final hasInternalHistory ='));
     expect(source, contains('final handlesSystemBack ='));
     expect(
       source,
@@ -22,7 +23,14 @@ void main() {
     );
     expect(source, contains('canPop: !handlesSystemBack'));
     expect(source, contains('widget.onBackFromCase();'));
-    expect(source, contains('setState(() => _studentOpen = false)'));
+    expect(
+      source,
+      contains(
+        'widget.destination == V2WorkspaceDestination.students &&\n'
+        '            widget.showStudentDetail',
+      ),
+    );
+    expect(source, contains('widget.onBackFromStudent();'));
     expect(
       source,
       contains('widget.onDestinationChanged(V2WorkspaceDestination.today);'),
