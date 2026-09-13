@@ -70,6 +70,13 @@ NavigationDestination _compactNavigationDestination(
   label: _destinationLabel(destination),
 );
 
+const List<V2WorkspaceDestination> _compactPrimaryDestinations =
+    <V2WorkspaceDestination>[
+      V2WorkspaceDestination.today,
+      V2WorkspaceDestination.students,
+      V2WorkspaceDestination.learning,
+    ];
+
 const int _studentFocusPreviewLimit = 3;
 
 String _visualContentKey(String value) => value.trim().toLowerCase().replaceAll(
@@ -2010,6 +2017,124 @@ class _CompactWorkspace extends StatefulWidget {
 }
 
 class _CompactWorkspaceState extends State<_CompactWorkspace> {
+  static const double _edgeSafetyInset = 8;
+  static const double _minimumFlingDistance = 24;
+  static const double _minimumFlingVelocity = 700;
+
+  bool _horizontalDragEnabled = false;
+  double _horizontalDragDistance = 0;
+  int _transitionDirection = 0;
+
+  @override
+  void didUpdateWidget(covariant _CompactWorkspace oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldIndex = _compactPrimaryDestinations.indexOf(oldWidget.destination);
+    final newIndex = _compactPrimaryDestinations.indexOf(widget.destination);
+    if (oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex) {
+      _transitionDirection = newIndex > oldIndex ? 1 : -1;
+    }
+  }
+
+  void _resetHorizontalDrag() {
+    _horizontalDragEnabled = false;
+    _horizontalDragDistance = 0;
+  }
+
+  void _handleHorizontalDragDown(DragDownDetails details) {
+    final media = MediaQuery.of(context);
+    final gestureInsets = media.systemGestureInsets;
+    final x = details.localPosition.dx;
+    final leftGuard = gestureInsets.left + _edgeSafetyInset;
+    final rightGuard =
+        media.size.width - gestureInsets.right - _edgeSafetyInset;
+
+    _horizontalDragDistance = 0;
+    _horizontalDragEnabled =
+        media.viewInsets.bottom <= 0 && x > leftGuard && x < rightGuard;
+  }
+
+  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
+    if (!_horizontalDragEnabled) return;
+    _horizontalDragDistance += details.delta.dx;
+  }
+
+  void _handleHorizontalDragEnd(DragEndDetails details) {
+    if (!_horizontalDragEnabled) {
+      _resetHorizontalDrag();
+      return;
+    }
+
+    final distance = _horizontalDragDistance;
+    final velocity = details.primaryVelocity ?? 0;
+    final width = MediaQuery.sizeOf(context).width;
+    final distanceThreshold = (width * 0.16).clamp(52.0, 72.0).toDouble();
+    final commitsByDistance = distance.abs() >= distanceThreshold;
+    final commitsByFling =
+        distance.abs() >= _minimumFlingDistance &&
+        velocity.abs() >= _minimumFlingVelocity &&
+        (velocity == 0 || distance == 0 || velocity.sign == distance.sign);
+
+    _resetHorizontalDrag();
+    if (!commitsByDistance && !commitsByFling) return;
+
+    final motion = commitsByDistance ? distance : velocity;
+    _moveToAdjacentDestination(motion < 0 ? 1 : -1);
+  }
+
+  void _moveToAdjacentDestination(int step) {
+    final currentIndex = _compactPrimaryDestinations.indexOf(
+      widget.destination,
+    );
+    if (currentIndex < 0) return;
+    final nextIndex = currentIndex + step;
+    if (nextIndex < 0 || nextIndex >= _compactPrimaryDestinations.length) {
+      return;
+    }
+    widget.onDestinationChanged(_compactPrimaryDestinations[nextIndex]);
+  }
+
+  Widget _buildSwipeSurface(BuildContext context, Widget body) {
+    final currentKey = ValueKey<String>(
+      'v2-compact-primary-${widget.destination.name}',
+    );
+    return GestureDetector(
+      key: const Key('v2-compact-swipe-surface'),
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragDown: _handleHorizontalDragDown,
+      onHorizontalDragUpdate: _handleHorizontalDragUpdate,
+      onHorizontalDragEnd: _handleHorizontalDragEnd,
+      onHorizontalDragCancel: _resetHorizontalDrag,
+      child: AnimatedSwitcher(
+        duration: AppMotion.effectiveDuration(context, AppMotion.quick),
+        reverseDuration: AppMotion.effectiveDuration(context, AppMotion.quick),
+        switchInCurve: AppMotion.enter,
+        switchOutCurve: AppMotion.exit,
+        transitionBuilder: (child, animation) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: AppMotion.enter,
+            reverseCurve: AppMotion.exit,
+          );
+          final incoming = child.key == currentKey;
+          final horizontalOffset = _transitionDirection == 0
+              ? 0.0
+              : _transitionDirection * (incoming ? 0.018 : -0.012);
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: Offset(horizontalOffset, 0),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
+        child: KeyedSubtree(key: currentKey, child: body),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget body;
@@ -2062,11 +2187,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       );
     }
 
-    const destinations = <V2WorkspaceDestination>[
-      V2WorkspaceDestination.today,
-      V2WorkspaceDestination.students,
-      V2WorkspaceDestination.learning,
-    ];
     final hasInternalHistory =
         widget.destination == V2WorkspaceDestination.students &&
         (widget.showCase || widget.showStudentDetail);
@@ -2074,6 +2194,14 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         hasInternalHistory ||
         (widget.destination != V2WorkspaceDestination.today &&
             widget.destination != V2WorkspaceDestination.organization);
+    final supportsPrimarySwipe =
+        Theme.of(context).platform == TargetPlatform.android &&
+        !hasInternalHistory &&
+        _compactPrimaryDestinations.contains(widget.destination);
+    final visibleBody = supportsPrimarySwipe
+        ? _buildSwipeSurface(context, body)
+        : body;
+
     return PopScope<void>(
       canPop: !handlesSystemBack,
       onPopInvokedWithResult: (didPop, _) {
@@ -2096,19 +2224,23 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       child: Scaffold(
         key: const Key('v2-compact-shell'),
         backgroundColor: Theme.of(context).colorScheme.surface,
-        body: SafeArea(child: body),
+        body: SafeArea(child: visibleBody),
         bottomNavigationBar:
             hasInternalHistory ||
                 widget.destination == V2WorkspaceDestination.organization
             ? null
             : NavigationBar(
                 backgroundColor: Theme.of(context).colorScheme.surface,
-                selectedIndex: destinations.indexOf(widget.destination),
+                selectedIndex: _compactPrimaryDestinations.indexOf(
+                  widget.destination,
+                ),
                 onDestinationSelected: (index) {
-                  widget.onDestinationChanged(destinations[index]);
+                  widget.onDestinationChanged(
+                    _compactPrimaryDestinations[index],
+                  );
                 },
                 destinations: [
-                  for (final destination in destinations)
+                  for (final destination in _compactPrimaryDestinations)
                     _compactNavigationDestination(destination),
                 ],
               ),
