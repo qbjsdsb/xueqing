@@ -236,7 +236,40 @@ void main() {
   );
 
   testWidgets(
-    'Android compact page swipe leaves system gesture edges to Back',
+    'Android compact direct manipulation updates page offset before release',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(androidApp());
+      await tester.pumpAndSettle();
+
+      final surface = find.byKey(const Key('v2-compact-swipe-surface'));
+      final pageView = tester.widget<PageView>(surface);
+      expect(pageView.controller, isNotNull);
+      expect(pageView.controller!.page, closeTo(0, 0.01));
+
+      final gesture = await tester.startGesture(tester.getCenter(surface));
+      // The first move crosses Flutter's drag slop and wins the horizontal
+      // gesture arena. The second move must then update the PageView before
+      // the pointer is released, which is the direct-manipulation contract.
+      await gesture.moveBy(const Offset(-24, 0));
+      await tester.pump();
+      await gesture.moveBy(const Offset(-96, 0));
+      await tester.pump();
+
+      final draggedPage = pageView.controller!.page!;
+      expect(draggedPage, greaterThan(0.05));
+      expect(draggedPage, lessThan(1));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android compact center paging remains usable with system gesture insets',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -247,24 +280,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('学生'));
+
+      final surface = find.byKey(const Key('v2-compact-swipe-surface'));
+      await tester.drag(surface, const Offset(-220, 0));
       await tester.pumpAndSettle();
 
-      NavigationBar navigation() =>
-          tester.widget<NavigationBar>(find.byType(NavigationBar));
-      expect(navigation().selectedIndex, 1);
-
-      final leftEdge = await tester.startGesture(const Offset(4, 300));
-      await leftEdge.moveBy(const Offset(190, 0));
-      await leftEdge.up();
-      await tester.pumpAndSettle();
-      expect(navigation().selectedIndex, 1);
-
-      final rightEdge = await tester.startGesture(const Offset(386, 300));
-      await rightEdge.moveBy(const Offset(-190, 0));
-      await rightEdge.up();
-      await tester.pumpAndSettle();
-      expect(navigation().selectedIndex, 1);
+      final navigation = tester.widget<NavigationBar>(
+        find.byType(NavigationBar),
+      );
+      expect(navigation.selectedIndex, 1);
       expect(tester.takeException(), isNull);
     },
   );
@@ -314,6 +338,63 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
       expect(find.byKey(const Key('v2-compact-swipe-surface')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android compact root paging pauses while a text field is actively edited',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(androidApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('学生'));
+      await tester.pumpAndSettle();
+
+      final search = find.byKey(const Key('v2-student-search'));
+      await tester.tap(search);
+      await tester.enterText(search, '王同学');
+      await tester.pump();
+
+      final surface = find.byKey(const Key('v2-compact-swipe-surface'));
+      await tester.drag(surface, const Offset(-220, 0));
+      await tester.pumpAndSettle();
+
+      final navigation = tester.widget<NavigationBar>(
+        find.byType(NavigationBar),
+      );
+      expect(navigation.selectedIndex, 1);
+      expect(tester.widget<TextField>(search).controller!.text, '王同学');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android compact root pages preserve student search across destination changes',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(androidApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('学生'));
+      await tester.pumpAndSettle();
+
+      final search = find.byKey(const Key('v2-student-search'));
+      await tester.enterText(search, '王同学');
+      await tester.pump();
+      expect(find.text('找到 1 位'), findsOneWidget);
+
+      await tester.tap(find.text('学情').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('学生').last);
+      await tester.pumpAndSettle();
+
+      final restoredSearch = find.byKey(const Key('v2-student-search'));
+      expect(tester.widget<TextField>(restoredSearch).controller!.text, '王同学');
+      expect(find.text('找到 1 位'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

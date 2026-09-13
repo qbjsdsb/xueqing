@@ -16,7 +16,7 @@ Bottom Navigation remains the visible and authoritative navigation control. Swip
 - Compact layout only.
 - Root Personal destinations only.
 - Student detail, Case detail, and Organization do not participate.
-- The system gesture edge insets are excluded from page swipe handling so Android Back keeps priority.
+- The root pager does not install a competing custom edge gesture recognizer; Android system Back keeps platform priority. Edge behavior remains a real-device acceptance gate.
 - Page swipe is disabled while the soft keyboard is visible.
 - One committed gesture moves at most one destination.
 - There is no circular wrap from Today to Learning or Learning to Today.
@@ -24,7 +24,11 @@ Bottom Navigation remains the visible and authoritative navigation control. Swip
 
 ## Motion
 
-Root destination changes use the existing short motion token and a restrained fade / very small horizontal translation. There are no spring, overshoot, glow, gradient, or decorative navigation effects.
+Root destination swipes use direct manipulation: content tracks the finger through `PageView` and settles with platform paging physics. Bottom-navigation taps jump directly to the selected peer without animating through intermediate destinations. The root pager suppresses only its own overscroll indicator; inner lists keep platform scrolling behavior.
+
+## State continuity
+
+The Personal root pager stays mounted while Student detail, Case detail, or the embedded Organization workspace is in the foreground. Today / Students / Learning therefore retain their local search and scroll state instead of being rebuilt as a side effect of drill-down navigation. Workspace destination remains the canonical navigation state above the adaptive Compact presentation.
 
 ## Non-goals
 
