@@ -44,6 +44,7 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
     this.rootMode = false,
     this.embedded = false,
     this.onBackFromRoot,
+    this.onRefresh,
     this.onChanged,
     super.key,
   });
@@ -56,8 +57,11 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
   final bool embedded;
   final VoidCallback? onBackFromRoot;
 
-  /// Reloads the authorized workspace after an organization mutation and also
-  /// provides the explicit manual refresh entry for supervisor workflows.
+  /// Explicit, awaitable scope refresh used by the visible Organization header.
+  /// Mutation notifications stay separate so refresh progress remains truthful.
+  final Future<void> Function()? onRefresh;
+
+  /// Notifies the owning workspace after a committed organization mutation.
   final VoidCallback? onChanged;
 
   @override
@@ -71,6 +75,7 @@ class _V2OrganizationWorkspacePageState
   _OrganizationSection _section = _OrganizationSection.learning;
   bool _managementActivated = false;
   int _managementRefreshRevision = 0;
+  bool _refreshingOrganization = false;
   bool _checkingForUpdates = false;
 
   @override
@@ -192,11 +197,20 @@ class _V2OrganizationWorkspacePageState
     return '$organizationName · $_organizationRoleLabel';
   }
 
-  void _refreshOrganizationScope() {
-    if (_managementActivated) {
-      setState(() => _managementRefreshRevision++);
+  Future<void> _refreshOrganizationScope() async {
+    final refresh = widget.onRefresh;
+    if (refresh == null || _refreshingOrganization) return;
+    setState(() {
+      _refreshingOrganization = true;
+      if (_managementActivated) {
+        _managementRefreshRevision++;
+      }
+    });
+    try {
+      await refresh();
+    } finally {
+      if (mounted) setState(() => _refreshingOrganization = false);
     }
-    widget.onChanged?.call();
   }
 
   void _handleHeaderBack() {
@@ -216,12 +230,21 @@ class _V2OrganizationWorkspacePageState
     required bool canSignOut,
   }) {
     return [
-      if (widget.onChanged != null)
+      if (widget.onRefresh != null)
         IconButton(
           key: const Key('v2-organization-refresh'),
-          tooltip: '刷新机构数据',
-          onPressed: _refreshOrganizationScope,
-          icon: const Icon(Icons.refresh_outlined),
+          tooltip: _refreshingOrganization ? '正在刷新机构数据' : '刷新机构数据',
+          onPressed: _refreshingOrganization
+              ? null
+              : () => unawaited(_refreshOrganizationScope()),
+          icon: _refreshingOrganization
+              ? const SizedBox(
+                  key: Key('v2-organization-refresh-progress'),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_outlined),
         ),
       if (!compact)
         if (_checkingForUpdates)

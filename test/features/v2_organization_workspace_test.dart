@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xueqing/cloud/case_reopen_draft_store.dart';
@@ -253,7 +256,7 @@ void main() {
               includeManagement: true,
               managementRepository: managementRepository,
             ),
-            onChanged: () => outerRefreshCount++,
+            onRefresh: () async => outerRefreshCount++,
           ),
         ),
       );
@@ -282,6 +285,69 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'Organization scope refresh shows pending feedback and blocks duplicate taps',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final completer = Completer<void>();
+      var refreshCount = 0;
+      final workspace = _workspace();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2OrganizationWorkspacePage(
+            workspace: workspace,
+            workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+                .workspaceData,
+            responsibility: _context(personalProfileIds: const []),
+            runtime: _runtime(includeManagement: false),
+            onRefresh: () {
+              refreshCount++;
+              return completer.future;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final refreshFinder = find.byKey(const Key('v2-organization-refresh'));
+      expect(refreshFinder, findsOneWidget);
+      await tester.tap(refreshFinder);
+      await tester.pump();
+
+      expect(refreshCount, 1);
+      expect(
+        find.byKey(const Key('v2-organization-refresh-progress')),
+        findsOneWidget,
+      );
+      expect(tester.widget<IconButton>(refreshFinder).onPressed, isNull);
+
+      completer.complete();
+      await tester.pumpAndSettle();
+
+      expect(refreshCount, 1);
+      expect(
+        find.byKey(const Key('v2-organization-refresh-progress')),
+        findsNothing,
+      );
+      expect(tester.widget<IconButton>(refreshFinder).onPressed, isNotNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test('soft refresh callers join one coalesced refresh cycle', () {
+    final loader = File('lib/features/design_v2/v2_workspace_loader.dart')
+        .readAsStringSync();
+
+    expect(loader, contains('Future<void>? _softRefreshInFlight;'));
+    expect(loader, contains('return running;'));
+    expect(loader, contains('Future<void> _runSoftRefreshLoop() async'));
+    expect(loader, contains('finalAttemptFailed = false;'));
+    expect(loader, isNot(contains('bool _softRefreshRunning = false;')));
+  });
 
   testWidgets('manager without Personal Assignment enters Organization root', (
     tester,

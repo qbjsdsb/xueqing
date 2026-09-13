@@ -129,25 +129,38 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
     });
   }
 
-  bool _softRefreshRunning = false;
+  Future<void>? _softRefreshInFlight;
   bool _softRefreshQueued = false;
 
-  Future<void> _softRefresh() async {
-    if (_softRefreshRunning) {
+  Future<void> _softRefresh() {
+    final running = _softRefreshInFlight;
+    if (running != null) {
       _softRefreshQueued = true;
-      return;
+      return running;
     }
-    do {
-      _softRefreshQueued = false;
-      _softRefreshRunning = true;
-      try {
-        final workspace = await _loadWorkspace();
-        if (!mounted) return;
-        setState(() {
-          _workspaceFuture = Future<_V2LoadedWorkspace>.value(workspace);
-        });
-      } catch (_) {
-        if (!mounted) return;
+    final future = _runSoftRefreshLoop();
+    _softRefreshInFlight = future;
+    return future;
+  }
+
+  Future<void> _runSoftRefreshLoop() async {
+    var finalAttemptFailed = false;
+    try {
+      do {
+        _softRefreshQueued = false;
+        finalAttemptFailed = false;
+        try {
+          final workspace = await _loadWorkspace();
+          if (!mounted) return;
+          setState(() {
+            _workspaceFuture = Future<_V2LoadedWorkspace>.value(workspace);
+          });
+        } catch (_) {
+          finalAttemptFailed = true;
+        }
+      } while (_softRefreshQueued && mounted);
+
+      if (finalAttemptFailed && mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);
         messenger?.hideCurrentSnackBar();
         messenger?.showSnackBar(
@@ -159,10 +172,10 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
             ),
           ),
         );
-      } finally {
-        _softRefreshRunning = false;
       }
-    } while (_softRefreshQueued && mounted);
+    } finally {
+      _softRefreshInFlight = null;
+    }
   }
 
   Future<WorkspaceStudent?> _pickStudentSubjectProfile(
@@ -470,6 +483,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
                 runtime: runtime,
                 embedded: true,
                 onBackFromRoot: onBackToPersonal,
+                onRefresh: _softRefresh,
                 onChanged: () => unawaited(_softRefresh()),
               )
             : null;
@@ -490,6 +504,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
               responsibility: responsibility,
               runtime: runtime,
               rootMode: true,
+              onRefresh: _softRefresh,
               onChanged: () => unawaited(_softRefresh()),
             );
           }

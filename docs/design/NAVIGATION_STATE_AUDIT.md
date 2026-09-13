@@ -47,3 +47,13 @@ The Organization header owns the visible scope-level refresh action. Once Manage
 - `OrganizationManagementPage` reloads its snapshot when that revision changes, while its `_ManagementOverview` state (active area, student search, history disclosures) remains mounted;
 - Management remains lazy before first entry, so a supervisor who only uses Organization Learning does not pay management-loading cost;
 - refresh semantics do not alter responsibility, permissions, case ownership or write attribution.
+
+## Truthful Organization refresh feedback
+
+The explicit Organization refresh path is awaitable and separate from mutation notifications.
+
+- `onRefresh` is reserved for the user-triggered scope refresh and owns visible pending feedback;
+- `onChanged` remains a fire-and-forget mutation notification after committed writes;
+- while a manual Organization refresh is pending, the header keeps the refresh control in place, replaces its glyph with a small progress indicator, and disables repeat taps;
+- refresh failure messaging continues to come from the shared loader soft-refresh boundary, while current content remains visible.
+- callers that arrive during an in-flight soft refresh join the same coalesced cycle and only complete after queued reloads drain; failure feedback reflects the final attempt in that cycle rather than a stale intermediate failure.
