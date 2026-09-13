@@ -62,6 +62,8 @@ jobs:
             lib/features/design_v2/v2_workspace_preview.dart \
             test/features/v2_typed_organization_navigation_test.dart
           git diff --check
+          echo '--- generated navigation regression lines 105-145 ---'
+          nl -ba test/features/v2_typed_organization_navigation_test.dart | sed -n '105,145p'
 
       - name: Analyze changed production surface
         run: flutter analyze lib/features/design_v2/v2_workspace_preview.dart test/features/v2_typed_organization_navigation_test.dart
