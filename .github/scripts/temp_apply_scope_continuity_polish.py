@@ -31,39 +31,32 @@ replace_once(
 )
 
 # Parent -> adaptive shell callbacks.
-for old, new in [
-    (
-        "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onOpenMore: () => _showWorkspaceMenu(context),",
-        "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onBackFromOrganization: _returnFromOrganization,\n                    onOpenMore: () => _showWorkspaceMenu(context),",
-    ),
-    (
-        "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onRefresh: widget.onRefresh == null",
-        "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onBackFromOrganization: _returnFromOrganization,\n                    onRefresh: widget.onRefresh == null",
-    ),
-]:
-    # The second anchor appears twice (Medium + Desktop), so handle separately below.
-    if old.count("onRefresh") == 0:
-        replace_once(workspace, old, new)
-
-file = Path(workspace)
-text = file.read_text(encoding="utf-8")
-old = "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onRefresh: widget.onRefresh == null"
-new = "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onBackFromOrganization: _returnFromOrganization,\n                    onRefresh: widget.onRefresh == null"
-if text.count(old) != 2:
-    raise SystemExit(f"{workspace}: expected two adaptive onRefresh anchors, found {text.count(old)}")
-text = text.replace(old, new)
-file.write_text(text, encoding="utf-8")
-
-# Desktop contract + callback.
 replace_once(
     workspace,
-    "    required this.organizationPageBuilder,\n    required this.onSettings,",
-    "    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onSettings,",
+    "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onOpenMore: () => _showWorkspaceMenu(context),",
+    "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onBackFromOrganization: _returnFromOrganization,\n                    onOpenMore: () => _showWorkspaceMenu(context),",
 )
 replace_once(
     workspace,
-    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onRefresh;",
-    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onRefresh;",
+    "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onRefresh: widget.onRefresh == null",
+    "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onBackFromOrganization: _returnFromOrganization,\n                    onRefresh: widget.onRefresh == null",
+)
+replace_once(
+    workspace,
+    "                  organizationPageBuilder: widget.organizationPageBuilder,\n                  onRefresh: widget.onRefresh == null",
+    "                  organizationPageBuilder: widget.organizationPageBuilder,\n                  onBackFromOrganization: _returnFromOrganization,\n                  onRefresh: widget.onRefresh == null",
+)
+
+# Desktop shell owns only presentation; Organization back restores the dormant Personal location.
+replace_once(
+    workspace,
+    "class _DesktopWorkspace extends StatelessWidget {\n  const _DesktopWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onSettings,",
+    "class _DesktopWorkspace extends StatelessWidget {\n  const _DesktopWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onSettings,",
+)
+replace_once(
+    workspace,
+    "  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onRefresh;\n  final bool refreshing;",
+    "  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onRefresh;\n  final bool refreshing;",
 )
 replace_once(
     workspace,
@@ -71,17 +64,16 @@ replace_once(
     "                child: organizationPageBuilder!(\n                  context,\n                  onBackFromOrganization,\n                ),",
 )
 
-# Medium contract + callback. Anchors are now distinct after Desktop replacement.
+# Medium shell.
 replace_once(
     workspace,
-    "    required this.organizationPageBuilder,\n    required this.onSettings,\n    required this.refreshing,\n    this.onRefresh,\n    this.onManage,\n  });\n\n  final V2WorkspaceDestination destination;",
-    "    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onSettings,\n    required this.refreshing,\n    this.onRefresh,\n    this.onManage,\n  });\n\n  final V2WorkspaceDestination destination;",
+    "class _MediumWorkspace extends StatefulWidget {\n  const _MediumWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.showStudentDetail,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onBackFromStudent,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onSettings,",
+    "class _MediumWorkspace extends StatefulWidget {\n  const _MediumWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.showStudentDetail,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onBackFromStudent,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onSettings,",
 )
-# The medium final-fields organizationPageBuilder is the remaining occurrence.
 replace_once(
     workspace,
-    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onRefresh;\n  final bool refreshing;\n  final VoidCallback? onManage;",
-    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onRefresh;\n  final bool refreshing;\n  final VoidCallback? onManage;",
+    "  final VoidCallback onBackFromStudent;\n  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onRefresh;\n  final bool refreshing;",
+    "  final VoidCallback onBackFromStudent;\n  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onRefresh;\n  final bool refreshing;",
 )
 replace_once(
     workspace,
@@ -99,16 +91,16 @@ replace_once(
     "        final hasInternalHistory =\n            widget.destination == V2WorkspaceDestination.students &&\n            (widget.showCase || widget.showStudentDetail);",
 )
 
-# Compact contract + callback.
+# Compact shell.
 replace_once(
     workspace,
-    "    required this.organizationPageBuilder,\n    required this.onOpenMore,\n  });",
-    "    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onOpenMore,\n  });",
+    "class _CompactWorkspace extends StatefulWidget {\n  const _CompactWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.showStudentDetail,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onBackFromStudent,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onOpenMore,",
+    "class _CompactWorkspace extends StatefulWidget {\n  const _CompactWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.showStudentDetail,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onBackFromStudent,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onOpenMore,",
 )
 replace_once(
     workspace,
-    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onOpenMore;",
-    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onOpenMore;",
+    "  final VoidCallback onBackFromStudent;\n  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onOpenMore;",
+    "  final VoidCallback onBackFromStudent;\n  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onOpenMore;",
 )
 replace_once(
     workspace,
@@ -126,14 +118,13 @@ replace_once(
     "    final hasInternalHistory =\n        widget.destination == V2WorkspaceDestination.students &&\n        (widget.showCase || widget.showStudentDetail);",
 )
 
-# Make compact touch entry discoverable without restoring the old permanent scope strip.
+# Compact touch needs a visible Organization label; keep the same quiet header location.
 icon_action = """                    if (widget.onOpenOrganization != null)\n                      IconButton(\n                        key: const Key('v2-open-organization-scope'),\n                        tooltip: '进入机构视角',\n                        onPressed: widget.onOpenOrganization,\n                        icon: const Icon(Icons.apartment_outlined),\n                      ),"""
 text_action = """                    if (widget.onOpenOrganization != null)\n                      TextButton.icon(\n                        key: const Key('v2-open-organization-scope'),\n                        onPressed: widget.onOpenOrganization,\n                        icon: const Icon(Icons.apartment_outlined, size: 18),\n                        label: const Text('机构'),\n                      ),"""
 file = Path(workspace)
 text = file.read_text(encoding="utf-8")
-count = text.count(icon_action)
-if count != 2:
-    raise SystemExit(f"{workspace}: expected two widget Organization icon actions, found {count}")
+if text.count(icon_action) != 2:
+    raise SystemExit(f"{workspace}: expected two Student/Learning Organization icon actions, found {text.count(icon_action)}")
 text = text.replace(icon_action, text_action)
 
 today_icon_action = """                  if (onOpenOrganization != null)\n                    IconButton(\n                      key: const Key('v2-open-organization-scope'),\n                      tooltip: '进入机构视角',\n                      onPressed: onOpenOrganization,\n                      icon: const Icon(Icons.apartment_outlined),\n                    ),"""
@@ -232,7 +223,7 @@ replace_once(
     new_tests + "\n  testWidgets('desktop manager-teacher gets Organization in the primary rail', (",
 )
 
-# Design contracts: scope visits preserve Personal context; compact touch entry is visibly labeled.
+# Design contracts.
 nav_path = Path("docs/design/NAVIGATION_STATE_AUDIT.md")
 nav = nav_path.read_text(encoding="utf-8")
 section = """
