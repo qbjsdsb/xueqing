@@ -1,0 +1,41 @@
+name: Temporary organization navigation state patch
+
+on:
+  push:
+    branches:
+      - ui/organization-navigation-state-continuity
+    paths:
+      - .github/organization-navigation-state-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: ui/organization-navigation-state-continuity
+          fetch-depth: 0
+
+      - name: Apply scoped patch
+        run: python3 .github/scripts/temp_apply_organization_nav_state.py
+
+      - name: Check patch whitespace
+        run: git diff --check
+
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/features/design_v2/v2_workspace_loader.dart \
+                  test/features/v2_typed_organization_navigation_test.dart \
+                  docs/design/NAVIGATION_STATE_AUDIT.md
+          git commit -m "refactor(ui): preserve Organization state across adaptive shells"
+          git push origin HEAD:ui/organization-navigation-state-continuity
