@@ -56,6 +56,9 @@ void main() {
       );
       expect(find.byIcon(Icons.expand_more), findsNothing);
       expect(find.textContaining('语文 · 张老师'), findsNothing);
+      expect(find.text('1 个跟进中'), findsOneWidget);
+      expect(find.text('1 门学科未明确主责'), findsOneWidget);
+      expect(find.textContaining('个跟进中 ·'), findsNothing);
       expect(find.widgetWithText(TextButton, '记录问题'), findsOneWidget);
 
       await tester.tap(
@@ -133,6 +136,9 @@ void main() {
       findsNothing,
     );
     expect(find.byType(ExpansionTile), findsWidgets);
+    expect(find.text('1 个跟进中'), findsOneWidget);
+    expect(find.text('1 门学科未明确主责'), findsOneWidget);
+    expect(find.textContaining('语文 · 张老师'), findsNothing);
     expect(find.widgetWithText(TextButton, '记录问题'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });

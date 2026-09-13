@@ -31,7 +31,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('语文 · 张老师'), findsOneWidget);
+      expect(find.textContaining('语文 · 张老师'), findsNothing);
       await tester.enterText(
         find.byKey(const Key('v2-organization-learning-search')),
         '张老师',
@@ -145,7 +145,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('未设置主责'), findsOneWidget);
+      expect(find.text('1 门学科未明确主责'), findsOneWidget);
       await tester.tap(
         find.byKey(const Key('v2-organization-quick-capture-student-1')),
       );
