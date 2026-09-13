@@ -24,9 +24,13 @@ jobs:
       - name: Apply scripted edit
         run: python3 .xueqing-navigation.py
 
-      - name: Remove one-shot edit assets
+      - name: Remove one-shot and diagnostic assets
         run: |
-          rm -f .xueqing-navigation.py .github/workflows/apply-navigation-patch.yml
+          rm -f .xueqing-navigation.py \
+            .github/workflows/apply-navigation-patch.yml \
+            .github/workflows/navigation-diagnostic.yml \
+            .navigation-diagnostic-trigger \
+            .navigation-focused-test.log
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -39,7 +43,7 @@ jobs:
         run: flutter pub get
 
       - name: Format touched Dart files
-        run: dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+        run: dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart test/features/android_predictive_back_contract_test.dart
 
       - name: Analyze
         run: flutter analyze
