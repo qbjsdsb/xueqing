@@ -193,6 +193,96 @@ void main() {
     expect(find.text('当前没有符合这个关注条件的学生。'), findsOneWidget);
   });
 
+  testWidgets(
+    'Personal rail yields refresh ownership to Organization scope on desktop and medium',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final managementRepository = _FakeOrganizationManagementRepository();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => _workspace(),
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _context(personalProfileIds: const ['profile-a']),
+            ),
+            runtime: _runtime(
+              includeManagement: true,
+              managementRepository: managementRepository,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('v2-workspace-refresh')), findsOneWidget);
+      await tester.tap(find.byTooltip('机构'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
+      expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);
+
+      await tester.binding.setSurfaceSize(const Size(800, 800));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
+      expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
+      expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Organization scope refresh reloads activated Management without losing its area',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final workspace = _workspace();
+      final managementRepository = _FakeOrganizationManagementRepository();
+      var outerRefreshCount = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2OrganizationWorkspacePage(
+            workspace: workspace,
+            workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+                .workspaceData,
+            responsibility: _context(personalProfileIds: const []),
+            runtime: _runtime(
+              includeManagement: true,
+              managementRepository: managementRepository,
+            ),
+            onChanged: () => outerRefreshCount++,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(managementRepository.listStudentsCount, 0);
+      await tester.tap(find.text('管理').last);
+      await tester.pumpAndSettle();
+      expect(managementRepository.listStudentsCount, 1);
+
+      await tester.tap(find.byKey(const Key('management-area-people')));
+      await tester.pumpAndSettle();
+      expect(find.text('机构成员'), findsOneWidget);
+
+      final previousLoadCount = managementRepository.listStudentsCount;
+      await tester.tap(find.byKey(const Key('v2-organization-refresh')));
+      await tester.pumpAndSettle();
+
+      expect(outerRefreshCount, 1);
+      expect(
+        managementRepository.listStudentsCount,
+        greaterThan(previousLoadCount),
+      );
+      expect(find.text('机构成员'), findsOneWidget);
+      expect(find.byKey(const Key('management-area-people')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('manager without Personal Assignment enters Organization root', (
     tester,
   ) async {
@@ -222,11 +312,14 @@ void main() {
   });
 }
 
-AuthenticatedWorkspaceRuntime _runtime({required bool includeManagement}) {
+AuthenticatedWorkspaceRuntime _runtime({
+  required bool includeManagement,
+  OrganizationManagementRepository? managementRepository,
+}) {
   return AuthenticatedWorkspaceRuntime(
     learningRepository: _FakeLearningRepository(),
     organizationManagementRepository: includeManagement
-        ? _FakeOrganizationManagementRepository()
+        ? managementRepository ?? _FakeOrganizationManagementRepository()
         : null,
     updateService: UpdateService(currentVersion: '0.3.8'),
     updateInstaller: _FakeUpdateInstaller(),
@@ -258,6 +351,56 @@ class _FakeLearningRepository implements LearningRepository {
 
 class _FakeOrganizationManagementRepository
     implements OrganizationManagementRepository {
+  int listStudentsCount = 0;
+
+  @override
+  Future<List<OrganizationMember>> listMembers({
+    required String organizationId,
+  }) async => const [];
+
+  @override
+  Future<List<OrganizationInvitation>> listInvitations({
+    required String organizationId,
+  }) async => const [];
+
+  @override
+  Future<List<OrganizationStudentRecord>> listStudents({
+    required String organizationId,
+  }) async {
+    listStudentsCount++;
+    return const [];
+  }
+
+  @override
+  Future<OrganizationSetupOptions> listSetupOptions({
+    required String organizationId,
+  }) async => const OrganizationSetupOptions(
+    subjects: [OrganizationSetupSubject(id: 'subject-1', displayName: '语文')],
+    teachers: [
+      OrganizationSetupTeacher(
+        membershipId: 'membership-manager',
+        displayName: '李老师',
+        email: 'manager@example.com',
+        organizationSubjectIds: ['subject-1'],
+      ),
+    ],
+  );
+
+  @override
+  Future<List<OrganizationSubjectCatalogItem>> listSubjectCatalog({
+    required String organizationId,
+  }) async => const [];
+
+  @override
+  Future<List<OrganizationTeacherSubjectScope>> listTeacherSubjectScopes({
+    required String organizationId,
+  }) async => const [];
+
+  @override
+  Future<List<OrganizationStudentTeacherAssignment>>
+  listStudentTeacherAssignments({required String organizationId}) async =>
+      const [];
+
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError(invocation.memberName.toString());

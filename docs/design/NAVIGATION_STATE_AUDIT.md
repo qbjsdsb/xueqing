@@ -36,3 +36,14 @@ For a manager who also teaches, the embedded Organization workspace is one conti
 The loader therefore gives the embedded Organization workspace a stable identity across adaptive shell replacement. Window width may change presentation, but it must not recreate the supervisor's current working context.
 
 Switching between Organization Learning and Management is also presentation/workspace navigation, not a request to clear the supervisor's Learning context. Learning search, attention filter and selected student remain alive while Management is visited. Management is initialized lazily on first entry so preserving state does not add eager management work to the default Learning view.
+
+## Organization refresh coherence
+
+The Organization header owns the visible scope-level refresh action. Once Management has been activated, that refresh must reload both the outer Organization projection and the management repository snapshot without recreating the manager's local working context.
+
+- embedded Management does not show a duplicate refresh button;
+- while Organization is selected on Medium/Expanded, the Personal rail yields refresh ownership to the Organization header instead of exposing a second refresh path;
+- the outer refresh increments an explicit management refresh revision only after Management has been activated;
+- `OrganizationManagementPage` reloads its snapshot when that revision changes, while its `_ManagementOverview` state (active area, student search, history disclosures) remains mounted;
+- Management remains lazy before first entry, so a supervisor who only uses Organization Learning does not pay management-loading cost;
+- refresh semantics do not alter responsibility, permissions, case ownership or write attribution.

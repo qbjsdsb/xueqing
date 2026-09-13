@@ -46,6 +46,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.teacherLearningRecordRepository,
     this.studentLearningRecordRepository,
     this.showHeaderTitle = true,
+    this.refreshRevision = 0,
     super.key,
   });
 
@@ -61,6 +62,10 @@ class OrganizationManagementPage extends StatefulWidget {
   final TeacherLearningRecordRepository? teacherLearningRecordRepository;
   final StudentLearningRecordRepository? studentLearningRecordRepository;
   final bool showHeaderTitle;
+
+  /// Changes when an owning workspace explicitly requests a fresh management
+  /// snapshot without recreating this page and its local working context.
+  final int refreshRevision;
 
   @override
   State<OrganizationManagementPage> createState() =>

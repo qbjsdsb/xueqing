@@ -1648,7 +1648,9 @@ class _DesktopWorkspace extends StatelessWidget {
                 expanded: expandedRail,
                 onSelected: onDestinationChanged,
                 showOrganization: organizationPageBuilder != null,
-                onRefresh: onRefresh,
+                onRefresh: destination == V2WorkspaceDestination.organization
+                    ? null
+                    : onRefresh,
                 refreshing: refreshing,
                 onManage: onManage,
                 onSettings: onSettings,
@@ -1855,7 +1857,11 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
                       selectedDestination: widget.destination,
                       onSelected: _changeDestination,
                       showOrganization: widget.organizationPageBuilder != null,
-                      onRefresh: widget.onRefresh,
+                      onRefresh:
+                          widget.destination ==
+                              V2WorkspaceDestination.organization
+                          ? null
+                          : widget.onRefresh,
                       refreshing: widget.refreshing,
                       onManage: widget.onManage,
                       onSettings: widget.onSettings,

@@ -70,6 +70,7 @@ class _V2OrganizationWorkspacePageState
   final ScrollController _managementScrollController = ScrollController();
   _OrganizationSection _section = _OrganizationSection.learning;
   bool _managementActivated = false;
+  int _managementRefreshRevision = 0;
   bool _checkingForUpdates = false;
 
   @override
@@ -191,6 +192,13 @@ class _V2OrganizationWorkspacePageState
     return '$organizationName · $_organizationRoleLabel';
   }
 
+  void _refreshOrganizationScope() {
+    if (_managementActivated) {
+      setState(() => _managementRefreshRevision++);
+    }
+    widget.onChanged?.call();
+  }
+
   void _handleHeaderBack() {
     if (_section != _OrganizationSection.learning) {
       setState(() => _section = _OrganizationSection.learning);
@@ -211,8 +219,8 @@ class _V2OrganizationWorkspacePageState
       if (widget.onChanged != null)
         IconButton(
           key: const Key('v2-organization-refresh'),
-          tooltip: '刷新学情',
-          onPressed: widget.onChanged,
+          tooltip: '刷新机构数据',
+          onPressed: _refreshOrganizationScope,
           icon: const Icon(Icons.refresh_outlined),
         ),
       if (!compact)
@@ -297,6 +305,7 @@ class _V2OrganizationWorkspacePageState
           : null,
       onChanged: widget.onChanged,
       showHeaderTitle: false,
+      refreshRevision: _managementRefreshRevision,
     );
   }
 
