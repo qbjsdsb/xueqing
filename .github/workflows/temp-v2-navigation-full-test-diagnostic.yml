@@ -1,0 +1,62 @@
+name: Temporary V2 navigation full-test diagnostic
+
+on:
+  push:
+    branches:
+      - ui/v2-navigation-state-continuity
+    paths:
+      - .github/v2-nav-full-test-diag-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout navigation-state branch
+        uses: actions/checkout@v6
+        with:
+          ref: ui/v2-navigation-state-continuity
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run full tests and capture failure
+        shell: bash
+        run: |
+          set +e
+          flutter test --reporter expanded 2>&1 | tee /tmp/v2-nav-full-test.log
+          status=${PIPESTATUS[0]}
+          {
+            echo "# V2 navigation full-test diagnostic"
+            echo
+            echo "exit_status=$status"
+            echo
+            echo "## Failure-focused lines"
+            grep -n -E -C 8 'FAILED|TestFailure|Expected:|Actual:|test/features/|EXCEPTION|Some tests failed|══╡' /tmp/v2-nav-full-test.log | tail -n 600 || true
+            echo
+            echo "## Log tail"
+            tail -n 500 /tmp/v2-nav-full-test.log
+          } > .github/v2-navigation-full-test-failure.txt
+          exit 0
+
+      - name: Commit diagnostic
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/v2-navigation-full-test-failure.txt
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'chore: capture V2 navigation full-test failure'
+          git push origin HEAD:ui/v2-navigation-state-continuity
