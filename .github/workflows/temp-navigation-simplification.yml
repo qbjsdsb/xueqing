@@ -43,8 +43,42 @@ jobs:
           end_marker = "# Reduce normal responsibility repetition in expanded selection rows.\n"
           start = text.index(start_marker)
           end = text.index(end_marker, start)
-          structural = r'''# Replace both full five-chip surfaces by structural boundaries.\nexpanded_start = text.index(\n    "                      Wrap(\\n                        spacing: 8,\\n                        runSpacing: 8,\\n                        children: [\\n                          for (final filter"\n)\nexpanded_end = text.index(\n    "                      const SizedBox(height: 12),\\n                      Text(\\n                        '${visibleStudents.length} 位学生'",\n    expanded_start,\n)\ntext = (\n    text[:expanded_start]\n    + "                      _filterControls(context),\\n"\n    + text[expanded_end:]\n)\n\ncompact_start = text.index(\n    "                    SingleChildScrollView(\\n                      scrollDirection: Axis.horizontal,\\n                      child: Row(\\n                        children: [\\n                          for (final filter"\n)\ncompact_end_marker = (\n    "\\n                  ],\\n                ),\\n              ),\\n            ),\\n            Expanded("\n)\ncompact_end = text.index(compact_end_marker, compact_start)\ntext = (\n    text[:compact_start]\n    + "                    _filterControls(context),"\n    + text[compact_end:]\n)\n'''
-          text = text[:start] + structural.replace('\\n', '\n') + text[end:]
+          structural = '''# Replace both full five-chip surfaces by structural widget boundaries.
+def _call_end(source: str, start: int) -> int:
+    open_at = source.index('(', start)
+    depth = 0
+    for index in range(open_at, len(source)):
+        char = source[index]
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+            if depth == 0:
+                return index + 1
+    raise SystemExit('unbalanced widget call while simplifying filters')
+
+first_search = text.index("key: const Key('v2-organization-learning-search')")
+expanded_start = text.index('                      Wrap(', first_search)
+expanded_end = _call_end(text, expanded_start)
+text = (
+    text[:expanded_start]
+    + '                      _filterControls(context)'
+    + text[expanded_end:]
+)
+
+second_search = text.index(
+    "key: const Key('v2-organization-learning-search')",
+    first_search + 1,
+)
+compact_start = text.index('                    SingleChildScrollView(', second_search)
+compact_end = _call_end(text, compact_start)
+text = (
+    text[:compact_start]
+    + '                    _filterControls(context)'
+    + text[compact_end:]
+)
+'''
+          text = text[:start] + structural + text[end:]
           p.write_text(text, encoding='utf-8')
           PY
 
