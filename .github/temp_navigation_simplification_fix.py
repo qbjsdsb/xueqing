@@ -17,6 +17,43 @@ if old_guard not in text:
     raise SystemExit('temporary patcher guard not found')
 text = text.replace(old_guard, new_guard, 1)
 
+# Make the adaptive-shell argument wiring indentation agnostic. The original
+# patch caught Desktop but Compact/Medium use a different indentation level.
+old_shell_patch = '''text = text.replace(
+    "                  organizationPageBuilder: widget.organizationPageBuilder,\\n                  onBackFromOrganization: _returnFromOrganization,",
+    "                  organizationPageBuilder: widget.organizationPageBuilder,\\n                  organizationSection: _organizationSection,\\n                  onOrganizationSelected: _openOrganization,\\n                  onOrganizationSectionChanged: _changeOrganizationSection,\\n                  onBackFromOrganization: _returnFromOrganization,",
+)
+'''
+new_shell_patch = '''text = re.sub(
+    r"(?P<indent>^[ \\t]*)organizationPageBuilder: widget\\.organizationPageBuilder,\\n(?P=indent)onBackFromOrganization: _returnFromOrganization,",
+    lambda match: (
+        f"{match.group('indent')}organizationPageBuilder: widget.organizationPageBuilder,\\n"
+        f"{match.group('indent')}organizationSection: _organizationSection,\\n"
+        f"{match.group('indent')}onOrganizationSelected: _openOrganization,\\n"
+        f"{match.group('indent')}onOrganizationSectionChanged: _changeOrganizationSection,\\n"
+        f"{match.group('indent')}onBackFromOrganization: _returnFromOrganization,"
+    ),
+    text,
+    flags=re.MULTILINE,
+)
+'''
+if old_shell_patch not in text:
+    raise SystemExit('adaptive shell patch block not found')
+text = text.replace(old_shell_patch, new_shell_patch, 1)
+
+# Loader only forwards inferred callback values; it does not refer to the enum
+# by name, so do not add an unused import.
+old_loader_import = '''text = replace_once(
+    text,
+    "import 'v2_workspace_data.dart';\\n",
+    "import 'v2_workspace_data.dart';\\nimport 'v2_workspace_navigation.dart';\\n",
+    'loader navigation import',
+)
+'''
+if old_loader_import not in text:
+    raise SystemExit('loader import patch block not found')
+text = text.replace(old_loader_import, '', 1)
+
 # Replace the broad explanatory-copy regex with a structural widget deletion.
 explainer_start = text.index('# Drop recurring explanatory sentence from supervision body.\n')
 explainer_end = text.index('# Progressive filter bar helper before expanded workspace.\n', explainer_start)
@@ -98,7 +135,7 @@ text = (
     + text[compact_end:]
 )
 '''
-
 text = text[:start] + structural + text[end:]
+
 p.write_text(text, encoding='utf-8')
 print('temporary patcher hardened')
