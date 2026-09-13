@@ -5,7 +5,7 @@ on:
     branches:
       - ux/navigation-architecture-v2
     paths:
-      - .xueqing-navigation.patch
+      - .xueqing-navigation.py
 
 permissions:
   contents: write
@@ -20,13 +20,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply patch
-        run: git apply --index .xueqing-navigation.patch
+      - name: Apply scripted edit
+        run: python3 .xueqing-navigation.py
 
-      - name: Remove one-shot patch assets
+      - name: Remove one-shot edit assets
         run: |
-          git rm --cached .xueqing-navigation.patch .github/workflows/apply-navigation-patch.yml
-          rm -f .xueqing-navigation.patch .github/workflows/apply-navigation-patch.yml
+          rm -f .xueqing-navigation.py .github/workflows/apply-navigation-patch.yml
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
