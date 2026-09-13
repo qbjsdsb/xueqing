@@ -69,3 +69,10 @@ Opening Organization is a temporary change of work scope, not navigation inside 
 - if refreshed data invalidates the selected student/case, normal reconciliation still fails safe instead of reviving stale context.
 
 Adaptive shells must ignore dormant Personal detail flags while Organization is the active destination. Both `canPop` and the pop callback must use the same visible-destination guard, so one system-back gesture cannot be consumed once by Organization and again by hidden Personal history.
+
+
+## Navigation simplification after v0.3.10
+
+Organization is a work scope, not a fourth Personal page. Personal continues to own Today / Students / Learning. On Compact, managers enter Organization from the More menu instead of repeating an Organization action in every page header. On Medium/Expanded, the rail exposes an Organization group with Learning supervision and Management as sibling sub-destinations. The embedded Organization header therefore does not repeat the desktop section switch.
+
+The existing cross-scope continuity contract remains unchanged: returning from Organization restores the Personal destination and any still-valid student/case drill-down state.
