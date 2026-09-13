@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   diagnose:
+    if: ${{ !contains(github.event.head_commit.message, '[skip diag]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -20,8 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: Verify candidate parent
-        run: |
-          git merge-base --is-ancestor 34dd2875a6f1947603b2c0e7d8a00c2764df938d HEAD
+        run: git merge-base --is-ancestor 34dd2875a6f1947603b2c0e7d8a00c2764df938d HEAD
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -33,23 +33,80 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Run full tests and capture failure
+      - name: Run full tests with JSON reporter
         id: tests
         shell: bash
         run: |
           set +e
-          flutter test > /tmp/full-test.log 2>&1
+          flutter test --reporter json > /tmp/full-test.jsonl 2>/tmp/full-test.stderr
           status=$?
-          tail -n 600 /tmp/full-test.log > .github/full-test-failure.txt
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Commit diagnostic log
+      - name: Extract exact failed tests
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          tests = {}
+          errors = {}
+          failed = []
+          path = Path('/tmp/full-test.jsonl')
+          for raw in path.read_text(encoding='utf-8', errors='replace').splitlines():
+              try:
+                  event = json.loads(raw)
+              except json.JSONDecodeError:
+                  continue
+              kind = event.get('type')
+              if kind == 'testStart':
+                  test = event.get('test') or {}
+                  tests[test.get('id')] = test
+              elif kind == 'error':
+                  errors.setdefault(event.get('testID'), []).append(event)
+              elif kind == 'testDone' and event.get('result') not in ('success', None):
+                  failed.append(event)
+
+          out = []
+          out.append(f'failed_count={len(failed)}')
+          for index, done in enumerate(failed, 1):
+              test_id = done.get('testID')
+              test = tests.get(test_id, {})
+              out.append('')
+              out.append(f'FAILURE {index}')
+              out.append(f"name={test.get('name', '<unknown>')}")
+              out.append(f"url={test.get('url', '<unknown>')}")
+              out.append(f"line={test.get('line', '')}")
+              out.append(f"column={test.get('column', '')}")
+              out.append(f"result={done.get('result')}")
+              for err_index, err in enumerate(errors.get(test_id, []), 1):
+                  out.append(f'error_{err_index}=')
+                  out.append(str(err.get('error', '')).strip())
+                  out.append(f'stack_{err_index}=')
+                  stack = str(err.get('stackTrace', '')).strip().splitlines()
+                  out.extend(stack[:40])
+
+          stderr = Path('/tmp/full-test.stderr').read_text(
+              encoding='utf-8', errors='replace'
+          ).strip()
+          if stderr:
+              out.append('')
+              out.append('STDERR')
+              out.extend(stderr.splitlines()[-80:])
+
+          Path('.github/full-test-failures.txt').write_text(
+              '\n'.join(out) + '\n', encoding='utf-8'
+          )
+          print('\n'.join(out))
+          PY
+
+      - name: Commit concise diagnostic
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/full-test-failure.txt
-          git commit -m "chore: capture navigation full-test diagnostic"
+          git add .github/full-test-failures.txt
+          git commit -m "[skip diag] chore: capture exact navigation test failures"
           git push origin HEAD:diagnostic/navigation-simplification-full-test-20260913
 
       - name: Fail when tests failed
