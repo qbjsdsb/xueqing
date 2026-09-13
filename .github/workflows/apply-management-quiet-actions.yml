@@ -21,7 +21,9 @@ jobs:
           ref: ux/management-quiet-actions-20260913
 
       - name: Apply focused UI polish
-        run: python3 .github/scripts/management_quiet_actions_patch.py
+        run: |
+          python3 .github/scripts/management_quiet_actions_patch.py
+          python3 .github/scripts/management_quiet_actions_test_patch.py
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -40,7 +42,7 @@ jobs:
         run: flutter test test/features/organization_management_test.dart test/features/management_visual_density_test.dart
 
       - name: Remove temporary patch machinery
-        run: rm -f .github/workflows/apply-management-quiet-actions.yml .github/ux-management-quiet-actions.trigger .github/scripts/management_quiet_actions_patch.py
+        run: rm -f .github/workflows/apply-management-quiet-actions.yml .github/ux-management-quiet-actions.trigger .github/scripts/management_quiet_actions_patch.py .github/scripts/management_quiet_actions_test_patch.py
 
       - name: Commit polished source
         run: |
