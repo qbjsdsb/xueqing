@@ -1,0 +1,41 @@
+name: Temporary final full test diagnostic
+
+"on":
+  push:
+    branches:
+      - "diagnostic/v2-final-full-test-20260913"
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .flutter-version
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run full tests and capture failure
+        shell: bash
+        run: |
+          set +e
+          flutter test > /tmp/full-test.log 2>&1
+          status=$?
+          tail -n 500 /tmp/full-test.log | tee .github/full-test-failure.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/full-test-failure.txt
+          git commit -m "chore: capture full Flutter test failure" || true
+          git push origin HEAD:diagnostic/v2-final-full-test-20260913
+          exit "$status"
