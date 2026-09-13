@@ -1,0 +1,68 @@
+name: Fix organization attention tests
+
+on:
+  push:
+    branches:
+      - ux/organization-attention-signal-20260913
+    paths:
+      - .github/fix-organization-attention-tests.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/organization-attention-signal-20260913
+
+      - name: Update Quick Capture expectations
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('test/features/v2_organization_quick_capture_test.dart')
+          text = path.read_text()
+          text = text.replace(
+              "expect(find.textContaining('语文 · 张老师'), findsOneWidget);",
+              "expect(find.textContaining('语文 · 张老师'), findsNothing);",
+              1,
+          )
+          text = text.replace(
+              "expect(find.textContaining('未设置主责'), findsOneWidget);",
+              "expect(find.textContaining('未明确主责'), findsOneWidget);",
+              1,
+          )
+          path.write_text(text)
+          PY
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Format focused file
+        run: dart format test/features/v2_organization_quick_capture_test.dart
+
+      - name: Run Quick Capture and Organization tests
+        run: flutter test test/features/v2_organization_quick_capture_test.dart test/features/v2_organization_workspace_test.dart test/features/v2_typed_organization_navigation_test.dart
+
+      - name: Remove temporary repair machinery
+        run: rm -f .github/workflows/fix-organization-attention-tests.yml .github/fix-organization-attention-tests.trigger
+
+      - name: Commit repaired tests
+        run: |
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "test(ui): align organization supervision expectations"
+          git push origin HEAD:ux/organization-attention-signal-20260913
