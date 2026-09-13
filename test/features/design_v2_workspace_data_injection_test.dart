@@ -176,23 +176,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('student without active Case keeps progress action disabled', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1440, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'student without active Case exposes only record-problem primary action',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(app(_studentWithoutCases));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('学生'));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(app(_studentWithoutCases));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('学生'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('暂无进行中的问题'), findsOneWidget);
-    final progressButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, '记进展'),
-    );
-    expect(progressButton.onPressed, isNull);
-  });
+      expect(find.text('暂无进行中的问题'), findsOneWidget);
+      expect(find.text('记进展'), findsNothing);
+      expect(find.widgetWithText(FilledButton, '记录问题'), findsOneWidget);
+    },
+  );
 
   testWidgets('closed history is visible but stays read-only', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));

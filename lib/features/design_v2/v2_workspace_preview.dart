@@ -2795,17 +2795,10 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (widget.onBack != null) ...[
-                        IconButton(
-                          tooltip: '返回学生列表',
-                          onPressed: widget.onBack,
-                          icon: const Icon(Icons.arrow_back),
-                        ),
-                        const SizedBox(height: 4),
-                      ],
                       _StudentHeader(
                         student: widget.student,
                         compact: widget.compact,
+                        onBack: widget.onBack,
                       ),
                       const SizedBox(height: 30),
                       _SectionTitle(
@@ -2828,8 +2821,6 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
                             onTap: () =>
                                 widget.onOpenCase(visibleFocusItems[i]),
                           ),
-                          if (i < visibleFocusItems.length - 1)
-                            Divider(height: 1, color: scheme.outlineVariant),
                         ],
                         if (hasAdditionalFocusItems) ...[
                           const SizedBox(height: 6),
@@ -2883,8 +2874,6 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
                               item: closedItems[i],
                               onTap: () => widget.onOpenCase(closedItems[i]),
                             ),
-                            if (i < closedItems.length - 1)
-                              Divider(height: 1, color: scheme.outlineVariant),
                           ],
                         ],
                       ],
@@ -2925,10 +2914,15 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
 }
 
 class _StudentHeader extends StatelessWidget {
-  const _StudentHeader({required this.student, required this.compact});
+  const _StudentHeader({
+    required this.student,
+    required this.compact,
+    this.onBack,
+  });
 
   final V2Student student;
   final bool compact;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -2937,22 +2931,29 @@ class _StudentHeader extends StatelessWidget {
     final runtime = _V2RuntimeScope.maybeOf(context);
     final exportStudent = runtime?.studentExport;
     final controller = runtime?.workflowController;
+    final hasFocusItems = focusItems.isNotEmpty;
     final buttons = Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        OutlinedButton.icon(
-          onPressed: () => _showV2QuickCaptureForStudent(context, student),
-          icon: const Icon(Icons.note_add_outlined, size: 18),
-          label: const Text('记录问题'),
-        ),
-        FilledButton.icon(
-          onPressed: focusItems.isEmpty
-              ? null
-              : () => _showV2ProgressCasePicker(context, student),
-          icon: const Icon(Icons.edit_note_outlined, size: 18),
-          label: const Text('记进展'),
-        ),
+        if (hasFocusItems)
+          OutlinedButton.icon(
+            onPressed: () => _showV2QuickCaptureForStudent(context, student),
+            icon: const Icon(Icons.note_add_outlined, size: 18),
+            label: const Text('记录问题'),
+          )
+        else
+          FilledButton.icon(
+            onPressed: () => _showV2QuickCaptureForStudent(context, student),
+            icon: const Icon(Icons.note_add_outlined, size: 18),
+            label: const Text('记录问题'),
+          ),
+        if (hasFocusItems)
+          FilledButton.icon(
+            onPressed: () => _showV2ProgressCasePicker(context, student),
+            icon: const Icon(Icons.edit_note_outlined, size: 18),
+            label: const Text('记进展'),
+          ),
         if (exportStudent != null || controller != null)
           PopupMenuButton<String>(
             key: const Key('v2-student-more-actions'),
@@ -2991,13 +2992,29 @@ class _StudentHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '学生 · ${student.name}',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 18),
         if (compact) ...[
-          Text(student.name, style: Theme.of(context).textTheme.headlineSmall),
+          Row(
+            key: const Key('v2-student-detail-context-row'),
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (onBack != null) ...[
+                IconButton(
+                  tooltip: '返回学生列表',
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back),
+                ),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
+                child: Text(
+                  student.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 5),
           Text(
             '${student.grade} · ${student.subjects.join(' / ')}',
@@ -3758,19 +3775,26 @@ class _CaseDetailPane extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    tooltip: '返回',
-                    onPressed: onBack,
-                    icon: const Icon(Icons.arrow_back),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${student.name} · ${item.subject}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    key: const Key('v2-case-context-row'),
+                    children: [
+                      IconButton(
+                        tooltip: '返回',
+                        onPressed: onBack,
+                        icon: const Icon(Icons.arrow_back),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '${student.name} · ${item.subject}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   if (compact) ...[
@@ -3918,9 +3942,7 @@ class _CaseDetailPane extends StatelessWidget {
                       label: const Text('再次出现，重新跟进'),
                     ),
                   ],
-                  const SizedBox(height: 30),
-                  Divider(color: scheme.outlineVariant),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 40),
                   const _SectionTitle(title: '成长过程'),
                   const SizedBox(height: 16),
                   _Timeline(
