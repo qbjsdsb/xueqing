@@ -30,7 +30,7 @@ jobs:
 
       - name: Apply scoped polish
         run: |
-          python3 .github/scripts/temp_apply_scope_continuity_polish.py
+          python3 .github/scripts/temp_apply_scope_continuity_polish_v2.py
           dart format \
             lib/features/design_v2/v2_workspace_preview.dart \
             test/features/v2_typed_organization_navigation_test.dart
