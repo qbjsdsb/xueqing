@@ -43,7 +43,12 @@ void main() {
     expect(source, contains("_SectionTitle(title: '现在要做'"));
     expect(source, contains("_SectionTitle(title: '待安排'"));
     expect(source, contains("title: const Text('之后')"));
-    expect(source, contains("const _SectionTitle(title: '最近学生')"));
+    expect(
+      source,
+      contains(
+        "_SectionTitle(title: recentStudents.isEmpty ? '我的学生' : '最近学生')",
+      ),
+    );
     expect(source, contains('· 待复检'));
     expect(source, contains('switch (item.effectiveStatus)'));
     expect(source, contains("return '新记录';"));
@@ -52,10 +57,12 @@ void main() {
     expect(source, isNot(contains("title: '待安排下一步'")));
     expect(source, isNot(contains("return '待验证';")));
     expect(source, contains('!widget.compact &&'));
+    expect(source, contains('ResponsiveBreakpoints.classify('));
+    expect(source, contains('WindowSizeClass.medium'));
     expect(source, contains('final expandedRail = width >= 1280;'));
     expect(
       source,
-      contains('final studentPaneWidth = width < 900 ? 288.0 : 320.0;'),
+      contains('final studentPaneWidth = expandedRail ? 320.0 : 288.0;'),
     );
     expect(source, contains("student.updatedLabel != '暂无记录'"));
     expect(source, isNot(contains("label: const Text('删除问题')")));

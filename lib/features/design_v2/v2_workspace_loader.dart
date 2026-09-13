@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/layout/responsive.dart';
 import '../../cloud/composer_draft_store.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
@@ -75,6 +76,9 @@ class _V2LoadedWorkspace {
 }
 
 class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
+  final GlobalKey _embeddedOrganizationWorkspaceKey = GlobalKey(
+    debugLabel: 'v2-embedded-organization-workspace',
+  );
   late Future<_V2LoadedWorkspace> _workspaceFuture;
 
   @override
@@ -125,25 +129,38 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
     });
   }
 
-  bool _softRefreshRunning = false;
+  Future<void>? _softRefreshInFlight;
   bool _softRefreshQueued = false;
 
-  Future<void> _softRefresh() async {
-    if (_softRefreshRunning) {
+  Future<void> _softRefresh() {
+    final running = _softRefreshInFlight;
+    if (running != null) {
       _softRefreshQueued = true;
-      return;
+      return running;
     }
-    do {
-      _softRefreshQueued = false;
-      _softRefreshRunning = true;
-      try {
-        final workspace = await _loadWorkspace();
-        if (!mounted) return;
-        setState(() {
-          _workspaceFuture = Future<_V2LoadedWorkspace>.value(workspace);
-        });
-      } catch (_) {
-        if (!mounted) return;
+    final future = _runSoftRefreshLoop();
+    _softRefreshInFlight = future;
+    return future;
+  }
+
+  Future<void> _runSoftRefreshLoop() async {
+    var finalAttemptFailed = false;
+    try {
+      do {
+        _softRefreshQueued = false;
+        finalAttemptFailed = false;
+        try {
+          final workspace = await _loadWorkspace();
+          if (!mounted) return;
+          setState(() {
+            _workspaceFuture = Future<_V2LoadedWorkspace>.value(workspace);
+          });
+        } catch (_) {
+          finalAttemptFailed = true;
+        }
+      } while (_softRefreshQueued && mounted);
+
+      if (finalAttemptFailed && mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);
         messenger?.hideCurrentSnackBar();
         messenger?.showSnackBar(
@@ -155,10 +172,10 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
             ),
           ),
         );
-      } finally {
-        _softRefreshRunning = false;
       }
-    } while (_softRefreshQueued && mounted);
+    } finally {
+      _softRefreshInFlight = null;
+    }
   }
 
   Future<WorkspaceStudent?> _pickStudentSubjectProfile(
@@ -192,7 +209,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
       },
     );
 
-    if (MediaQuery.sizeOf(context).width < 720) {
+    if (ResponsiveBreakpoints.isCompact(context)) {
       return showModalBottomSheet<WorkspaceStudent>(
         context: context,
         useSafeArea: true,
@@ -459,12 +476,14 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         final V2OrganizationWorkspaceBuilder? organizationPageBuilder =
             canOpenOrganization
             ? (context, onBackToPersonal) => V2OrganizationWorkspacePage(
+                key: _embeddedOrganizationWorkspaceKey,
                 workspace: rawWorkspace,
                 workspaceData: loaded.organizationWorkspaceData,
                 responsibility: responsibility,
                 runtime: runtime,
                 embedded: true,
                 onBackFromRoot: onBackToPersonal,
+                onRefresh: _softRefresh,
                 onChanged: () => unawaited(_softRefresh()),
               )
             : null;
@@ -485,6 +504,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
               responsibility: responsibility,
               runtime: runtime,
               rootMode: true,
+              onRefresh: _softRefresh,
               onChanged: () => unawaited(_softRefresh()),
             );
           }

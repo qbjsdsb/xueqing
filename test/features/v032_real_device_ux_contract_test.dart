@@ -22,7 +22,8 @@ void main() {
     );
     expect(source, contains('canPop: !handlesSystemBack'));
     expect(source, contains('widget.onBackFromCase();'));
-    expect(source, contains('setState(() => _studentOpen = false)'));
+    expect(source, contains('if (widget.showStudentDetail) {'));
+    expect(source, contains('widget.onBackFromStudent();'));
     expect(
       source,
       contains('widget.onDestinationChanged(V2WorkspaceDestination.today);'),

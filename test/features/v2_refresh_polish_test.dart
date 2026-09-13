@@ -32,10 +32,14 @@ void main() {
     expect(preview, isNot(contains('Icons.eco_outlined')));
     expect(preview, contains("'学情'"));
     expect(preview, contains("title: const Text('更多')"));
-    expect(theme, contains('minimumSize: const Size(0, 44)'));
-    expect(theme, contains('height: 64'));
-    expect(theme, contains('CardThemeData('));
-    expect(theme, contains('PopupMenuThemeData('));
+    expect(theme, contains("import '../../app/theme/app_theme.dart';"));
+    expect(theme, contains('AppTheme.dark()'));
+    expect(theme, contains('AppTheme.light()'));
+    expect(
+      theme,
+      contains('minimumSize: const Size(0, AppSpacing.touchTarget)'),
+    );
+    expect(theme, contains('height: 68'));
     expect(spacing, contains('static const dialog = 16.0;'));
   });
 }

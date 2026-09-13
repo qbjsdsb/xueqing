@@ -46,6 +46,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.teacherLearningRecordRepository,
     this.studentLearningRecordRepository,
     this.showHeaderTitle = true,
+    this.refreshRevision = 0,
     super.key,
   });
 
@@ -62,6 +63,10 @@ class OrganizationManagementPage extends StatefulWidget {
   final StudentLearningRecordRepository? studentLearningRecordRepository;
   final bool showHeaderTitle;
 
+  /// Changes when an owning workspace explicitly requests a fresh management
+  /// snapshot without recreating this page and its local working context.
+  final int refreshRevision;
+
   @override
   State<OrganizationManagementPage> createState() =>
       _OrganizationManagementPageState();
@@ -76,21 +81,30 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
   Widget build(BuildContext context) {
     return ResponsiveLayout(
       builder: (context, sizeClass) {
-        final horizontalPadding = switch (sizeClass) {
-          WindowSizeClass.compact => AppSpacing.md,
-          WindowSizeClass.medium => AppSpacing.lg,
-          WindowSizeClass.expanded => AppSpacing.xl,
-        };
+        final embedded = !widget.showHeaderTitle;
+        final horizontalPadding = embedded
+            ? switch (sizeClass) {
+                WindowSizeClass.compact => AppSpacing.mdPlus,
+                WindowSizeClass.medium => AppSpacing.xl,
+                WindowSizeClass.expanded => AppSpacing.xl,
+              }
+            : switch (sizeClass) {
+                WindowSizeClass.compact => AppSpacing.md,
+                WindowSizeClass.medium => AppSpacing.lg,
+                WindowSizeClass.expanded => AppSpacing.xl,
+              };
+        final contentMaxWidth = embedded ? 1100.0 : 1180.0;
+        final topPadding = embedded ? 0.0 : AppSpacing.md;
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1180),
+            constraints: BoxConstraints(maxWidth: contentMaxWidth),
             child: SizedBox(
               width: double.infinity,
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
                   horizontalPadding,
-                  AppSpacing.md,
+                  topPadding,
                   horizontalPadding,
                   AppSpacing.xxl,
                 ),

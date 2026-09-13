@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/layout/responsive.dart';
 import 'v2_workflow_controller.dart';
 
 typedef V2CompleteActionSave = Future<void> Function();
@@ -57,7 +58,7 @@ Future<T?> _showActionComposer<T>(
     child: content,
   );
 
-  if (MediaQuery.sizeOf(context).width < 720) {
+  if (ResponsiveBreakpoints.isCompact(context)) {
     return showModalBottomSheet<T>(
       context: context,
       useSafeArea: true,

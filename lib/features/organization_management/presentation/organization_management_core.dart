@@ -25,6 +25,19 @@ mixin _OrganizationManagementCore on State<OrganizationManagementPage> {
     _snapshotFuture = _load();
   }
 
+  @override
+  void didUpdateWidget(covariant OrganizationManagementPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final sourceChanged =
+        oldWidget.repository != widget.repository ||
+        oldWidget.organizationId != widget.organizationId;
+    if (!sourceChanged && oldWidget.refreshRevision == widget.refreshRevision) {
+      return;
+    }
+    _errorMessage = null;
+    _snapshotFuture = _load();
+  }
+
   Future<_OrganizationManagementSnapshot> _load() async {
     final result = await Future.wait<dynamic>([
       widget.repository.listMembers(organizationId: widget.organizationId),
