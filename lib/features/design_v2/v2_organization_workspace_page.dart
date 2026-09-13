@@ -1064,13 +1064,9 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                                   ),
                                 ),
                               )
-                            : ListView.separated(
+                            : ListView.builder(
                                 key: const Key('v2-organization-student-list'),
                                 itemCount: visibleStudents.length,
-                                separatorBuilder: (_, _) => Divider(
-                                  height: 1,
-                                  color: scheme.outlineVariant,
-                                ),
                                 itemBuilder: (context, index) {
                                   final student = visibleStudents[index];
                                   final items =
@@ -1446,6 +1442,44 @@ class _OrganizationStudentSelectionRow extends StatelessWidget {
   }
 }
 
+int _organizationCasePriority(V2FocusItem item) {
+  if (item.actionTiming == V2ActionTiming.overdue) return 0;
+  if (item.pendingVerification ||
+      item.effectiveStatus == V2CaseStatus.pendingVerification) {
+    return 1;
+  }
+  return switch (item.actionTiming) {
+    V2ActionTiming.today => 2,
+    V2ActionTiming.undated => 3,
+    V2ActionTiming.future => 4,
+    V2ActionTiming.overdue => 0,
+    null => 5,
+  };
+}
+
+V2FocusItem? _organizationPriorityItem(List<V2FocusItem> items) {
+  final ranked = items.where((item) => !item.closed).toList(growable: true);
+  if (ranked.isEmpty) return null;
+  ranked.sort((left, right) {
+    final priority = _organizationCasePriority(left)
+        .compareTo(_organizationCasePriority(right));
+    if (priority != 0) return priority;
+
+    final leftDue = left.dueOn;
+    final rightDue = right.dueOn;
+    if (leftDue != null && rightDue != null) {
+      final due = leftDue.compareTo(rightDue);
+      if (due != 0) return due;
+    } else if (leftDue != null) {
+      return -1;
+    } else if (rightDue != null) {
+      return 1;
+    }
+    return left.title.compareTo(right.title);
+  });
+  return ranked.first;
+}
+
 class _OrganizationStudentDetail extends StatelessWidget {
   const _OrganizationStudentDetail({
     required this.student,
@@ -1477,9 +1511,38 @@ class _OrganizationStudentDetail extends StatelessWidget {
     final closedItems = items
         .where((item) => item.closed)
         .toList(growable: false);
+    final priorityItem = _organizationPriorityItem(activeItems);
+    final otherActiveItems = priorityItem == null
+        ? const <V2FocusItem>[]
+        : activeItems
+              .where((item) => item.id != priorityItem.id)
+              .toList(growable: false);
+    final priorityOwnerLabel = priorityItem == null
+        ? null
+        : caseOwnerLabelByCaseId[priorityItem.id] ?? '主责信息暂不可用';
+    final priorityCollaborationLabel = priorityItem == null
+        ? null
+        : collaborationLabelByCaseId[priorityItem.id];
     final leadLabels = profiles.map(leadLabelForProfile).toSet();
     final showResponsibilityBreakdown =
         leadLabels.length > 1 || leadLabels.contains('未设置主责');
+    final singleLeadLabel = leadLabels.length == 1 ? leadLabels.single : null;
+    final responsibilityDiffersFromPriority =
+        priorityItem != null &&
+        singleLeadLabel != null &&
+        singleLeadLabel != '未设置主责' &&
+        priorityOwnerLabel != null &&
+        singleLeadLabel != priorityOwnerLabel;
+    final showTeachingResponsibility =
+        priorityItem == null ||
+        showResponsibilityBreakdown ||
+        responsibilitySummary.contains('未') ||
+        responsibilityDiffersFromPriority ||
+        (priorityOwnerLabel?.contains('不可用') ?? false);
+
+    final mutedStyle = theme.textTheme.bodySmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+    );
 
     return ListView(
       key: const Key('v2-organization-student-detail'),
@@ -1496,9 +1559,7 @@ class _OrganizationStudentDetail extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     '${student.grade} · ${student.subjects.join(' / ')}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                    style: mutedStyle,
                   ),
                 ],
               ),
@@ -1514,69 +1575,133 @@ class _OrganizationStudentDetail extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
-        Text(
-          '主责：$responsibilitySummary',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: responsibilitySummary.contains('未')
-                ? scheme.error
-                : scheme.onSurfaceVariant,
-            fontWeight: responsibilitySummary.contains('未')
-                ? FontWeight.w600
-                : null,
+        if (priorityItem != null) ...[
+          const SizedBox(height: 18),
+          Text(
+            '优先处理',
+            key: const Key('v2-organization-priority-label'),
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        if (showResponsibilityBreakdown && profiles.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+          Text(
+            priorityItem.title,
+            key: ValueKey<String>(
+              'v2-organization-priority-${priorityItem.id}',
+            ),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
           Wrap(
-            spacing: 16,
-            runSpacing: 5,
+            spacing: 14,
+            runSpacing: 4,
             children: [
-              for (final profile in profiles)
-                Text(
-                  '${profile.subject} · ${leadLabelForProfile(profile)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: leadLabelForProfile(profile) == '未设置主责'
-                        ? scheme.error
-                        : scheme.onSurfaceVariant,
-                  ),
+              Text(priorityItem.subject, style: mutedStyle),
+              Text(_caseStatusLabel(priorityItem), style: mutedStyle),
+              Text(
+                '负责：$priorityOwnerLabel',
+                style: mutedStyle?.copyWith(
+                  color: priorityOwnerLabel?.contains('不可用') == true
+                      ? scheme.error
+                      : scheme.onSurfaceVariant,
+                  fontWeight: priorityOwnerLabel?.contains('不可用') == true
+                      ? FontWeight.w600
+                      : null,
                 ),
+              ),
             ],
           ),
-        ],
-        const SizedBox(height: 22),
-        Divider(color: scheme.outlineVariant),
-        const SizedBox(height: 18),
-        Row(
-          children: [
-            Expanded(child: Text('当前问题', style: theme.textTheme.titleMedium)),
+          const SizedBox(height: 10),
+          Text(
+            '下一步：${priorityItem.nextStep}',
+            key: ValueKey<String>(
+              'v2-organization-priority-next-${priorityItem.id}',
+            ),
+            style: theme.textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 4),
+          Text(priorityItem.dueLabel, style: mutedStyle),
+          if (priorityCollaborationLabel != null) ...[
+            const SizedBox(height: 5),
             Text(
-              '${activeItems.length}',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
+              priorityCollaborationLabel,
+              key: ValueKey<String>(
+                'v2-organization-collaboration-${priorityItem.id}',
               ),
+              style: mutedStyle,
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        if (activeItems.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            child: Text(
-              '当前没有需要跟进的问题。',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+        ] else ...[
+          const SizedBox(height: 18),
+          Text(
+            '当前没有需要跟进的问题。',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
-          )
-        else
-          for (final item in activeItems)
+          ),
+        ],
+        if (showTeachingResponsibility) ...[
+          const SizedBox(height: 14),
+          Text(
+            '教学主责：$responsibilitySummary',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: responsibilitySummary.contains('未')
+                  ? scheme.error
+                  : scheme.onSurfaceVariant,
+              fontWeight: responsibilitySummary.contains('未')
+                  ? FontWeight.w600
+                  : null,
+            ),
+          ),
+          if (showResponsibilityBreakdown && profiles.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 16,
+              runSpacing: 5,
+              children: [
+                for (final profile in profiles)
+                  Text(
+                    '${profile.subject} · ${leadLabelForProfile(profile)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: leadLabelForProfile(profile) == '未设置主责'
+                          ? scheme.error
+                          : scheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+        if (otherActiveItems.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          Divider(color: scheme.outlineVariant),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: Text('其他当前问题', style: theme.textTheme.titleMedium),
+              ),
+              Text(
+                '${otherActiveItems.length}',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final item in otherActiveItems)
             _OrganizationCaseRow(
               item: item,
               ownerLabel: caseOwnerLabelByCaseId[item.id] ?? '主责信息暂不可用',
               collaborationLabel: collaborationLabelByCaseId[item.id],
               leadingInset: 0,
             ),
+        ],
         if (closedItems.isNotEmpty) ...[
           const SizedBox(height: 18),
           Divider(color: scheme.outlineVariant),

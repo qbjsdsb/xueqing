@@ -4024,9 +4024,6 @@ class _TodayPane extends StatelessWidget {
                 key: const Key('v2-today-page-header'),
                 title: '今日',
                 meta: _todayLabel(data.businessDate),
-                description: currentItems.isEmpty && undatedItems.isEmpty
-                    ? '今天没有已安排的跟进。'
-                    : '先处理已经安排好的跟进。',
                 actions: [
                   TextButton.icon(
                     key: const Key('v2-today-quick-capture'),
