@@ -64,6 +64,25 @@ compact_back = compact_back.replace(
 )
 t = t[:compact_back_start] + compact_back + t[compact_back_end:]
 
+# This continuity test also starts in Compact before resizing to Medium/Expanded,
+# so its first Management navigation must use the Compact local segment rather
+# than the desktop rail tooltip. The important contract under test is that the
+# selected Organization section survives both resize transitions.
+resize_management_start = t.index(
+    "'embedded Organization keeps management section across adaptive shell resize'"
+)
+resize_management_end = t.index(
+    "'embedded Organization keeps learning query and selected student across resize'",
+    resize_management_start,
+)
+resize_management = t[resize_management_start:resize_management_end]
+resize_management = resize_management.replace(
+    "await tester.tap(find.byTooltip('管理'));",
+    "await tester.tap(find.text('管理').last);",
+    1,
+)
+t = t[:resize_management_start] + resize_management + t[resize_management_end:]
+
 # Advanced attention filters now live behind the progressive 筛选 control.
 old_resize = """      final filterFinder = find.byKey(
         const Key('v2-organization-filter-unassigned'),
