@@ -1,0 +1,43 @@
+name: Temporary organization state format fix
+
+on:
+  push:
+    branches:
+      - ui/organization-navigation-state-continuity
+    paths:
+      - .github/org-state-format-marker
+
+permissions:
+  contents: write
+
+jobs:
+  format-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: ui/organization-navigation-state-continuity
+          fetch-depth: 0
+
+      - name: Remove formatter-only blank line
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('test/features/v2_typed_organization_navigation_test.dart')
+          text = path.read_text(encoding='utf-8')
+          old = "      expect(tester.takeException(), isNull);\n    },\n  );\n\n}\n\nWidget _previewApp"
+          new = "      expect(tester.takeException(), isNull);\n    },\n  );\n}\n\nWidget _previewApp"
+          if text.count(old) != 1:
+              raise SystemExit('format anchor not found exactly once')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          git diff --check
+
+      - name: Commit format fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add test/features/v2_typed_organization_navigation_test.dart
+          git commit -m "style: format Organization navigation regression tests"
+          git push origin HEAD:ui/organization-navigation-state-continuity
