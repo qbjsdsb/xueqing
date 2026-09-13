@@ -32,6 +32,13 @@ jobs:
       - name: Apply navigation simplification patch
         run: python .github/temp_navigation_simplification.py
 
+      - name: Show generated organization filter regions
+        run: |
+          echo '--- expanded/filter helper region ---'
+          nl -ba lib/features/design_v2/v2_organization_workspace_page.dart | sed -n '820,1010p'
+          echo '--- compact filter region ---'
+          nl -ba lib/features/design_v2/v2_organization_workspace_page.dart | sed -n '1060,1150p'
+
       - name: Remove temporary patch machinery
         run: |
           rm .github/temp_navigation_simplification.py
