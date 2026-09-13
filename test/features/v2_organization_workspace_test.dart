@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xueqing/cloud/case_reopen_draft_store.dart';
@@ -35,26 +38,40 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('机构'), findsOneWidget);
+      expect(
+        find.byKey(const Key('v2-organization-page-header')),
+        findsOneWidget,
+      );
+      expect(find.byType(AppBar), findsNothing);
       expect(find.text('机构学情'), findsNothing);
       expect(find.text('学情'), findsOneWidget);
       expect(find.text('管理'), findsOneWidget);
-      expect(find.text('2 名学生 · 2 个问题正在跟进 · 1 个学科未明确主责'), findsOneWidget);
+      expect(find.text('2 名学生 · 2 个问题正在跟进'), findsOneWidget);
+      expect(find.text('需要关注：1 个学科未明确主责'), findsOneWidget);
       expect(find.textContaining('机构操作不会自动改变教师主责'), findsOneWidget);
       expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
-      expect(find.byIcon(Icons.expand_more), findsWidgets);
+      expect(
+        find.byKey(const Key('v2-organization-supervision-split')),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.expand_more), findsNothing);
       expect(find.textContaining('语文 · 张老师'), findsOneWidget);
-      expect(find.textContaining('语文 · 未设置主责'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, '记录问题'), findsNWidgets(2));
+      expect(find.widgetWithText(TextButton, '记录问题'), findsOneWidget);
 
-      await tester.tap(find.text('机构学生一'));
+      await tester.tap(
+        find.byKey(const Key('v2-organization-student-select-student-a')),
+      );
       await tester.pumpAndSettle();
-      expect(find.textContaining('语文 · 跟进中 · 主责：张老师'), findsOneWidget);
-      expect(find.textContaining('下一步：下一次继续检查'), findsOneWidget);
+      expect(find.text('跟进中'), findsWidgets);
+      expect(find.text('主责：张老师'), findsOneWidget);
+      expect(find.text('下一步：下一次继续检查'), findsOneWidget);
       expect(find.text('最近记录：李老师 · 机构协作'), findsOneWidget);
 
-      await tester.tap(find.text('机构学生二'));
+      await tester.tap(
+        find.byKey(const Key('v2-organization-student-select-student-b')),
+      );
       await tester.pumpAndSettle();
-      expect(find.textContaining('语文 · 跟进中 · 主责：王老师'), findsOneWidget);
+      expect(find.text('主责：王老师'), findsOneWidget);
       // Profile B still has no current Lead. Existing Case B nevertheless keeps
       // its persisted Case owner instead of inheriting the Profile Lead state.
       expect(find.textContaining('语文 · 未设置主责'), findsOneWidget);
@@ -65,18 +82,60 @@ void main() {
         '张老师',
       );
       await tester.pumpAndSettle();
-      expect(find.text('机构学生一'), findsOneWidget);
-      expect(find.text('机构学生二'), findsNothing);
+      expect(
+        find.byKey(const Key('v2-organization-student-select-student-a')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('v2-organization-student-select-student-b')),
+        findsNothing,
+      );
 
       await tester.enterText(
         find.byKey(const Key('v2-organization-learning-search')),
         '王老师',
       );
       await tester.pumpAndSettle();
-      expect(find.text('机构学生一'), findsNothing);
-      expect(find.text('机构学生二'), findsOneWidget);
+      expect(
+        find.byKey(const Key('v2-organization-student-select-student-a')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('v2-organization-student-select-student-b')),
+        findsOneWidget,
+      );
     },
   );
+
+  testWidgets('medium Organization learning keeps stacked supervision rows', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final workspace = _workspace();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: V2Theme.light(),
+        home: V2OrganizationWorkspacePage(
+          workspace: workspace,
+          workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+              .workspaceData,
+          responsibility: _context(personalProfileIds: const []),
+          runtime: _runtime(includeManagement: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('v2-organization-supervision-split')),
+      findsNothing,
+    );
+    expect(find.byType(ExpansionTile), findsWidgets);
+    expect(find.widgetWithText(TextButton, '记录问题'), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('organization attention filters are factual and actionable', (
     tester,
@@ -99,24 +158,195 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('机构学生一'), findsOneWidget);
-    expect(find.text('机构学生二'), findsOneWidget);
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-a')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-b')),
+      findsOneWidget,
+    );
 
     await tester.tap(
       find.byKey(const Key('v2-organization-filter-unassigned')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('机构学生一'), findsNothing);
-    expect(find.text('机构学生二'), findsOneWidget);
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-a')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-b')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('v2-organization-filter-attention')));
     await tester.pumpAndSettle();
-    expect(find.text('机构学生一'), findsNothing);
-    expect(find.text('机构学生二'), findsOneWidget);
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-a')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-b')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('v2-organization-filter-overdue')));
     await tester.pumpAndSettle();
     expect(find.text('当前没有符合这个关注条件的学生。'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Personal rail yields refresh ownership to Organization scope on desktop and medium',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final managementRepository = _FakeOrganizationManagementRepository();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => _workspace(),
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _context(personalProfileIds: const ['profile-a']),
+            ),
+            runtime: _runtime(
+              includeManagement: true,
+              managementRepository: managementRepository,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('v2-workspace-refresh')), findsOneWidget);
+      await tester.tap(find.byTooltip('机构'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
+      expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);
+
+      await tester.binding.setSurfaceSize(const Size(800, 800));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
+      expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
+      expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Organization scope refresh reloads activated Management without losing its area',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final workspace = _workspace();
+      final managementRepository = _FakeOrganizationManagementRepository();
+      var outerRefreshCount = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2OrganizationWorkspacePage(
+            workspace: workspace,
+            workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+                .workspaceData,
+            responsibility: _context(personalProfileIds: const []),
+            runtime: _runtime(
+              includeManagement: true,
+              managementRepository: managementRepository,
+            ),
+            onRefresh: () async => outerRefreshCount++,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(managementRepository.listStudentsCount, 0);
+      await tester.tap(find.text('管理').last);
+      await tester.pumpAndSettle();
+      expect(managementRepository.listStudentsCount, 1);
+
+      await tester.tap(find.byKey(const Key('management-area-people')));
+      await tester.pumpAndSettle();
+      expect(find.text('机构成员'), findsOneWidget);
+
+      final previousLoadCount = managementRepository.listStudentsCount;
+      await tester.tap(find.byKey(const Key('v2-organization-refresh')));
+      await tester.pumpAndSettle();
+
+      expect(outerRefreshCount, 1);
+      expect(
+        managementRepository.listStudentsCount,
+        greaterThan(previousLoadCount),
+      );
+      expect(find.text('机构成员'), findsOneWidget);
+      expect(find.byKey(const Key('management-area-people')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Organization scope refresh shows pending feedback and blocks duplicate taps',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final completer = Completer<void>();
+      var refreshCount = 0;
+      final workspace = _workspace();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2OrganizationWorkspacePage(
+            workspace: workspace,
+            workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+                .workspaceData,
+            responsibility: _context(personalProfileIds: const []),
+            runtime: _runtime(includeManagement: false),
+            onRefresh: () {
+              refreshCount++;
+              return completer.future;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final refreshFinder = find.byKey(const Key('v2-organization-refresh'));
+      expect(refreshFinder, findsOneWidget);
+      await tester.tap(refreshFinder);
+      await tester.pump();
+
+      expect(refreshCount, 1);
+      expect(
+        find.byKey(const Key('v2-organization-refresh-progress')),
+        findsOneWidget,
+      );
+      expect(tester.widget<IconButton>(refreshFinder).onPressed, isNull);
+
+      completer.complete();
+      await tester.pumpAndSettle();
+
+      expect(refreshCount, 1);
+      expect(
+        find.byKey(const Key('v2-organization-refresh-progress')),
+        findsNothing,
+      );
+      expect(tester.widget<IconButton>(refreshFinder).onPressed, isNotNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test('soft refresh callers join one coalesced refresh cycle', () {
+    final loader = File('lib/features/design_v2/v2_workspace_loader.dart')
+        .readAsStringSync();
+
+    expect(loader, contains('Future<void>? _softRefreshInFlight;'));
+    expect(loader, contains('return running;'));
+    expect(loader, contains('Future<void> _runSoftRefreshLoop() async'));
+    expect(loader, contains('finalAttemptFailed = false;'));
+    expect(loader, isNot(contains('bool _softRefreshRunning = false;')));
   });
 
   testWidgets('manager without Personal Assignment enters Organization root', (
@@ -148,11 +378,14 @@ void main() {
   });
 }
 
-AuthenticatedWorkspaceRuntime _runtime({required bool includeManagement}) {
+AuthenticatedWorkspaceRuntime _runtime({
+  required bool includeManagement,
+  OrganizationManagementRepository? managementRepository,
+}) {
   return AuthenticatedWorkspaceRuntime(
     learningRepository: _FakeLearningRepository(),
     organizationManagementRepository: includeManagement
-        ? _FakeOrganizationManagementRepository()
+        ? managementRepository ?? _FakeOrganizationManagementRepository()
         : null,
     updateService: UpdateService(currentVersion: '0.3.8'),
     updateInstaller: _FakeUpdateInstaller(),
@@ -184,6 +417,56 @@ class _FakeLearningRepository implements LearningRepository {
 
 class _FakeOrganizationManagementRepository
     implements OrganizationManagementRepository {
+  int listStudentsCount = 0;
+
+  @override
+  Future<List<OrganizationMember>> listMembers({
+    required String organizationId,
+  }) async => const [];
+
+  @override
+  Future<List<OrganizationInvitation>> listInvitations({
+    required String organizationId,
+  }) async => const [];
+
+  @override
+  Future<List<OrganizationStudentRecord>> listStudents({
+    required String organizationId,
+  }) async {
+    listStudentsCount++;
+    return const [];
+  }
+
+  @override
+  Future<OrganizationSetupOptions> listSetupOptions({
+    required String organizationId,
+  }) async => const OrganizationSetupOptions(
+    subjects: [OrganizationSetupSubject(id: 'subject-1', displayName: '语文')],
+    teachers: [
+      OrganizationSetupTeacher(
+        membershipId: 'membership-manager',
+        displayName: '李老师',
+        email: 'manager@example.com',
+        organizationSubjectIds: ['subject-1'],
+      ),
+    ],
+  );
+
+  @override
+  Future<List<OrganizationSubjectCatalogItem>> listSubjectCatalog({
+    required String organizationId,
+  }) async => const [];
+
+  @override
+  Future<List<OrganizationTeacherSubjectScope>> listTeacherSubjectScopes({
+    required String organizationId,
+  }) async => const [];
+
+  @override
+  Future<List<OrganizationStudentTeacherAssignment>>
+  listStudentTeacherAssignments({required String organizationId}) async =>
+      const [];
+
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError(invocation.memberName.toString());

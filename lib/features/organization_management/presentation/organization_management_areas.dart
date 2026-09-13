@@ -198,8 +198,8 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.32),
-        borderRadius: BorderRadius.circular(AppRadii.medium),
+        color: colorScheme.surfaceContainerLow,
+        border: Border(left: BorderSide(color: colorScheme.primary, width: 2)),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
