@@ -32,13 +32,14 @@ jobs:
       - name: Apply navigation simplification patch
         run: python .github/temp_navigation_simplification.py
 
-      - name: Show generated organization syntax boundary
-        run: nl -ba lib/features/design_v2/v2_organization_workspace_page.dart | sed -n '990,1140p'
+      - name: Align intentional navigation contracts
+        run: python .github/temp_navigation_contract_fix.py
 
       - name: Remove temporary patch machinery
         run: |
           rm .github/temp_navigation_simplification.py
           rm .github/temp_navigation_simplification_fix.py
+          rm .github/temp_navigation_contract_fix.py
           rm .github/workflows/temp-navigation-simplification.yml
 
       - name: Get packages
