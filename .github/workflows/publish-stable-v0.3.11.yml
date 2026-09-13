@@ -1,0 +1,182 @@
+name: Publish Xueqing v0.3.11 Stable
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/release-requests/v0.3.11-publish"
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: publish-xueqing-v0.3.11
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: v0.3.11
+  RELEASE_VERSION: 0.3.11+19
+  RELEASE_COMMIT: f2e2f59ed6ac20263adc5d98ba0974a9c00242cf
+
+jobs:
+  verify-and-dispatch:
+    name: Verify release target and dispatch signed Stable build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout release configuration
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Load proven public production client config
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_file=".github/workflows/configure-release-vars-and-publish-v0.3.9.yml"
+          if [[ ! -f "$source_file" ]]; then
+            echo "Proven v0.3.9 production client configuration is unavailable."
+            exit 1
+          fi
+          supabase_url="$(sed -n 's/^  PUBLIC_SUPABASE_URL: //p' "$source_file" | head -n 1)"
+          publishable_key="$(sed -n 's/^  PUBLIC_SUPABASE_PUBLISHABLE_KEY: //p' "$source_file" | head -n 1)"
+          allowed_hosts="$(sed -n 's/^  PUBLIC_SUPABASE_ALLOWED_HOSTS: //p' "$source_file" | head -n 1)"
+          if [[ -z "$supabase_url" || -z "$publishable_key" || -z "$allowed_hosts" ]]; then
+            echo "Public production client configuration could not be loaded."
+            exit 1
+          fi
+          printf 'XUEQING_SUPABASE_URL=%s\n' "$supabase_url" >> "$GITHUB_ENV"
+          printf 'XUEQING_SUPABASE_PUBLISHABLE_KEY=%s\n' "$publishable_key" >> "$GITHUB_ENV"
+          printf 'XUEQING_SUPABASE_ALLOWED_HOSTS=%s\n' "$allowed_hosts" >> "$GITHUB_ENV"
+          echo "Proven public production client configuration loaded without printing values."
+
+      - name: Verify production and signing configuration
+        shell: bash
+        env:
+          XUEQING_ANDROID_CERT_SHA256: ${{ vars.XUEQING_ANDROID_CERT_SHA256 || '' }}
+          XUEQING_ANDROID_KEYSTORE_BASE64: ${{ secrets.XUEQING_ANDROID_KEYSTORE_BASE64 }}
+          XUEQING_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEYSTORE_PASSWORD }}
+          XUEQING_ANDROID_KEY_ALIAS: ${{ secrets.XUEQING_ANDROID_KEY_ALIAS }}
+          XUEQING_ANDROID_KEY_PASSWORD: ${{ secrets.XUEQING_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          required_names=(
+            XUEQING_SUPABASE_URL
+            XUEQING_SUPABASE_PUBLISHABLE_KEY
+            XUEQING_SUPABASE_ALLOWED_HOSTS
+            XUEQING_ANDROID_CERT_SHA256
+            XUEQING_ANDROID_KEYSTORE_BASE64
+            XUEQING_ANDROID_KEYSTORE_PASSWORD
+            XUEQING_ANDROID_KEY_ALIAS
+            XUEQING_ANDROID_KEY_PASSWORD
+          )
+          missing=()
+          for name in "${required_names[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing stable release configuration: %s\n' "${missing[*]}"
+            exit 1
+          fi
+          cert_sha="$(printf '%s' "$XUEQING_ANDROID_CERT_SHA256" | sed 's/[:[:space:]]//g' | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$cert_sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Pinned Android certificate fingerprint is malformed."
+            exit 1
+          fi
+          echo "Stable release configuration is present; secret values were not printed."
+
+      - name: Verify production backend compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          backend_json="$(curl --fail-with-body --silent --show-error --retry 2 --retry-all-errors --connect-timeout 10 --max-time 30 \
+            -X POST "${XUEQING_SUPABASE_URL%/}/rest/v1/rpc/xueqing_backend_compatibility" \
+            -H "apikey: $XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}')"
+          BACKEND_JSON="$backend_json" python3 - <<'PY'
+          import json, os
+          payload = json.loads(os.environ['BACKEND_JSON'])
+          if str(payload.get('schema_version', '')) < '20260911193000':
+              raise SystemExit('Production backend schema floor is too old for v0.3.11.')
+          caps = payload.get('capabilities') or {}
+          required = [
+              'student_profile_edit',
+              'learning_record_export_attachments',
+              'learning_case_record_organization',
+              'selective_learning_record_export',
+              'voided_record_integrity_guard',
+              'responsibility_read_model',
+              'organization_profile_responsibility',
+              'responsibility_safe_quick_capture',
+              'explicit_teaching_handoff',
+              'set_student_subject_lead',
+          ]
+          missing = [name for name in required if caps.get(name) is not True]
+          if missing:
+              raise SystemExit('Production backend is missing required capabilities: ' + ', '.join(missing))
+          print('Production backend compatibility Gate passed for v0.3.11.')
+          PY
+
+      - name: Verify frozen release commit is reachable from main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_COMMIT" >/dev/null
+          compare_status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" --jq '.status')"
+          behind_by="$(gh api "repos/$GITHUB_REPOSITORY/compare/$RELEASE_COMMIT...main" --jq '.behind_by')"
+          if [[ "$behind_by" != "0" ]] || [[ "$compare_status" != "ahead" && "$compare_status" != "identical" ]]; then
+            echo "Frozen release commit is no longer reachable from main."
+            exit 1
+          fi
+
+      - name: Create or verify v0.3.11 staging Pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
+            RELEASE_JSON="$release_json" python3 - <<'PY'
+          import json, os
+          release = json.loads(os.environ['RELEASE_JSON'])
+          if release['isDraft'] or not release['isPrerelease']:
+              raise SystemExit('Existing v0.3.11 Release is not a published Pre-release staging Release.')
+          PY
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_COMMIT" \
+              --prerelease \
+              --title "学情 v0.3.11" \
+              --notes $'稳定版：进一步收紧真实教学工作区的信息层级与移动端/桌面端交互。\n\n本版本重点完成 Android 根级横滑与 Predictive Back 收口、“我的教学 / 机构”双工作区导航减法、机构监督关注信号与责任展示、学生与 Case 详情节奏，以及机构管理页低频工具降噪。\n\n不新增后端 migration、RLS 或 RPC 能力要求；通过完整 Flutter、Android、Windows、生产后端兼容与永久签名 Gate 后才会晋升 Stable。'
+          fi
+          actual_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq '.sha')"
+          if [[ "$actual_commit" != "$RELEASE_COMMIT" ]]; then
+            echo "v0.3.11 does not point to the frozen candidate commit."
+            exit 1
+          fi
+
+      - name: Dispatch existing signed production release workflow
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish-release-assets.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_tag="$RELEASE_TAG" \
+            -f app_version="$RELEASE_VERSION" \
+            -f release_notes=$'优化 Android 根级横滑与 Predictive Back，减少误触并保持返回层级稳定\n收紧“我的教学 / 机构”导航与跨工作区上下文连续性\n优化机构学情监督的关注信号、责任展示与筛选密度\n优化学生 / Case 详情的信息节奏与教师主动作优先级\n进一步降低机构管理页重复标题、分割线与低频工具的视觉噪音' \
+            -f supabase_url="$XUEQING_SUPABASE_URL" \
+            -f supabase_publishable_key="$XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            -f supabase_allowed_hosts="$XUEQING_SUPABASE_ALLOWED_HOSTS"
+          echo "Stable release workflow dispatched for $RELEASE_TAG ($RELEASE_VERSION)."
