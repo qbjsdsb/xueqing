@@ -18,7 +18,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply focused UX patch
-        run: python .github/patches/apply_detail_rhythm_polish.py
+        run: |
+          python .github/patches/apply_detail_rhythm_polish.py
+          python .github/patches/apply_detail_rhythm_test_contract.py
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -30,7 +32,7 @@ jobs:
         run: flutter pub get
 
       - name: Format affected files
-        run: dart format lib/features/design_v2/v2_workspace_preview.dart test/features/v2_student_focus_presentation_test.dart
+        run: dart format lib/features/design_v2/v2_workspace_preview.dart test/features/v2_student_focus_presentation_test.dart test/features/design_v2_workspace_test.dart
 
       - name: Verify diff hygiene
         shell: bash
@@ -41,7 +43,9 @@ jobs:
           allowed = {
               'lib/features/design_v2/v2_workspace_preview.dart',
               'test/features/v2_student_focus_presentation_test.dart',
+              'test/features/design_v2_workspace_test.dart',
               '.github/patches/apply_detail_rhythm_polish.py',
+              '.github/patches/apply_detail_rhythm_test_contract.py',
               '.github/workflows/apply-detail-rhythm-polish.yml',
               '.github/detail-rhythm-polish.trigger',
           }
@@ -59,11 +63,12 @@ jobs:
           flutter test test/features/design_v2_workspace_test.dart
 
       - name: Analyze focused implementation
-        run: flutter analyze lib/features/design_v2/v2_workspace_preview.dart test/features/v2_student_focus_presentation_test.dart
+        run: flutter analyze lib/features/design_v2/v2_workspace_preview.dart test/features/v2_student_focus_presentation_test.dart test/features/design_v2_workspace_test.dart
 
       - name: Remove temporary patch machinery
         run: |
           rm -f .github/patches/apply_detail_rhythm_polish.py
+          rm -f .github/patches/apply_detail_rhythm_test_contract.py
           rm -f .github/workflows/apply-detail-rhythm-polish.yml
           rm -f .github/detail-rhythm-polish.trigger
           git diff --check
@@ -79,6 +84,7 @@ jobs:
           allowed = {
               'lib/features/design_v2/v2_workspace_preview.dart',
               'test/features/v2_student_focus_presentation_test.dart',
+              'test/features/design_v2_workspace_test.dart',
           }
           changed = set(subprocess.check_output(['git', 'diff', '--cached', '--name-only']).decode().splitlines())
           unexpected = changed - allowed
