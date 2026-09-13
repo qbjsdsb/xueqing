@@ -1,0 +1,246 @@
+from pathlib import Path
+
+rows_path = Path(
+    'lib/features/organization_management/presentation/organization_management_rows.dart'
+)
+rows = rows_path.read_text()
+
+old = """part of 'organization_management_page.dart';
+
+class _MemberTile extends StatelessWidget {
+"""
+new = """part of 'organization_management_page.dart';
+
+enum _MemberMoreAction { editName, reissueCredential, toggleStatus }
+
+enum _TeacherScopeMoreAction { end }
+
+class _MemberTile extends StatelessWidget {
+"""
+if old not in rows:
+    raise SystemExit('member enum anchor not found')
+rows = rows.replace(old, new, 1)
+
+old = """          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              if (canEditName && onEditName != null)
+                TextButton.icon(
+                  onPressed: busy ? null : onEditName,
+                  icon: const Icon(Icons.badge_outlined, size: 18),
+                  label: Text(hasDisplayName ? '修改姓名' : '补充姓名'),
+                ),
+              if (member.isOnboarding && onReissueCredential != null)
+                TextButton.icon(
+                  onPressed: busy ? null : onReissueCredential,
+                  icon: const Icon(Icons.key_outlined, size: 18),
+                  label: const Text('重新发放临时密码'),
+                )
+              else if (!member.isOnboarding)
+                TextButton.icon(
+                  onPressed: lifecycleBusy ? null : onToggleStatus,
+                  icon: Icon(
+                    member.status == 'disabled'
+                        ? Icons.restore_outlined
+                        : Icons.person_off_outlined,
+                    size: 18,
+                  ),
+                  label: Text(member.status == 'disabled' ? '恢复成员' : '停用成员'),
+                ),
+            ],
+          ),
+"""
+new = """          if ((canEditName && onEditName != null) ||
+              (member.isOnboarding && onReissueCredential != null) ||
+              !member.isOnboarding) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: PopupMenuButton<_MemberMoreAction>(
+                key: ValueKey<String>(
+                  'member-more-actions-${member.membershipId}',
+                ),
+                tooltip: '成员操作',
+                enabled: !busy,
+                icon: const Icon(Icons.more_horiz),
+                onSelected: (action) {
+                  switch (action) {
+                    case _MemberMoreAction.editName:
+                      onEditName?.call();
+                    case _MemberMoreAction.reissueCredential:
+                      onReissueCredential?.call();
+                    case _MemberMoreAction.toggleStatus:
+                      onToggleStatus();
+                  }
+                },
+                itemBuilder: (_) => [
+                  if (canEditName && onEditName != null)
+                    PopupMenuItem<_MemberMoreAction>(
+                      value: _MemberMoreAction.editName,
+                      child: Text(hasDisplayName ? '修改姓名' : '补充姓名'),
+                    ),
+                  if (member.isOnboarding && onReissueCredential != null)
+                    const PopupMenuItem<_MemberMoreAction>(
+                      value: _MemberMoreAction.reissueCredential,
+                      child: Text('重新发放临时密码'),
+                    ),
+                  if (!member.isOnboarding)
+                    PopupMenuItem<_MemberMoreAction>(
+                      value: _MemberMoreAction.toggleStatus,
+                      enabled: !lifecycleBusy,
+                      child: Text(
+                        member.status == 'disabled' ? '恢复成员' : '停用成员',
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+"""
+if old not in rows:
+    raise SystemExit('member actions block not found')
+rows = rows.replace(old, new, 1)
+
+old = """          for (final scope in scopes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      scope.subjectName,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  _ManagementStatusChip(label: '可教学', isPositive: true),
+                  const SizedBox(width: AppSpacing.xxs),
+                  TextButton(
+                    key: ValueKey<String>(
+                      'teacher-scope-stop-${scope.scopeId}',
+                    ),
+                    onPressed: busy
+                        ? null
+                        : () {
+                            onToggle(scope);
+                          },
+                    child: const Text('停用'),
+                  ),
+                ],
+              ),
+            ),
+"""
+new = """          for (final scope in scopes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      scope.subjectName,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  PopupMenuButton<_TeacherScopeMoreAction>(
+                    key: ValueKey<String>(
+                      'teacher-scope-actions-${scope.scopeId}',
+                    ),
+                    tooltip: '学科操作',
+                    enabled: !busy,
+                    icon: const Icon(Icons.more_horiz, size: 20),
+                    onSelected: (_) => onToggle(scope),
+                    itemBuilder: (_) => [
+                      PopupMenuItem<_TeacherScopeMoreAction>(
+                        key: ValueKey<String>(
+                          'teacher-scope-stop-${scope.scopeId}',
+                        ),
+                        value: _TeacherScopeMoreAction.end,
+                        child: const Text('停用该学科'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+"""
+if old not in rows:
+    raise SystemExit('teacher scope row block not found')
+rows = rows.replace(old, new, 1)
+
+old = """    final details = <String>[
+      if (student.studentCode != null) '编号 ${student.studentCode}',
+      if (student.grade != null) student.grade!,
+      if (student.className != null) student.className!,
+      if (student.campus != null) student.campus!,
+    ];
+"""
+new = """    final details = <String>[
+      if (student.grade != null) student.grade!,
+      if (student.className != null) student.className!,
+      if (student.campus != null) student.campus!,
+      if (student.studentCode != null) '编号 ${student.studentCode}',
+    ];
+"""
+if old not in rows:
+    raise SystemExit('student metadata list not found')
+rows = rows.replace(old, new, 1)
+
+old = """          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xxs,
+            children: [
+              _ManagementStatusChip(
+                label: _studentStatusLabel(student.status),
+                isPositive: student.isActive,
+              ),
+              for (final detail in details) _ManagementRoleChip(label: detail),
+            ],
+          ),
+"""
+new = """          if (!student.isActive) ...[
+            const SizedBox(height: AppSpacing.xs),
+            _ManagementStatusChip(
+              label: _studentStatusLabel(student.status),
+              isPositive: false,
+            ),
+          ],
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              details.join(' · '),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+"""
+if old not in rows:
+    raise SystemExit('student metadata rendering block not found')
+rows = rows.replace(old, new, 1)
+rows_path.write_text(rows)
+
+test_path = Path('test/features/organization_management_test.dart')
+test = test_path.read_text()
+old = """    expect(find.text('示例老师'), findsOneWidget);
+    final disableFinder = find.widgetWithText(TextButton, '停用成员');
+    expect(disableFinder, findsOneWidget);
+    expect(tester.widget<TextButton>(disableFinder).onPressed, isNull);
+    expect(repository.memberStatusUpdateCount, 0);
+"""
+new = """    expect(find.text('示例老师'), findsOneWidget);
+    final moreFinder = find.byTooltip('成员操作');
+    expect(moreFinder, findsOneWidget);
+    await tester.tap(moreFinder);
+    await tester.pumpAndSettle();
+    final disableFinder = find.widgetWithText(PopupMenuItem, '停用成员');
+    expect(disableFinder, findsOneWidget);
+    expect(tester.widget<PopupMenuItem>(disableFinder).enabled, isFalse);
+    expect(repository.memberStatusUpdateCount, 0);
+"""
+if old not in test:
+    raise SystemExit('admin member permission test block not found')
+test_path.write_text(test.replace(old, new, 1))
