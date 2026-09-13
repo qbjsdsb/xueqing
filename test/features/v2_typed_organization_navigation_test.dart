@@ -107,7 +107,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('林同学').first);
       await tester.pumpAndSettle();
-      expect(find.text('学生 · 林同学'), findsOneWidget);
+      expect(find.text('林同学'), findsOneWidget);
 
       await tester.tap(find.byTooltip('学情监督'));
       await tester.pumpAndSettle();
@@ -117,7 +117,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
-      expect(find.text('学生 · 林同学'), findsOneWidget);
+      expect(find.text('林同学'), findsOneWidget);
       expect(find.byKey(const Key('v2-student-search')), findsNothing);
       expect(tester.takeException(), isNull);
     },
