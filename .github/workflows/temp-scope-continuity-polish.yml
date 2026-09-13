@@ -34,11 +34,23 @@ jobs:
       - name: Apply scoped polish
         run: |
           python3 .github/scripts/temp_apply_scope_continuity_polish_v2.py
-          dart format \
-            lib/features/design_v2/v2_workspace_preview.dart \
-            test/features/v2_typed_organization_navigation_test.dart
           python3 - <<'PY'
           from pathlib import Path
+          test = Path('test/features/v2_typed_organization_navigation_test.dart')
+          text = test.read_text(encoding='utf-8')
+          old = "      await tester.tap(find.text('林同学').first);"
+          new = """      await tester.tap(
+            find
+                .ancestor(
+                  of: find.text('林同学'),
+                  matching: find.byType(InkWell),
+                )
+                .first,
+          );"""
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one 林同学 tap anchor, found {text.count(old)}')
+          test.write_text(text.replace(old, new, 1), encoding='utf-8')
+
           for name in (
               'docs/design/NAVIGATION_STATE_AUDIT.md',
               'docs/design/PAGE_RHYTHM_AUDIT.md',
@@ -46,6 +58,9 @@ jobs:
               path = Path(name)
               path.write_text(path.read_text(encoding='utf-8').rstrip() + '\n', encoding='utf-8')
           PY
+          dart format \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            test/features/v2_typed_organization_navigation_test.dart
           git diff --check
 
       - name: Analyze changed production surface
