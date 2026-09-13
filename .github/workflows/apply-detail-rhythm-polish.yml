@@ -85,11 +85,15 @@ jobs:
               'lib/features/design_v2/v2_workspace_preview.dart',
               'test/features/v2_student_focus_presentation_test.dart',
               'test/features/design_v2_workspace_test.dart',
+              '.github/patches/apply_detail_rhythm_polish.py',
+              '.github/patches/apply_detail_rhythm_test_contract.py',
+              '.github/workflows/apply-detail-rhythm-polish.yml',
+              '.github/detail-rhythm-polish.trigger',
           }
           changed = set(subprocess.check_output(['git', 'diff', '--cached', '--name-only']).decode().splitlines())
           unexpected = changed - allowed
           if unexpected:
-              raise SystemExit(f'final tree contains unexpected files: {sorted(unexpected)}')
+              raise SystemExit(f'final commit contains unexpected files: {sorted(unexpected)}')
           PY
           git commit -m "polish(v2): refine student and case detail rhythm"
           git push origin HEAD
