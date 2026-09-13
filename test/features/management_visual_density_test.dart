@@ -12,6 +12,10 @@ void main() {
       'lib/features/organization_management/presentation/'
       'organization_management_rows.dart',
     ).readAsStringSync();
+    final layout = File(
+      'lib/features/organization_management/presentation/'
+      'organization_management_layout.dart',
+    ).readAsStringSync();
 
     expect(
       areas,
@@ -41,5 +45,21 @@ void main() {
     expect(statusBlock, isNot(contains('return Chip(')));
     expect(roleBlock, contains('AppRadii.small'));
     expect(statusBlock, contains('AppRadii.small'));
+
+    final areaCardStart = layout.indexOf('class _ManagementAreaCard');
+    final sectionStart = layout.indexOf('class _ManagementSection');
+    expect(areaCardStart, greaterThanOrEqualTo(0));
+    expect(sectionStart, greaterThan(areaCardStart));
+    final areaCardBlock = layout.substring(areaCardStart, sectionStart);
+    expect(
+      areaCardBlock,
+      contains('Widget build(BuildContext context) => child;'),
+    );
+    expect(areaCardBlock, isNot(contains('Divider(')));
+    expect(areaCardBlock, isNot(contains('description')));
+
+    expect(layout, contains('class _ManagementToolbar'));
+    expect(layout, contains("tooltip: '导出记录'"));
+    expect(layout, contains("label: const Text('导出记录')"));
   });
 }
