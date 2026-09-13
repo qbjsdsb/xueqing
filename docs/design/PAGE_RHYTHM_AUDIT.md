@@ -68,3 +68,8 @@ Embedded Organization Learning and Management share the same centered content wi
 ## Non-goals
 
 This layer does not change Supabase, RLS, role permissions, Personal/Organization projection, Case ownership, Profile Lead, Action assignment, actor attribution, Today buckets, or write responsibility.
+
+
+## Reduced scope chrome after v0.3.10
+
+Compact Personal headers no longer repeat a visible Organization button on Today, Students, and Learning. Managers use the first item in More to enter Organization. Medium/Expanded express Organization hierarchy in the rail. Embedded Organization pages use a compact title/action header; metadata and the local Learning/Management switch are not repeated when the outer rail already carries that context.

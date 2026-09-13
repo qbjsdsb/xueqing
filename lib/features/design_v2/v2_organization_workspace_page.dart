@@ -17,8 +17,7 @@ import 'v2_page_header.dart';
 import 'v2_update_flow.dart';
 import 'v2_workflow_controller.dart';
 import 'v2_workspace_data.dart';
-
-enum _OrganizationSection { learning, management }
+import 'v2_workspace_navigation.dart';
 
 enum _OrganizationPageAction { checkUpdate, signOut }
 
@@ -43,6 +42,8 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
     required this.runtime,
     this.rootMode = false,
     this.embedded = false,
+    this.section,
+    this.onSectionChanged,
     this.onBackFromRoot,
     this.onRefresh,
     this.onChanged,
@@ -55,6 +56,8 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
   final AuthenticatedWorkspaceRuntime runtime;
   final bool rootMode;
   final bool embedded;
+  final V2OrganizationSection? section;
+  final ValueChanged<V2OrganizationSection>? onSectionChanged;
   final VoidCallback? onBackFromRoot;
 
   /// Explicit, awaitable scope refresh used by the visible Organization header.
@@ -72,11 +75,41 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
 class _V2OrganizationWorkspacePageState
     extends State<V2OrganizationWorkspacePage> {
   final ScrollController _managementScrollController = ScrollController();
-  _OrganizationSection _section = _OrganizationSection.learning;
+  V2OrganizationSection _section = V2OrganizationSection.learning;
   bool _managementActivated = false;
   int _managementRefreshRevision = 0;
   bool _refreshingOrganization = false;
   bool _checkingForUpdates = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _section = widget.section ?? V2OrganizationSection.learning;
+    _managementActivated = _section == V2OrganizationSection.management;
+  }
+
+  @override
+  void didUpdateWidget(covariant V2OrganizationWorkspacePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final requested = widget.section;
+    if (requested != null && requested != _section) {
+      _section = requested;
+      if (requested == V2OrganizationSection.management) {
+        _managementActivated = true;
+      }
+    }
+  }
+
+  void _selectSection(V2OrganizationSection section) {
+    if (_section == section) return;
+    setState(() {
+      _section = section;
+      if (section == V2OrganizationSection.management) {
+        _managementActivated = true;
+      }
+    });
+    widget.onSectionChanged?.call(section);
+  }
 
   @override
   void dispose() {
@@ -214,8 +247,8 @@ class _V2OrganizationWorkspacePageState
   }
 
   void _handleHeaderBack() {
-    if (_section != _OrganizationSection.learning) {
-      setState(() => _section = _OrganizationSection.learning);
+    if (_section != V2OrganizationSection.learning) {
+      _selectSection(V2OrganizationSection.learning);
       return;
     }
     if (widget.embedded) {
@@ -344,7 +377,7 @@ class _V2OrganizationWorkspacePageState
         final showHeaderBack =
             (!widget.rootMode && !widget.embedded) ||
             (compact && widget.embedded);
-        final handlesInternalBack = _section != _OrganizationSection.learning;
+        final handlesInternalBack = _section != V2OrganizationSection.learning;
         final interceptsBack = handlesInternalBack || widget.embedded;
 
         return PopScope<void>(
@@ -352,7 +385,7 @@ class _V2OrganizationWorkspacePageState
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             if (handlesInternalBack) {
-              setState(() => _section = _OrganizationSection.learning);
+              _selectSection(V2OrganizationSection.learning);
               return;
             }
             if (widget.embedded) {
@@ -376,11 +409,12 @@ class _V2OrganizationWorkspacePageState
                         constraints: const BoxConstraints(maxWidth: 1100),
                         child: V2PageHeader(
                           key: const Key('v2-organization-page-header'),
-                          title: '机构',
-                          meta: _organizationMeta,
-                          description: _section == _OrganizationSection.learning
-                              ? '从全机构视角查看学生问题、主责与下一步。'
-                              : '维护成员、学生、学科与机构设置。',
+                          title: widget.embedded
+                              ? (_section == V2OrganizationSection.learning
+                                    ? '学情监督'
+                                    : '管理')
+                              : '机构',
+                          meta: widget.embedded ? null : _organizationMeta,
                           leading: showHeaderBack
                               ? IconButton(
                                   key: widget.embedded
@@ -389,7 +423,7 @@ class _V2OrganizationWorkspacePageState
                                         )
                                       : null,
                                   tooltip:
-                                      _section != _OrganizationSection.learning
+                                      _section != V2OrganizationSection.learning
                                       ? '返回机构学情'
                                       : widget.embedded
                                       ? '返回我的教学'
@@ -402,38 +436,34 @@ class _V2OrganizationWorkspacePageState
                             compact: compact,
                             canSignOut: canSignOut,
                           ),
-                          footer: Align(
-                            alignment: Alignment.centerLeft,
-                            child: SegmentedButton<_OrganizationSection>(
-                              key: const Key('v2-organization-section-switch'),
-                              showSelectedIcon: false,
-                              segments: const [
-                                ButtonSegment<_OrganizationSection>(
-                                  value: _OrganizationSection.learning,
-                                  icon: Icon(Icons.fact_check_outlined),
-                                  label: Text('学情'),
-                                ),
-                                ButtonSegment<_OrganizationSection>(
-                                  value: _OrganizationSection.management,
-                                  icon: Icon(
-                                    Icons.admin_panel_settings_outlined,
+                          footer: widget.embedded && !compact
+                              ? null
+                              : Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: SegmentedButton<V2OrganizationSection>(
+                                    key: const Key(
+                                      'v2-organization-section-switch',
+                                    ),
+                                    showSelectedIcon: false,
+                                    segments: const [
+                                      ButtonSegment<V2OrganizationSection>(
+                                        value: V2OrganizationSection.learning,
+                                        icon: Icon(Icons.fact_check_outlined),
+                                        label: Text('学情监督'),
+                                      ),
+                                      ButtonSegment<V2OrganizationSection>(
+                                        value: V2OrganizationSection.management,
+                                        icon: Icon(
+                                          Icons.admin_panel_settings_outlined,
+                                        ),
+                                        label: Text('管理'),
+                                      ),
+                                    ],
+                                    selected: {_section},
+                                    onSelectionChanged: (selection) =>
+                                        _selectSection(selection.single),
                                   ),
-                                  label: Text('管理'),
                                 ),
-                              ],
-                              selected: {_section},
-                              onSelectionChanged: (selection) {
-                                final nextSection = selection.single;
-                                setState(() {
-                                  _section = nextSection;
-                                  if (nextSection ==
-                                      _OrganizationSection.management) {
-                                    _managementActivated = true;
-                                  }
-                                });
-                              },
-                            ),
-                          ),
                         ),
                       ),
                     ),
@@ -441,7 +471,7 @@ class _V2OrganizationWorkspacePageState
                   const Divider(height: 1),
                   Expanded(
                     child: IndexedStack(
-                      index: _section == _OrganizationSection.learning ? 0 : 1,
+                      index: _section == V2OrganizationSection.learning ? 0 : 1,
                       children: [
                         _OrganizationLearningView(
                           workspace: widget.workspace,
@@ -854,6 +884,69 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
     _OrganizationLearningFilter.unassigned => '未明确主责',
   };
 
+  Widget _filterControls(BuildContext context) {
+    const advanced = <_OrganizationLearningFilter>[
+      _OrganizationLearningFilter.pendingVerification,
+      _OrganizationLearningFilter.overdue,
+      _OrganizationLearningFilter.unassigned,
+    ];
+    final advancedSelected = advanced.contains(_filter);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        ChoiceChip(
+          key: const Key('v2-organization-filter-all'),
+          label: const Text('全部'),
+          selected: _filter == _OrganizationLearningFilter.all,
+          onSelected: (_) =>
+              setState(() => _filter = _OrganizationLearningFilter.all),
+        ),
+        ChoiceChip(
+          key: const Key('v2-organization-filter-attention'),
+          label: const Text('需关注'),
+          selected: _filter == _OrganizationLearningFilter.attention,
+          onSelected: (_) =>
+              setState(() => _filter = _OrganizationLearningFilter.attention),
+        ),
+        PopupMenuButton<_OrganizationLearningFilter>(
+          key: const Key('v2-organization-filter-more'),
+          tooltip: '更多筛选',
+          initialValue: advancedSelected ? _filter : null,
+          onSelected: (filter) => setState(() => _filter = filter),
+          itemBuilder: (_) => [
+            for (final filter in advanced)
+              PopupMenuItem<_OrganizationLearningFilter>(
+                key: ValueKey<String>('v2-organization-filter-${filter.name}'),
+                value: filter,
+                child: Text(_filterLabel(filter)),
+              ),
+          ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: advancedSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.outlineVariant,
+              ),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.tune, size: 16),
+                const SizedBox(width: 6),
+                Text(advancedSelected ? _filterLabel(_filter) : '筛选'),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildExpandedWorkspace(
     BuildContext context, {
     required List<V2Student> visibleStudents,
@@ -918,13 +1011,6 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 5),
-                      Text(
-                        '查看全机构当前问题、主责与下一步；机构操作不会自动改变教师主责。',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
                       const SizedBox(height: 14),
                       TextField(
                         key: const Key('v2-organization-learning-search'),
@@ -946,25 +1032,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final filter
-                              in _OrganizationLearningFilter.values)
-                            ChoiceChip(
-                              key: ValueKey<String>(
-                                'v2-organization-filter-${filter.name}',
-                              ),
-                              label: Text(_filterLabel(filter)),
-                              selected: _filter == filter,
-                              onSelected: (_) => setState(() {
-                                _filter = filter;
-                                _selectedStudentId = null;
-                              }),
-                            ),
-                        ],
-                      ),
+                      _filterControls(context),
                       const SizedBox(height: 12),
                       Text(
                         '${visibleStudents.length} 位学生',
@@ -1141,13 +1209,6 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 5),
-                    Text(
-                      '查看全机构当前问题、主责与下一步；机构操作不会自动改变教师主责。',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
                     const SizedBox(height: 14),
                     TextField(
                       key: const Key('v2-organization-learning-search'),
@@ -1169,28 +1230,7 @@ class _OrganizationLearningViewState extends State<_OrganizationLearningView> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final filter
-                              in _OrganizationLearningFilter.values) ...[
-                            ChoiceChip(
-                              key: ValueKey<String>(
-                                'v2-organization-filter-${filter.name}',
-                              ),
-                              label: Text(_filterLabel(filter)),
-                              selected: _filter == filter,
-                              onSelected: (_) =>
-                                  setState(() => _filter = filter),
-                            ),
-                            if (filter !=
-                                _OrganizationLearningFilter.values.last)
-                              const SizedBox(width: 8),
-                          ],
-                        ],
-                      ),
-                    ),
+                    _filterControls(context),
                   ],
                 ),
               ),
@@ -1331,15 +1371,18 @@ class _OrganizationStudentSelectionRow extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                responsibilitySummary,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+              if (responsibilitySummary.contains('未')) ...[
+                const SizedBox(height: 4),
+                Text(
+                  responsibilitySummary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -1379,6 +1422,9 @@ class _OrganizationStudentDetail extends StatelessWidget {
     final closedItems = items
         .where((item) => item.closed)
         .toList(growable: false);
+    final leadLabels = profiles.map(leadLabelForProfile).toSet();
+    final showResponsibilityBreakdown =
+        leadLabels.length > 1 || leadLabels.contains('未设置主责');
 
     return ListView(
       key: const Key('v2-organization-student-detail'),
@@ -1413,21 +1459,31 @@ class _OrganizationStudentDetail extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 18),
-        Text('教学责任', style: theme.textTheme.labelLarge),
-        const SizedBox(height: 6),
-        Text(responsibilitySummary, style: theme.textTheme.bodyMedium),
-        if (profiles.isNotEmpty) ...[
-          const SizedBox(height: 10),
+        const SizedBox(height: 14),
+        Text(
+          '主责：$responsibilitySummary',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: responsibilitySummary.contains('未')
+                ? scheme.error
+                : scheme.onSurfaceVariant,
+            fontWeight: responsibilitySummary.contains('未')
+                ? FontWeight.w600
+                : null,
+          ),
+        ),
+        if (showResponsibilityBreakdown && profiles.isNotEmpty) ...[
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 18,
-            runSpacing: 6,
+            spacing: 16,
+            runSpacing: 5,
             children: [
               for (final profile in profiles)
                 Text(
                   '${profile.subject} · ${leadLabelForProfile(profile)}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+                    color: leadLabelForProfile(profile) == '未设置主责'
+                        ? scheme.error
+                        : scheme.onSurfaceVariant,
                   ),
                 ),
             ],

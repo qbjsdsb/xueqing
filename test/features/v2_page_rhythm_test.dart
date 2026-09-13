@@ -9,13 +9,15 @@ void main() {
   Widget app() => MaterialApp(
     theme: V2Theme.light(),
     home: V2WorkspacePreview(
-      organizationPageBuilder: (context, onBackToPersonal) => PopScope<void>(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) onBackToPersonal();
-        },
-        child: const Center(child: Text('机构测试页')),
-      ),
+      organizationPageBuilder:
+          (context, onBackToPersonal, section, onSectionChanged) =>
+              PopScope<void>(
+                canPop: false,
+                onPopInvokedWithResult: (didPop, _) {
+                  if (!didPop) onBackToPersonal();
+                },
+                child: const Center(child: Text('机构测试页')),
+              ),
     ),
   );
 
@@ -31,10 +33,7 @@ void main() {
       final todayX = tester
           .getTopLeft(find.byKey(const Key('v2-today-page-header')))
           .dx;
-      expect(
-        find.byKey(const Key('v2-open-organization-scope')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('v2-open-organization-scope')), findsNothing);
       expect(find.byType(NavigationBar), findsOneWidget);
 
       var navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
@@ -45,10 +44,7 @@ void main() {
           .getTopLeft(find.byKey(const Key('v2-students-page-header')))
           .dx;
       expect(studentsX, closeTo(todayX, 0.01));
-      expect(
-        find.byKey(const Key('v2-open-organization-scope')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('v2-open-organization-scope')), findsNothing);
 
       navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
       navigation.onDestinationSelected!(2);
@@ -58,10 +54,7 @@ void main() {
           .getTopLeft(find.byKey(const Key('v2-learning-page-header')))
           .dx;
       expect(learningX, closeTo(todayX, 0.01));
-      expect(
-        find.byKey(const Key('v2-open-organization-scope')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('v2-open-organization-scope')), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -109,6 +102,8 @@ void main() {
     expect(workspace, contains("Key('v2-today-page-header')"));
     expect(workspace, contains("Key('v2-students-page-header')"));
     expect(workspace, contains("Key('v2-learning-page-header')"));
+    expect(workspace, contains("Key('v2-menu-open-organization')"));
+    expect(workspace, isNot(contains("Key('v2-open-organization-scope')")));
     expect(organization, contains("Key('v2-organization-page-header')"));
     expect(loader, isNot(contains('MediaQuery.sizeOf(context).width < 720')));
     expect(loader, contains('ResponsiveBreakpoints.isCompact(context)'));

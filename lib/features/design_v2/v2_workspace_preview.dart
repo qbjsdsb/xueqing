@@ -19,6 +19,7 @@ import 'v2_composers.dart';
 import 'v2_fixture.dart';
 import 'v2_page_header.dart';
 import 'v2_update_flow.dart';
+import 'v2_workspace_navigation.dart';
 import 'v2_workflow_controller.dart';
 import 'v2_workspace_data.dart';
 
@@ -31,6 +32,8 @@ typedef V2WorkspaceExport = Future<void> Function(BuildContext context);
 typedef V2OrganizationWorkspaceBuilder = Widget Function(
   BuildContext context,
   VoidCallback onBackToPersonal,
+  V2OrganizationSection section,
+  ValueChanged<V2OrganizationSection> onSectionChanged,
 );
 
 enum V2WorkspaceDestination { today, students, learning, organization }
@@ -1074,6 +1077,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   V2WorkspaceDestination _destination = V2WorkspaceDestination.today;
   V2WorkspaceDestination _lastPersonalDestination =
       V2WorkspaceDestination.today;
+  V2OrganizationSection _organizationSection = V2OrganizationSection.learning;
   V2Student? _selectedStudent;
   V2FocusItem? _selectedCase;
   bool _showCase = false;
@@ -1299,6 +1303,21 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     setState(() => _destination = _lastPersonalDestination);
   }
 
+  void _openOrganization(V2OrganizationSection section) {
+    setState(() {
+      if (_destination != V2WorkspaceDestination.organization) {
+        _lastPersonalDestination = _destination;
+      }
+      _organizationSection = section;
+      _destination = V2WorkspaceDestination.organization;
+    });
+  }
+
+  void _changeOrganizationSection(V2OrganizationSection section) {
+    if (_organizationSection == section) return;
+    setState(() => _organizationSection = section);
+  }
+
   Future<void> _openManagement(BuildContext context) async {
     final builder = widget.managementPageBuilder;
     if (builder == null) return;
@@ -1371,6 +1390,17 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.organizationPageBuilder != null)
+              ListTile(
+                key: const Key('v2-menu-open-organization'),
+                leading: const Icon(Icons.apartment_outlined),
+                title: const Text('进入机构工作区'),
+                subtitle: const Text('查看机构学情监督与管理'),
+                onTap: () => _afterMenuClose(
+                  menuContext,
+                  () => _openOrganization(V2OrganizationSection.learning),
+                ),
+              ),
             if (widget.onRefresh != null)
               ListTile(
                 key: const Key('v2-menu-refresh'),
@@ -1515,6 +1545,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     onOpenCase: _openCase,
                     onBackFromCase: _closeCase,
                     organizationPageBuilder: widget.organizationPageBuilder,
+                    organizationSection: _organizationSection,
+                    onOrganizationSelected: _openOrganization,
+                    onOrganizationSectionChanged: _changeOrganizationSection,
                     onBackFromOrganization: _returnFromOrganization,
                     onOpenMore: () => _showWorkspaceMenu(context),
                   );
@@ -1532,6 +1565,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     onOpenCase: _openCase,
                     onBackFromCase: _closeCase,
                     organizationPageBuilder: widget.organizationPageBuilder,
+                    organizationSection: _organizationSection,
+                    onOrganizationSelected: _openOrganization,
+                    onOrganizationSectionChanged: _changeOrganizationSection,
                     onBackFromOrganization: _returnFromOrganization,
                     onRefresh: widget.onRefresh == null
                         ? null
@@ -1555,6 +1591,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                   onOpenCase: _openCase,
                   onBackFromCase: _closeCase,
                   organizationPageBuilder: widget.organizationPageBuilder,
+                  organizationSection: _organizationSection,
+                  onOrganizationSelected: _openOrganization,
+                  onOrganizationSectionChanged: _changeOrganizationSection,
                   onBackFromOrganization: _returnFromOrganization,
                   onRefresh: widget.onRefresh == null
                       ? null
@@ -1629,6 +1668,9 @@ class _DesktopWorkspace extends StatelessWidget {
     required this.onOpenCase,
     required this.onBackFromCase,
     required this.organizationPageBuilder,
+    required this.organizationSection,
+    required this.onOrganizationSelected,
+    required this.onOrganizationSectionChanged,
     required this.onBackFromOrganization,
     required this.onSettings,
     required this.refreshing,
@@ -1645,6 +1687,9 @@ class _DesktopWorkspace extends StatelessWidget {
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
+  final V2OrganizationSection organizationSection;
+  final ValueChanged<V2OrganizationSection> onOrganizationSelected;
+  final ValueChanged<V2OrganizationSection> onOrganizationSectionChanged;
   final VoidCallback onBackFromOrganization;
   final VoidCallback? onRefresh;
   final bool refreshing;
@@ -1669,6 +1714,8 @@ class _DesktopWorkspace extends StatelessWidget {
                 expanded: expandedRail,
                 onSelected: onDestinationChanged,
                 showOrganization: organizationPageBuilder != null,
+                organizationSection: organizationSection,
+                onOrganizationSelected: onOrganizationSelected,
                 onRefresh: destination == V2WorkspaceDestination.organization
                     ? null
                     : onRefresh,
@@ -1721,6 +1768,8 @@ class _DesktopWorkspace extends StatelessWidget {
                 child: organizationPageBuilder!(
                   context,
                   onBackFromOrganization,
+                  organizationSection,
+                  onOrganizationSectionChanged,
                 ),
               ),
             ],
@@ -1744,6 +1793,9 @@ class _MediumWorkspace extends StatefulWidget {
     required this.onOpenCase,
     required this.onBackFromCase,
     required this.organizationPageBuilder,
+    required this.organizationSection,
+    required this.onOrganizationSelected,
+    required this.onOrganizationSectionChanged,
     required this.onBackFromOrganization,
     required this.onSettings,
     required this.refreshing,
@@ -1762,6 +1814,9 @@ class _MediumWorkspace extends StatefulWidget {
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
+  final V2OrganizationSection organizationSection;
+  final ValueChanged<V2OrganizationSection> onOrganizationSelected;
+  final ValueChanged<V2OrganizationSection> onOrganizationSectionChanged;
   final VoidCallback onBackFromOrganization;
   final VoidCallback? onRefresh;
   final bool refreshing;
@@ -1845,6 +1900,8 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
           body = widget.organizationPageBuilder!(
             context,
             widget.onBackFromOrganization,
+            widget.organizationSection,
+            widget.onOrganizationSectionChanged,
           );
         }
 
@@ -1887,6 +1944,8 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
                       selectedDestination: widget.destination,
                       onSelected: _changeDestination,
                       showOrganization: widget.organizationPageBuilder != null,
+                      organizationSection: widget.organizationSection,
+                      onOrganizationSelected: widget.onOrganizationSelected,
                       onRefresh:
                           widget.destination ==
                               V2WorkspaceDestination.organization
@@ -1922,6 +1981,9 @@ class _CompactWorkspace extends StatefulWidget {
     required this.onOpenCase,
     required this.onBackFromCase,
     required this.organizationPageBuilder,
+    required this.organizationSection,
+    required this.onOrganizationSelected,
+    required this.onOrganizationSectionChanged,
     required this.onBackFromOrganization,
     required this.onOpenMore,
   });
@@ -1937,6 +1999,9 @@ class _CompactWorkspace extends StatefulWidget {
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
+  final V2OrganizationSection organizationSection;
+  final ValueChanged<V2OrganizationSection> onOrganizationSelected;
+  final ValueChanged<V2OrganizationSection> onOrganizationSectionChanged;
   final VoidCallback onBackFromOrganization;
   final VoidCallback? onOpenMore;
 
@@ -1947,12 +2012,6 @@ class _CompactWorkspace extends StatefulWidget {
 class _CompactWorkspaceState extends State<_CompactWorkspace> {
   @override
   Widget build(BuildContext context) {
-    final VoidCallback? onOpenOrganization =
-        widget.organizationPageBuilder == null
-        ? null
-        : () {
-            widget.onDestinationChanged(V2WorkspaceDestination.organization);
-          };
     Widget body;
     if (widget.destination == V2WorkspaceDestination.students &&
         widget.showCase &&
@@ -1975,7 +2034,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       body = _StudentListPane(
         selectedStudent: widget.selectedStudent,
         compact: true,
-        onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
         onSelected: widget.onStudentSelected,
       );
@@ -1987,20 +2045,20 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
           widget.onDestinationChanged(V2WorkspaceDestination.students);
         },
         compact: true,
-        onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
       );
     } else if (widget.destination == V2WorkspaceDestination.learning) {
       body = _CaseIndexPane(
         onOpenCase: widget.onOpenCase,
         compact: true,
-        onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
       );
     } else {
       body = widget.organizationPageBuilder!(
         context,
         widget.onBackFromOrganization,
+        widget.organizationSection,
+        widget.onOrganizationSectionChanged,
       );
     }
 
@@ -2066,6 +2124,8 @@ class _NavigationRail extends StatelessWidget {
     required this.onSettings,
     required this.refreshing,
     required this.showOrganization,
+    required this.organizationSection,
+    required this.onOrganizationSelected,
     this.expanded = false,
     this.onRefresh,
     this.onManage,
@@ -2075,6 +2135,8 @@ class _NavigationRail extends StatelessWidget {
   final bool expanded;
   final ValueChanged<V2WorkspaceDestination> onSelected;
   final bool showOrganization;
+  final V2OrganizationSection organizationSection;
+  final ValueChanged<V2OrganizationSection> onOrganizationSelected;
   final VoidCallback? onRefresh;
   final bool refreshing;
   final VoidCallback? onManage;
@@ -2115,14 +2177,27 @@ class _NavigationRail extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(14, expanded ? 8 : 10, 14, 8),
               child: Divider(height: 1, color: scheme.outlineVariant),
             ),
-            if (expanded) const _RailGroupLabel('机构视角'),
+            if (expanded) const _RailGroupLabel('机构'),
             _RailItem(
-              key: const Key('v2-rail-organization'),
-              icon: _destinationIcon(V2WorkspaceDestination.organization),
-              tooltip: _destinationLabel(V2WorkspaceDestination.organization),
+              key: const Key('v2-rail-organization-learning'),
+              icon: Icons.fact_check_outlined,
+              tooltip: '学情监督',
               selected:
-                  selectedDestination == V2WorkspaceDestination.organization,
-              onTap: () => onSelected(V2WorkspaceDestination.organization),
+                  selectedDestination == V2WorkspaceDestination.organization &&
+                  organizationSection == V2OrganizationSection.learning,
+              onTap: () =>
+                  onOrganizationSelected(V2OrganizationSection.learning),
+              expanded: expanded,
+            ),
+            _RailItem(
+              key: const Key('v2-rail-organization-management'),
+              icon: Icons.admin_panel_settings_outlined,
+              tooltip: '管理',
+              selected:
+                  selectedDestination == V2WorkspaceDestination.organization &&
+                  organizationSection == V2OrganizationSection.management,
+              onTap: () =>
+                  onOrganizationSelected(V2OrganizationSection.management),
               expanded: expanded,
             ),
           ],
@@ -2263,7 +2338,6 @@ class _StudentListPane extends StatefulWidget {
     required this.onSelected,
     this.compact = false,
     this.headerPadding,
-    this.onOpenOrganization,
     this.onOpenMore,
   });
 
@@ -2271,7 +2345,6 @@ class _StudentListPane extends StatefulWidget {
   final ValueChanged<V2Student> onSelected;
   final bool compact;
   final EdgeInsets? headerPadding;
-  final VoidCallback? onOpenOrganization;
   final VoidCallback? onOpenMore;
 
   @override
@@ -2336,13 +2409,6 @@ class _StudentListPaneState extends State<_StudentListPane> {
                   key: const Key('v2-students-page-header'),
                   title: '学生',
                   actions: [
-                    if (widget.onOpenOrganization != null)
-                      TextButton.icon(
-                        key: const Key('v2-open-organization-scope'),
-                        onPressed: widget.onOpenOrganization,
-                        icon: const Icon(Icons.apartment_outlined, size: 18),
-                        label: const Text('机构'),
-                      ),
                     if (widget.compact && widget.onOpenMore != null)
                       IconButton(
                         key: const Key('v2-compact-more'),
@@ -3744,14 +3810,12 @@ class _TodayPane extends StatelessWidget {
     required this.onOpenCase,
     required this.onOpenStudent,
     this.compact = false,
-    this.onOpenOrganization,
     this.onOpenMore,
   });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final ValueChanged<V2Student> onOpenStudent;
   final bool compact;
-  final VoidCallback? onOpenOrganization;
   final VoidCallback? onOpenMore;
 
   static int _priority(V2FocusItem item) => switch (item.actionTiming) {
@@ -3838,13 +3902,6 @@ class _TodayPane extends StatelessWidget {
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('记录问题'),
                   ),
-                  if (onOpenOrganization != null)
-                    TextButton.icon(
-                      key: const Key('v2-open-organization-scope'),
-                      onPressed: onOpenOrganization,
-                      icon: const Icon(Icons.apartment_outlined, size: 18),
-                      label: const Text('机构'),
-                    ),
                   if (compact && onOpenMore != null)
                     IconButton(
                       key: const Key('v2-compact-more'),
@@ -4168,13 +4225,11 @@ class _CaseIndexPane extends StatefulWidget {
   const _CaseIndexPane({
     required this.onOpenCase,
     this.compact = false,
-    this.onOpenOrganization,
     this.onOpenMore,
   });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
-  final VoidCallback? onOpenOrganization;
   final VoidCallback? onOpenMore;
 
   @override
@@ -4242,13 +4297,6 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
                 title: '学情',
                 description: _showClosed ? '回看已经结束的跟进记录' : '找到仍需要复盘的问题',
                 actions: [
-                  if (widget.onOpenOrganization != null)
-                    TextButton.icon(
-                      key: const Key('v2-open-organization-scope'),
-                      onPressed: widget.onOpenOrganization,
-                      icon: const Icon(Icons.apartment_outlined, size: 18),
-                      label: const Text('机构'),
-                    ),
                   if (widget.compact && widget.onOpenMore != null)
                     IconButton(
                       key: const Key('v2-compact-more'),
