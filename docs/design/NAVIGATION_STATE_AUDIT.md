@@ -23,3 +23,14 @@ Meaningful navigation state belongs above adaptive presentation.
 ## Frozen boundaries
 
 No data projection, permissions, responsibility, write command, Supabase or Organization behavior changes.
+
+## Organization scope continuity
+
+For a manager who also teaches, the embedded Organization workspace is one continuous supervisory work surface even when the outer Personal shell changes between Compact, Medium and Expanded.
+
+- the current Organization section (Learning / Management) must survive resize;
+- Learning search text and attention filter must survive resize;
+- the selected student in expanded supervision must survive a round trip through a narrower shell;
+- preserving these presentation states must not change Personal responsibility, Organization authority, Case owner, Profile Lead, or write semantics.
+
+The loader therefore gives the embedded Organization workspace a stable identity across adaptive shell replacement. Window width may change presentation, but it must not recreate the supervisor's current working context.

@@ -76,6 +76,9 @@ class _V2LoadedWorkspace {
 }
 
 class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
+  final GlobalKey _embeddedOrganizationWorkspaceKey = GlobalKey(
+    debugLabel: 'v2-embedded-organization-workspace',
+  );
   late Future<_V2LoadedWorkspace> _workspaceFuture;
 
   @override
@@ -460,6 +463,7 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
         final V2OrganizationWorkspaceBuilder? organizationPageBuilder =
             canOpenOrganization
             ? (context, onBackToPersonal) => V2OrganizationWorkspacePage(
+                key: _embeddedOrganizationWorkspaceKey,
                 workspace: rawWorkspace,
                 workspaceData: loaded.organizationWorkspaceData,
                 responsibility: responsibility,
