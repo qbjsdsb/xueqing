@@ -2229,7 +2229,7 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    expect(find.text('基础设置'), findsOneWidget);
+    expect(find.text('机构学科'), findsOneWidget);
     expect(find.text('先添加机构学科'), findsOneWidget);
     expect(
       find.byKey(const Key('management-next-step-action')),

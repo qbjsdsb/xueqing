@@ -266,26 +266,19 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           setupNextStep,
           const SizedBox(height: AppSpacing.md),
         ],
-        _ManagementAreaSwitcher(
+        _ManagementToolbar(
           selectedArea: _selectedArea,
           onChanged: (area) {
             if (area == _selectedArea) return;
             setState(() => _selectedArea = area);
           },
+          busy: widget.busy,
+          onExport:
+              widget.onExportStudentRecords != null ||
+                  widget.onExportTeacherRecords != null
+              ? _showExportRecords
+              : null,
         ),
-        if (widget.onExportStudentRecords != null ||
-            widget.onExportTeacherRecords != null) ...[
-          const SizedBox(height: AppSpacing.sm),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
-              key: const Key('management-export-records'),
-              onPressed: widget.busy ? null : _showExportRecords,
-              icon: const Icon(Icons.download_outlined, size: 18),
-              label: const Text('导出记录'),
-            ),
-          ),
-        ],
         const SizedBox(height: AppSpacing.lg),
         switch (_selectedArea) {
           _ManagementArea.people => _buildPeopleArea(
@@ -325,11 +318,6 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
   }) {
     final activeScopeGroups = _groupTeacherSubjectScopes(activeScopes);
     return _ManagementAreaCard(
-      icon: Icons.people_outline,
-      title: '成员',
-      description: widget.isOwner
-          ? '管理机构成员、账号状态和老师可教学科。邮箱只用于登录，日常协作优先显示姓名。'
-          : '查看机构成员并管理老师可教学科；邀请、停用和账号凭据由负责人处理。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -507,9 +495,6 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
               .toList(growable: false);
 
     return _ManagementAreaCard(
-      icon: Icons.school_outlined,
-      title: '学生',
-      description: '学生、学科和当前负责老师都在这里处理；历史任课按需查看。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -649,9 +634,6 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
   Widget _buildSettingsArea() {
     final noSubjects = widget.snapshot.setupOptions.subjects.isEmpty;
     return _ManagementAreaCard(
-      icon: Icons.tune_outlined,
-      title: '基础设置',
-      description: '新增机构学科、维护问题类型和其他必要配置都在这里处理。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

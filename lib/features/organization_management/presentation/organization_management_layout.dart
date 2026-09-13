@@ -86,6 +86,56 @@ class _ManagementHeader extends StatelessWidget {
   }
 }
 
+class _ManagementToolbar extends StatelessWidget {
+  const _ManagementToolbar({
+    required this.selectedArea,
+    required this.onChanged,
+    required this.busy,
+    this.onExport,
+  });
+
+  final _ManagementArea selectedArea;
+  final ValueChanged<_ManagementArea> onChanged;
+  final bool busy;
+  final VoidCallback? onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final switcher = _ManagementAreaSwitcher(
+          selectedArea: selectedArea,
+          onChanged: onChanged,
+        );
+        if (onExport == null) return switcher;
+
+        final Widget exportAction = constraints.maxWidth < 520
+            ? IconButton(
+                key: const Key('management-export-records'),
+                tooltip: '导出记录',
+                onPressed: busy ? null : onExport,
+                icon: const Icon(Icons.download_outlined),
+              )
+            : TextButton.icon(
+                key: const Key('management-export-records'),
+                onPressed: busy ? null : onExport,
+                icon: const Icon(Icons.download_outlined, size: 18),
+                label: const Text('导出记录'),
+              );
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: switcher),
+            const SizedBox(width: AppSpacing.sm),
+            exportAction,
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _ManagementAreaSwitcher extends StatelessWidget {
   const _ManagementAreaSwitcher({
     required this.selectedArea,
@@ -193,55 +243,12 @@ class _ManagementAreaChoiceChip extends StatelessWidget {
 }
 
 class _ManagementAreaCard extends StatelessWidget {
-  const _ManagementAreaCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.child,
-  });
+  const _ManagementAreaCard({required this.child});
 
-  final IconData icon;
-  final String title;
-  final String description;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    description,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: colorScheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Divider(height: 1, color: colorScheme.outlineVariant),
-        const SizedBox(height: AppSpacing.lg),
-        child,
-      ],
-    );
-  }
+  Widget build(BuildContext context) => child;
 }
 
 class _ManagementSection extends StatelessWidget {
