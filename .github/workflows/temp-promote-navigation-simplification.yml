@@ -1,0 +1,71 @@
+name: Temporary promote navigation simplification
+
+on:
+  push:
+    branches:
+      - ui/navigation-simplification-v0311-work
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out verified work branch
+        uses: actions/checkout@v6
+        with:
+          ref: ui/navigation-simplification-v0311-work
+          fetch-depth: 0
+
+      - name: Fetch frozen baseline and candidate
+        run: |
+          git fetch origin main ui/navigation-simplification-v0311
+          test "$(git rev-parse origin/main)" = "749783a51e96bb43189de1cc60921f07a5625bdc"
+          test "$(git rev-parse origin/ui/navigation-simplification-v0311)" = "749783a51e96bb43189de1cc60921f07a5625bdc"
+          git merge-base --is-ancestor origin/main HEAD
+
+      - name: Remove one-shot promotion workflow from candidate tree
+        run: rm .github/workflows/temp-promote-navigation-simplification.yml
+
+      - name: Verify exact production surface
+        shell: bash
+        run: |
+          cat > /tmp/expected-files <<'EOF'
+          docs/design/NAVIGATION_STATE_AUDIT.md
+          docs/design/PAGE_RHYTHM_AUDIT.md
+          lib/features/design_v2/v2_organization_workspace_page.dart
+          lib/features/design_v2/v2_workspace_loader.dart
+          lib/features/design_v2/v2_workspace_navigation.dart
+          lib/features/design_v2/v2_workspace_preview.dart
+          test/features/v2_adaptive_workspace_test.dart
+          test/features/v2_organization_capability_reconciliation_test.dart
+          test/features/v2_organization_workspace_test.dart
+          test/features/v2_page_rhythm_test.dart
+          test/features/v2_typed_organization_navigation_test.dart
+          EOF
+          git diff --name-only origin/main -- | sort > /tmp/actual-files
+          sort /tmp/expected-files -o /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git diff --check origin/main --
+          test -z "$(git diff --name-only origin/main -- .github supabase pubspec.yaml pubspec.lock)"
+
+      - name: Build clean single-commit candidate
+        run: |
+          git diff --binary origin/main -- > /tmp/navigation-simplification.patch
+          git reset --hard origin/main
+          git apply --index --whitespace=error-all /tmp/navigation-simplification.patch
+          git diff --cached --check
+          git diff --cached --name-only | sort > /tmp/candidate-files
+          diff -u /tmp/expected-files /tmp/candidate-files
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "refactor(ui): simplify workspace navigation hierarchy"
+          test "$(git rev-list --count origin/main..HEAD)" = "1"
+
+      - name: Push clean candidate with lease
+        run: |
+          git push \
+            --force-with-lease=refs/heads/ui/navigation-simplification-v0311:749783a51e96bb43189de1cc60921f07a5625bdc \
+            origin HEAD:refs/heads/ui/navigation-simplification-v0311
