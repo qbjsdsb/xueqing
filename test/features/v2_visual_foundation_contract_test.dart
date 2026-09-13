@@ -54,10 +54,13 @@ void main() {
         source,
         contains('class _ManagementAreaCard extends StatelessWidget'),
       );
-      expect(
-        source,
-        contains('Divider(height: 1, color: colorScheme.outlineVariant)'),
-      );
+      final areaCardStart = source.indexOf('class _ManagementAreaCard');
+      final sectionStart = source.indexOf('class _ManagementSection');
+      expect(areaCardStart, greaterThanOrEqualTo(0));
+      expect(sectionStart, greaterThan(areaCardStart));
+      final areaCardBlock = source.substring(areaCardStart, sectionStart);
+      expect(areaCardBlock, contains('Widget build(BuildContext context) => child;'));
+      expect(areaCardBlock, isNot(contains('Divider(')));
     },
   );
 }
