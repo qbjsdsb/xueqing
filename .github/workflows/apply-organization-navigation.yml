@@ -6,6 +6,7 @@ on:
       - ux/organization-navigation-state-v2
     paths:
       - .xueqing-org-nav.py
+      - .xueqing-org-nav-fix.py
       - .github/workflows/apply-organization-navigation.yml
 
 permissions:
@@ -20,9 +21,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Apply state lift
-        run: python3 .xueqing-org-nav.py
+        run: |
+          python3 .xueqing-org-nav.py
+          python3 .xueqing-org-nav-fix.py
       - name: Remove one-shot assets
-        run: rm -f .xueqing-org-nav.py .github/workflows/apply-organization-navigation.yml
+        run: rm -f .xueqing-org-nav.py .xueqing-org-nav-fix.py .github/workflows/apply-organization-navigation.yml
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -30,7 +33,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Format
-        run: dart format lib/features/organization_management/presentation/organization_management_page.dart lib/features/organization_management/presentation/organization_management_areas.dart lib/features/design_v2/v2_organization_workspace_page.dart test/features/organization_navigation_state_contract_test.dart
+        run: dart format lib/features/organization_management/presentation/organization_management_page.dart lib/features/organization_management/presentation/organization_management_areas.dart lib/features/organization_management/presentation/organization_management_layout.dart lib/features/design_v2/v2_organization_workspace_page.dart test/features/organization_navigation_state_contract_test.dart
       - name: Analyze
         run: flutter analyze
       - name: Focused contract
