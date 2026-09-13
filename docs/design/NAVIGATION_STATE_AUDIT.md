@@ -76,3 +76,8 @@ Adaptive shells must ignore dormant Personal detail flags while Organization is 
 Organization is a work scope, not a fourth Personal page. Personal continues to own Today / Students / Learning. On Compact, managers enter Organization from the More menu instead of repeating an Organization action in every page header. On Medium/Expanded, the rail exposes an Organization group with Learning supervision and Management as sibling sub-destinations. The embedded Organization header therefore does not repeat the desktop section switch.
 
 The existing cross-scope continuity contract remains unchanged: returning from Organization restores the Personal destination and any still-valid student/case drill-down state.
+
+
+## Organization management area continuity
+
+Members / Students / Settings is now explicit Organization workspace navigation state instead of private state owned only by the Management body. The Management body still chooses its existing setup-aware initial area when no area has been established, then reports that resolved area upward. Refresh and Learning / Management round trips therefore preserve the manager's current area without changing Organization authority, teaching responsibility, or persistence semantics.

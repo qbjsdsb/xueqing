@@ -1,6 +1,6 @@
 part of 'organization_management_page.dart';
 
-enum _ManagementArea { people, students, settings }
+enum OrganizationManagementArea { people, students, settings }
 
 enum _ManagementExportMode { students, teacher }
 
@@ -27,6 +27,8 @@ class _ManagementOverview extends StatefulWidget {
     required this.onSetStudentSubjectLead,
     required this.onTransferStudentTeacherAssignment,
     required this.canManageCaseTypes,
+    this.initialArea,
+    this.onAreaChanged,
     this.onProvisionInvitation,
     this.onExportTeacherRecords,
     this.onExportStudentRecords,
@@ -76,6 +78,8 @@ class _ManagementOverview extends StatefulWidget {
   final Future<void> Function(OrganizationStudentTeacherAssignment assignment)
   onTransferStudentTeacherAssignment;
   final bool canManageCaseTypes;
+  final OrganizationManagementArea? initialArea;
+  final ValueChanged<OrganizationManagementArea>? onAreaChanged;
   final VoidCallback? onOpenCaseTypes;
 
   @override
@@ -85,7 +89,7 @@ class _ManagementOverview extends StatefulWidget {
 class _ManagementOverviewState extends State<_ManagementOverview> {
   static const int _initialStudentLimit = 20;
 
-  late _ManagementArea _selectedArea;
+  late OrganizationManagementArea _selectedArea;
   final TextEditingController _studentSearchController =
       TextEditingController();
   String _studentQuery = '';
@@ -95,7 +99,21 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
   @override
   void initState() {
     super.initState();
-    _selectedArea = _initialArea(widget.snapshot);
+    _selectedArea = widget.initialArea ?? _initialArea(widget.snapshot);
+    if (widget.initialArea == null && widget.onAreaChanged != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onAreaChanged?.call(_selectedArea);
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _ManagementOverview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final requested = widget.initialArea;
+    if (requested != null && requested != _selectedArea) {
+      _selectedArea = requested;
+    }
   }
 
   @override
@@ -229,15 +247,17 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     );
   }
 
-  _ManagementArea _initialArea(_OrganizationManagementSnapshot snapshot) {
+  OrganizationManagementArea _initialArea(
+    _OrganizationManagementSnapshot snapshot,
+  ) {
     if (snapshot.setupOptions.subjects.isEmpty) {
-      return _ManagementArea.settings;
+      return OrganizationManagementArea.settings;
     }
     if (snapshot.invitations.isNotEmpty ||
         !snapshot.setupOptions.canCreateStudent) {
-      return _ManagementArea.people;
+      return OrganizationManagementArea.people;
     }
-    return _ManagementArea.students;
+    return OrganizationManagementArea.students;
   }
 
   @override
@@ -271,6 +291,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           onChanged: (area) {
             if (area == _selectedArea) return;
             setState(() => _selectedArea = area);
+            widget.onAreaChanged?.call(area);
           },
           busy: widget.busy,
           onExport:
@@ -281,16 +302,16 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
         ),
         const SizedBox(height: AppSpacing.lg),
         switch (_selectedArea) {
-          _ManagementArea.people => _buildPeopleArea(
+          OrganizationManagementArea.people => _buildPeopleArea(
             activeScopes: activeScopes,
             endedScopes: endedScopes,
             latestEndedScopeIds: latestEndedScopeIds,
           ),
-          _ManagementArea.students => _buildStudentsArea(
+          OrganizationManagementArea.students => _buildStudentsArea(
             activeAssignments: activeAssignments,
             endedAssignments: endedAssignments,
           ),
-          _ManagementArea.settings => _buildSettingsArea(),
+          OrganizationManagementArea.settings => _buildSettingsArea(),
         },
       ],
     );

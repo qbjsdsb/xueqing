@@ -94,8 +94,8 @@ class _ManagementToolbar extends StatelessWidget {
     this.onExport,
   });
 
-  final _ManagementArea selectedArea;
-  final ValueChanged<_ManagementArea> onChanged;
+  final OrganizationManagementArea selectedArea;
+  final ValueChanged<OrganizationManagementArea> onChanged;
   final bool busy;
   final VoidCallback? onExport;
 
@@ -142,8 +142,8 @@ class _ManagementAreaSwitcher extends StatelessWidget {
     required this.onChanged,
   });
 
-  final _ManagementArea selectedArea;
-  final ValueChanged<_ManagementArea> onChanged;
+  final OrganizationManagementArea selectedArea;
+  final ValueChanged<OrganizationManagementArea> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +155,7 @@ class _ManagementAreaSwitcher extends StatelessWidget {
             runSpacing: AppSpacing.xs,
             children: [
               _ManagementAreaChoiceChip(
-                area: _ManagementArea.people,
+                area: OrganizationManagementArea.people,
                 icon: Icons.people_outline,
                 label: '成员',
                 labelKey: const Key('management-area-people'),
@@ -163,7 +163,7 @@ class _ManagementAreaSwitcher extends StatelessWidget {
                 onChanged: onChanged,
               ),
               _ManagementAreaChoiceChip(
-                area: _ManagementArea.students,
+                area: OrganizationManagementArea.students,
                 icon: Icons.school_outlined,
                 label: '学生',
                 labelKey: const Key('management-area-students'),
@@ -171,7 +171,7 @@ class _ManagementAreaSwitcher extends StatelessWidget {
                 onChanged: onChanged,
               ),
               _ManagementAreaChoiceChip(
-                area: _ManagementArea.settings,
+                area: OrganizationManagementArea.settings,
                 icon: Icons.tune_outlined,
                 label: '设置',
                 labelKey: const Key('management-area-settings'),
@@ -181,25 +181,25 @@ class _ManagementAreaSwitcher extends StatelessWidget {
             ],
           );
         }
-        return SegmentedButton<_ManagementArea>(
-          segments: const <ButtonSegment<_ManagementArea>>[
-            ButtonSegment<_ManagementArea>(
-              value: _ManagementArea.people,
+        return SegmentedButton<OrganizationManagementArea>(
+          segments: const <ButtonSegment<OrganizationManagementArea>>[
+            ButtonSegment<OrganizationManagementArea>(
+              value: OrganizationManagementArea.people,
               icon: Icon(Icons.people_outline),
               label: Text('成员', key: Key('management-area-people')),
             ),
-            ButtonSegment<_ManagementArea>(
-              value: _ManagementArea.students,
+            ButtonSegment<OrganizationManagementArea>(
+              value: OrganizationManagementArea.students,
               icon: Icon(Icons.school_outlined),
               label: Text('学生', key: Key('management-area-students')),
             ),
-            ButtonSegment<_ManagementArea>(
-              value: _ManagementArea.settings,
+            ButtonSegment<OrganizationManagementArea>(
+              value: OrganizationManagementArea.settings,
               icon: Icon(Icons.tune_outlined),
               label: Text('设置', key: Key('management-area-settings')),
             ),
           ],
-          selected: <_ManagementArea>{selectedArea},
+          selected: <OrganizationManagementArea>{selectedArea},
           showSelectedIcon: false,
           onSelectionChanged: (selection) {
             if (selection.isNotEmpty) onChanged(selection.first);
@@ -220,12 +220,12 @@ class _ManagementAreaChoiceChip extends StatelessWidget {
     required this.onChanged,
   });
 
-  final _ManagementArea area;
+  final OrganizationManagementArea area;
   final IconData icon;
   final String label;
   final Key labelKey;
-  final _ManagementArea selectedArea;
-  final ValueChanged<_ManagementArea> onChanged;
+  final OrganizationManagementArea selectedArea;
+  final ValueChanged<OrganizationManagementArea> onChanged;
 
   @override
   Widget build(BuildContext context) {
