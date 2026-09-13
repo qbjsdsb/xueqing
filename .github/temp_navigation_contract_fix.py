@@ -19,15 +19,50 @@ t = t.replace(
 )
 
 # Desktop Organization is now a grouped pair of rail destinations.
-t = t.replace("find.byTooltip('机构'), findsOneWidget", "find.byTooltip('学情监督'), findsOneWidget")
+t = t.replace(
+    "find.byTooltip('机构'), findsOneWidget",
+    "find.byTooltip('学情监督'), findsOneWidget",
+)
 
 # Compact Organization's local section is now explicitly named 学情监督.
-t = t.replace("expect(find.text('学情'), findsOneWidget);", "expect(find.text('学情监督'), findsOneWidget);")
+t = t.replace(
+    "expect(find.text('学情'), findsOneWidget);",
+    "expect(find.text('学情监督'), findsOneWidget);",
+)
 
 # Expanded Organization no longer carries its own segmented section switch;
 # the parent rail controls the two sibling sub-destinations.
-t = t.replace("await tester.tap(find.text('管理').last);", "await tester.tap(find.byTooltip('管理'));" )
-t = t.replace("await tester.tap(find.text('学情').last);", "await tester.tap(find.byTooltip('学情监督'));" )
+t = t.replace(
+    "await tester.tap(find.text('管理').last);",
+    "await tester.tap(find.byTooltip('管理'));",
+)
+t = t.replace(
+    "await tester.tap(find.text('学情').last);",
+    "await tester.tap(find.byTooltip('学情监督'));",
+)
+
+# The Compact embedded Organization still uses its local segmented control.
+# Undo the desktop selector rewrite for this one mobile back-order test.
+compact_back_start = t.index(
+    "'embedded Organization back unwinds management before returning Personal'"
+)
+compact_back_end = t.index(
+    "'Organization learning does not depend on organization management repository'",
+    compact_back_start,
+)
+compact_back = t[compact_back_start:compact_back_end]
+compact_back = compact_back.replace(
+    "await tester.tap(find.byTooltip('管理'));",
+    "await tester.tap(find.text('管理').last);",
+    1,
+)
+# Both the compact title and segmented destination say 学情监督 after returning.
+compact_back = compact_back.replace(
+    "expect(find.text('学情监督'), findsOneWidget);",
+    "expect(find.text('学情监督'), findsWidgets);",
+    1,
+)
+t = t[:compact_back_start] + compact_back + t[compact_back_end:]
 
 # Advanced attention filters now live behind the progressive 筛选 control.
 old_resize = """      final filterFinder = find.byKey(
@@ -115,10 +150,18 @@ t = t.replace(old_management_filter, new_management_filter, 1)
 p.write_text(t, encoding='utf-8')
 
 # Standalone Organization still owns a local section switch, but the section is
-# now named 学情监督 and the repeated explanatory copy is intentionally gone.
+# now named 学情监督 and the repeated explanatory/normal responsibility copy is
+# intentionally gone.
 p = root / 'test/features/v2_organization_workspace_test.dart'
 t = p.read_text(encoding='utf-8')
-t = t.replace("expect(find.text('学情'), findsOneWidget);", "expect(find.text('学情监督'), findsOneWidget);")
+t = t.replace(
+    "expect(find.text('学情'), findsOneWidget);",
+    "expect(find.text('学情监督'), findsOneWidget);",
+)
+t = t.replace(
+    "expect(find.textContaining('语文 · 张老师'), findsOneWidget);",
+    "expect(find.textContaining('语文 · 张老师'), findsNothing);",
+)
 p.write_text(t, encoding='utf-8')
 
 print('temporary navigation contracts aligned')
