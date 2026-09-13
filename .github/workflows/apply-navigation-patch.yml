@@ -6,6 +6,7 @@ on:
       - ux/navigation-architecture-v2
     paths:
       - .xueqing-navigation.py
+      - .github/workflows/apply-navigation-patch.yml
 
 permissions:
   contents: write
