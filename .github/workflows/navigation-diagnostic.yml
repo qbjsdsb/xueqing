@@ -1,0 +1,58 @@
+name: Navigation focused diagnostic
+
+on:
+  push:
+    branches:
+      - ux/navigation-architecture-v2
+    paths:
+      - .navigation-diagnostic-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Apply staged navigation edit
+        run: python3 .xueqing-navigation.py
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Format touched Dart files
+        run: dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run focused tests and capture output
+        id: focused
+        shell: bash
+        run: |
+          set +e
+          flutter test test/features/design_v2_workspace_test.dart test/features/android_predictive_back_contract_test.dart 2>&1 | tee .navigation-focused-test.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+
+      - name: Persist failure log
+        if: failure() && steps.focused.outcome == 'failure'
+        run: |
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -f .navigation-focused-test.log
+          git commit -m "ci: capture navigation focused-test failure"
+          git push origin HEAD:ux/navigation-architecture-v2
