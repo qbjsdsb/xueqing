@@ -60,23 +60,41 @@ void main() {
       expect(find.text('1 门学科未明确主责'), findsOneWidget);
       expect(find.textContaining('个跟进中 ·'), findsNothing);
       expect(find.widgetWithText(TextButton, '记录问题'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('v2-organization-student-list')),
+          matching: find.byType(Divider),
+        ),
+        findsNothing,
+      );
 
       await tester.tap(
         find.byKey(const Key('v2-organization-student-select-student-a')),
       );
       await tester.pumpAndSettle();
       expect(find.text('跟进中'), findsWidgets);
-      expect(find.text('主责：张老师'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('v2-organization-priority-case-a')),
+        findsOneWidget,
+      );
+      expect(find.text('优先处理'), findsOneWidget);
+      expect(find.text('负责：张老师'), findsOneWidget);
       expect(find.text('下一步：下一次继续检查'), findsOneWidget);
+      expect(find.text('其他当前问题'), findsNothing);
       expect(find.text('最近记录：李老师 · 机构协作'), findsOneWidget);
 
       await tester.tap(
         find.byKey(const Key('v2-organization-student-select-student-b')),
       );
       await tester.pumpAndSettle();
-      expect(find.text('主责：王老师'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('v2-organization-priority-case-b')),
+        findsOneWidget,
+      );
+      expect(find.text('负责：王老师'), findsOneWidget);
       // Profile B still has no current Lead. Existing Case B nevertheless keeps
       // its persisted Case owner instead of inheriting the Profile Lead state.
+      expect(find.text('教学主责：未设置主责'), findsOneWidget);
       expect(find.textContaining('语文 · 未设置主责'), findsOneWidget);
       expect(find.text('最近记录：王老师 · 机构协作'), findsNothing);
 

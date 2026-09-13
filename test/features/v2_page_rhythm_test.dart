@@ -30,6 +30,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-today-page-header')), findsOneWidget);
+      expect(find.text('先处理已经安排好的跟进。'), findsNothing);
+      expect(find.text('今天没有已安排的跟进。'), findsNothing);
       final todayX = tester
           .getTopLeft(find.byKey(const Key('v2-today-page-header')))
           .dx;
