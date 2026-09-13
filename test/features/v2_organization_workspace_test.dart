@@ -47,19 +47,26 @@ void main() {
       expect(find.text('需要关注：1 个学科未明确主责'), findsOneWidget);
       expect(find.textContaining('机构操作不会自动改变教师主责'), findsOneWidget);
       expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
-      expect(find.byIcon(Icons.expand_more), findsWidgets);
+      expect(
+        find.byKey(const Key('v2-organization-supervision-split')),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.expand_more), findsNothing);
       expect(find.textContaining('语文 · 张老师'), findsOneWidget);
-      expect(find.textContaining('语文 · 未设置主责'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, '记录问题'), findsNWidgets(2));
+      expect(find.widgetWithText(TextButton, '记录问题'), findsOneWidget);
 
-      await tester.tap(find.text('机构学生一'));
+      await tester.tap(
+        find.byKey(const Key('v2-organization-student-select-student-a')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('跟进中'), findsWidgets);
       expect(find.text('主责：张老师'), findsOneWidget);
       expect(find.text('下一步：下一次继续检查'), findsOneWidget);
       expect(find.text('最近记录：李老师 · 机构协作'), findsOneWidget);
 
-      await tester.tap(find.text('机构学生二'));
+      await tester.tap(
+        find.byKey(const Key('v2-organization-student-select-student-b')),
+      );
       await tester.pumpAndSettle();
       expect(find.text('主责：王老师'), findsOneWidget);
       // Profile B still has no current Lead. Existing Case B nevertheless keeps
@@ -72,18 +79,60 @@ void main() {
         '张老师',
       );
       await tester.pumpAndSettle();
-      expect(find.text('机构学生一'), findsOneWidget);
-      expect(find.text('机构学生二'), findsNothing);
+      expect(
+        find.byKey(const Key('v2-organization-student-select-student-a')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('v2-organization-student-select-student-b')),
+        findsNothing,
+      );
 
       await tester.enterText(
         find.byKey(const Key('v2-organization-learning-search')),
         '王老师',
       );
       await tester.pumpAndSettle();
-      expect(find.text('机构学生一'), findsNothing);
-      expect(find.text('机构学生二'), findsOneWidget);
+      expect(
+        find.byKey(const Key('v2-organization-student-select-student-a')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('v2-organization-student-select-student-b')),
+        findsOneWidget,
+      );
     },
   );
+
+  testWidgets('medium Organization learning keeps stacked supervision rows', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final workspace = _workspace();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: V2Theme.light(),
+        home: V2OrganizationWorkspacePage(
+          workspace: workspace,
+          workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+              .workspaceData,
+          responsibility: _context(personalProfileIds: const []),
+          runtime: _runtime(includeManagement: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('v2-organization-supervision-split')),
+      findsNothing,
+    );
+    expect(find.byType(ExpansionTile), findsWidgets);
+    expect(find.widgetWithText(TextButton, '记录问题'), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('organization attention filters are factual and actionable', (
     tester,
@@ -106,20 +155,38 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('机构学生一'), findsOneWidget);
-    expect(find.text('机构学生二'), findsOneWidget);
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-a')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-b')),
+      findsOneWidget,
+    );
 
     await tester.tap(
       find.byKey(const Key('v2-organization-filter-unassigned')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('机构学生一'), findsNothing);
-    expect(find.text('机构学生二'), findsOneWidget);
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-a')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-b')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('v2-organization-filter-attention')));
     await tester.pumpAndSettle();
-    expect(find.text('机构学生一'), findsNothing);
-    expect(find.text('机构学生二'), findsOneWidget);
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-a')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('v2-organization-student-select-student-b')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('v2-organization-filter-overdue')));
     await tester.pumpAndSettle();

@@ -235,3 +235,10 @@ Organization Management remains information-dense, but repeated records should r
 - local actions remain near the record they affect; visual reduction must not hide real operational capability.
 
 See `docs/design/MANAGEMENT_DENSITY_AUDIT.md` for the audit boundary.
+
+## Organization Learning supervision layout
+
+- Compact / Medium keep one stacked supervision surface.
+- Expanded Organization Learning uses student index + selected student detail.
+- Wide space expresses Student → Subject → Case → Responsible Teacher → Next Action relationships instead of stretching an accordion list.
+- Quick Capture belongs to the selected student detail on wide layouts; management authority still never changes teaching responsibility automatically.
