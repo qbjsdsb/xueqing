@@ -44,18 +44,18 @@ void main() {
       );
       expect(find.byType(AppBar), findsNothing);
       expect(find.text('机构学情'), findsNothing);
-      expect(find.text('学情'), findsOneWidget);
+      expect(find.text('学情监督'), findsOneWidget);
       expect(find.text('管理'), findsOneWidget);
       expect(find.text('2 名学生 · 2 个问题正在跟进'), findsOneWidget);
       expect(find.text('需要关注：1 个学科未明确主责'), findsOneWidget);
-      expect(find.textContaining('机构操作不会自动改变教师主责'), findsOneWidget);
+      expect(find.textContaining('机构操作不会自动改变教师主责'), findsNothing);
       expect(find.byKey(const Key('v2-today-quick-capture')), findsNothing);
       expect(
         find.byKey(const Key('v2-organization-supervision-split')),
         findsOneWidget,
       );
       expect(find.byIcon(Icons.expand_more), findsNothing);
-      expect(find.textContaining('语文 · 张老师'), findsOneWidget);
+      expect(find.textContaining('语文 · 张老师'), findsNothing);
       expect(find.widgetWithText(TextButton, '记录问题'), findsOneWidget);
 
       await tester.tap(
@@ -167,6 +167,8 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.tap(find.byKey(const Key('v2-organization-filter-more')));
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const Key('v2-organization-filter-unassigned')),
     );
@@ -191,6 +193,8 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.tap(find.byKey(const Key('v2-organization-filter-more')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('v2-organization-filter-overdue')));
     await tester.pumpAndSettle();
     expect(find.text('当前没有符合这个关注条件的学生。'), findsOneWidget);
@@ -221,7 +225,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-workspace-refresh')), findsOneWidget);
-      await tester.tap(find.byTooltip('机构'));
+      await tester.tap(find.byTooltip('学情监督'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
       expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);
