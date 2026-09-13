@@ -30,7 +30,7 @@ jobs:
         run: flutter pub get
 
       - name: Format affected files
-        run: dart format lib/features/organization_management/presentation/organization_management_areas.dart lib/features/organization_management/presentation/organization_management_layout.dart test/features/management_visual_density_test.dart
+        run: dart format lib/features/organization_management/presentation/organization_management_areas.dart lib/features/organization_management/presentation/organization_management_layout.dart test/features/management_visual_density_test.dart test/features/organization_management_test.dart
 
       - name: Verify diff hygiene
         shell: bash
@@ -42,6 +42,7 @@ jobs:
               'lib/features/organization_management/presentation/organization_management_areas.dart',
               'lib/features/organization_management/presentation/organization_management_layout.dart',
               'test/features/management_visual_density_test.dart',
+              'test/features/organization_management_test.dart',
               '.github/patches/apply_management_quiet_toolbar.py',
               '.github/workflows/apply-management-quiet-toolbar.yml',
               '.github/management-quiet-toolbar.trigger',
@@ -61,7 +62,7 @@ jobs:
           flutter test test/features/v2_visual_foundation_contract_test.dart
 
       - name: Analyze affected implementation
-        run: flutter analyze lib/features/organization_management/presentation/organization_management_areas.dart lib/features/organization_management/presentation/organization_management_layout.dart test/features/management_visual_density_test.dart
+        run: flutter analyze lib/features/organization_management/presentation/organization_management_areas.dart lib/features/organization_management/presentation/organization_management_layout.dart test/features/management_visual_density_test.dart test/features/organization_management_test.dart
 
       - name: Remove temporary patch machinery
         run: |
@@ -82,6 +83,7 @@ jobs:
               'lib/features/organization_management/presentation/organization_management_areas.dart',
               'lib/features/organization_management/presentation/organization_management_layout.dart',
               'test/features/management_visual_density_test.dart',
+              'test/features/organization_management_test.dart',
               '.github/patches/apply_management_quiet_toolbar.py',
               '.github/workflows/apply-management-quiet-toolbar.yml',
               '.github/management-quiet-toolbar.trigger',
