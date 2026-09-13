@@ -19,9 +19,6 @@ env:
   RELEASE_TAG: v0.3.10
   RELEASE_VERSION: 0.3.10+18
   RELEASE_COMMIT: 20c84b5b7614aadf235c4717edefd2d1a3a600a6
-  XUEQING_SUPABASE_URL: ${{ vars.XUEQING_SUPABASE_URL || '' }}
-  XUEQING_SUPABASE_PUBLISHABLE_KEY: ${{ vars.XUEQING_SUPABASE_PUBLISHABLE_KEY || '' }}
-  XUEQING_SUPABASE_ALLOWED_HOSTS: ${{ vars.XUEQING_SUPABASE_ALLOWED_HOSTS || '' }}
 
 jobs:
   verify-and-dispatch:
@@ -29,6 +26,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Checkout release configuration
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Load proven public production client config
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_file=".github/workflows/configure-release-vars-and-publish-v0.3.9.yml"
+          if [[ ! -f "$source_file" ]]; then
+            echo "Proven v0.3.9 production client configuration is unavailable."
+            exit 1
+          fi
+          supabase_url="$(sed -n 's/^  PUBLIC_SUPABASE_URL: //p' "$source_file" | head -n 1)"
+          publishable_key="$(sed -n 's/^  PUBLIC_SUPABASE_PUBLISHABLE_KEY: //p' "$source_file" | head -n 1)"
+          allowed_hosts="$(sed -n 's/^  PUBLIC_SUPABASE_ALLOWED_HOSTS: //p' "$source_file" | head -n 1)"
+          if [[ -z "$supabase_url" || -z "$publishable_key" || -z "$allowed_hosts" ]]; then
+            echo "Public production client configuration could not be loaded."
+            exit 1
+          fi
+          printf 'XUEQING_SUPABASE_URL=%s\n' "$supabase_url" >> "$GITHUB_ENV"
+          printf 'XUEQING_SUPABASE_PUBLISHABLE_KEY=%s\n' "$publishable_key" >> "$GITHUB_ENV"
+          printf 'XUEQING_SUPABASE_ALLOWED_HOSTS=%s\n' "$allowed_hosts" >> "$GITHUB_ENV"
+          echo "Proven public production client configuration loaded without printing values."
+
       - name: Verify production and signing configuration
         shell: bash
         env:
@@ -152,5 +175,8 @@ jobs:
             --ref main \
             -f release_tag="$RELEASE_TAG" \
             -f app_version="$RELEASE_VERSION" \
-            -f release_notes=$'重新收紧 V2 视觉层级，减少卡片与色块噪音\n统一 Compact / Medium / Expanded 响应式结构与页面节奏\n负责人/管理员兼老师支持清晰的“我的教学 / 机构”双工作区\n修复 Personal ↔ Organization 往返时学生 / Case 上下文丢失与返回双消费\n优化机构学情监督主从视图、管理信息密度与刷新反馈'
+            -f release_notes=$'重新收紧 V2 视觉层级，减少卡片与色块噪音\n统一 Compact / Medium / Expanded 响应式结构与页面节奏\n负责人/管理员兼老师支持清晰的“我的教学 / 机构”双工作区\n修复 Personal ↔ Organization 往返时学生 / Case 上下文丢失与返回双消费\n优化机构学情监督主从视图、管理信息密度与刷新反馈' \
+            -f supabase_url="$XUEQING_SUPABASE_URL" \
+            -f supabase_publishable_key="$XUEQING_SUPABASE_PUBLISHABLE_KEY" \
+            -f supabase_allowed_hosts="$XUEQING_SUPABASE_ALLOWED_HOSTS"
           echo "Stable release workflow dispatched for $RELEASE_TAG ($RELEASE_VERSION)."
