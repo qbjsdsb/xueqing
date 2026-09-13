@@ -1,0 +1,59 @@
+name: Apply navigation patch
+
+on:
+  push:
+    branches:
+      - ux/navigation-architecture-v2
+    paths:
+      - .xueqing-navigation.patch
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Apply patch
+        run: git apply --index .xueqing-navigation.patch
+
+      - name: Remove one-shot patch assets
+        run: |
+          git rm --cached .xueqing-navigation.patch .github/workflows/apply-navigation-patch.yml
+          rm -f .xueqing-navigation.patch .github/workflows/apply-navigation-patch.yml
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Format touched Dart files
+        run: dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run focused navigation tests
+        run: flutter test test/features/design_v2_workspace_test.dart test/features/android_predictive_back_contract_test.dart
+
+      - name: Run full test suite
+        run: flutter test
+
+      - name: Commit verified navigation change
+        run: |
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor(android): use direct-manipulation root paging"
+          git push origin HEAD:ux/navigation-architecture-v2
