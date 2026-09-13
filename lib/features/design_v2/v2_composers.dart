@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/layout/responsive.dart';
 import '../../app/theme/app_motion.dart';
 import '../../cloud/composer_draft_store.dart';
 import '../teacher_workspace/presentation/evidence_attachment_picker.dart';
@@ -347,7 +348,7 @@ Future<T?> _showAdaptiveComposer<T>(
   BuildContext context, {
   required Widget child,
 }) {
-  final compact = MediaQuery.sizeOf(context).width < 720;
+  final compact = ResponsiveBreakpoints.isCompact(context);
   if (compact) {
     return showModalBottomSheet<T>(
       context: context,

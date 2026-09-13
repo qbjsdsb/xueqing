@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/layout/responsive.dart';
 import 'v2_workflow_controller.dart';
 
 class V2ReopenComposerDraft {
@@ -33,7 +34,7 @@ Future<bool> showV2ReopenCaseComposer(
     pendingDraft: pendingDraft,
     onSave: onSave,
   );
-  if (MediaQuery.sizeOf(context).width < 720) {
+  if (ResponsiveBreakpoints.isCompact(context)) {
     return await showModalBottomSheet<bool>(
           context: context,
           useSafeArea: true,

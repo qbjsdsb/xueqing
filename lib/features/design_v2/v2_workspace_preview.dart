@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/layout/responsive.dart';
 import '../../app/theme/app_motion.dart';
+import '../../app/theme/app_spacing.dart';
 
 import '../../update/update_installer.dart';
 import '../../update/update_service.dart';
@@ -15,6 +17,7 @@ import 'v2_action_composers.dart';
 import 'v2_reopen_composer.dart';
 import 'v2_composers.dart';
 import 'v2_fixture.dart';
+import 'v2_page_header.dart';
 import 'v2_update_flow.dart';
 import 'v2_workflow_controller.dart';
 import 'v2_workspace_data.dart';
@@ -224,7 +227,7 @@ Future<void> _showV2QuickCaptureStudentPicker(BuildContext context) async {
     return;
   }
 
-  final compact = MediaQuery.sizeOf(context).width < 720;
+  final compact = ResponsiveBreakpoints.isCompact(context);
   final selected = compact
       ? await showModalBottomSheet<V2Student>(
           context: context,
@@ -610,7 +613,7 @@ Future<void> _showV2VoidedCasesForStudent(
 ) async {
   final controller = _V2RuntimeScope.maybeOf(context)?.workflowController;
   if (controller == null) return;
-  final compact = MediaQuery.sizeOf(context).width < 720;
+  final compact = ResponsiveBreakpoints.isCompact(context);
   final content = _V2VoidedCasesView(
     student: student,
     controller: controller,
@@ -993,7 +996,7 @@ Future<void> _showV2ProgressCasePicker(
     },
   );
 
-  final compact = MediaQuery.sizeOf(context).width < 720;
+  final compact = ResponsiveBreakpoints.isCompact(context);
   final selected = compact
       ? await showModalBottomSheet<V2FocusItem>(
           context: context,
@@ -1069,9 +1072,12 @@ class V2WorkspacePreview extends StatefulWidget {
 
 class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   V2WorkspaceDestination _destination = V2WorkspaceDestination.today;
+  V2WorkspaceDestination _lastPersonalDestination =
+      V2WorkspaceDestination.today;
   V2Student? _selectedStudent;
   V2FocusItem? _selectedCase;
   bool _showCase = false;
+  bool _showStudentDetail = false;
   bool _checkingForUpdates = false;
   bool _refreshing = false;
   bool _composerDraftRecoveryScheduled = false;
@@ -1091,7 +1097,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     if (widget.organizationPageBuilder == null &&
         _destination == V2WorkspaceDestination.organization) {
       _destination = V2WorkspaceDestination.today;
+      _lastPersonalDestination = V2WorkspaceDestination.today;
       _showCase = false;
+      _showStudentDetail = false;
     }
     if (oldWidget.composerDraftScopeKey != widget.composerDraftScopeKey ||
         oldWidget.composerDraftStore != widget.composerDraftStore) {
@@ -1216,6 +1224,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
       _selectedStudent = null;
       _selectedCase = null;
       _showCase = false;
+      _showStudentDetail = false;
       return;
     }
 
@@ -1246,6 +1255,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
       _selectedStudent = student;
       _selectedCase = null;
       _showCase = false;
+      _showStudentDetail = true;
     });
   }
 
@@ -1264,11 +1274,29 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
 
   void _closeCase() => setState(() => _showCase = false);
 
+  void _closeStudentDetail() => setState(() => _showStudentDetail = false);
+
   void _changeDestination(V2WorkspaceDestination value) {
     setState(() {
+      if (value == V2WorkspaceDestination.organization) {
+        if (_destination != V2WorkspaceDestination.organization) {
+          _lastPersonalDestination = _destination;
+        }
+        _destination = value;
+        return;
+      }
+
+      _lastPersonalDestination = value;
       _destination = value;
       _showCase = false;
+      if (value != V2WorkspaceDestination.students) {
+        _showStudentDetail = false;
+      }
     });
+  }
+
+  void _returnFromOrganization() {
+    setState(() => _destination = _lastPersonalDestination);
   }
 
   Future<void> _openManagement(BuildContext context) async {
@@ -1309,7 +1337,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   }
 
   Future<void> _showOperationGuide(BuildContext context) async {
-    if (MediaQuery.sizeOf(context).width < 720) {
+    if (ResponsiveBreakpoints.isCompact(context)) {
       await showModalBottomSheet<void>(
         context: context,
         useSafeArea: true,
@@ -1427,7 +1455,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
       ),
     );
 
-    if (MediaQuery.sizeOf(context).width < 720) {
+    if (ResponsiveBreakpoints.isCompact(context)) {
       await showModalBottomSheet<void>(
         context: context,
         useSafeArea: true,
@@ -1471,18 +1499,50 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                 _selectedStudent ?? widget.data.students.first;
             return LayoutBuilder(
               builder: (context, constraints) {
-                if (constraints.maxWidth < 720) {
+                final sizeClass = ResponsiveBreakpoints.classify(
+                  constraints.maxWidth,
+                );
+                if (sizeClass == WindowSizeClass.compact) {
                   return _CompactWorkspace(
                     destination: _destination,
                     selectedStudent: selectedStudent,
                     selectedCase: _selectedCase,
                     showCase: _showCase,
+                    showStudentDetail: _showStudentDetail,
                     onDestinationChanged: _changeDestination,
                     onStudentSelected: _openStudent,
+                    onBackFromStudent: _closeStudentDetail,
                     onOpenCase: _openCase,
                     onBackFromCase: _closeCase,
                     organizationPageBuilder: widget.organizationPageBuilder,
+                    onBackFromOrganization: _returnFromOrganization,
                     onOpenMore: () => _showWorkspaceMenu(context),
+                  );
+                }
+                if (sizeClass == WindowSizeClass.medium) {
+                  return _MediumWorkspace(
+                    destination: _destination,
+                    selectedStudent: selectedStudent,
+                    selectedCase: _selectedCase,
+                    showCase: _showCase,
+                    showStudentDetail: _showStudentDetail,
+                    onDestinationChanged: _changeDestination,
+                    onStudentSelected: _openStudent,
+                    onBackFromStudent: _closeStudentDetail,
+                    onOpenCase: _openCase,
+                    onBackFromCase: _closeCase,
+                    organizationPageBuilder: widget.organizationPageBuilder,
+                    onBackFromOrganization: _returnFromOrganization,
+                    onRefresh: widget.onRefresh == null
+                        ? null
+                        : () => _refreshWorkspace(),
+                    refreshing: _refreshing,
+                    onManage:
+                        widget.organizationPageBuilder != null ||
+                            widget.managementPageBuilder == null
+                        ? null
+                        : () => _openManagement(context),
+                    onSettings: () => _showWorkspaceMenu(context),
                   );
                 }
                 return _DesktopWorkspace(
@@ -1495,6 +1555,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                   onOpenCase: _openCase,
                   onBackFromCase: _closeCase,
                   organizationPageBuilder: widget.organizationPageBuilder,
+                  onBackFromOrganization: _returnFromOrganization,
                   onRefresh: widget.onRefresh == null
                       ? null
                       : () => _refreshWorkspace(),
@@ -1568,6 +1629,7 @@ class _DesktopWorkspace extends StatelessWidget {
     required this.onOpenCase,
     required this.onBackFromCase,
     required this.organizationPageBuilder,
+    required this.onBackFromOrganization,
     required this.onSettings,
     required this.refreshing,
     this.onRefresh,
@@ -1583,6 +1645,7 @@ class _DesktopWorkspace extends StatelessWidget {
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
+  final VoidCallback onBackFromOrganization;
   final VoidCallback? onRefresh;
   final bool refreshing;
   final VoidCallback? onManage;
@@ -1593,8 +1656,9 @@ class _DesktopWorkspace extends StatelessWidget {
     final border = Theme.of(context).colorScheme.outlineVariant;
     final width = MediaQuery.sizeOf(context).width;
     final expandedRail = width >= 1280;
-    final studentPaneWidth = width < 900 ? 288.0 : 320.0;
+    final studentPaneWidth = expandedRail ? 320.0 : 288.0;
     return Scaffold(
+      key: const Key('v2-expanded-shell'),
       body: SafeArea(
         child: Row(
           children: [
@@ -1605,7 +1669,9 @@ class _DesktopWorkspace extends StatelessWidget {
                 expanded: expandedRail,
                 onSelected: onDestinationChanged,
                 showOrganization: organizationPageBuilder != null,
-                onRefresh: onRefresh,
+                onRefresh: destination == V2WorkspaceDestination.organization
+                    ? null
+                    : onRefresh,
                 refreshing: refreshing,
                 onManage: onManage,
                 onSettings: onSettings,
@@ -1654,7 +1720,7 @@ class _DesktopWorkspace extends StatelessWidget {
               Expanded(
                 child: organizationPageBuilder!(
                   context,
-                  () => onDestinationChanged(V2WorkspaceDestination.today),
+                  onBackFromOrganization,
                 ),
               ),
             ],
@@ -1665,17 +1731,198 @@ class _DesktopWorkspace extends StatelessWidget {
   }
 }
 
+class _MediumWorkspace extends StatefulWidget {
+  const _MediumWorkspace({
+    required this.destination,
+    required this.selectedStudent,
+    required this.selectedCase,
+    required this.showCase,
+    required this.showStudentDetail,
+    required this.onDestinationChanged,
+    required this.onStudentSelected,
+    required this.onBackFromStudent,
+    required this.onOpenCase,
+    required this.onBackFromCase,
+    required this.organizationPageBuilder,
+    required this.onBackFromOrganization,
+    required this.onSettings,
+    required this.refreshing,
+    this.onRefresh,
+    this.onManage,
+  });
+
+  final V2WorkspaceDestination destination;
+  final V2Student selectedStudent;
+  final V2FocusItem? selectedCase;
+  final bool showCase;
+  final bool showStudentDetail;
+  final ValueChanged<V2WorkspaceDestination> onDestinationChanged;
+  final ValueChanged<V2Student> onStudentSelected;
+  final VoidCallback onBackFromStudent;
+  final ValueChanged<V2FocusItem> onOpenCase;
+  final VoidCallback onBackFromCase;
+  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
+  final VoidCallback onBackFromOrganization;
+  final VoidCallback? onRefresh;
+  final bool refreshing;
+  final VoidCallback? onManage;
+  final VoidCallback onSettings;
+
+  @override
+  State<_MediumWorkspace> createState() => _MediumWorkspaceState();
+}
+
+class _MediumWorkspaceState extends State<_MediumWorkspace> {
+  void _changeDestination(V2WorkspaceDestination destination) {
+    if (destination == V2WorkspaceDestination.students &&
+        widget.showStudentDetail) {
+      widget.onBackFromStudent();
+    }
+    widget.onDestinationChanged(destination);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final border = Theme.of(context).colorScheme.outlineVariant;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The rail is structural; the page itself adapts to the remaining pane.
+        // This keeps a 600px window from pretending its 527px content pane is
+        // a wide desktop surface while still avoiding mobile bottom navigation.
+        final paneWidth = (constraints.maxWidth - 73).clamp(
+          0.0,
+          double.infinity,
+        );
+        final paneCompact =
+            ResponsiveBreakpoints.classify(paneWidth.toDouble()) ==
+            WindowSizeClass.compact;
+
+        Widget body;
+        if (widget.destination == V2WorkspaceDestination.students &&
+            widget.showCase &&
+            widget.selectedCase != null) {
+          body = _CaseDetailPane(
+            student: widget.selectedStudent,
+            item: widget.selectedCase!,
+            onBack: widget.onBackFromCase,
+            compact: paneCompact,
+          );
+        } else if (widget.destination == V2WorkspaceDestination.students &&
+            widget.showStudentDetail) {
+          body = _StudentDetailPane(
+            student: widget.selectedStudent,
+            onOpenCase: widget.onOpenCase,
+            compact: paneCompact,
+            onBack: widget.onBackFromStudent,
+          );
+        } else if (widget.destination == V2WorkspaceDestination.students) {
+          body = _StudentListPane(
+            selectedStudent: widget.selectedStudent,
+            compact: true,
+            headerPadding: EdgeInsets.fromLTRB(
+              paneCompact ? AppSpacing.mdPlus : AppSpacing.xl,
+              paneCompact ? AppSpacing.mdPlus : AppSpacing.xl,
+              paneCompact ? AppSpacing.mdPlus : AppSpacing.xl,
+              12,
+            ),
+            onSelected: widget.onStudentSelected,
+          );
+        } else if (widget.destination == V2WorkspaceDestination.today) {
+          body = _TodayPane(
+            onOpenCase: widget.onOpenCase,
+            onOpenStudent: (student) {
+              widget.onStudentSelected(student);
+              widget.onDestinationChanged(V2WorkspaceDestination.students);
+            },
+            compact: paneCompact,
+          );
+        } else if (widget.destination == V2WorkspaceDestination.learning) {
+          body = _CaseIndexPane(
+            onOpenCase: widget.onOpenCase,
+            compact: paneCompact,
+          );
+        } else {
+          body = widget.organizationPageBuilder!(
+            context,
+            widget.onBackFromOrganization,
+          );
+        }
+
+        final hasInternalHistory =
+            widget.destination == V2WorkspaceDestination.students &&
+            (widget.showCase || widget.showStudentDetail);
+        final handlesSystemBack =
+            hasInternalHistory ||
+            (widget.destination != V2WorkspaceDestination.today &&
+                widget.destination != V2WorkspaceDestination.organization);
+
+        return PopScope<void>(
+          canPop: !handlesSystemBack,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (widget.destination == V2WorkspaceDestination.students &&
+                widget.showCase) {
+              widget.onBackFromCase();
+              return;
+            }
+            if (widget.destination == V2WorkspaceDestination.students &&
+                widget.showStudentDetail) {
+              widget.onBackFromStudent();
+              return;
+            }
+            if (widget.destination != V2WorkspaceDestination.today &&
+                widget.destination != V2WorkspaceDestination.organization) {
+              widget.onDestinationChanged(V2WorkspaceDestination.today);
+            }
+          },
+          child: Scaffold(
+            key: const Key('v2-medium-shell'),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            body: SafeArea(
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 72,
+                    child: _NavigationRail(
+                      selectedDestination: widget.destination,
+                      onSelected: _changeDestination,
+                      showOrganization: widget.organizationPageBuilder != null,
+                      onRefresh:
+                          widget.destination ==
+                              V2WorkspaceDestination.organization
+                          ? null
+                          : widget.onRefresh,
+                      refreshing: widget.refreshing,
+                      onManage: widget.onManage,
+                      onSettings: widget.onSettings,
+                    ),
+                  ),
+                  VerticalDivider(width: 1, color: border),
+                  Expanded(child: body),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _CompactWorkspace extends StatefulWidget {
   const _CompactWorkspace({
     required this.destination,
     required this.selectedStudent,
     required this.selectedCase,
     required this.showCase,
+    required this.showStudentDetail,
     required this.onDestinationChanged,
     required this.onStudentSelected,
+    required this.onBackFromStudent,
     required this.onOpenCase,
     required this.onBackFromCase,
     required this.organizationPageBuilder,
+    required this.onBackFromOrganization,
     required this.onOpenMore,
   });
 
@@ -1683,11 +1930,14 @@ class _CompactWorkspace extends StatefulWidget {
   final V2Student selectedStudent;
   final V2FocusItem? selectedCase;
   final bool showCase;
+  final bool showStudentDetail;
   final ValueChanged<V2WorkspaceDestination> onDestinationChanged;
   final ValueChanged<V2Student> onStudentSelected;
+  final VoidCallback onBackFromStudent;
   final ValueChanged<V2FocusItem> onOpenCase;
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
+  final VoidCallback onBackFromOrganization;
   final VoidCallback? onOpenMore;
 
   @override
@@ -1695,12 +1945,18 @@ class _CompactWorkspace extends StatefulWidget {
 }
 
 class _CompactWorkspaceState extends State<_CompactWorkspace> {
-  bool _studentOpen = false;
-
   @override
   Widget build(BuildContext context) {
+    final VoidCallback? onOpenOrganization =
+        widget.organizationPageBuilder == null
+        ? null
+        : () {
+            widget.onDestinationChanged(V2WorkspaceDestination.organization);
+          };
     Widget body;
-    if (widget.showCase && widget.selectedCase != null) {
+    if (widget.destination == V2WorkspaceDestination.students &&
+        widget.showCase &&
+        widget.selectedCase != null) {
       body = _CaseDetailPane(
         student: widget.selectedStudent,
         item: widget.selectedCase!,
@@ -1708,22 +1964,20 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         compact: true,
       );
     } else if (widget.destination == V2WorkspaceDestination.students &&
-        _studentOpen) {
+        widget.showStudentDetail) {
       body = _StudentDetailPane(
         student: widget.selectedStudent,
         onOpenCase: widget.onOpenCase,
         compact: true,
-        onBack: () => setState(() => _studentOpen = false),
+        onBack: widget.onBackFromStudent,
       );
     } else if (widget.destination == V2WorkspaceDestination.students) {
       body = _StudentListPane(
         selectedStudent: widget.selectedStudent,
         compact: true,
+        onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
-        onSelected: (student) {
-          widget.onStudentSelected(student);
-          setState(() => _studentOpen = true);
-        },
+        onSelected: widget.onStudentSelected,
       );
     } else if (widget.destination == V2WorkspaceDestination.today) {
       body = _TodayPane(
@@ -1731,22 +1985,23 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         onOpenStudent: (student) {
           widget.onStudentSelected(student);
           widget.onDestinationChanged(V2WorkspaceDestination.students);
-          setState(() => _studentOpen = true);
         },
         compact: true,
+        onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
       );
     } else if (widget.destination == V2WorkspaceDestination.learning) {
       body = _CaseIndexPane(
         onOpenCase: widget.onOpenCase,
         compact: true,
+        onOpenOrganization: onOpenOrganization,
         onOpenMore: widget.onOpenMore,
       );
     } else {
-      body = widget.organizationPageBuilder!(context, () {
-        setState(() => _studentOpen = false);
-        widget.onDestinationChanged(V2WorkspaceDestination.today);
-      });
+      body = widget.organizationPageBuilder!(
+        context,
+        widget.onBackFromOrganization,
+      );
     }
 
     const destinations = <V2WorkspaceDestination>[
@@ -1754,11 +2009,9 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       V2WorkspaceDestination.students,
       V2WorkspaceDestination.learning,
     ];
-    final hasInternalHistory = widget.showCase || _studentOpen;
-    final showPersonalScopeBar =
-        widget.organizationPageBuilder != null &&
-        widget.destination != V2WorkspaceDestination.organization &&
-        !hasInternalHistory;
+    final hasInternalHistory =
+        widget.destination == V2WorkspaceDestination.students &&
+        (widget.showCase || widget.showStudentDetail);
     final handlesSystemBack =
         hasInternalHistory ||
         (widget.destination != V2WorkspaceDestination.today &&
@@ -1767,12 +2020,14 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       canPop: !handlesSystemBack,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        if (widget.showCase) {
+        if (widget.destination == V2WorkspaceDestination.students &&
+            widget.showCase) {
           widget.onBackFromCase();
           return;
         }
-        if (_studentOpen) {
-          setState(() => _studentOpen = false);
+        if (widget.destination == V2WorkspaceDestination.students &&
+            widget.showStudentDetail) {
+          widget.onBackFromStudent();
           return;
         }
         if (widget.destination != V2WorkspaceDestination.today &&
@@ -1781,24 +2036,9 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         }
       },
       child: Scaffold(
+        key: const Key('v2-compact-shell'),
         backgroundColor: Theme.of(context).colorScheme.surface,
-        body: SafeArea(
-          child: showPersonalScopeBar
-              ? Column(
-                  children: [
-                    _CompactScopeBar(
-                      onOpenOrganization: () {
-                        setState(() => _studentOpen = false);
-                        widget.onDestinationChanged(
-                          V2WorkspaceDestination.organization,
-                        );
-                      },
-                    ),
-                    Expanded(child: body),
-                  ],
-                )
-              : body,
-        ),
+        body: SafeArea(child: body),
         bottomNavigationBar:
             hasInternalHistory ||
                 widget.destination == V2WorkspaceDestination.organization
@@ -1807,7 +2047,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
                 backgroundColor: Theme.of(context).colorScheme.surface,
                 selectedIndex: destinations.indexOf(widget.destination),
                 onDestinationSelected: (index) {
-                  setState(() => _studentOpen = false);
                   widget.onDestinationChanged(destinations[index]);
                 },
                 destinations: [
@@ -1815,50 +2054,6 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
                     _compactNavigationDestination(destination),
                 ],
               ),
-      ),
-    );
-  }
-}
-
-class _CompactScopeBar extends StatelessWidget {
-  const _CompactScopeBar({required this.onOpenOrganization});
-
-  final VoidCallback onOpenOrganization;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 5, 8, 5),
-        child: Row(
-          children: [
-            Icon(
-              Icons.person_outline,
-              size: 18,
-              color: scheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '我的教学',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            TextButton.icon(
-              key: const Key('v2-open-organization-scope'),
-              onPressed: onOpenOrganization,
-              icon: const Icon(Icons.apartment_outlined, size: 18),
-              label: const Text('进入机构'),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -2004,9 +2199,7 @@ class _RailItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final foreground = selected
-        ? scheme.onPrimaryContainer
-        : scheme.onSurfaceVariant;
+    final foreground = selected ? scheme.primary : scheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 10),
       child: Tooltip(
@@ -2015,7 +2208,9 @@ class _RailItem extends StatelessWidget {
           duration: AppMotion.effectiveDuration(context, AppMotion.quick),
           curve: AppMotion.enter,
           decoration: BoxDecoration(
-            color: selected ? scheme.primaryContainer : Colors.transparent,
+            color: selected
+                ? scheme.primary.withValues(alpha: 0.10)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(9),
           ),
           child: Material(
@@ -2067,12 +2262,16 @@ class _StudentListPane extends StatefulWidget {
     required this.selectedStudent,
     required this.onSelected,
     this.compact = false,
+    this.headerPadding,
+    this.onOpenOrganization,
     this.onOpenMore,
   });
 
   final V2Student selectedStudent;
   final ValueChanged<V2Student> onSelected;
   final bool compact;
+  final EdgeInsets? headerPadding;
+  final VoidCallback? onOpenOrganization;
   final VoidCallback? onOpenMore;
 
   @override
@@ -2122,23 +2321,28 @@ class _StudentListPaneState extends State<_StudentListPane> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              widget.compact ? 18 : 24,
-              24,
-              widget.compact ? 18 : 20,
-              12,
-            ),
+            padding:
+                widget.headerPadding ??
+                EdgeInsets.fromLTRB(
+                  widget.compact ? AppSpacing.mdPlus : AppSpacing.lg,
+                  widget.compact ? AppSpacing.mdPlus : AppSpacing.lg,
+                  AppSpacing.mdPlus,
+                  12,
+                ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '学生',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                V2PageHeader(
+                  key: const Key('v2-students-page-header'),
+                  title: '学生',
+                  actions: [
+                    if (widget.onOpenOrganization != null)
+                      TextButton.icon(
+                        key: const Key('v2-open-organization-scope'),
+                        onPressed: widget.onOpenOrganization,
+                        icon: const Icon(Icons.apartment_outlined, size: 18),
+                        label: const Text('机构'),
                       ),
-                    ),
                     if (widget.compact && widget.onOpenMore != null)
                       IconButton(
                         key: const Key('v2-compact-more'),
@@ -2853,7 +3057,7 @@ class _TimelineRow extends StatelessWidget {
         resolveEvidencePhotos &&
         entry.evidenceId != null &&
         attachmentRepository != null;
-    final compact = MediaQuery.sizeOf(context).width < 720;
+    final compact = ResponsiveBreakpoints.isCompact(context);
     final lineHeight = entry.photoCount > 0 || canResolveRealPhotos
         ? 144.0
         : 96.0;
@@ -2960,7 +3164,7 @@ Future<void> _showV2EvidencePhotoPreview(
   BuildContext context,
   String signedUrl,
 ) {
-  final compact = MediaQuery.sizeOf(context).width < 720;
+  final compact = ResponsiveBreakpoints.isCompact(context);
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.86),
@@ -3421,11 +3625,9 @@ class _CaseDetailPane extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(17),
                       decoration: BoxDecoration(
-                        color: scheme.primaryContainer.withValues(alpha: 0.24),
+                        color: scheme.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: scheme.primary.withValues(alpha: 0.18),
-                        ),
+                        border: Border.all(color: scheme.outlineVariant),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3542,12 +3744,14 @@ class _TodayPane extends StatelessWidget {
     required this.onOpenCase,
     required this.onOpenStudent,
     this.compact = false,
+    this.onOpenOrganization,
     this.onOpenMore,
   });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final ValueChanged<V2Student> onOpenStudent;
   final bool compact;
+  final VoidCallback? onOpenOrganization;
   final VoidCallback? onOpenMore;
 
   static int _priority(V2FocusItem item) => switch (item.actionTiming) {
@@ -3613,84 +3817,74 @@ class _TodayPane extends StatelessWidget {
           );
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(compact ? 18 : 32),
+      padding: EdgeInsets.all(compact ? AppSpacing.mdPlus : AppSpacing.xl),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final copy = Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '今日',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        _todayLabel(data.businessDate),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '先处理已经安排好的跟进。',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  );
-                  final quickCapture = FilledButton.tonalIcon(
+              V2PageHeader(
+                key: const Key('v2-today-page-header'),
+                title: '今日',
+                meta: _todayLabel(data.businessDate),
+                description: currentItems.isEmpty && undatedItems.isEmpty
+                    ? '今天没有已安排的跟进。'
+                    : '先处理已经安排好的跟进。',
+                actions: [
+                  TextButton.icon(
                     key: const Key('v2-today-quick-capture'),
                     onPressed: () => _showV2QuickCaptureStudentPicker(context),
-                    icon: const Icon(Icons.note_add_outlined, size: 18),
+                    icon: const Icon(Icons.add, size: 18),
                     label: const Text('记录问题'),
-                  );
-                  final more = compact && onOpenMore != null
-                      ? IconButton(
-                          key: const Key('v2-compact-more'),
-                          tooltip: '更多操作',
-                          onPressed: onOpenMore,
-                          icon: const Icon(Icons.more_vert),
-                        )
-                      : null;
-                  final stackActions = compact && constraints.maxWidth < 440;
-                  if (stackActions) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: copy),
-                            if (more != null) ...[
-                              const SizedBox(width: 4),
-                              more,
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        quickCapture,
-                      ],
-                    );
-                  }
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: copy),
-                      const SizedBox(width: 12),
-                      quickCapture,
-                      if (more != null) ...[const SizedBox(width: 4), more],
-                    ],
-                  );
-                },
+                  ),
+                  if (onOpenOrganization != null)
+                    TextButton.icon(
+                      key: const Key('v2-open-organization-scope'),
+                      onPressed: onOpenOrganization,
+                      icon: const Icon(Icons.apartment_outlined, size: 18),
+                      label: const Text('机构'),
+                    ),
+                  if (compact && onOpenMore != null)
+                    IconButton(
+                      key: const Key('v2-compact-more'),
+                      tooltip: '更多操作',
+                      onPressed: onOpenMore,
+                      icon: const Icon(Icons.more_vert),
+                    ),
+                ],
               ),
               const SizedBox(height: 28),
               if (currentItems.isEmpty && undatedItems.isEmpty)
-                Text(
-                  '今天暂时没有需要处理的提醒',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '今天没有待处理事项',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '已经安排的跟进都处理好了。需要时可以继续查看学生或记录新问题。',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               if (currentItems.isNotEmpty) ...[
                 _SectionTitle(title: '现在要做', count: currentItems.length),
@@ -3727,13 +3921,16 @@ class _TodayPane extends StatelessWidget {
                   ],
                 ),
               ],
-              if (recentStudents.isNotEmpty) ...[
+              if (data.students.isNotEmpty) ...[
                 const SizedBox(height: 28),
                 Divider(color: Theme.of(context).colorScheme.outlineVariant),
                 const SizedBox(height: 18),
-                const _SectionTitle(title: '最近学生'),
+                _SectionTitle(title: recentStudents.isEmpty ? '我的学生' : '最近学生'),
                 const SizedBox(height: 8),
-                for (final student in recentStudents.take(5))
+                for (final student
+                    in (recentStudents.isEmpty
+                        ? data.students.take(5)
+                        : recentStudents.take(5)))
                   _TodayRecentStudentRow(
                     student: student,
                     businessDate: data.businessDate,
@@ -3940,7 +4137,11 @@ class _TodayRecentStudentRow extends StatelessWidget {
               ),
             ),
             Text(
-              _recentActivityLabel(student.lastActivityAt!, businessDate),
+              student.lastActivityAt == null
+                  ? (student.openCaseCount == 0
+                        ? '查看学生'
+                        : '${student.openCaseCount} 个问题跟进中')
+                  : _recentActivityLabel(student.lastActivityAt!, businessDate),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(width: 4),
@@ -3967,11 +4168,13 @@ class _CaseIndexPane extends StatefulWidget {
   const _CaseIndexPane({
     required this.onOpenCase,
     this.compact = false,
+    this.onOpenOrganization,
     this.onOpenMore,
   });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
+  final VoidCallback? onOpenOrganization;
   final VoidCallback? onOpenMore;
 
   @override
@@ -4025,21 +4228,27 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
     final data = V2WorkspaceDataScope.of(context);
     final visibleItems = _visibleItems(data);
     return SingleChildScrollView(
-      padding: EdgeInsets.all(widget.compact ? 18 : 32),
+      padding: EdgeInsets.all(
+        widget.compact ? AppSpacing.mdPlus : AppSpacing.xl,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '学情',
-                      style: Theme.of(context).textTheme.headlineSmall,
+              V2PageHeader(
+                key: const Key('v2-learning-page-header'),
+                title: '学情',
+                description: _showClosed ? '回看已经结束的跟进记录' : '找到仍需要复盘的问题',
+                actions: [
+                  if (widget.onOpenOrganization != null)
+                    TextButton.icon(
+                      key: const Key('v2-open-organization-scope'),
+                      onPressed: widget.onOpenOrganization,
+                      icon: const Icon(Icons.apartment_outlined, size: 18),
+                      label: const Text('机构'),
                     ),
-                  ),
                   if (widget.compact && widget.onOpenMore != null)
                     IconButton(
                       key: const Key('v2-compact-more'),
@@ -4048,11 +4257,6 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
                       icon: const Icon(Icons.more_vert),
                     ),
                 ],
-              ),
-              const SizedBox(height: 5),
-              Text(
-                _showClosed ? '回看已经结束的跟进记录' : '找到仍需要复盘的问题',
-                style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
               SegmentedButton<bool>(
