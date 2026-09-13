@@ -10,6 +10,27 @@ def replace_once(path: str, old: str, new: str) -> None:
     file.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 
+def replace_in_section(
+    path: str,
+    start_marker: str,
+    end_marker: str,
+    old: str,
+    new: str,
+) -> None:
+    file = Path(path)
+    text = file.read_text(encoding="utf-8")
+    start = text.index(start_marker)
+    end = text.index(end_marker, start)
+    section = text[start:end]
+    count = section.count(old)
+    if count != 1:
+        raise SystemExit(
+            f"{path}: expected one section anchor, found {count}\nSECTION: {start_marker}\nANCHOR:\n{old}"
+        )
+    section = section.replace(old, new, 1)
+    file.write_text(text[:start] + section + text[end:], encoding="utf-8")
+
+
 workspace = "lib/features/design_v2/v2_workspace_preview.dart"
 
 replace_once(
@@ -17,20 +38,18 @@ replace_once(
     "  V2WorkspaceDestination _destination = V2WorkspaceDestination.today;\n  V2Student? _selectedStudent;",
     "  V2WorkspaceDestination _destination = V2WorkspaceDestination.today;\n  V2WorkspaceDestination _lastPersonalDestination =\n      V2WorkspaceDestination.today;\n  V2Student? _selectedStudent;",
 )
-
 replace_once(
     workspace,
     "      _destination = V2WorkspaceDestination.today;\n      _showCase = false;\n      _showStudentDetail = false;",
     "      _destination = V2WorkspaceDestination.today;\n      _lastPersonalDestination = V2WorkspaceDestination.today;\n      _showCase = false;\n      _showStudentDetail = false;",
 )
-
 replace_once(
     workspace,
     "  void _changeDestination(V2WorkspaceDestination value) {\n    setState(() {\n      _destination = value;\n      _showCase = false;\n      if (value != V2WorkspaceDestination.students) {\n        _showStudentDetail = false;\n      }\n    });\n  }\n",
     "  void _changeDestination(V2WorkspaceDestination value) {\n    setState(() {\n      if (value == V2WorkspaceDestination.organization) {\n        if (_destination != V2WorkspaceDestination.organization) {\n          _lastPersonalDestination = _destination;\n        }\n        _destination = value;\n        return;\n      }\n\n      _lastPersonalDestination = value;\n      _destination = value;\n      _showCase = false;\n      if (value != V2WorkspaceDestination.students) {\n        _showStudentDetail = false;\n      }\n    });\n  }\n\n  void _returnFromOrganization() {\n    setState(() => _destination = _lastPersonalDestination);\n  }\n",
 )
 
-# Parent -> adaptive shell callbacks.
+# Parent passes one explicit Organization-return callback into every adaptive shell.
 replace_once(
     workspace,
     "                    organizationPageBuilder: widget.organizationPageBuilder,\n                    onOpenMore: () => _showWorkspaceMenu(context),",
@@ -47,78 +66,103 @@ replace_once(
     "                  organizationPageBuilder: widget.organizationPageBuilder,\n                  onBackFromOrganization: _returnFromOrganization,\n                  onRefresh: widget.onRefresh == null",
 )
 
-# Desktop shell owns only presentation; Organization back restores the dormant Personal location.
-replace_once(
+# Desktop shell.
+replace_in_section(
     workspace,
-    "class _DesktopWorkspace extends StatelessWidget {\n  const _DesktopWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onSettings,",
-    "class _DesktopWorkspace extends StatelessWidget {\n  const _DesktopWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onSettings,",
+    "class _DesktopWorkspace",
+    "class _MediumWorkspace",
+    "    required this.organizationPageBuilder,\n    required this.onSettings,",
+    "    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onSettings,",
 )
-replace_once(
+replace_in_section(
     workspace,
-    "  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onRefresh;\n  final bool refreshing;",
-    "  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onRefresh;\n  final bool refreshing;",
+    "class _DesktopWorkspace",
+    "class _MediumWorkspace",
+    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onRefresh;",
+    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onRefresh;",
 )
-replace_once(
+replace_in_section(
     workspace,
+    "class _DesktopWorkspace",
+    "class _MediumWorkspace",
     "                child: organizationPageBuilder!(\n                  context,\n                  () => onDestinationChanged(V2WorkspaceDestination.today),\n                ),",
     "                child: organizationPageBuilder!(\n                  context,\n                  onBackFromOrganization,\n                ),",
 )
 
-# Medium shell.
-replace_once(
+# Medium shell: dormant Personal detail must not cover Organization.
+replace_in_section(
     workspace,
-    "class _MediumWorkspace extends StatefulWidget {\n  const _MediumWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.showStudentDetail,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onBackFromStudent,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onSettings,",
-    "class _MediumWorkspace extends StatefulWidget {\n  const _MediumWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.showStudentDetail,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onBackFromStudent,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onSettings,",
+    "class _MediumWorkspace",
+    "class _CompactWorkspace",
+    "    required this.organizationPageBuilder,\n    required this.onSettings,",
+    "    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onSettings,",
 )
-replace_once(
+replace_in_section(
     workspace,
-    "  final VoidCallback onBackFromStudent;\n  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onRefresh;\n  final bool refreshing;",
-    "  final VoidCallback onBackFromStudent;\n  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onRefresh;\n  final bool refreshing;",
+    "class _MediumWorkspace",
+    "class _CompactWorkspace",
+    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onRefresh;",
+    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onRefresh;",
 )
-replace_once(
+replace_in_section(
     workspace,
+    "class _MediumWorkspace",
+    "class _CompactWorkspace",
     "        if (widget.showCase && widget.selectedCase != null) {",
     "        if (widget.destination == V2WorkspaceDestination.students &&\n            widget.showCase &&\n            widget.selectedCase != null) {",
 )
-replace_once(
+replace_in_section(
     workspace,
+    "class _MediumWorkspace",
+    "class _CompactWorkspace",
     "          body = widget.organizationPageBuilder!(context, () {\n            widget.onDestinationChanged(V2WorkspaceDestination.today);\n          });",
     "          body = widget.organizationPageBuilder!(\n            context,\n            widget.onBackFromOrganization,\n          );",
 )
-replace_once(
+replace_in_section(
     workspace,
+    "class _MediumWorkspace",
+    "class _CompactWorkspace",
     "        final hasInternalHistory = widget.showCase || widget.showStudentDetail;",
     "        final hasInternalHistory =\n            widget.destination == V2WorkspaceDestination.students &&\n            (widget.showCase || widget.showStudentDetail);",
 )
 
-# Compact shell.
-replace_once(
+# Compact shell: same rule plus visible touch discoverability.
+replace_in_section(
     workspace,
-    "class _CompactWorkspace extends StatefulWidget {\n  const _CompactWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.showStudentDetail,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onBackFromStudent,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onOpenMore,",
-    "class _CompactWorkspace extends StatefulWidget {\n  const _CompactWorkspace({\n    required this.destination,\n    required this.selectedStudent,\n    required this.selectedCase,\n    required this.showCase,\n    required this.showStudentDetail,\n    required this.onDestinationChanged,\n    required this.onStudentSelected,\n    required this.onBackFromStudent,\n    required this.onOpenCase,\n    required this.onBackFromCase,\n    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onOpenMore,",
+    "class _CompactWorkspace",
+    "class _NavigationRail",
+    "    required this.organizationPageBuilder,\n    required this.onOpenMore,",
+    "    required this.organizationPageBuilder,\n    required this.onBackFromOrganization,\n    required this.onOpenMore,",
 )
-replace_once(
+replace_in_section(
     workspace,
-    "  final VoidCallback onBackFromStudent;\n  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onOpenMore;",
-    "  final VoidCallback onBackFromStudent;\n  final ValueChanged<V2FocusItem> onOpenCase;\n  final VoidCallback onBackFromCase;\n  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onOpenMore;",
+    "class _CompactWorkspace",
+    "class _NavigationRail",
+    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback? onOpenMore;",
+    "  final V2OrganizationWorkspaceBuilder? organizationPageBuilder;\n  final VoidCallback onBackFromOrganization;\n  final VoidCallback? onOpenMore;",
 )
-replace_once(
+replace_in_section(
     workspace,
+    "class _CompactWorkspace",
+    "class _NavigationRail",
     "    if (widget.showCase && widget.selectedCase != null) {",
     "    if (widget.destination == V2WorkspaceDestination.students &&\n        widget.showCase &&\n        widget.selectedCase != null) {",
 )
-replace_once(
+replace_in_section(
     workspace,
+    "class _CompactWorkspace",
+    "class _NavigationRail",
     "      body = widget.organizationPageBuilder!(context, () {\n        widget.onDestinationChanged(V2WorkspaceDestination.today);\n      });",
     "      body = widget.organizationPageBuilder!(\n        context,\n        widget.onBackFromOrganization,\n      );",
 )
-replace_once(
+replace_in_section(
     workspace,
+    "class _CompactWorkspace",
+    "class _NavigationRail",
     "    final hasInternalHistory = widget.showCase || widget.showStudentDetail;",
     "    final hasInternalHistory =\n        widget.destination == V2WorkspaceDestination.students &&\n        (widget.showCase || widget.showStudentDetail);",
 )
 
-# Compact touch needs a visible Organization label; keep the same quiet header location.
 icon_action = """                    if (widget.onOpenOrganization != null)\n                      IconButton(\n                        key: const Key('v2-open-organization-scope'),\n                        tooltip: '进入机构视角',\n                        onPressed: widget.onOpenOrganization,\n                        icon: const Icon(Icons.apartment_outlined),\n                      ),"""
 text_action = """                    if (widget.onOpenOrganization != null)\n                      TextButton.icon(\n                        key: const Key('v2-open-organization-scope'),\n                        onPressed: widget.onOpenOrganization,\n                        icon: const Icon(Icons.apartment_outlined, size: 18),\n                        label: const Text('机构'),\n                      ),"""
 file = Path(workspace)
@@ -134,7 +178,7 @@ if text.count(today_icon_action) != 1:
 text = text.replace(today_icon_action, today_text_action, 1)
 file.write_text(text, encoding="utf-8")
 
-# Tests: visible touch entry, previous Personal destination, and hidden detail continuity.
+# Regression tests.
 test_path = "test/features/v2_typed_organization_navigation_test.dart"
 replace_once(
     test_path,
