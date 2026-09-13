@@ -7,6 +7,24 @@ void main() {
   Widget app() =>
       MaterialApp(theme: V2Theme.light(), home: const V2WorkspacePreview());
 
+  Widget androidApp({
+    EdgeInsets systemGestureInsets = EdgeInsets.zero,
+    EdgeInsets viewInsets = EdgeInsets.zero,
+  }) => MaterialApp(
+    theme: V2Theme.light().copyWith(platform: TargetPlatform.android),
+    builder: (context, child) {
+      final media = MediaQuery.of(context);
+      return MediaQuery(
+        data: media.copyWith(
+          systemGestureInsets: systemGestureInsets,
+          viewInsets: viewInsets,
+        ),
+        child: child!,
+      );
+    },
+    home: const V2WorkspacePreview(),
+  );
+
   testWidgets(
     'desktop starts with Today and can enter student master-detail workspace',
     (tester) async {
@@ -172,6 +190,135 @@ void main() {
     expect(navigation.selectedIndex, 0);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'Android compact root swipes one step between Today Students and Learning',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(androidApp());
+      await tester.pumpAndSettle();
+
+      NavigationBar navigation() =>
+          tester.widget<NavigationBar>(find.byType(NavigationBar));
+      Finder swipeSurface() =>
+          find.byKey(const Key('v2-compact-swipe-surface'));
+
+      expect(swipeSurface(), findsOneWidget);
+      expect(navigation().selectedIndex, 0);
+
+      // No circular wrap before Today.
+      await tester.drag(swipeSurface(), const Offset(220, 0));
+      await tester.pumpAndSettle();
+      expect(navigation().selectedIndex, 0);
+
+      await tester.drag(swipeSurface(), const Offset(-220, 0));
+      await tester.pumpAndSettle();
+      expect(navigation().selectedIndex, 1);
+
+      await tester.drag(swipeSurface(), const Offset(-220, 0));
+      await tester.pumpAndSettle();
+      expect(navigation().selectedIndex, 2);
+
+      // No circular wrap after Learning.
+      await tester.drag(swipeSurface(), const Offset(-220, 0));
+      await tester.pumpAndSettle();
+      expect(navigation().selectedIndex, 2);
+
+      await tester.drag(swipeSurface(), const Offset(220, 0));
+      await tester.pumpAndSettle();
+      expect(navigation().selectedIndex, 1);
+
+      await tester.drag(swipeSurface(), const Offset(220, 0));
+      await tester.pumpAndSettle();
+      expect(navigation().selectedIndex, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android compact page swipe leaves system gesture edges to Back',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        androidApp(
+          systemGestureInsets: const EdgeInsets.symmetric(horizontal: 24),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('学生'));
+      await tester.pumpAndSettle();
+
+      NavigationBar navigation() =>
+          tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(navigation().selectedIndex, 1);
+
+      final leftEdge = await tester.startGesture(const Offset(4, 300));
+      await leftEdge.moveBy(const Offset(190, 0));
+      await leftEdge.up();
+      await tester.pumpAndSettle();
+      expect(navigation().selectedIndex, 1);
+
+      final rightEdge = await tester.startGesture(const Offset(386, 300));
+      await rightEdge.moveBy(const Offset(-190, 0));
+      await rightEdge.up();
+      await tester.pumpAndSettle();
+      expect(navigation().selectedIndex, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android compact page swipe yields while the keyboard is visible',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        androidApp(viewInsets: const EdgeInsets.only(bottom: 280)),
+      );
+      await tester.pumpAndSettle();
+
+      final surface = find.byKey(const Key('v2-compact-swipe-surface'));
+      expect(surface, findsOneWidget);
+      await tester.drag(surface, const Offset(-220, 0));
+      await tester.pumpAndSettle();
+
+      final navigation = tester.widget<NavigationBar>(
+        find.byType(NavigationBar),
+      );
+      expect(navigation.selectedIndex, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android page swipe is disabled for student detail and medium layout',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(androidApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('学生'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('林同学'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('v2-compact-swipe-surface')), findsNothing);
+      expect(find.byType(NavigationBar), findsNothing);
+
+      await tester.binding.setSurfaceSize(const Size(800, 800));
+      await tester.pumpWidget(androidApp());
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
+      expect(find.byKey(const Key('v2-compact-swipe-surface')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('student search filters real people without changing identity', (
     tester,
