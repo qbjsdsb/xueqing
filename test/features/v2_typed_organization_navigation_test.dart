@@ -349,7 +349,6 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-
 }
 
 Widget _previewApp({bool withOrganization = false}) => MaterialApp(
