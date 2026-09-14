@@ -6,6 +6,7 @@ on:
       - ux/windows-organization-navigation-v2
     paths:
       - .xueqing-windows-nav.py
+      - .xueqing-windows-nav-fix.py
       - .github/workflows/apply-windows-organization-navigation.yml
 
 permissions:
@@ -23,8 +24,15 @@ jobs:
       - name: Apply Windows navigation presentation
         run: python3 .xueqing-windows-nav.py
 
+      - name: Apply precise navigation gate fixes
+        run: python3 .xueqing-windows-nav-fix.py
+
       - name: Remove one-shot assets
-        run: rm -f .xueqing-windows-nav.py .github/workflows/apply-windows-organization-navigation.yml
+        run: |
+          rm -f \
+            .xueqing-windows-nav.py \
+            .xueqing-windows-nav-fix.py \
+            .github/workflows/apply-windows-organization-navigation.yml
 
       - uses: subosito/flutter-action@v2
         with:
@@ -43,7 +51,11 @@ jobs:
             lib/features/organization_management/presentation/organization_management_page.dart \
             lib/features/organization_management/presentation/organization_management_areas.dart \
             lib/features/organization_management/presentation/organization_management_layout.dart \
-            test/features/windows_organization_navigation_contract_test.dart
+            test/features/windows_organization_navigation_contract_test.dart \
+            test/features/v2_adaptive_workspace_test.dart \
+            test/features/v2_organization_capability_reconciliation_test.dart \
+            test/features/v2_page_rhythm_test.dart \
+            test/features/v2_typed_organization_navigation_test.dart
 
       - name: Analyze
         run: flutter analyze
@@ -53,7 +65,9 @@ jobs:
           flutter test \
             test/features/windows_organization_navigation_contract_test.dart \
             test/features/organization_navigation_state_contract_test.dart \
-            test/features/design_v2_workspace_test.dart
+            test/features/design_v2_workspace_test.dart \
+            test/features/v2_adaptive_workspace_test.dart \
+            test/features/v2_typed_organization_navigation_test.dart
 
       - name: Full suite
         run: flutter test
