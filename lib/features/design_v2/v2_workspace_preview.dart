@@ -1262,6 +1262,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   }
 
   void _openStudent(V2Student student) {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _selectedStudent = student;
       _selectedCase = null;
@@ -1271,6 +1272,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   }
 
   void _openCase(V2FocusItem item) {
+    FocusManager.instance.primaryFocus?.unfocus();
     final student = widget.data.studentForFocusItemOrNull(item);
     if (student == null) {
       return;
@@ -1311,6 +1313,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   }
 
   void _openOrganization(V2OrganizationSection section) {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       if (_destination != V2WorkspaceDestination.organization) {
         _lastPersonalDestination = _destination;
@@ -2104,7 +2107,9 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
 
     return NotificationListener<OverscrollIndicatorNotification>(
       onNotification: (notification) {
-        notification.disallowIndicator();
+        if (notification.depth == 0) {
+          notification.disallowIndicator();
+        }
         return false;
       },
       child: PageView(

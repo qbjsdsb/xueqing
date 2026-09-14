@@ -15,6 +15,7 @@ void main() {
       expect(workspace, contains('PopScope<void>('));
       expect(workspace, contains('PageView('));
       expect(workspace, contains('const PageScrollPhysics()'));
+      expect(workspace, contains('if (notification.depth == 0)'));
       expect(
         workspace,
         contains('Theme.of(context).platform == TargetPlatform.android'),
