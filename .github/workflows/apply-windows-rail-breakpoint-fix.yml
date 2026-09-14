@@ -63,3 +63,5 @@ jobs:
           git add -A
           git commit -m "fix(windows): derive rail breakpoint from layout constraints"
           git push origin HEAD:ux/windows-organization-navigation-v2
+
+# retrigger: 2026-09-14 final closure
