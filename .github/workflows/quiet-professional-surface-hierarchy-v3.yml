@@ -139,10 +139,51 @@ jobs:
             test/features/windows_workspace_acceptance_matrix_test.dart \
             test/features/management_workflow_clarity_contract_test.dart
 
-      - name: Full suite
-        run: flutter test
+      - name: Full suite with failure capture
+        id: full-suite
+        run: |
+          set +e
+          flutter test --reporter expanded 2>&1 | tee /tmp/xueqing-full-test.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+
+          lines = Path('/tmp/xueqing-full-test.log').read_text(errors='replace').splitlines()
+          markers = (
+              'Test failed',
+              'Some tests failed',
+              'Expected:',
+              'Actual:',
+              'Which:',
+              '══╡',
+              '[E]',
+              'FAILED',
+          )
+          hits = [i for i, line in enumerate(lines) if any(marker in line for marker in markers)]
+          selected = set()
+          for i in hits:
+              selected.update(range(max(0, i - 12), min(len(lines), i + 28)))
+          selected.update(range(max(0, len(lines) - 120), len(lines)))
+          output = '\n'.join(lines[i] for i in sorted(selected))
+          Path('.xueqing-full-test-failure.txt').write_text(output + '\n')
+          print(output)
+          PY
+            exit "$status"
+          fi
+
+      - name: Commit diagnostic failure summary only
+        if: failure() && steps.full-suite.outcome == 'failure'
+        run: |
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add .xueqing-full-test-failure.txt
+          git commit -m "chore(ci): capture full-suite failure"
+          git push origin HEAD:ux/quiet-professional-surface-hierarchy-v3
 
       - name: Commit verified refinement
+        if: success()
         run: |
           git config user.name "xueqing-bot"
           git config user.email "actions@users.noreply.github.com"
