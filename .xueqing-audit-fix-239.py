@@ -47,7 +47,12 @@ new_test = r'''  testWidgets(
       );
       expect(editable.focusNode.hasFocus, isTrue);
 
-      await tester.tap(find.text('林同学').first);
+      final studentResult = find.descendant(
+        of: find.byType(ListView),
+        matching: find.text('林同学'),
+      );
+      expect(studentResult, findsOneWidget);
+      await tester.tap(studentResult);
       await tester.pumpAndSettle();
 
       expect(
