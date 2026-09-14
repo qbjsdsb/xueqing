@@ -1,1 +1,0 @@
-Implementation and full regression verification are complete on the stacked Windows navigation branch. See `WINDOWS_ORGANIZATION_NAVIGATION_V2.md` for the accepted contract.
