@@ -59,7 +59,11 @@ void main() {
     expect(areaCardBlock, isNot(contains('description')));
 
     expect(layout, contains('class _ManagementToolbar'));
-    expect(layout, contains("tooltip: '导出记录'"));
-    expect(layout, contains("label: const Text('导出记录')"));
+    expect(layout, contains('PopupMenuButton<_ManagementToolbarAction>'));
+    expect(layout, contains("key: const Key('management-tools-menu')"));
+    expect(layout, contains("tooltip: '更多管理工具'"));
+    expect(layout, contains("key: Key('management-export-records')"));
+    expect(layout, contains("title: Text('导出记录')"));
+    expect(layout, isNot(contains("label: const Text('导出记录')")));
   });
 }
