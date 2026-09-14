@@ -45,10 +45,16 @@ void main() {
     expect(source, contains("title: const Text('之后')"));
     expect(
       source,
+      contains("_SectionTitle(title: showRecentActivity ? '最近学生' : '我的学生')"),
+    );
+    expect(source, contains('wideDesktop: expandedRail,'));
+    expect(
+      source,
       contains(
-        "_SectionTitle(title: recentStudents.isEmpty ? '我的学生' : '最近学生')",
+        'final useDesktopColumns = wideDesktop && data.students.isNotEmpty;',
       ),
     );
+    expect(source, isNot(contains('constraints.maxWidth >= 960')));
     expect(source, contains('· 待复检'));
     expect(source, contains('switch (item.effectiveStatus)'));
     expect(source, contains("return '新记录';"));

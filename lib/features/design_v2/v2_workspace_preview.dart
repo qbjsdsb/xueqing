@@ -1796,6 +1796,7 @@ class _DesktopWorkspace extends StatelessWidget {
             ] else if (destination == V2WorkspaceDestination.today) ...[
               Expanded(
                 child: _TodayPane(
+                  wideDesktop: expandedRail,
                   onOpenCase: onOpenCase,
                   onOpenStudent: (student) {
                     onStudentSelected(student);
@@ -4102,12 +4103,14 @@ class _TodayPane extends StatelessWidget {
     required this.onOpenCase,
     required this.onOpenStudent,
     this.compact = false,
+    this.wideDesktop = false,
     this.onOpenMore,
   });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final ValueChanged<V2Student> onOpenStudent;
   final bool compact;
+  final bool wideDesktop;
   final VoidCallback? onOpenMore;
 
   static int _priority(V2FocusItem item) => switch (item.actionTiming) {
@@ -4172,11 +4175,30 @@ class _TodayPane extends StatelessWidget {
                 right.lastActivityAt!.compareTo(left.lastActivityAt!),
           );
 
+    final recentStudentSelection =
+        (recentStudents.isEmpty
+                ? data.students.take(5)
+                : recentStudents.take(5))
+            .toList(growable: false);
+    final primary = _TodayPrimarySections(
+      currentItems: currentItems,
+      undatedItems: undatedItems,
+      futureItems: futureItems,
+      onOpenCase: onOpenCase,
+    );
+    final recent = _TodayRecentStudentsSection(
+      students: recentStudentSelection,
+      showRecentActivity: recentStudents.isNotEmpty,
+      businessDate: data.businessDate,
+      onOpenStudent: onOpenStudent,
+    );
+    final useDesktopColumns = wideDesktop && data.students.isNotEmpty;
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(compact ? AppSpacing.mdPlus : AppSpacing.xl),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
+          constraints: BoxConstraints(maxWidth: compact ? 900 : 1120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -4201,92 +4223,179 @@ class _TodayPane extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              if (currentItems.isEmpty && undatedItems.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.check_circle_outline,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '今天没有待处理事项',
-                              style: Theme.of(context).textTheme.titleSmall,
+              if (useDesktopColumns)
+                Row(
+                  key: const Key('v2-today-desktop-columns'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      key: const Key('v2-today-primary-column'),
+                      child: primary,
+                    ),
+                    const SizedBox(width: 32),
+                    SizedBox(
+                      width: 296,
+                      child: Container(
+                        key: const Key('v2-today-recent-column'),
+                        padding: const EdgeInsets.only(left: 24),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant,
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '已经安排的跟进都处理好了。需要时可以继续查看学生或记录新问题。',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
+                          ),
                         ),
+                        child: recent,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Column(
+                  key: const Key('v2-today-stacked-content'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    primary,
+                    if (data.students.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      Divider(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                      const SizedBox(height: 14),
+                      KeyedSubtree(
+                        key: const Key('v2-today-recent-stacked'),
+                        child: recent,
                       ),
                     ],
-                  ),
-                ),
-              if (currentItems.isNotEmpty) ...[
-                _SectionTitle(title: '现在要做', count: currentItems.length),
-                const SizedBox(height: 8),
-                for (final item in currentItems)
-                  _TodayAction(item: item, onOpenCase: onOpenCase),
-              ],
-              if (currentItems.isNotEmpty && undatedItems.isNotEmpty)
-                const SizedBox(height: 24),
-              if (undatedItems.isNotEmpty) ...[
-                _SectionTitle(title: '待安排', count: undatedItems.length),
-                const SizedBox(height: 6),
-                Text(
-                  '这些提醒已经明确，只差安排日期。',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 6),
-                for (final item in undatedItems)
-                  _TodayAction(item: item, onOpenCase: onOpenCase),
-              ],
-              if (futureItems.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                Divider(color: Theme.of(context).colorScheme.outlineVariant),
-                ExpansionTile(
-                  key: const Key('v2-today-future-section'),
-                  tilePadding: EdgeInsets.zero,
-                  childrenPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.event_outlined),
-                  title: const Text('之后'),
-                  subtitle: Text('${futureItems.length} 项已安排的后续行动'),
-                  children: [
-                    for (final item in futureItems)
-                      _TodayAction(item: item, onOpenCase: onOpenCase),
                   ],
                 ),
-              ],
-              if (data.students.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                Divider(color: Theme.of(context).colorScheme.outlineVariant),
-                const SizedBox(height: 14),
-                _SectionTitle(title: recentStudents.isEmpty ? '我的学生' : '最近学生'),
-                const SizedBox(height: 8),
-                for (final student
-                    in (recentStudents.isEmpty
-                        ? data.students.take(5)
-                        : recentStudents.take(5)))
-                  _TodayRecentStudentRow(
-                    student: student,
-                    businessDate: data.businessDate,
-                    onTap: () => onOpenStudent(student),
-                  ),
-              ],
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TodayPrimarySections extends StatelessWidget {
+  const _TodayPrimarySections({
+    required this.currentItems,
+    required this.undatedItems,
+    required this.futureItems,
+    required this.onOpenCase,
+  });
+
+  final List<V2FocusItem> currentItems;
+  final List<V2FocusItem> undatedItems;
+  final List<V2FocusItem> futureItems;
+  final ValueChanged<V2FocusItem> onOpenCase;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (currentItems.isEmpty && undatedItems.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.check_circle_outline,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '今天没有待处理事项',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '已经安排的跟进都处理好了。需要时可以继续查看学生或记录新问题。',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (currentItems.isNotEmpty) ...[
+          _SectionTitle(title: '现在要做', count: currentItems.length),
+          const SizedBox(height: 8),
+          for (final item in currentItems)
+            _TodayAction(item: item, onOpenCase: onOpenCase),
+        ],
+        if (currentItems.isNotEmpty && undatedItems.isNotEmpty)
+          const SizedBox(height: 24),
+        if (undatedItems.isNotEmpty) ...[
+          _SectionTitle(title: '待安排', count: undatedItems.length),
+          const SizedBox(height: 6),
+          Text(
+            '这些提醒已经明确，只差安排日期。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 6),
+          for (final item in undatedItems)
+            _TodayAction(item: item, onOpenCase: onOpenCase),
+        ],
+        if (futureItems.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Divider(color: Theme.of(context).colorScheme.outlineVariant),
+          ExpansionTile(
+            key: const Key('v2-today-future-section'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.event_outlined),
+            title: const Text('之后'),
+            subtitle: Text('${futureItems.length} 项已安排的后续行动'),
+            children: [
+              for (final item in futureItems)
+                _TodayAction(item: item, onOpenCase: onOpenCase),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _TodayRecentStudentsSection extends StatelessWidget {
+  const _TodayRecentStudentsSection({
+    required this.students,
+    required this.showRecentActivity,
+    required this.businessDate,
+    required this.onOpenStudent,
+  });
+
+  final List<V2Student> students;
+  final bool showRecentActivity;
+  final DateTime? businessDate;
+  final ValueChanged<V2Student> onOpenStudent;
+
+  @override
+  Widget build(BuildContext context) {
+    if (students.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(title: showRecentActivity ? '最近学生' : '我的学生'),
+        const SizedBox(height: 8),
+        for (final student in students)
+          _TodayRecentStudentRow(
+            student: student,
+            businessDate: businessDate,
+            onTap: () => onOpenStudent(student),
+          ),
+      ],
     );
   }
 }
