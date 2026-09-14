@@ -32,7 +32,13 @@ class V2PageHeader extends StatelessWidget {
     final copy = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.headlineSmall),
+        Text(
+          title,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontSize: 22,
+            height: 1.35,
+          ),
+        ),
         if (meta?.trim().isNotEmpty == true) ...[
           const SizedBox(height: 5),
           Text(

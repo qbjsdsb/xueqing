@@ -2687,7 +2687,7 @@ class _StudentListPaneState extends State<_StudentListPane> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 TextField(
                   key: const Key('v2-student-search'),
                   controller: _searchController,
@@ -2704,12 +2704,13 @@ class _StudentListPaneState extends State<_StudentListPane> {
                           ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 Text(
                   _query.trim().isEmpty
                       ? '全部 ${data.students.length}'
                       : '找到 ${visibleStudents.length} 位',
-                  style: Theme.of(context).textTheme.labelLarge,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -2779,7 +2780,7 @@ class _StudentRow extends StatelessWidget {
             onTap: onTap,
             borderRadius: BorderRadius.circular(9),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
                   _InitialMark(name: student.name),
@@ -2849,8 +2850,8 @@ class _InitialMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      width: 34,
-      height: 34,
+      width: 32,
+      height: 32,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: scheme.surfaceContainer,
@@ -3211,10 +3212,10 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
         if (count != null) ...[
           const SizedBox(width: 8),
-          Text('$count', style: Theme.of(context).textTheme.bodySmall),
+          Text('$count', style: Theme.of(context).textTheme.labelMedium),
         ],
       ],
     );
@@ -3235,16 +3236,16 @@ class _FocusRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 2,
-              height: 58,
+              height: 52,
               color: scheme.primary.withValues(alpha: 0.5),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3269,7 +3270,7 @@ class _FocusRow extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     item.closed
                         ? _displayNextStep(item.nextStep)
@@ -3282,7 +3283,7 @@ class _FocusRow extends StatelessWidget {
               ),
             ),
             if (studentName == null) ...[
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -4199,7 +4200,7 @@ class _TodayPane extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
               if (currentItems.isEmpty && undatedItems.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -4238,7 +4239,7 @@ class _TodayPane extends StatelessWidget {
                   _TodayAction(item: item, onOpenCase: onOpenCase),
               ],
               if (currentItems.isNotEmpty && undatedItems.isNotEmpty)
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
               if (undatedItems.isNotEmpty) ...[
                 _SectionTitle(title: '待安排', count: undatedItems.length),
                 const SizedBox(height: 6),
@@ -4251,7 +4252,7 @@ class _TodayPane extends StatelessWidget {
                   _TodayAction(item: item, onOpenCase: onOpenCase),
               ],
               if (futureItems.isNotEmpty) ...[
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
                 Divider(color: Theme.of(context).colorScheme.outlineVariant),
                 ExpansionTile(
                   key: const Key('v2-today-future-section'),
@@ -4267,9 +4268,9 @@ class _TodayPane extends StatelessWidget {
                 ),
               ],
               if (data.students.isNotEmpty) ...[
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
                 Divider(color: Theme.of(context).colorScheme.outlineVariant),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 _SectionTitle(title: recentStudents.isEmpty ? '我的学生' : '最近学生'),
                 const SizedBox(height: 8),
                 for (final student
@@ -4321,18 +4322,18 @@ class _TodayAction extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           onTap: () => onOpenCase(item),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 15),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   width: 2,
-                  height: 62,
+                  height: 56,
                   color: item.actionTiming == V2ActionTiming.overdue
                       ? const Color(0xFFB77728)
                       : scheme.primary,
                 ),
-                const SizedBox(width: 15),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -4462,7 +4463,7 @@ class _TodayRecentStudentRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 11),
+        padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(
           children: [
             Expanded(
@@ -4594,7 +4595,7 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
                     ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               SegmentedButton<bool>(
                 key: const Key('v2-case-history-toggle'),
                 segments: const <ButtonSegment<bool>>[
@@ -4610,7 +4611,7 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
                   });
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               TextField(
                 key: const Key('v2-case-search'),
                 controller: _searchController,
@@ -4627,7 +4628,7 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
                         ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 _query.trim().isEmpty
                     ? (_showClosed
