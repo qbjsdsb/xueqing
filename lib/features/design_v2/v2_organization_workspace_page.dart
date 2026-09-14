@@ -76,6 +76,7 @@ class _V2OrganizationWorkspacePageState
     extends State<V2OrganizationWorkspacePage> {
   final ScrollController _managementScrollController = ScrollController();
   V2OrganizationSection _section = V2OrganizationSection.learning;
+  OrganizationManagementArea? _managementArea;
   bool _managementActivated = false;
   int _managementRefreshRevision = 0;
   bool _refreshingOrganization = false;
@@ -109,6 +110,11 @@ class _V2OrganizationWorkspacePageState
       }
     });
     widget.onSectionChanged?.call(section);
+  }
+
+  void _handleManagementAreaChanged(OrganizationManagementArea area) {
+    if (_managementArea == area) return;
+    setState(() => _managementArea = area);
   }
 
   @override
@@ -362,6 +368,8 @@ class _V2OrganizationWorkspacePageState
       onChanged: widget.onChanged,
       showHeaderTitle: false,
       refreshRevision: _managementRefreshRevision,
+      initialArea: _managementArea,
+      onAreaChanged: _handleManagementAreaChanged,
     );
   }
 
