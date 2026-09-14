@@ -1,1 +1,0 @@
-Canonical contract: `WINDOWS_ORGANIZATION_NAVIGATION_V2.md`.
