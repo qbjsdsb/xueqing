@@ -1806,7 +1806,12 @@ class _DesktopWorkspace extends StatelessWidget {
                 ),
               ),
             ] else if (destination == V2WorkspaceDestination.learning) ...[
-              Expanded(child: _CaseIndexPane(onOpenCase: onOpenCase)),
+              Expanded(
+                child: _CaseIndexPane(
+                  onOpenCase: onOpenCase,
+                  wideDesktop: expandedRail,
+                ),
+              ),
             ] else ...[
               Expanded(
                 child: organizationPageBuilder!(
@@ -4683,11 +4688,13 @@ class _CaseIndexPane extends StatefulWidget {
   const _CaseIndexPane({
     required this.onOpenCase,
     this.compact = false,
+    this.wideDesktop = false,
     this.onOpenMore,
   });
 
   final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
+  final bool wideDesktop;
   final VoidCallback? onOpenMore;
 
   @override
@@ -4736,17 +4743,112 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
     setState(() => _query = '');
   }
 
+  Widget _filters(BuildContext context, List<V2FocusItem> visibleItems) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      key: const Key('v2-learning-filters'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SegmentedButton<bool>(
+          key: const Key('v2-case-history-toggle'),
+          segments: const <ButtonSegment<bool>>[
+            ButtonSegment<bool>(value: false, label: Text('跟进中')),
+            ButtonSegment<bool>(value: true, label: Text('历史')),
+          ],
+          selected: <bool>{_showClosed},
+          onSelectionChanged: (selection) {
+            setState(() {
+              _showClosed = selection.first;
+              _query = '';
+              _searchController.clear();
+            });
+          },
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('v2-case-search'),
+          controller: _searchController,
+          onChanged: (value) => setState(() => _query = value),
+          decoration: InputDecoration(
+            hintText: '搜索学生、学科或问题…',
+            prefixIcon: const Icon(Icons.search, size: 19),
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: '清除搜索',
+                    onPressed: _clearSearch,
+                    icon: const Icon(Icons.close, size: 18),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _query.trim().isEmpty
+              ? (_showClosed
+                    ? '历史 ${visibleItems.length}'
+                    : '进行中 ${visibleItems.length}')
+              : '找到 ${visibleItems.length} 个问题',
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+
+  Widget _results(
+    BuildContext context,
+    V2WorkspaceData data,
+    List<V2FocusItem> visibleItems,
+  ) {
+    return Column(
+      key: const Key('v2-learning-results'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.wideDesktop) ...[
+          _SectionTitle(
+            title: _showClosed ? '历史问题' : '需要跟进',
+            count: visibleItems.length,
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (visibleItems.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 30),
+            child: Center(
+              child: Text(
+                '没有找到匹配的问题',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          )
+        else
+          for (final item in visibleItems)
+            _FocusRow(
+              item: item,
+              studentName: data.studentForFocusItem(item).name,
+              onTap: () => widget.onOpenCase(item),
+            ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = V2WorkspaceDataScope.of(context);
     final visibleItems = _visibleItems(data);
+    final scheme = Theme.of(context).colorScheme;
+    final filters = _filters(context, visibleItems);
+    final results = _results(context, data, visibleItems);
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(
         widget.compact ? AppSpacing.mdPlus : AppSpacing.xl,
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
+          constraints: BoxConstraints(
+            maxWidth: widget.wideDesktop ? 1120 : 900,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -4764,66 +4866,38 @@ class _CaseIndexPaneState extends State<_CaseIndexPane> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
-              SegmentedButton<bool>(
-                key: const Key('v2-case-history-toggle'),
-                segments: const <ButtonSegment<bool>>[
-                  ButtonSegment<bool>(value: false, label: Text('跟进中')),
-                  ButtonSegment<bool>(value: true, label: Text('历史')),
-                ],
-                selected: <bool>{_showClosed},
-                onSelectionChanged: (selection) {
-                  setState(() {
-                    _showClosed = selection.first;
-                    _query = '';
-                    _searchController.clear();
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: const Key('v2-case-search'),
-                controller: _searchController,
-                onChanged: (value) => setState(() => _query = value),
-                decoration: InputDecoration(
-                  hintText: '搜索学生、学科或问题…',
-                  prefixIcon: const Icon(Icons.search, size: 19),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: '清除搜索',
-                          onPressed: _clearSearch,
-                          icon: const Icon(Icons.close, size: 18),
+              const SizedBox(height: 18),
+              if (widget.wideDesktop)
+                Row(
+                  key: const Key('v2-learning-desktop-columns'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 292,
+                      child: Container(
+                        key: const Key('v2-learning-filter-column'),
+                        padding: const EdgeInsets.only(right: 24),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: BorderSide(color: scheme.outlineVariant),
+                          ),
                         ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _query.trim().isEmpty
-                    ? (_showClosed
-                          ? '历史 ${visibleItems.length}'
-                          : '进行中 ${visibleItems.length}')
-                    : '找到 ${visibleItems.length} 个问题',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 6),
-              if (visibleItems.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 30),
-                  child: Center(
-                    child: Text(
-                      '没有找到匹配的问题',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                        child: filters,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 28),
+                    Expanded(
+                      key: const Key('v2-learning-primary-column'),
+                      child: results,
+                    ),
+                  ],
                 )
               else
-                for (final item in visibleItems)
-                  _FocusRow(
-                    item: item,
-                    studentName: data.studentForFocusItem(item).name,
-                    onTap: () => widget.onOpenCase(item),
-                  ),
+                Column(
+                  key: const Key('v2-learning-stacked-content'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [filters, const SizedBox(height: 6), results],
+                ),
             ],
           ),
         ),
