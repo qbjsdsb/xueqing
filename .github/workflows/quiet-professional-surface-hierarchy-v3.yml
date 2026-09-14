@@ -44,6 +44,13 @@ jobs:
           assert management.count(old_fill) == 2, 'Expected role pill and setup hint muted fills'
           management = management.replace(old_fill, 'color: Colors.transparent,')
           management_path.write_text(management)
+
+          legacy_contract_path = Path('test/features/v032_real_device_ux_contract_test.dart')
+          legacy_contract = legacy_contract_path.read_text()
+          old_contract = '''  test('compact student canvas no longer mixes list and scaffold surfaces', () {\n    final source = File('lib/features/design_v2/v2_workspace_preview.dart')\n        .readAsStringSync();\n    expect(\n      source,\n      contains(\n        'widget.compact ? scheme.surface : scheme.surfaceContainerLowest',\n      ),\n    );\n    expect(\n      source,\n      contains('backgroundColor: Theme.of(context).colorScheme.surface'),\n    );\n  });'''
+          new_contract = '''  test('student canvas uses one base surface across compact and split layouts', () {\n    final source = File('lib/features/design_v2/v2_workspace_preview.dart')\n        .readAsStringSync();\n    expect(source, contains('color: scheme.surface,'));\n    expect(\n      source,\n      isNot(\n        contains(\n          'widget.compact ? scheme.surface : scheme.surfaceContainerLowest',\n        ),\n      ),\n    );\n    expect(\n      source,\n      contains('backgroundColor: Theme.of(context).colorScheme.surface'),\n    );\n  });'''
+          assert old_contract in legacy_contract, 'Expected legacy student-surface contract'
+          legacy_contract_path.write_text(legacy_contract.replace(old_contract, new_contract, 1))
           PY
 
       - name: Add surface hierarchy contract
@@ -107,8 +114,8 @@ jobs:
           }
           DART
 
-      - name: Remove one-shot workflow
-        run: rm .github/workflows/quiet-professional-surface-hierarchy-v3.yml
+      - name: Remove one-shot assets
+        run: rm .github/workflows/quiet-professional-surface-hierarchy-v3.yml .xueqing-full-test-failure.txt
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -124,6 +131,7 @@ jobs:
         run: |
           dart format lib/features/design_v2/v2_workspace_preview.dart \
             lib/features/organization_management/presentation/organization_management_layout.dart \
+            test/features/v032_real_device_ux_contract_test.dart \
             test/features/v2_surface_hierarchy_contract_test.dart
           git diff --check
 
@@ -133,6 +141,7 @@ jobs:
       - name: Focused visual acceptance
         run: |
           flutter test \
+            test/features/v032_real_device_ux_contract_test.dart \
             test/features/v2_surface_hierarchy_contract_test.dart \
             test/features/v2_visual_polish_contract_test.dart \
             test/features/v2_adaptive_workspace_test.dart \
@@ -179,7 +188,7 @@ jobs:
           git config user.name "xueqing-bot"
           git config user.email "actions@users.noreply.github.com"
           git add .xueqing-full-test-failure.txt
-          git commit -m "chore(ci): capture full-suite failure"
+          git commit -m "chore(ci): refresh full-suite failure capture"
           git push origin HEAD:ux/quiet-professional-surface-hierarchy-v3
 
       - name: Commit verified refinement
