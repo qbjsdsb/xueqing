@@ -7,6 +7,7 @@ on:
     paths:
       - .xueqing-fix-windows-rail-breakpoint.py
       - .github/workflows/apply-windows-rail-breakpoint-fix.yml
+      - test/features/windows_workspace_acceptance_matrix_test.dart
 
 permissions:
   contents: write
