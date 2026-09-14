@@ -4,26 +4,31 @@ import re
 # 1) The first-stage script intentionally touches all adaptive shell calls. Its
 # indentation-based replacements can overlap for Compact/Medium because a
 # shorter whitespace prefix also matches inside the longer prefix. Collapse
-# only the exact duplicated management-area argument blocks produced there.
+# the two duplicated semantic argument blocks, regardless of their temporary
+# indentation, then write them back using the correct call indentation.
 preview_path = Path('lib/features/design_v2/v2_workspace_preview.dart')
 preview = preview_path.read_text(encoding='utf-8')
 duplicate_area = re.compile(
-    r"(?m)^(?P<indent> +)organizationManagementArea: _organizationManagementArea,\n"
-    r"(?P=indent)onOrganizationManagementAreaChanged:\n"
-    r"(?P<callback1> +)_openOrganizationManagementArea,\n"
-    r"(?P=indent)organizationManagementArea: _organizationManagementArea,\n"
-    r"(?P=indent)onOrganizationManagementAreaChanged:\n"
-    r"(?P<callback2> +)_openOrganizationManagementArea,\n"
+    r"(?m)^(?P<area1> +)organizationManagementArea: _organizationManagementArea,\n"
+    r"(?P<changed1> +)onOrganizationManagementAreaChanged:\n"
+    r"(?P<open1> +)_openOrganizationManagementArea,\n"
+    r"(?P<area2> +)organizationManagementArea: _organizationManagementArea,\n"
+    r"(?P<changed2> +)onOrganizationManagementAreaChanged:\n"
+    r"(?P<open2> +)_openOrganizationManagementArea,\n"
 )
 
+
 def collapse_area(match: re.Match[str]) -> str:
-    indent = match.group('indent')
-    callback = match.group('callback1')
+    # One duplicate comes from the shorter-indent replacement and one from the
+    # original longer-indent block. Keep the deeper indent, which is the actual
+    # named-argument indentation of the Compact/Medium constructor call.
+    indent = max(match.group('area1'), match.group('area2'), key=len)
     return (
         f"{indent}organizationManagementArea: _organizationManagementArea,\n"
         f"{indent}onOrganizationManagementAreaChanged:\n"
-        f"{callback}_openOrganizationManagementArea,\n"
+        f"{indent}    _openOrganizationManagementArea,\n"
     )
+
 
 preview, duplicate_count = duplicate_area.subn(collapse_area, preview)
 if duplicate_count != 2:
