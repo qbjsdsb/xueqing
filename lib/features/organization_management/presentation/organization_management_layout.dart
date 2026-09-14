@@ -87,6 +87,8 @@ class _ManagementHeader extends StatelessWidget {
   }
 }
 
+enum _ManagementToolbarAction { exportRecords }
+
 class _ManagementToolbar extends StatelessWidget {
   const _ManagementToolbar({
     required this.selectedArea,
@@ -114,29 +116,38 @@ class _ManagementToolbar extends StatelessWidget {
             : null;
         if (onExport == null) return switcher ?? const SizedBox.shrink();
 
-        final Widget exportAction = constraints.maxWidth < 520
-            ? IconButton(
-                key: const Key('management-export-records'),
-                tooltip: '导出记录',
-                onPressed: busy ? null : onExport,
-                icon: const Icon(Icons.download_outlined),
-              )
-            : TextButton.icon(
-                key: const Key('management-export-records'),
-                onPressed: busy ? null : onExport,
-                icon: const Icon(Icons.download_outlined, size: 18),
-                label: const Text('导出记录'),
-              );
+        final exportMenu = PopupMenuButton<_ManagementToolbarAction>(
+          key: const Key('management-tools-menu'),
+          tooltip: '更多管理工具',
+          enabled: !busy,
+          onSelected: (action) {
+            switch (action) {
+              case _ManagementToolbarAction.exportRecords:
+                onExport?.call();
+            }
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem<_ManagementToolbarAction>(
+              key: Key('management-export-records'),
+              value: _ManagementToolbarAction.exportRecords,
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.download_outlined),
+                title: Text('导出记录'),
+              ),
+            ),
+          ],
+        );
 
         if (switcher == null) {
-          return Align(alignment: Alignment.centerRight, child: exportAction);
+          return Align(alignment: Alignment.centerRight, child: exportMenu);
         }
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(child: switcher),
-            const SizedBox(width: AppSpacing.sm),
-            exportAction,
+            const SizedBox(width: AppSpacing.xs),
+            exportMenu,
           ],
         );
       },

@@ -50,9 +50,11 @@ void main() {
     );
     expect(areas, contains('OrganizationManagementArea.settings => null'));
     expect(areas, contains('onExport: exportAction'));
-    expect(layout, contains("key: const Key('management-export-records')"));
-    expect(layout, contains("tooltip: '导出记录'"));
-    expect(layout, contains("label: const Text('导出记录')"));
+    expect(layout, contains("key: const Key('management-tools-menu')"));
+    expect(layout, contains("tooltip: '更多管理工具'"));
+    expect(layout, contains("key: Key('management-export-records')"));
+    expect(layout, contains("title: Text('导出记录')"));
+    expect(layout, isNot(contains("label: const Text('导出记录')")));
     expect(areas, isNot(contains("label: const Text('导出老师记录')")));
     expect(areas, isNot(contains("label: const Text('导出学生记录')")));
     expect(areas, contains("title = '先添加机构学科';"));
