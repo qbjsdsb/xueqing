@@ -6,6 +6,7 @@ on:
       - ux/windows-organization-navigation-v2
     paths:
       - .xueqing-audit-fix-241.py
+      - .xueqing-audit-fix-241-contract.py
       - .github/workflows/apply-audit-fix-241.yml
 
 permissions:
@@ -21,12 +22,15 @@ jobs:
           fetch-depth: 0
 
       - name: Apply audit closure fixes
-        run: python3 .xueqing-audit-fix-241.py
+        run: |
+          python3 .xueqing-audit-fix-241.py
+          python3 .xueqing-audit-fix-241-contract.py
 
       - name: Remove one-shot assets
         run: |
           rm -f \
             .xueqing-audit-fix-241.py \
+            .xueqing-audit-fix-241-contract.py \
             .github/workflows/apply-audit-fix-241.yml
 
       - uses: subosito/flutter-action@v2
