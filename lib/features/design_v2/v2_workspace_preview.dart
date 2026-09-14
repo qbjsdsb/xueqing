@@ -1790,6 +1790,7 @@ class _DesktopWorkspace extends StatelessWidget {
                       : _StudentDetailPane(
                           student: selectedStudent,
                           onOpenCase: onOpenCase,
+                          wideDesktop: expandedRail,
                         ),
                 ),
               ),
@@ -2871,12 +2872,14 @@ class _StudentDetailPane extends StatefulWidget {
     required this.student,
     required this.onOpenCase,
     this.compact = false,
+    this.wideDesktop = false,
     this.onBack,
   });
 
   final V2Student student;
   final ValueChanged<V2FocusItem> onOpenCase;
   final bool compact;
+  final bool wideDesktop;
   final VoidCallback? onBack;
 
   @override
@@ -2898,6 +2901,107 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
     }
   }
 
+  Widget _focusSection(
+    BuildContext context, {
+    required List<V2FocusItem> focusItems,
+    required List<V2FocusItem> visibleFocusItems,
+    required bool hasAdditionalFocusItems,
+    required List<V2FocusItem> closedItems,
+  }) {
+    return Column(
+      key: const Key('v2-student-current-section'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(
+          title: _showAllFocusItems ? '全部问题' : '现在最重要',
+          count: visibleFocusItems.length,
+        ),
+        const SizedBox(height: 8),
+        if (focusItems.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Text(
+              '暂无进行中的问题',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          )
+        else ...[
+          for (final item in visibleFocusItems)
+            _FocusRow(item: item, onTap: () => widget.onOpenCase(item)),
+          if (hasAdditionalFocusItems) ...[
+            const SizedBox(height: 6),
+            TextButton.icon(
+              key: const Key('v2-student-focus-toggle'),
+              onPressed: () =>
+                  setState(() => _showAllFocusItems = !_showAllFocusItems),
+              icon: Icon(
+                _showAllFocusItems ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+              ),
+              label: Text(
+                _showAllFocusItems ? '只看重点' : '查看全部 ${focusItems.length} 个',
+              ),
+            ),
+          ],
+        ],
+        if (closedItems.isNotEmpty) ...[
+          const SizedBox(height: 26),
+          TextButton.icon(
+            key: const Key('v2-student-history-toggle'),
+            onPressed: () =>
+                setState(() => _showClosedItems = !_showClosedItems),
+            icon: Icon(
+              _showClosedItems ? Icons.expand_less : Icons.history_outlined,
+              size: 18,
+            ),
+            label: Text(
+              _showClosedItems ? '收起历史问题' : '查看历史问题 ${closedItems.length} 个',
+            ),
+          ),
+          if (_showClosedItems) ...[
+            const SizedBox(height: 8),
+            _SectionTitle(title: '历史问题', count: closedItems.length),
+            const SizedBox(height: 8),
+            for (final item in closedItems)
+              _FocusRow(item: item, onTap: () => widget.onOpenCase(item)),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _growthSection(
+    BuildContext context, {
+    required List<V2TimelineEntry> timelineEntries,
+    required List<V2TimelineEntry> visibleTimelineEntries,
+    required int hiddenTimelineCount,
+  }) {
+    return Column(
+      key: const Key('v2-student-growth-section'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(title: '最近成长', count: timelineEntries.length),
+        const SizedBox(height: 14),
+        _Timeline(entries: visibleTimelineEntries),
+        if (hiddenTimelineCount > 0) ...[
+          const SizedBox(height: 4),
+          TextButton.icon(
+            key: const Key('v2-student-timeline-toggle'),
+            onPressed: () =>
+                setState(() => _showAllTimeline = !_showAllTimeline),
+            icon: Icon(
+              _showAllTimeline ? Icons.expand_less : Icons.expand_more,
+              size: 18,
+            ),
+            label: Text(
+              _showAllTimeline ? '收起更早记录' : '查看更早 $hiddenTimelineCount 条',
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -2916,6 +3020,21 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
     final hiddenTimelineCount = timelineEntries.length > 5
         ? timelineEntries.length - 5
         : 0;
+
+    final current = _focusSection(
+      context,
+      focusItems: focusItems,
+      visibleFocusItems: visibleFocusItems,
+      hasAdditionalFocusItems: hasAdditionalFocusItems,
+      closedItems: closedItems,
+    );
+    final growth = _growthSection(
+      context,
+      timelineEntries: timelineEntries,
+      visibleTimelineEntries: visibleTimelineEntries,
+      hiddenTimelineCount: hiddenTimelineCount,
+    );
+
     return ColoredBox(
       color: scheme.surface,
       child: CustomScrollView(
@@ -2923,7 +3042,9 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
           SliverToBoxAdapter(
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 900),
+                constraints: BoxConstraints(
+                  maxWidth: widget.wideDesktop ? 1080 : 900,
+                ),
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
                     widget.compact ? 18 : 32,
@@ -2940,106 +3061,45 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
                         onBack: widget.onBack,
                       ),
                       const SizedBox(height: 30),
-                      _SectionTitle(
-                        title: _showAllFocusItems ? '全部问题' : '现在最重要',
-                        count: visibleFocusItems.length,
-                      ),
-                      const SizedBox(height: 8),
-                      if (focusItems.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          child: Text(
-                            '暂无进行中的问题',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        )
-                      else ...[
-                        for (var i = 0; i < visibleFocusItems.length; i++) ...[
-                          _FocusRow(
-                            item: visibleFocusItems[i],
-                            onTap: () =>
-                                widget.onOpenCase(visibleFocusItems[i]),
-                          ),
-                        ],
-                        if (hasAdditionalFocusItems) ...[
-                          const SizedBox(height: 6),
-                          TextButton.icon(
-                            key: const Key('v2-student-focus-toggle'),
-                            onPressed: () => setState(
-                              () => _showAllFocusItems = !_showAllFocusItems,
+                      if (widget.wideDesktop)
+                        Row(
+                          key: const Key('v2-student-desktop-columns'),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              key: const Key('v2-student-primary-column'),
+                              child: current,
                             ),
-                            icon: Icon(
-                              _showAllFocusItems
-                                  ? Icons.expand_less
-                                  : Icons.expand_more,
-                              size: 18,
-                            ),
-                            label: Text(
-                              _showAllFocusItems
-                                  ? '只看重点'
-                                  : '查看全部 ${focusItems.length} 个',
-                            ),
-                          ),
-                        ],
-                      ],
-                      if (closedItems.isNotEmpty) ...[
-                        const SizedBox(height: 26),
-                        TextButton.icon(
-                          key: const Key('v2-student-history-toggle'),
-                          onPressed: () => setState(
-                            () => _showClosedItems = !_showClosedItems,
-                          ),
-                          icon: Icon(
-                            _showClosedItems
-                                ? Icons.expand_less
-                                : Icons.history_outlined,
-                            size: 18,
-                          ),
-                          label: Text(
-                            _showClosedItems
-                                ? '收起历史问题'
-                                : '查看历史问题 ${closedItems.length} 个',
-                          ),
-                        ),
-                        if (_showClosedItems) ...[
-                          const SizedBox(height: 8),
-                          _SectionTitle(
-                            title: '历史问题',
-                            count: closedItems.length,
-                          ),
-                          const SizedBox(height: 8),
-                          for (var i = 0; i < closedItems.length; i++) ...[
-                            _FocusRow(
-                              item: closedItems[i],
-                              onTap: () => widget.onOpenCase(closedItems[i]),
+                            const SizedBox(width: 32),
+                            SizedBox(
+                              width: 296,
+                              child: Container(
+                                key: const Key('v2-student-growth-column'),
+                                padding: const EdgeInsets.only(left: 24),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: scheme.outlineVariant,
+                                    ),
+                                  ),
+                                ),
+                                child: growth,
+                              ),
                             ),
                           ],
-                        ],
-                      ],
-                      const SizedBox(height: 34),
-                      const _SectionTitle(title: '最近成长'),
-                      const SizedBox(height: 14),
-                      _Timeline(entries: visibleTimelineEntries),
-                      if (hiddenTimelineCount > 0) ...[
-                        const SizedBox(height: 4),
-                        TextButton.icon(
-                          key: const Key('v2-student-timeline-toggle'),
-                          onPressed: () => setState(
-                            () => _showAllTimeline = !_showAllTimeline,
-                          ),
-                          icon: Icon(
-                            _showAllTimeline
-                                ? Icons.expand_less
-                                : Icons.expand_more,
-                            size: 18,
-                          ),
-                          label: Text(
-                            _showAllTimeline
-                                ? '收起更早记录'
-                                : '查看更早 $hiddenTimelineCount 条',
-                          ),
+                        )
+                      else
+                        Column(
+                          key: const Key('v2-student-stacked-sections'),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            current,
+                            const SizedBox(height: 34),
+                            Divider(color: scheme.outlineVariant),
+                            const SizedBox(height: 20),
+                            growth,
+                          ],
                         ),
-                      ],
                     ],
                   ),
                 ),
