@@ -27,12 +27,13 @@ jobs:
       - name: Apply precise navigation gate fixes
         run: python3 .xueqing-windows-nav-fix.py
 
-      - name: Remove one-shot assets
+      - name: Remove one-shot and diagnostic assets
         run: |
           rm -f \
             .xueqing-windows-nav.py \
             .xueqing-windows-nav-fix.py \
-            .github/workflows/apply-windows-organization-navigation.yml
+            .github/workflows/apply-windows-organization-navigation.yml \
+            .windows-full-test.log
 
       - uses: subosito/flutter-action@v2
         with:
@@ -55,7 +56,9 @@ jobs:
             test/features/v2_adaptive_workspace_test.dart \
             test/features/v2_organization_capability_reconciliation_test.dart \
             test/features/v2_page_rhythm_test.dart \
-            test/features/v2_typed_organization_navigation_test.dart
+            test/features/v2_typed_organization_navigation_test.dart \
+            test/features/v2_organization_workspace_test.dart \
+            test/features/v2_shell_production_capabilities_test.dart
 
       - name: Analyze
         run: flutter analyze
@@ -67,7 +70,9 @@ jobs:
             test/features/organization_navigation_state_contract_test.dart \
             test/features/design_v2_workspace_test.dart \
             test/features/v2_adaptive_workspace_test.dart \
-            test/features/v2_typed_organization_navigation_test.dart
+            test/features/v2_typed_organization_navigation_test.dart \
+            test/features/v2_organization_workspace_test.dart \
+            test/features/v2_shell_production_capabilities_test.dart
 
       - name: Full suite
         id: full
