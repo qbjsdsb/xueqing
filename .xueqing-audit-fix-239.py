@@ -42,10 +42,10 @@ new_test = r'''  testWidgets(
       await tester.tap(search);
       await tester.enterText(search, '林同学');
       await tester.pump();
-      expect(
-        FocusManager.instance.primaryFocus?.context?.widget,
-        isA<EditableText>(),
+      final editable = tester.widget<EditableText>(
+        find.descendant(of: search, matching: find.byType(EditableText)),
       );
+      expect(editable.focusNode.hasFocus, isTrue);
 
       await tester.tap(find.text('林同学').first);
       await tester.pumpAndSettle();
@@ -54,8 +54,7 @@ new_test = r'''  testWidgets(
         find.byKey(const Key('v2-student-detail-context-row')),
         findsOneWidget,
       );
-      final focusWidget = FocusManager.instance.primaryFocus?.context?.widget;
-      expect(focusWidget, isNot(isA<EditableText>()));
+      expect(editable.focusNode.hasFocus, isFalse);
       expect(tester.takeException(), isNull);
     },
   );
