@@ -57,7 +57,8 @@ jobs:
             lib/features/organization_management/presentation/organization_management_areas.dart \
             test/features/organization_navigation_state_contract_test.dart \
             test/features/windows_organization_navigation_contract_test.dart \
-            test/features/v2_organization_workspace_test.dart
+            test/features/v2_organization_workspace_test.dart \
+            test/features/management_workflow_clarity_contract_test.dart
 
       - name: Analyze
         run: flutter analyze
@@ -72,7 +73,8 @@ jobs:
             test/features/v2_organization_workspace_test.dart \
             test/features/v2_adaptive_workspace_test.dart \
             test/features/v2_typed_organization_navigation_test.dart \
-            test/features/v2_shell_production_capabilities_test.dart
+            test/features/v2_shell_production_capabilities_test.dart \
+            test/features/management_workflow_clarity_contract_test.dart
 
       - name: Full suite
         run: flutter test
