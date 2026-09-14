@@ -27,7 +27,7 @@ void main() {
   });
 
   test(
-    'management keeps one quiet export tool and concrete setup next steps',
+    'management routes one quiet export tool by active area and keeps concrete setup next steps',
     () {
       final areas = File(
         'lib/features/organization_management/presentation/organization_management_areas.dart',
@@ -37,8 +37,21 @@ void main() {
       ).readAsStringSync();
 
       expect(areas, contains('_ManagementToolbar('));
-      expect(areas, contains('? _showExportRecords'));
-      expect(areas, contains("title: const Text('导出记录')"));
+      expect(areas, contains('_exportActionForSelectedArea()'));
+      expect(
+        areas,
+        contains(
+          'OrganizationManagementArea.people => widget.onExportTeacherRecords',
+        ),
+      );
+      expect(
+        areas,
+        contains(
+          'OrganizationManagementArea.students => widget.onExportStudentRecords',
+        ),
+      );
+      expect(areas, contains('OrganizationManagementArea.settings => null'));
+      expect(areas, contains('onExport: exportAction'));
       expect(layout, contains("key: const Key('management-export-records')"));
       expect(layout, contains("tooltip: '导出记录'"));
       expect(layout, contains("label: const Text('导出记录')"));
