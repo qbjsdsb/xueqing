@@ -21,8 +21,14 @@ void main() {
             builder: (context, enabled, _) => V2WorkspacePreview(
               data: v2FixtureWorkspaceData,
               organizationPageBuilder: enabled
-                  ? (context, onBackToPersonal, section, onSectionChanged) =>
-                        const Center(child: Text('机构权限测试页'))
+                  ? (
+                      context,
+                      onBackToPersonal,
+                      section,
+                      onSectionChanged,
+                      managementArea,
+                      onManagementAreaChanged,
+                    ) => const Center(child: Text('机构权限测试页'))
                   : null,
             ),
           ),

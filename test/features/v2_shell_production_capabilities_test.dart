@@ -61,8 +61,11 @@ void main() {
     expect(preview, isNot(contains("Key('v2-open-organization-scope')")));
     expect(preview, contains("const _RailGroupLabel('我的教学')"));
     expect(preview, contains("const _RailGroupLabel('机构')"));
-    expect(preview, contains("tooltip: '管理'"));
-    expect(preview, contains("tooltip: '设置'"));
+    expect(preview, contains("tooltip: '机构学情监督'"));
+    expect(preview, contains("tooltip: '机构成员'"));
+    expect(preview, contains("tooltip: '机构学生'"));
+    expect(preview, contains("tooltip: '机构设置'"));
+    expect(preview, contains("tooltip: '更多'"));
     expect(preview, contains("title: const Text('检查更新')"));
     expect(preview, contains("title: const Text('退出登录')"));
     expect(preview, contains("Key('v2-workspace-refresh')"));

@@ -10,14 +10,20 @@ void main() {
     theme: V2Theme.light(),
     home: V2WorkspacePreview(
       organizationPageBuilder:
-          (context, onBackToPersonal, section, onSectionChanged) =>
-              PopScope<void>(
-                canPop: false,
-                onPopInvokedWithResult: (didPop, _) {
-                  if (!didPop) onBackToPersonal();
-                },
-                child: const Center(child: Text('机构测试页')),
-              ),
+          (
+            context,
+            onBackToPersonal,
+            section,
+            onSectionChanged,
+            managementArea,
+            onManagementAreaChanged,
+          ) => PopScope<void>(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) onBackToPersonal();
+            },
+            child: const Center(child: Text('机构测试页')),
+          ),
     ),
   );
 
@@ -71,7 +77,7 @@ void main() {
         .getTopLeft(find.byKey(const Key('v2-today-page-header')))
         .dx;
 
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
     final studentsX = tester
         .getTopLeft(find.byKey(const Key('v2-students-page-header')))

@@ -12,6 +12,7 @@ import '../../../cloud/student_learning_record_repository.dart';
 import '../../../cloud/teacher_learning_record_repository.dart';
 import '../../../export/learning_record_export.dart';
 import '../../../export/learning_record_export_feedback.dart';
+import '../../design_v2/v2_workspace_navigation.dart';
 import 'organization_student_edit_dialog.dart';
 import 'organization_student_record_export_dialog.dart';
 import 'organization_student_setup_dialog.dart';
@@ -49,6 +50,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.refreshRevision = 0,
     this.initialArea,
     this.onAreaChanged,
+    this.showAreaSwitcher = true,
     super.key,
   });
 
@@ -70,6 +72,7 @@ class OrganizationManagementPage extends StatefulWidget {
   final int refreshRevision;
   final OrganizationManagementArea? initialArea;
   final ValueChanged<OrganizationManagementArea>? onAreaChanged;
+  final bool showAreaSwitcher;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -180,6 +183,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                               snapshot: snapshotState.data!,
                               initialArea: widget.initialArea,
                               onAreaChanged: widget.onAreaChanged,
+                              showAreaSwitcher: widget.showAreaSwitcher,
                               isOwner: _isOwner,
                               busy: _busy,
                               canInvite: _inviteRoles.isNotEmpty,
