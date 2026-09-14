@@ -1612,6 +1612,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                   );
                 }
                 return _DesktopWorkspace(
+                  expandedRail: constraints.maxWidth >= 1280,
                   destination: _destination,
                   selectedStudent: selectedStudent,
                   selectedCase: _selectedCase,
@@ -1692,6 +1693,7 @@ class _QuietPaneTransition extends StatelessWidget {
 
 class _DesktopWorkspace extends StatelessWidget {
   const _DesktopWorkspace({
+    required this.expandedRail,
     required this.destination,
     required this.selectedStudent,
     required this.selectedCase,
@@ -1713,6 +1715,7 @@ class _DesktopWorkspace extends StatelessWidget {
     this.onManage,
   });
 
+  final bool expandedRail;
   final V2WorkspaceDestination destination;
   final V2Student selectedStudent;
   final V2FocusItem? selectedCase;
@@ -1737,8 +1740,6 @@ class _DesktopWorkspace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final border = Theme.of(context).colorScheme.outlineVariant;
-    final width = MediaQuery.sizeOf(context).width;
-    final expandedRail = width >= 1280;
     final studentPaneWidth = expandedRail ? 320.0 : 288.0;
     return Scaffold(
       key: const Key('v2-expanded-shell'),
