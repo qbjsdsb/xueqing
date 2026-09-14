@@ -65,7 +65,15 @@ void main() {
       );
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.byTooltip('机构设置'));
+      final organizationSettings = find.byTooltip('机构设置');
+      await tester.ensureVisible(organizationSettings);
+      await tester.pumpAndSettle();
+      expect(organizationSettings.hitTestable(), findsOneWidget);
+      expect(
+        find.byKey(const Key('v2-workspace-more')).hitTestable(),
+        findsOneWidget,
+      );
+      await tester.tap(organizationSettings);
       await tester.pumpAndSettle();
       expect(find.text('机构测试页'), findsOneWidget);
       expect(tester.takeException(), isNull);
