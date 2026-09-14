@@ -78,7 +78,44 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
 
 class _V2OrganizationWorkspacePageState
     extends State<V2OrganizationWorkspacePage> {
-  final ScrollController _managementScrollController = ScrollController();
+  final Map<OrganizationManagementArea, ScrollController>
+  _managementScrollControllers = <OrganizationManagementArea, ScrollController>{
+    for (final area in OrganizationManagementArea.values)
+      area: ScrollController(keepScrollOffset: false),
+  };
+  final Map<OrganizationManagementArea, double> _managementScrollOffsets =
+      <OrganizationManagementArea, double>{
+        for (final area in OrganizationManagementArea.values) area: 0,
+      };
+
+  ScrollController get _managementScrollController =>
+      _managementScrollControllers[_managementArea ??
+          OrganizationManagementArea.people]!;
+
+  void _rememberManagementScrollOffset() {
+    final area = _managementArea;
+    if (area == null) return;
+    final controller = _managementScrollControllers[area]!;
+    if (controller.hasClients) {
+      _managementScrollOffsets[area] = controller.offset;
+    }
+  }
+
+  void _restoreManagementScrollOffset(OrganizationManagementArea area) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = _managementScrollControllers[area]!;
+      if (!controller.hasClients) return;
+      final position = controller.position;
+      final target = _managementScrollOffsets[area]!
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      if ((controller.offset - target).abs() > 0.5) {
+        controller.jumpTo(target);
+      }
+    });
+  }
+
   V2OrganizationSection _section = V2OrganizationSection.learning;
   OrganizationManagementArea? _managementArea;
   bool _managementActivated = false;
@@ -99,7 +136,9 @@ class _V2OrganizationWorkspacePageState
     super.didUpdateWidget(oldWidget);
     final requestedArea = widget.managementArea;
     if (requestedArea != null && requestedArea != _managementArea) {
+      _rememberManagementScrollOffset();
       _managementArea = requestedArea;
+      _restoreManagementScrollOffset(requestedArea);
     }
     final requested = widget.section;
     if (requested != null && requested != _section) {
@@ -123,13 +162,17 @@ class _V2OrganizationWorkspacePageState
 
   void _handleManagementAreaChanged(OrganizationManagementArea area) {
     if (_managementArea == area) return;
+    _rememberManagementScrollOffset();
     setState(() => _managementArea = area);
+    _restoreManagementScrollOffset(area);
     widget.onManagementAreaChanged?.call(area);
   }
 
   @override
   void dispose() {
-    _managementScrollController.dispose();
+    for (final controller in _managementScrollControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -513,10 +556,16 @@ class _V2OrganizationWorkspacePageState
                         ),
                         if (_managementActivated)
                           Scrollbar(
+                            key: const Key(
+                              'v2-organization-management-scrollbar',
+                            ),
                             controller: _managementScrollController,
                             thumbVisibility: !compact,
                             interactive: !compact,
                             child: SingleChildScrollView(
+                              key: const Key(
+                                'v2-organization-management-scroll',
+                              ),
                               controller: _managementScrollController,
                               keyboardDismissBehavior:
                                   ScrollViewKeyboardDismissBehavior.onDrag,

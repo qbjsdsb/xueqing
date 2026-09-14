@@ -24,6 +24,8 @@ Android Compact keeps the layered presentation: enter Organization from More, th
 - Icon-only tooltips are scope explicit: for example `我的学生`, `机构学情监督`, `机构成员`, `机构学生`, `机构设置`.
 - Embedded Organization Management hides its duplicate area switcher because the outer Windows rail already owns those destinations.
 - Compact and standalone Organization pages retain the area switcher so Members / Students / Settings are never made unreachable.
+- Members / Students / Settings keep independent scroll positions while sharing one management snapshot.
+- Management onboarding and export actions stay contextual to the active peer destination.
 
 ## State and safety boundaries
 

@@ -12,6 +12,7 @@ import '../../../cloud/student_learning_record_repository.dart';
 import '../../../cloud/teacher_learning_record_repository.dart';
 import '../../../export/learning_record_export.dart';
 import '../../../export/learning_record_export_feedback.dart';
+import '../../design_v2/v2_workspace_navigation.dart';
 import 'organization_student_edit_dialog.dart';
 import 'organization_student_record_export_dialog.dart';
 import 'organization_student_setup_dialog.dart';

@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Organization workspace owns the selected management area', () {
+    final navigation = File(
+      'lib/features/design_v2/v2_workspace_navigation.dart',
+    ).readAsStringSync();
     final areas = File(
       'lib/features/organization_management/presentation/organization_management_areas.dart',
     ).readAsStringSync();
@@ -14,7 +17,7 @@ void main() {
       'lib/features/design_v2/v2_organization_workspace_page.dart',
     ).readAsStringSync();
 
-    expect(areas, contains('enum OrganizationManagementArea'));
+    expect(navigation, contains('enum OrganizationManagementArea'));
     expect(
       areas,
       contains('widget.initialArea ?? _initialArea(widget.snapshot)'),

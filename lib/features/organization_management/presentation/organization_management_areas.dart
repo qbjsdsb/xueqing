@@ -1,9 +1,5 @@
 part of 'organization_management_page.dart';
 
-enum OrganizationManagementArea { people, students, settings }
-
-enum _ManagementExportMode { students, teacher }
-
 class _ManagementOverview extends StatefulWidget {
   const _ManagementOverview({
     required this.snapshot,
@@ -135,50 +131,23 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     });
   }
 
-  Future<void> _showExportRecords() async {
-    if (widget.busy) return;
-    final canExportStudents = widget.onExportStudentRecords != null;
-    final canExportTeachers = widget.onExportTeacherRecords != null;
-    if (!canExportStudents && !canExportTeachers) return;
-
-    final selection = await showDialog<_ManagementExportMode>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('导出记录'),
-        children: [
-          if (canExportStudents)
-            SimpleDialogOption(
-              key: const Key('management-export-students-option'),
-              onPressed: () =>
-                  Navigator.of(context).pop(_ManagementExportMode.students),
-              child: const ListTile(
-                leading: Icon(Icons.school_outlined),
-                title: Text('按学生和学科导出'),
-                subtitle: Text('可选择多名学生和多个学科，导出完整学情记录'),
-              ),
-            ),
-          if (canExportTeachers)
-            SimpleDialogOption(
-              key: const Key('management-export-teacher-option'),
-              onPressed: () =>
-                  Navigator.of(context).pop(_ManagementExportMode.teacher),
-              child: const ListTile(
-                leading: Icon(Icons.person_outline),
-                title: Text('按老师导出'),
-                subtitle: Text('选择一位老师，导出其真实记录归属下的全部记录'),
-              ),
-            ),
-        ],
-      ),
-    );
-    if (!mounted || selection == null) return;
-    switch (selection) {
-      case _ManagementExportMode.students:
-        await widget.onExportStudentRecords?.call();
-      case _ManagementExportMode.teacher:
-        await widget.onExportTeacherRecords?.call();
+  OrganizationManagementArea? _setupNextStepArea() {
+    final options = widget.snapshot.setupOptions;
+    if (options.subjects.isEmpty) return OrganizationManagementArea.settings;
+    if (options.teachers.isEmpty || !options.canCreateStudent) {
+      return OrganizationManagementArea.people;
     }
+    if (widget.snapshot.students.isEmpty) {
+      return OrganizationManagementArea.students;
+    }
+    return null;
   }
+
+  VoidCallback? _exportActionForSelectedArea() => switch (_selectedArea) {
+    OrganizationManagementArea.people => widget.onExportTeacherRecords,
+    OrganizationManagementArea.students => widget.onExportStudentRecords,
+    OrganizationManagementArea.settings => null,
+  };
 
   Widget? _buildSetupNextStep() {
     final options = widget.snapshot.setupOptions;
@@ -279,7 +248,10 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     final endedAssignments = widget.snapshot.studentTeacherAssignments
         .where((assignment) => !assignment.isActive)
         .toList(growable: false);
-    final setupNextStep = _buildSetupNextStep();
+    final setupNextStep = _setupNextStepArea() == _selectedArea
+        ? _buildSetupNextStep()
+        : null;
+    final exportAction = _exportActionForSelectedArea();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,11 +269,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           },
           busy: widget.busy,
           showAreaSwitcher: widget.showAreaSwitcher,
-          onExport:
-              widget.onExportStudentRecords != null ||
-                  widget.onExportTeacherRecords != null
-              ? _showExportRecords
-              : null,
+          onExport: exportAction,
         ),
         const SizedBox(height: AppSpacing.lg),
         switch (_selectedArea) {
