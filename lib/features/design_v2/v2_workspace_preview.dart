@@ -1786,6 +1786,7 @@ class _DesktopWorkspace extends StatelessWidget {
                           student: selectedStudent,
                           item: selectedCase!,
                           onBack: onBackFromCase,
+                          wideDesktop: expandedRail,
                         )
                       : _StudentDetailPane(
                           student: selectedStudent,
@@ -3821,12 +3822,14 @@ class _CaseDetailPane extends StatelessWidget {
     required this.item,
     required this.onBack,
     this.compact = false,
+    this.wideDesktop = false,
   });
 
   final V2Student student;
   final V2FocusItem item;
   final VoidCallback onBack;
   final bool compact;
+  final bool wideDesktop;
 
   String get _statusLabel {
     switch (item.effectiveStatus) {
@@ -3963,12 +3966,121 @@ class _CaseDetailPane extends StatelessWidget {
             ],
           );
 
+    final activeActionSection = Container(
+      key: ValueKey<String>('v2-case-next-step-${item.id}'),
+      width: double.infinity,
+      padding: EdgeInsets.all(wideDesktop ? 0 : 17),
+      decoration: wideDesktop
+          ? null
+          : BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '下一步',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            nextStep,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            dueText,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          if (pendingAction != null) ...[
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (pendingAction.canComplete)
+                  FilledButton.tonalIcon(
+                    key: ValueKey<String>('v2-complete-${item.id}'),
+                    onPressed: () =>
+                        _showV2CompleteCurrentAction(context, student, item),
+                    icon: const Icon(Icons.check_circle_outline, size: 18),
+                    label: const Text('处理这一步'),
+                  ),
+                OutlinedButton.icon(
+                  key: ValueKey<String>('v2-reschedule-${item.id}'),
+                  onPressed: () =>
+                      _showV2RescheduleCurrentAction(context, student, item),
+                  icon: const Icon(Icons.event_repeat_outlined, size: 18),
+                  label: Text(pendingAction.dueOn == null ? '安排日期' : '改期'),
+                ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Text(
+              item.pendingVerification
+                  ? '还没有安排复检时间。完成本次检查后如仍需继续关注，可在记录复检时设置下一次提醒。'
+                  : '还没有具体提醒。记录下一次进展时，可以顺手安排后续。',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    final closedActionSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.check_circle_outline, size: 18, color: scheme.primary),
+            const SizedBox(width: 8),
+            Expanded(child: Text(nextStep, style: theme.textTheme.bodyMedium)),
+          ],
+        ),
+        if (canReopen) ...[
+          const SizedBox(height: 16),
+          FilledButton.tonalIcon(
+            key: ValueKey<String>('v2-reopen-${item.id}'),
+            onPressed: () => _showV2ReopenClosedCase(context, student, item),
+            icon: const Icon(Icons.restart_alt, size: 18),
+            label: const Text('再次出现，重新跟进'),
+          ),
+        ],
+      ],
+    );
+
+    final actionSection = KeyedSubtree(
+      key: const Key('v2-case-action-section'),
+      child: item.closed ? closedActionSection : activeActionSection,
+    );
+    final timelineSection = Column(
+      key: const Key('v2-case-timeline-section'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle(title: '成长过程'),
+        const SizedBox(height: 16),
+        _Timeline(entries: timelineEntries, resolveEvidencePhotos: true),
+      ],
+    );
+
     return ColoredBox(
       color: scheme.surface,
       child: SingleChildScrollView(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 860),
+            constraints: BoxConstraints(maxWidth: wideDesktop ? 1120 : 860),
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 compact ? 18 : 32,
@@ -4027,132 +4139,42 @@ class _CaseDetailPane extends StatelessWidget {
                         ],
                       ],
                     ),
-                  const SizedBox(height: 26),
-                  if (item.closed) ...[
+                  const SizedBox(height: 30),
+                  if (wideDesktop)
                     Row(
+                      key: const Key('v2-case-desktop-columns'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.check_circle_outline,
-                          size: 18,
-                          color: scheme.primary,
-                        ),
-                        const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            nextStep,
-                            style: theme.textTheme.bodyMedium,
+                          key: const Key('v2-case-timeline-column'),
+                          child: timelineSection,
+                        ),
+                        const SizedBox(width: 32),
+                        SizedBox(
+                          width: 304,
+                          child: Container(
+                            key: const Key('v2-case-action-column'),
+                            padding: const EdgeInsets.only(left: 24),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                left: BorderSide(color: scheme.outlineVariant),
+                              ),
+                            ),
+                            child: actionSection,
                           ),
                         ),
                       ],
+                    )
+                  else
+                    Column(
+                      key: const Key('v2-case-stacked-sections'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        actionSection,
+                        const SizedBox(height: 40),
+                        timelineSection,
+                      ],
                     ),
-                  ] else
-                    Container(
-                      key: ValueKey<String>('v2-case-next-step-${item.id}'),
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(17),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: scheme.outlineVariant),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '下一步',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            nextStep,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            dueText,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                          if (pendingAction != null) ...[
-                            const SizedBox(height: 14),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                if (pendingAction.canComplete)
-                                  FilledButton.tonalIcon(
-                                    key: ValueKey<String>(
-                                      'v2-complete-${item.id}',
-                                    ),
-                                    onPressed: () =>
-                                        _showV2CompleteCurrentAction(
-                                          context,
-                                          student,
-                                          item,
-                                        ),
-                                    icon: const Icon(
-                                      Icons.check_circle_outline,
-                                      size: 18,
-                                    ),
-                                    label: const Text('处理这一步'),
-                                  ),
-                                OutlinedButton.icon(
-                                  key: ValueKey<String>(
-                                    'v2-reschedule-${item.id}',
-                                  ),
-                                  onPressed: () =>
-                                      _showV2RescheduleCurrentAction(
-                                        context,
-                                        student,
-                                        item,
-                                      ),
-                                  icon: const Icon(
-                                    Icons.event_repeat_outlined,
-                                    size: 18,
-                                  ),
-                                  label: Text(
-                                    pendingAction.dueOn == null ? '安排日期' : '改期',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ] else ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              item.pendingVerification
-                                  ? '还没有安排复检时间。完成本次检查后如仍需继续关注，可在记录复检时设置下一次提醒。'
-                                  : '还没有具体提醒。记录下一次进展时，可以顺手安排后续。',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  if (canReopen) ...[
-                    const SizedBox(height: 16),
-                    FilledButton.tonalIcon(
-                      key: ValueKey<String>('v2-reopen-${item.id}'),
-                      onPressed: () =>
-                          _showV2ReopenClosedCase(context, student, item),
-                      icon: const Icon(Icons.restart_alt, size: 18),
-                      label: const Text('再次出现，重新跟进'),
-                    ),
-                  ],
-                  const SizedBox(height: 40),
-                  const _SectionTitle(title: '成长过程'),
-                  const SizedBox(height: 16),
-                  _Timeline(
-                    entries: timelineEntries,
-                    resolveEvidencePhotos: true,
-                  ),
                 ],
               ),
             ),
