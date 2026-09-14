@@ -46,20 +46,26 @@ void main() {
     expect(organization, contains('widget.onBackFromRoot?.call();'));
   });
 
-  test('compact student canvas no longer mixes list and scaffold surfaces', () {
-    final source = File('lib/features/design_v2/v2_workspace_preview.dart')
-        .readAsStringSync();
-    expect(
-      source,
-      contains(
-        'widget.compact ? scheme.surface : scheme.surfaceContainerLowest',
-      ),
-    );
-    expect(
-      source,
-      contains('backgroundColor: Theme.of(context).colorScheme.surface'),
-    );
-  });
+  test(
+    'student canvas uses one base surface across compact and split layouts',
+    () {
+      final source = File('lib/features/design_v2/v2_workspace_preview.dart')
+          .readAsStringSync();
+      expect(source, contains('color: scheme.surface,'));
+      expect(
+        source,
+        isNot(
+          contains(
+            'widget.compact ? scheme.surface : scheme.surfaceContainerLowest',
+          ),
+        ),
+      );
+      expect(
+        source,
+        contains('backgroundColor: Theme.of(context).colorScheme.surface'),
+      );
+    },
+  );
 
   test(
     'teacher workspace exposes own-student export and Windows path feedback',
