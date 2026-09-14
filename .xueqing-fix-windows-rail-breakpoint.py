@@ -27,3 +27,13 @@ assert old in text, 'DesktopWorkspace MediaQuery breakpoint anchor not found'
 text = text.replace(old, new, 1)
 
 path.write_text(text)
+
+# Keep the source-contract test aligned with the intended architecture: the
+# outer LayoutBuilder owns the breakpoint and the desktop child consumes it.
+contract_path = Path('test/features/v2_visual_polish_contract_test.dart')
+contract = contract_path.read_text()
+old = "    expect(source, contains('final expandedRail = width >= 1280;'));"
+new = """    expect(\n      source,\n      contains('expandedRail: constraints.maxWidth >= 1280,'),\n    );\n    expect(\n      source,\n      isNot(contains('final expandedRail = width >= 1280;')),\n    );"""
+assert old in contract, 'Visual polish breakpoint contract anchor not found'
+contract = contract.replace(old, new, 1)
+contract_path.write_text(contract)
