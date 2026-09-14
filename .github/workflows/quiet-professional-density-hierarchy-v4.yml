@@ -70,18 +70,18 @@ jobs:
               workspace,
               'class _StudentListPaneState',
               'class _StudentRow',
-              '                const SizedBox(height: 18),',
               '                const SizedBox(height: 14),',
-              'student list header-to-search rhythm',
+              '                const SizedBox(height: 8),',
+              'student list search-to-count rhythm',
               1,
           )
           workspace = replace_in_section(
               workspace,
               'class _StudentListPaneState',
               'class _StudentRow',
+              '                const SizedBox(height: 18),',
               '                const SizedBox(height: 14),',
-              '                const SizedBox(height: 8),',
-              'student list search-to-count rhythm',
+              'student list header-to-search rhythm',
               1,
           )
           workspace = replace_in_section(
@@ -227,19 +227,19 @@ jobs:
               workspace,
               'class _CaseIndexPaneState',
               'class _V2OperationGuide',
-              '              const SizedBox(height: 16),',
               '              const SizedBox(height: 12),',
-              'learning controls rhythm',
-              2,
+              '              const SizedBox(height: 8),',
+              'learning result-count rhythm',
+              1,
           )
           workspace = replace_in_section(
               workspace,
               'class _CaseIndexPaneState',
               'class _V2OperationGuide',
+              '              const SizedBox(height: 16),',
               '              const SizedBox(height: 12),',
-              '              const SizedBox(height: 8),',
-              'learning result-count rhythm',
-              1,
+              'learning controls rhythm',
+              2,
           )
 
           workspace_path.write_text(workspace)
