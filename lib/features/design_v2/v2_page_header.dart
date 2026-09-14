@@ -32,22 +32,39 @@ class V2PageHeader extends StatelessWidget {
     final copy = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.headlineSmall),
         if (meta?.trim().isNotEmpty == true) ...[
-          const SizedBox(height: 5),
           Text(
             meta!,
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: theme.textTheme.labelMedium?.copyWith(
               color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.15,
             ),
           ),
+          const SizedBox(height: 5),
         ],
+        Semantics(
+          header: true,
+          child: Text(
+            title,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontSize: 29,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.35,
+            ),
+          ),
+        ),
         if (description?.trim().isNotEmpty == true) ...[
-          const SizedBox(height: 4),
-          Text(
-            description!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
+          const SizedBox(height: 7),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Text(
+              description!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.5,
+              ),
             ),
           ),
         ],
@@ -57,7 +74,7 @@ class V2PageHeader extends StatelessWidget {
     Widget titleRow() => Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (leading != null) ...[leading!, const SizedBox(width: 8)],
+        if (leading != null) ...[leading!, const SizedBox(width: 10)],
         Expanded(child: copy),
       ],
     );
@@ -76,27 +93,27 @@ class V2PageHeader extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (leading != null) ...[leading!, const SizedBox(width: 8)],
+                  if (leading != null) ...[leading!, const SizedBox(width: 10)],
                   Expanded(child: copy),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
+                    spacing: 6,
+                    runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: actions,
                   ),
                 ],
               ),
             if (stackActions) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Wrap(
-                spacing: 4,
-                runSpacing: 4,
+                spacing: 6,
+                runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: actions,
               ),
             ],
-            if (footer != null) ...[const SizedBox(height: 16), footer!],
+            if (footer != null) ...[const SizedBox(height: 20), footer!],
           ],
         );
       },
