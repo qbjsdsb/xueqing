@@ -59,14 +59,8 @@ void main() {
     expect(source, contains('!widget.compact &&'));
     expect(source, contains('ResponsiveBreakpoints.classify('));
     expect(source, contains('WindowSizeClass.medium'));
-    expect(
-      source,
-      contains('expandedRail: constraints.maxWidth >= 1280,'),
-    );
-    expect(
-      source,
-      isNot(contains('final expandedRail = width >= 1280;')),
-    );
+    expect(source, contains('expandedRail: constraints.maxWidth >= 1280,'));
+    expect(source, isNot(contains('final expandedRail = width >= 1280;')));
     expect(
       source,
       contains('final studentPaneWidth = expandedRail ? 320.0 : 288.0;'),
