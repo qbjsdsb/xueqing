@@ -1,0 +1,64 @@
+name: Quiet Professional Learning desktop v7
+
+on:
+  push:
+    branches:
+      - ux/quiet-professional-learning-desktop-v7
+
+permissions:
+  contents: write
+
+jobs:
+  refine-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: ux/quiet-professional-learning-desktop-v7
+          fetch-depth: 0
+
+      - name: Compose learning index for wide desktop
+        run: python3 .github/scripts/quiet_professional_learning_v7.py
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Format
+        run: |
+          dart format lib/features/design_v2/v2_workspace_preview.dart test/features/v2_learning_desktop_composition_test.dart
+          git diff --check
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused desktop acceptance
+        run: |
+          flutter test \
+            test/features/v2_learning_desktop_composition_test.dart \
+            test/features/v2_student_desktop_composition_test.dart \
+            test/features/v2_today_desktop_composition_test.dart \
+            test/features/v2_density_hierarchy_contract_test.dart \
+            test/features/v2_visual_polish_contract_test.dart \
+            test/features/v2_adaptive_workspace_test.dart \
+            test/features/windows_workspace_acceptance_matrix_test.dart \
+            test/features/v032_real_device_ux_contract_test.dart
+
+      - name: Full suite
+        run: flutter test
+
+      - name: Commit verified composition
+        run: |
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "style(v2): separate learning filters on wide desktop"
+          git push origin HEAD:ux/quiet-professional-learning-desktop-v7
