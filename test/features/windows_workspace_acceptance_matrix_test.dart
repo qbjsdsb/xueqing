@@ -7,9 +7,8 @@ void main() {
   Widget app({double textScale = 1.0, bool dark = false}) => MaterialApp(
     theme: dark ? V2Theme.dark() : V2Theme.light(),
     builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(
-        context,
-      ).copyWith(textScaler: TextScaler.linear(textScale)),
+      data: MediaQuery.of(context)
+          .copyWith(textScaler: TextScaler.linear(textScale)),
       child: child!,
     ),
     home: V2WorkspacePreview(
