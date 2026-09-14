@@ -1,0 +1,65 @@
+name: Apply Quiet Professional pass 1
+
+on:
+  push:
+    branches:
+      - ux/quiet-professional-visual-foundation
+    paths:
+      - .xueqing-quiet-professional-pass1.py
+      - .github/workflows/apply-quiet-professional-pass1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out visual branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/quiet-professional-visual-foundation
+          fetch-depth: 0
+
+      - name: Apply presentation-only transformation
+        run: python .xueqing-quiet-professional-pass1.py
+
+      - name: Remove one-shot assets
+        run: rm .xueqing-quiet-professional-pass1.py .github/workflows/apply-quiet-professional-pass1.yml
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.1
+          channel: stable
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Format
+        run: dart format .
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused visual contracts
+        run: >-
+          flutter test
+          test/features/quiet_professional_visual_foundation_test.dart
+          test/features/v2_page_rhythm_test.dart
+          test/features/v2_visual_foundation_contract_test.dart
+          test/features/v2_visual_polish_contract_test.dart
+          test/features/windows_workspace_acceptance_matrix_test.dart
+
+      - name: Full test suite
+        run: flutter test
+
+      - name: Commit verified visual pass
+        run: |
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "style(v2): establish Quiet Professional first pass"
+          git push origin HEAD:ux/quiet-professional-visual-foundation
