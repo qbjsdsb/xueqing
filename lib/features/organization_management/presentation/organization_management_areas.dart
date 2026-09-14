@@ -184,10 +184,14 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
 
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
+      key: const Key('management-setup-next-step'),
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
+        color: Colors.transparent,
         border: Border(left: BorderSide(color: colorScheme.primary, width: 2)),
       ),
       child: Wrap(

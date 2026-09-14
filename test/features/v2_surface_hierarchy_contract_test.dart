@@ -40,6 +40,9 @@ void main() {
     final management = File(
       'lib/features/organization_management/presentation/organization_management_layout.dart',
     ).readAsStringSync();
+    final managementAreas = File(
+      'lib/features/organization_management/presentation/organization_management_areas.dart',
+    ).readAsStringSync();
 
     final header = _slice(
       management,
@@ -56,5 +59,18 @@ void main() {
     );
     expect(setupHint, contains('color: Colors.transparent,'));
     expect(setupHint, isNot(contains('surfaceContainerLow')));
+
+    final setupNextStep = _slice(
+      managementAreas,
+      'Widget? _buildSetupNextStep()',
+      'OrganizationManagementArea _initialArea',
+    );
+    expect(
+      setupNextStep,
+      contains("key: const Key('management-setup-next-step')"),
+    );
+    expect(setupNextStep, contains('color: Colors.transparent,'));
+    expect(setupNextStep, isNot(contains('surfaceContainerLow')));
+    expect(setupNextStep, contains('FilledButton.tonal('));
   });
 }
