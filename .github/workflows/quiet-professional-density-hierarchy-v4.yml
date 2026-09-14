@@ -264,7 +264,7 @@ jobs:
             test('top-level headers stay quieter than entity detail headlines', () {
               final header = File('lib/features/design_v2/v2_page_header.dart')
                   .readAsStringSync();
-              expect(header, contains('theme.textTheme.titleLarge?.copyWith('));
+              expect(header, contains('theme.textTheme.titleLarge'));
               expect(header, contains('fontSize: 22'));
               expect(header, isNot(contains('Text(title, style: theme.textTheme.headlineSmall)')));
 
@@ -276,8 +276,9 @@ jobs:
                 'class _ManagementHeader',
                 'class _ManagementToolbar',
               );
-              expect(managementHeader, contains('textTheme.titleLarge?.copyWith('));
-              expect(managementHeader, contains('fontSize: 22'));
+              expect(managementHeader, contains('textTheme.titleLarge'));
+              expect(managementHeader, contains('copyWith(fontSize: 22, height: 1.35)'));
+              expect(managementHeader, isNot(contains('textTheme.headlineSmall')));
             });
 
             test('sections and rows use a denser editorial hierarchy', () {
