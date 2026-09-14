@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Finalization rerun: apply the already validated breakpoint correction on a fresh runner.
 path = Path('lib/features/design_v2/v2_workspace_preview.dart')
 text = path.read_text()
 
