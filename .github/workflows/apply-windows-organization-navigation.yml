@@ -1,0 +1,67 @@
+name: Apply Windows organization navigation
+
+on:
+  push:
+    branches:
+      - ux/windows-organization-navigation-v2
+    paths:
+      - .xueqing-windows-nav.py
+      - .github/workflows/apply-windows-organization-navigation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Apply Windows navigation presentation
+        run: python3 .xueqing-windows-nav.py
+
+      - name: Remove one-shot assets
+        run: rm -f .xueqing-windows-nav.py .github/workflows/apply-windows-organization-navigation.yml
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Format touched files
+        run: |
+          dart format \
+            lib/features/design_v2/v2_workspace_preview.dart \
+            lib/features/design_v2/v2_workspace_loader.dart \
+            lib/features/design_v2/v2_organization_workspace_page.dart \
+            lib/features/organization_management/presentation/organization_management_page.dart \
+            lib/features/organization_management/presentation/organization_management_areas.dart \
+            lib/features/organization_management/presentation/organization_management_layout.dart \
+            test/features/windows_organization_navigation_contract_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused Windows and Organization contracts
+        run: |
+          flutter test \
+            test/features/windows_organization_navigation_contract_test.dart \
+            test/features/organization_navigation_state_contract_test.dart \
+            test/features/design_v2_workspace_test.dart
+
+      - name: Full suite
+        run: flutter test
+
+      - name: Commit verified Windows navigation
+        run: |
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor(windows): flatten organization navigation"
+          git push origin HEAD:ux/windows-organization-navigation-v2
