@@ -372,6 +372,43 @@ void main() {
   );
 
   testWidgets(
+    'Android compact student drill-down releases retained search focus',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(androidApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('学生'));
+      await tester.pumpAndSettle();
+
+      final search = find.byKey(const Key('v2-student-search'));
+      await tester.tap(search);
+      await tester.enterText(search, '林同学');
+      await tester.pump();
+      final editable = tester.widget<EditableText>(
+        find.descendant(of: search, matching: find.byType(EditableText)),
+      );
+      expect(editable.focusNode.hasFocus, isTrue);
+
+      final studentResult = find.descendant(
+        of: find.byType(ListView),
+        matching: find.text('林同学'),
+      );
+      expect(studentResult, findsOneWidget);
+      await tester.tap(studentResult);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('v2-student-detail-context-row')),
+        findsOneWidget,
+      );
+      expect(editable.focusNode.hasFocus, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Android compact root pages preserve student search across destination changes',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
