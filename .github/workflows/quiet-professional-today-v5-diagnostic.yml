@@ -1,0 +1,72 @@
+name: Quiet Professional Today desktop v5 diagnostic
+
+on:
+  push:
+    branches:
+      - ux/quiet-professional-today-desktop-v5
+
+permissions:
+  contents: write
+
+jobs:
+  refine-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: ux/quiet-professional-today-desktop-v5
+          fetch-depth: 0
+
+      - name: Compose candidate
+        run: python3 .github/scripts/quiet_professional_today_v5_diagnostic.py
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Format
+        run: |
+          dart format lib/features/design_v2/v2_workspace_preview.dart test/features/v2_today_desktop_composition_test.dart
+          git diff --check
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test Today desktop composition
+        run: flutter test test/features/v2_today_desktop_composition_test.dart
+
+      - name: Test density hierarchy contract
+        run: flutter test test/features/v2_density_hierarchy_contract_test.dart
+
+      - name: Test visual polish contract
+        run: flutter test test/features/v2_visual_polish_contract_test.dart
+
+      - name: Test adaptive workspace
+        run: flutter test test/features/v2_adaptive_workspace_test.dart
+
+      - name: Test Windows workspace acceptance matrix
+        run: flutter test test/features/windows_workspace_acceptance_matrix_test.dart
+
+      - name: Test v0.3.2 real device UX contract
+        run: flutter test test/features/v032_real_device_ux_contract_test.dart
+
+      - name: Full Flutter test suite
+        run: flutter test
+
+      - name: Commit verified product changes
+        run: |
+          rm .github/scripts/quiet_professional_today_v5_diagnostic.py
+          rm .github/workflows/quiet-professional-today-v5-diagnostic.yml
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "style(v2): compose Today for wide desktop"
+          git push origin HEAD:ux/quiet-professional-today-desktop-v5
