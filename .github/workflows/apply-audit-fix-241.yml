@@ -8,6 +8,7 @@ on:
       - .xueqing-audit-fix-241.py
       - .xueqing-audit-fix-241-contract.py
       - .xueqing-audit-fix-241-behavior.py
+      - .xueqing-audit-fix-241-contract-format.py
       - .github/workflows/apply-audit-fix-241.yml
 
 permissions:
@@ -27,6 +28,7 @@ jobs:
           python3 .xueqing-audit-fix-241.py
           python3 .xueqing-audit-fix-241-contract.py
           python3 .xueqing-audit-fix-241-behavior.py
+          python3 .xueqing-audit-fix-241-contract-format.py
 
       - name: Remove one-shot assets
         run: |
@@ -34,6 +36,7 @@ jobs:
             .xueqing-audit-fix-241.py \
             .xueqing-audit-fix-241-contract.py \
             .xueqing-audit-fix-241-behavior.py \
+            .xueqing-audit-fix-241-contract-format.py \
             .github/workflows/apply-audit-fix-241.yml
 
       - uses: subosito/flutter-action@v2
