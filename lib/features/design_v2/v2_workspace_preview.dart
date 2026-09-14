@@ -1262,6 +1262,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   }
 
   void _openStudent(V2Student student) {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _selectedStudent = student;
       _selectedCase = null;
@@ -1271,6 +1272,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   }
 
   void _openCase(V2FocusItem item) {
+    FocusManager.instance.primaryFocus?.unfocus();
     final student = widget.data.studentForFocusItemOrNull(item);
     if (student == null) {
       return;
@@ -1311,6 +1313,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   }
 
   void _openOrganization(V2OrganizationSection section) {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       if (_destination != V2WorkspaceDestination.organization) {
         _lastPersonalDestination = _destination;
@@ -2017,190 +2020,179 @@ class _CompactWorkspace extends StatefulWidget {
 }
 
 class _CompactWorkspaceState extends State<_CompactWorkspace> {
-  static const double _edgeSafetyInset = 8;
-  static const double _minimumFlingDistance = 24;
-  static const double _minimumFlingVelocity = 700;
+  late final PageController _pageController;
+  bool _editingText = false;
 
-  bool _horizontalDragEnabled = false;
-  double _horizontalDragDistance = 0;
-  int _transitionDirection = 0;
+  int get _destinationIndex =>
+      _compactPrimaryDestinations.indexOf(widget.destination);
+
+  @override
+  void initState() {
+    super.initState();
+    final initialIndex = _destinationIndex;
+    _pageController = PageController(
+      initialPage: initialIndex < 0 ? 0 : initialIndex,
+    );
+    FocusManager.instance.addListener(_handleFocusChange);
+  }
 
   @override
   void didUpdateWidget(covariant _CompactWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldIndex = _compactPrimaryDestinations.indexOf(oldWidget.destination);
-    final newIndex = _compactPrimaryDestinations.indexOf(widget.destination);
-    if (oldIndex >= 0 && newIndex >= 0 && oldIndex != newIndex) {
-      _transitionDirection = newIndex > oldIndex ? 1 : -1;
+    if (oldWidget.destination != widget.destination) {
+      _syncPagerToDestination();
     }
   }
 
-  void _resetHorizontalDrag() {
-    _horizontalDragEnabled = false;
-    _horizontalDragDistance = 0;
+  @override
+  void dispose() {
+    FocusManager.instance.removeListener(_handleFocusChange);
+    _pageController.dispose();
+    super.dispose();
   }
 
-  void _handleHorizontalDragDown(DragDownDetails details) {
-    final media = MediaQuery.of(context);
-    final gestureInsets = media.systemGestureInsets;
-    final x = details.localPosition.dx;
-    final leftGuard = gestureInsets.left + _edgeSafetyInset;
-    final rightGuard =
-        media.size.width - gestureInsets.right - _edgeSafetyInset;
-
-    _horizontalDragDistance = 0;
-    _horizontalDragEnabled =
-        media.viewInsets.bottom <= 0 && x > leftGuard && x < rightGuard;
+  void _handleFocusChange() {
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    final editing =
+        focusContext != null &&
+        (focusContext.widget is EditableText ||
+            focusContext.findAncestorWidgetOfExactType<EditableText>() != null);
+    if (!mounted || editing == _editingText) return;
+    setState(() => _editingText = editing);
   }
 
-  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
-    if (!_horizontalDragEnabled) return;
-    _horizontalDragDistance += details.delta.dx;
+  void _syncPagerToDestination() {
+    final index = _destinationIndex;
+    if (index < 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients) return;
+      final currentPage =
+          _pageController.page?.round() ?? _pageController.initialPage;
+      if (currentPage != index) {
+        _pageController.jumpToPage(index);
+      }
+    });
   }
 
-  void _handleHorizontalDragEnd(DragEndDetails details) {
-    if (!_horizontalDragEnabled) {
-      _resetHorizontalDrag();
-      return;
+  void _handlePageChanged(int index) {
+    if (index < 0 || index >= _compactPrimaryDestinations.length) return;
+    final destination = _compactPrimaryDestinations[index];
+    if (destination != widget.destination) {
+      widget.onDestinationChanged(destination);
     }
-
-    final distance = _horizontalDragDistance;
-    final velocity = details.primaryVelocity ?? 0;
-    final width = MediaQuery.sizeOf(context).width;
-    final distanceThreshold = (width * 0.16).clamp(52.0, 72.0).toDouble();
-    final commitsByDistance = distance.abs() >= distanceThreshold;
-    final commitsByFling =
-        distance.abs() >= _minimumFlingDistance &&
-        velocity.abs() >= _minimumFlingVelocity &&
-        (velocity == 0 || distance == 0 || velocity.sign == distance.sign);
-
-    _resetHorizontalDrag();
-    if (!commitsByDistance && !commitsByFling) return;
-
-    final motion = commitsByDistance ? distance : velocity;
-    _moveToAdjacentDestination(motion < 0 ? 1 : -1);
   }
 
-  void _moveToAdjacentDestination(int step) {
-    final currentIndex = _compactPrimaryDestinations.indexOf(
-      widget.destination,
-    );
-    if (currentIndex < 0) return;
-    final nextIndex = currentIndex + step;
-    if (nextIndex < 0 || nextIndex >= _compactPrimaryDestinations.length) {
-      return;
+  void _selectPrimaryDestination(int index) {
+    if (index < 0 || index >= _compactPrimaryDestinations.length) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    final destination = _compactPrimaryDestinations[index];
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(index);
     }
-    widget.onDestinationChanged(_compactPrimaryDestinations[nextIndex]);
+    if (destination != widget.destination) {
+      widget.onDestinationChanged(destination);
+    }
   }
 
-  Widget _buildSwipeSurface(BuildContext context, Widget body) {
-    final currentKey = ValueKey<String>(
-      'v2-compact-primary-${widget.destination.name}',
-    );
-    return GestureDetector(
-      key: const Key('v2-compact-swipe-surface'),
-      behavior: HitTestBehavior.translucent,
-      onHorizontalDragDown: _handleHorizontalDragDown,
-      onHorizontalDragUpdate: _handleHorizontalDragUpdate,
-      onHorizontalDragEnd: _handleHorizontalDragEnd,
-      onHorizontalDragCancel: _resetHorizontalDrag,
-      child: AnimatedSwitcher(
-        duration: AppMotion.effectiveDuration(context, AppMotion.quick),
-        reverseDuration: AppMotion.effectiveDuration(context, AppMotion.quick),
-        switchInCurve: AppMotion.enter,
-        switchOutCurve: AppMotion.exit,
-        transitionBuilder: (child, animation) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: AppMotion.enter,
-            reverseCurve: AppMotion.exit,
-          );
-          final incoming = child.key == currentKey;
-          final horizontalOffset = _transitionDirection == 0
-              ? 0.0
-              : _transitionDirection * (incoming ? 0.018 : -0.012);
-          return FadeTransition(
-            opacity: curved,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: Offset(horizontalOffset, 0),
-                end: Offset.zero,
-              ).animate(curved),
-              child: child,
+  bool get _hasInternalHistory =>
+      widget.destination == V2WorkspaceDestination.students &&
+      (widget.showCase || widget.showStudentDetail);
+
+  Widget _buildRootPager(BuildContext context) {
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final pagingEnabled =
+        Theme.of(context).platform == TargetPlatform.android &&
+        !_editingText &&
+        !keyboardVisible;
+
+    return NotificationListener<OverscrollIndicatorNotification>(
+      onNotification: (notification) {
+        if (notification.depth == 0) {
+          notification.disallowIndicator();
+        }
+        return false;
+      },
+      child: PageView(
+        key: const Key('v2-compact-swipe-surface'),
+        controller: _pageController,
+        physics: pagingEnabled
+            ? const PageScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
+        onPageChanged: _handlePageChanged,
+        children: [
+          _KeepAlivePage(
+            key: const ValueKey<String>('v2-compact-root-today'),
+            child: _TodayPane(
+              onOpenCase: widget.onOpenCase,
+              onOpenStudent: (student) {
+                widget.onStudentSelected(student);
+                widget.onDestinationChanged(V2WorkspaceDestination.students);
+              },
+              compact: true,
+              onOpenMore: widget.onOpenMore,
             ),
-          );
-        },
-        child: KeyedSubtree(key: currentKey, child: body),
+          ),
+          _KeepAlivePage(
+            key: const ValueKey<String>('v2-compact-root-students'),
+            child: _StudentListPane(
+              selectedStudent: widget.selectedStudent,
+              compact: true,
+              onOpenMore: widget.onOpenMore,
+              onSelected: widget.onStudentSelected,
+            ),
+          ),
+          _KeepAlivePage(
+            key: const ValueKey<String>('v2-compact-root-learning'),
+            child: _CaseIndexPane(
+              onOpenCase: widget.onOpenCase,
+              compact: true,
+              onOpenMore: widget.onOpenMore,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    Widget body;
+  Widget? _buildForegroundBody(BuildContext context) {
     if (widget.destination == V2WorkspaceDestination.students &&
         widget.showCase &&
         widget.selectedCase != null) {
-      body = _CaseDetailPane(
+      return _CaseDetailPane(
         student: widget.selectedStudent,
         item: widget.selectedCase!,
         onBack: widget.onBackFromCase,
         compact: true,
       );
-    } else if (widget.destination == V2WorkspaceDestination.students &&
+    }
+    if (widget.destination == V2WorkspaceDestination.students &&
         widget.showStudentDetail) {
-      body = _StudentDetailPane(
+      return _StudentDetailPane(
         student: widget.selectedStudent,
         onOpenCase: widget.onOpenCase,
         compact: true,
         onBack: widget.onBackFromStudent,
       );
-    } else if (widget.destination == V2WorkspaceDestination.students) {
-      body = _StudentListPane(
-        selectedStudent: widget.selectedStudent,
-        compact: true,
-        onOpenMore: widget.onOpenMore,
-        onSelected: widget.onStudentSelected,
-      );
-    } else if (widget.destination == V2WorkspaceDestination.today) {
-      body = _TodayPane(
-        onOpenCase: widget.onOpenCase,
-        onOpenStudent: (student) {
-          widget.onStudentSelected(student);
-          widget.onDestinationChanged(V2WorkspaceDestination.students);
-        },
-        compact: true,
-        onOpenMore: widget.onOpenMore,
-      );
-    } else if (widget.destination == V2WorkspaceDestination.learning) {
-      body = _CaseIndexPane(
-        onOpenCase: widget.onOpenCase,
-        compact: true,
-        onOpenMore: widget.onOpenMore,
-      );
-    } else {
-      body = widget.organizationPageBuilder!(
+    }
+    if (widget.destination == V2WorkspaceDestination.organization) {
+      return widget.organizationPageBuilder!(
         context,
         widget.onBackFromOrganization,
         widget.organizationSection,
         widget.onOrganizationSectionChanged,
       );
     }
+    return null;
+  }
 
-    final hasInternalHistory =
-        widget.destination == V2WorkspaceDestination.students &&
-        (widget.showCase || widget.showStudentDetail);
+  @override
+  Widget build(BuildContext context) {
+    final foregroundBody = _buildForegroundBody(context);
+    final hasForegroundBody = foregroundBody != null;
     final handlesSystemBack =
-        hasInternalHistory ||
+        _hasInternalHistory ||
         (widget.destination != V2WorkspaceDestination.today &&
             widget.destination != V2WorkspaceDestination.organization);
-    final supportsPrimarySwipe =
-        Theme.of(context).platform == TargetPlatform.android &&
-        !hasInternalHistory &&
-        _compactPrimaryDestinations.contains(widget.destination);
-    final visibleBody = supportsPrimarySwipe
-        ? _buildSwipeSurface(context, body)
-        : body;
 
     return PopScope<void>(
       canPop: !handlesSystemBack,
@@ -2224,21 +2216,21 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
       child: Scaffold(
         key: const Key('v2-compact-shell'),
         backgroundColor: Theme.of(context).colorScheme.surface,
-        body: SafeArea(child: visibleBody),
-        bottomNavigationBar:
-            hasInternalHistory ||
-                widget.destination == V2WorkspaceDestination.organization
+        body: SafeArea(
+          child: IndexedStack(
+            index: hasForegroundBody ? 1 : 0,
+            children: [
+              _buildRootPager(context),
+              foregroundBody ?? const SizedBox.shrink(),
+            ],
+          ),
+        ),
+        bottomNavigationBar: hasForegroundBody
             ? null
             : NavigationBar(
                 backgroundColor: Theme.of(context).colorScheme.surface,
-                selectedIndex: _compactPrimaryDestinations.indexOf(
-                  widget.destination,
-                ),
-                onDestinationSelected: (index) {
-                  widget.onDestinationChanged(
-                    _compactPrimaryDestinations[index],
-                  );
-                },
+                selectedIndex: _destinationIndex,
+                onDestinationSelected: _selectPrimaryDestination,
                 destinations: [
                   for (final destination in _compactPrimaryDestinations)
                     _compactNavigationDestination(destination),
@@ -2246,6 +2238,27 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
               ),
       ),
     );
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin<_KeepAlivePage> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
