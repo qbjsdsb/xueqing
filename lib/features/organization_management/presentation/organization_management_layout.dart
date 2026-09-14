@@ -34,7 +34,7 @@ class _ManagementHeader extends StatelessWidget {
             vertical: AppSpacing.xxs,
           ),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
+            color: Colors.transparent,
             border: Border.all(color: colorScheme.outlineVariant),
             borderRadius: BorderRadius.circular(AppRadii.pill),
           ),
@@ -333,7 +333,7 @@ class _ManagementSetupHint extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
+        color: Colors.transparent,
         border: Border(
           left: BorderSide(
             color: ready ? colorScheme.primary : colorScheme.outline,

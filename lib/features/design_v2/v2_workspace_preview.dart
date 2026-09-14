@@ -2353,7 +2353,7 @@ class _NavigationRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: scheme.surfaceContainerLowest,
+      color: scheme.surface,
       child: Column(
         children: [
           const SizedBox(height: 18),
@@ -2658,7 +2658,7 @@ class _StudentListPaneState extends State<_StudentListPane> {
     final visibleStudents = _visibleStudents(data);
     final scheme = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: widget.compact ? scheme.surface : scheme.surfaceContainerLowest,
+      color: scheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
