@@ -34,18 +34,32 @@ if duplicate_count != 2:
     )
 preview_path.write_text(preview, encoding='utf-8')
 
-# 2) The compact/non-compact management body is a ternary. One branch is
-# wrapped in SelectionArea and was updated by the first-stage pattern; the
-# direct branch still needs the same explicit visibility contract.
+# 2) The management-area switcher is redundant only when Organization is
+# embedded inside the main Windows workspace, because the outer Rail already
+# exposes Members / Students / Settings. Compact and standalone Organization
+# pages must retain their own switcher so those areas remain reachable.
 organization_path = Path('lib/features/design_v2/v2_organization_workspace_page.dart')
 organization = organization_path.read_text(encoding='utf-8')
 old_management_call = ': _managementContent(),'
-new_management_call = ': _managementContent(showAreaSwitcher: compact),'
 if organization.count(old_management_call) != 1:
     raise SystemExit(
         'expected exactly one direct _managementContent() branch without showAreaSwitcher'
     )
-organization = organization.replace(old_management_call, new_management_call, 1)
+organization = organization.replace(
+    old_management_call,
+    ': _managementContent(showAreaSwitcher: compact),',
+    1,
+)
+plain_switcher = 'showAreaSwitcher: compact)'
+switcher_count = organization.count(plain_switcher)
+if switcher_count != 2:
+    raise SystemExit(
+        f'expected two management switcher visibility calls, found {switcher_count}'
+    )
+organization = organization.replace(
+    plain_switcher,
+    'showAreaSwitcher: compact || !widget.embedded)',
+)
 organization_path.write_text(organization, encoding='utf-8')
 
 # 3) The public builder contract now carries the established management area.
@@ -105,3 +119,37 @@ if management_visits < 1:
     raise SystemExit('expected at least one legacy desktop Management tooltip visit')
 typed = typed.replace(old_tooltip, "find.byTooltip('机构成员')")
 typed_path.write_text(typed, encoding='utf-8')
+
+# 6) The production shell source contract must describe the new flat desktop
+# Organization destinations and the corrected footer semantics. It should not
+# force the UI back to the former generic Management / Settings wording.
+shell_contract_path = Path('test/features/v2_shell_production_capabilities_test.dart')
+shell_contract = shell_contract_path.read_text(encoding='utf-8')
+legacy_management_assertion = (
+    '    expect(preview, contains("tooltip: \'管理\'"));\n'
+)
+replacement_management_assertions = (
+    '    expect(preview, contains("tooltip: \'机构学情监督\'"));\n'
+    '    expect(preview, contains("tooltip: \'机构成员\'"));\n'
+    '    expect(preview, contains("tooltip: \'机构学生\'"));\n'
+    '    expect(preview, contains("tooltip: \'机构设置\'"));\n'
+)
+if shell_contract.count(legacy_management_assertion) != 1:
+    raise SystemExit('expected one legacy generic Management source assertion')
+shell_contract = shell_contract.replace(
+    legacy_management_assertion,
+    replacement_management_assertions,
+    1,
+)
+legacy_settings_assertion = (
+    '    expect(preview, contains("tooltip: \'设置\'"));\n'
+)
+more_assertion = '    expect(preview, contains("tooltip: \'更多\'"));\n'
+if shell_contract.count(legacy_settings_assertion) != 1:
+    raise SystemExit('expected one legacy footer Settings source assertion')
+shell_contract = shell_contract.replace(
+    legacy_settings_assertion,
+    more_assertion,
+    1,
+)
+shell_contract_path.write_text(shell_contract, encoding='utf-8')
