@@ -1,0 +1,67 @@
+name: Sync repaired navigation stack into Windows organization navigation
+
+on:
+  push:
+    branches:
+      - ux/windows-organization-navigation-v2
+    paths:
+      - .github/workflows/sync-navigation-audit-fixes-241.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure merge identity
+        run: |
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Merge repaired parent branch without committing yet
+        run: |
+          git fetch origin ux/organization-navigation-state-v2
+          git merge --no-commit --no-ff origin/ux/organization-navigation-state-v2
+
+      - name: Remove one-shot sync workflow and inherited diagnostics
+        run: |
+          rm -f \
+            .github/workflows/sync-navigation-audit-fixes-241.yml \
+            .navigation-focused-test.log
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused stacked navigation regression
+        run: |
+          flutter test \
+            test/features/android_predictive_back_contract_test.dart \
+            test/features/design_v2_workspace_test.dart \
+            test/features/organization_navigation_state_contract_test.dart \
+            test/features/windows_organization_navigation_contract_test.dart \
+            test/features/v2_organization_workspace_test.dart \
+            test/features/v2_adaptive_workspace_test.dart \
+            test/features/v2_typed_organization_navigation_test.dart
+
+      - name: Full suite
+        run: flutter test
+
+      - name: Commit verified parent synchronization
+        run: |
+          git add -A
+          git commit -m "merge: sync repaired navigation stack"
+          git push origin HEAD:ux/windows-organization-navigation-v2
