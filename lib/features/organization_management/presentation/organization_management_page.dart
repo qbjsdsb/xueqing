@@ -47,6 +47,8 @@ class OrganizationManagementPage extends StatefulWidget {
     this.studentLearningRecordRepository,
     this.showHeaderTitle = true,
     this.refreshRevision = 0,
+    this.initialArea,
+    this.onAreaChanged,
     super.key,
   });
 
@@ -66,6 +68,8 @@ class OrganizationManagementPage extends StatefulWidget {
   /// Changes when an owning workspace explicitly requests a fresh management
   /// snapshot without recreating this page and its local working context.
   final int refreshRevision;
+  final OrganizationManagementArea? initialArea;
+  final ValueChanged<OrganizationManagementArea>? onAreaChanged;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -174,6 +178,8 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                             ),
                             _ManagementOverview(
                               snapshot: snapshotState.data!,
+                              initialArea: widget.initialArea,
+                              onAreaChanged: widget.onAreaChanged,
                               isOwner: _isOwner,
                               busy: _busy,
                               canInvite: _inviteRoles.isNotEmpty,
