@@ -22,6 +22,9 @@ jobs:
       - name: Apply final UX audit fixes
         run: python3 .github/scripts/final_ux_audit_v0311.py
 
+      - name: Isolate release matrix scenarios
+        run: python3 .github/scripts/fix_final_ux_matrix_state.py
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
