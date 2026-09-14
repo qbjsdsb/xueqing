@@ -19,9 +19,6 @@ duplicate_area = re.compile(
 
 
 def collapse_area(match: re.Match[str]) -> str:
-    # One duplicate comes from the shorter-indent replacement and one from the
-    # original longer-indent block. Keep the deeper indent, which is the actual
-    # named-argument indentation of the Compact/Medium constructor call.
     indent = max(match.group('area1'), match.group('area2'), key=len)
     return (
         f"{indent}organizationManagementArea: _organizationManagementArea,\n"
@@ -73,9 +70,33 @@ for test_path in builder_files:
     content = content.replace(old_signature, new_signature)
     test_path.write_text(content, encoding='utf-8')
 
-# 4) Desktop no longer has a generic "管理" rail destination. Existing state
+# 4) Windows rail tooltips are now scope-explicit. Update the existing widget
+# tests to assert the new interaction language instead of weakening the UI back
+# to ambiguous labels. This replacement is deliberately limited to exact
+# byTooltip finders; visible Chinese labels and Compact segmented controls are
+# untouched.
+student_old = "find.byTooltip('学生')"
+student_new = "find.byTooltip('我的学生')"
+learning_old = "find.byTooltip('学情监督')"
+learning_new = "find.byTooltip('机构学情监督')"
+student_updates = 0
+learning_updates = 0
+for test_path in Path('test').rglob('*.dart'):
+    content = test_path.read_text(encoding='utf-8')
+    student_updates += content.count(student_old)
+    learning_updates += content.count(learning_old)
+    content = content.replace(student_old, student_new)
+    content = content.replace(learning_old, learning_new)
+    test_path.write_text(content, encoding='utf-8')
+if student_updates < 1:
+    raise SystemExit('expected legacy Personal Student tooltip tests to update')
+if learning_updates < 1:
+    raise SystemExit('expected legacy Organization Learning tooltip tests to update')
+
+# 5) Desktop no longer has a generic "管理" rail destination. Existing state
 # continuity tests should enter the management surface through a real peer
-# destination; Members is the least destructive/read-mostly choice.
+# destination; Members is the least destructive/read-mostly choice. Limit this
+# to the typed Organization navigation suite, where these visits are desktop.
 typed_path = Path('test/features/v2_typed_organization_navigation_test.dart')
 typed = typed_path.read_text(encoding='utf-8')
 old_tooltip = "find.byTooltip('管理')"
