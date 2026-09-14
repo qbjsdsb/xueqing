@@ -49,6 +49,7 @@ class OrganizationManagementPage extends StatefulWidget {
     this.refreshRevision = 0,
     this.initialArea,
     this.onAreaChanged,
+    this.showAreaSwitcher = true,
     super.key,
   });
 
@@ -70,6 +71,7 @@ class OrganizationManagementPage extends StatefulWidget {
   final int refreshRevision;
   final OrganizationManagementArea? initialArea;
   final ValueChanged<OrganizationManagementArea>? onAreaChanged;
+  final bool showAreaSwitcher;
 
   @override
   State<OrganizationManagementPage> createState() =>
@@ -180,6 +182,7 @@ class _OrganizationManagementPageState extends State<OrganizationManagementPage>
                               snapshot: snapshotState.data!,
                               initialArea: widget.initialArea,
                               onAreaChanged: widget.onAreaChanged,
+                              showAreaSwitcher: widget.showAreaSwitcher,
                               isOwner: _isOwner,
                               busy: _busy,
                               canInvite: _inviteRoles.isNotEmpty,

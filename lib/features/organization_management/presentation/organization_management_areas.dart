@@ -29,6 +29,7 @@ class _ManagementOverview extends StatefulWidget {
     required this.canManageCaseTypes,
     this.initialArea,
     this.onAreaChanged,
+    this.showAreaSwitcher = true,
     this.onProvisionInvitation,
     this.onExportTeacherRecords,
     this.onExportStudentRecords,
@@ -80,6 +81,7 @@ class _ManagementOverview extends StatefulWidget {
   final bool canManageCaseTypes;
   final OrganizationManagementArea? initialArea;
   final ValueChanged<OrganizationManagementArea>? onAreaChanged;
+  final bool showAreaSwitcher;
   final VoidCallback? onOpenCaseTypes;
 
   @override
@@ -294,6 +296,7 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
             widget.onAreaChanged?.call(area);
           },
           busy: widget.busy,
+          showAreaSwitcher: widget.showAreaSwitcher,
           onExport:
               widget.onExportStudentRecords != null ||
                   widget.onExportTeacherRecords != null

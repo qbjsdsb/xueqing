@@ -475,20 +475,28 @@ class _V2WorkspaceLoaderState extends State<V2WorkspaceLoader> {
             runtime != null;
         final V2OrganizationWorkspaceBuilder? organizationPageBuilder =
             canOpenOrganization
-            ? (context, onBackToPersonal, section, onSectionChanged) =>
-                  V2OrganizationWorkspacePage(
-                    key: _embeddedOrganizationWorkspaceKey,
-                    workspace: rawWorkspace,
-                    workspaceData: loaded.organizationWorkspaceData,
-                    responsibility: responsibility,
-                    runtime: runtime,
-                    embedded: true,
-                    section: section,
-                    onSectionChanged: onSectionChanged,
-                    onBackFromRoot: onBackToPersonal,
-                    onRefresh: _softRefresh,
-                    onChanged: () => unawaited(_softRefresh()),
-                  )
+            ? (
+                context,
+                onBackToPersonal,
+                section,
+                onSectionChanged,
+                managementArea,
+                onManagementAreaChanged,
+              ) => V2OrganizationWorkspacePage(
+                key: _embeddedOrganizationWorkspaceKey,
+                workspace: rawWorkspace,
+                workspaceData: loaded.organizationWorkspaceData,
+                responsibility: responsibility,
+                runtime: runtime,
+                embedded: true,
+                section: section,
+                onSectionChanged: onSectionChanged,
+                managementArea: managementArea,
+                onManagementAreaChanged: onManagementAreaChanged,
+                onBackFromRoot: onBackToPersonal,
+                onRefresh: _softRefresh,
+                onChanged: () => unawaited(_softRefresh()),
+              )
             : null;
         final WidgetBuilder? managementPageBuilder =
             !canOpenOrganization && canOpenManagement

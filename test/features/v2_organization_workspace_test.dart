@@ -249,7 +249,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-workspace-refresh')), findsOneWidget);
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
       expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);

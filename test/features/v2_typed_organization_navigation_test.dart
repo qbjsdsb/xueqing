@@ -103,13 +103,13 @@ void main() {
       await tester.pumpWidget(_previewApp(withOrganization: true));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('学生'));
+      await tester.tap(find.byTooltip('我的学生'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('林同学').first);
       await tester.pumpAndSettle();
       expect(find.text('林同学'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       expect(find.text('机构测试页'), findsOneWidget);
 
@@ -132,7 +132,7 @@ void main() {
       await tester.pumpWidget(_previewApp(withOrganization: true));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('学生'));
+      await tester.tap(find.byTooltip('我的学生'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('林同学').first);
       await tester.pumpAndSettle();
@@ -143,7 +143,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       expect(find.text('机构测试页'), findsOneWidget);
 
@@ -167,7 +167,7 @@ void main() {
       await tester.pumpWidget(_previewApp(withOrganization: true));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('学生'));
+      await tester.tap(find.byTooltip('我的学生'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('阅读概括不完整').first);
       await tester.pumpAndSettle();
@@ -176,7 +176,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       expect(find.text('机构测试页'), findsOneWidget);
 
@@ -219,8 +219,8 @@ void main() {
       find.byKey(const Key('v2-rail-organization-learning')),
       findsOneWidget,
     );
-    expect(find.byTooltip('学情监督'), findsOneWidget);
-    await tester.tap(find.byTooltip('学情监督'));
+    expect(find.byTooltip('机构学情监督'), findsOneWidget);
+    await tester.tap(find.byTooltip('机构学情监督'));
     await tester.pumpAndSettle();
     expect(find.text('机构测试页'), findsOneWidget);
   });
@@ -410,7 +410,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('v2-organization-learning-search')),
@@ -477,7 +477,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('v2-organization-filter-more')));
       await tester.pumpAndSettle();
@@ -525,7 +525,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('v2-organization-learning-search')),
@@ -540,11 +540,11 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byTooltip('管理'));
+      await tester.tap(find.byTooltip('机构成员'));
       await tester.pumpAndSettle();
       expect(find.text('当前账号没有可用的机构管理权限。'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       final search = tester.widget<TextField>(
         find.byKey(const Key('v2-organization-learning-search')),
@@ -585,7 +585,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('v2-organization-filter-more')));
       await tester.pumpAndSettle();
@@ -599,11 +599,11 @@ void main() {
       );
       expect(selectedFilter(), findsOneWidget);
 
-      await tester.tap(find.byTooltip('管理'));
+      await tester.tap(find.byTooltip('机构成员'));
       await tester.pumpAndSettle();
       expect(find.text('当前账号没有可用的机构管理权限。'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       expect(selectedFilter(), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -616,14 +616,20 @@ Widget _previewApp({bool withOrganization = false}) => MaterialApp(
   home: V2WorkspacePreview(
     data: v2FixtureWorkspaceData,
     organizationPageBuilder: withOrganization
-        ? (context, onBackToPersonal, section, onSectionChanged) =>
-              PopScope<void>(
-                canPop: false,
-                onPopInvokedWithResult: (didPop, _) {
-                  if (!didPop) onBackToPersonal();
-                },
-                child: const Center(child: Text('机构测试页')),
-              )
+        ? (
+            context,
+            onBackToPersonal,
+            section,
+            onSectionChanged,
+            managementArea,
+            onManagementAreaChanged,
+          ) => PopScope<void>(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) onBackToPersonal();
+            },
+            child: const Center(child: Text('机构测试页')),
+          )
         : null,
   ),
 );

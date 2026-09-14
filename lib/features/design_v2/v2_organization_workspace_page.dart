@@ -44,6 +44,8 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
     this.embedded = false,
     this.section,
     this.onSectionChanged,
+    this.managementArea,
+    this.onManagementAreaChanged,
     this.onBackFromRoot,
     this.onRefresh,
     this.onChanged,
@@ -58,6 +60,8 @@ class V2OrganizationWorkspacePage extends StatefulWidget {
   final bool embedded;
   final V2OrganizationSection? section;
   final ValueChanged<V2OrganizationSection>? onSectionChanged;
+  final OrganizationManagementArea? managementArea;
+  final ValueChanged<OrganizationManagementArea>? onManagementAreaChanged;
   final VoidCallback? onBackFromRoot;
 
   /// Explicit, awaitable scope refresh used by the visible Organization header.
@@ -86,12 +90,17 @@ class _V2OrganizationWorkspacePageState
   void initState() {
     super.initState();
     _section = widget.section ?? V2OrganizationSection.learning;
+    _managementArea = widget.managementArea;
     _managementActivated = _section == V2OrganizationSection.management;
   }
 
   @override
   void didUpdateWidget(covariant V2OrganizationWorkspacePage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final requestedArea = widget.managementArea;
+    if (requestedArea != null && requestedArea != _managementArea) {
+      _managementArea = requestedArea;
+    }
     final requested = widget.section;
     if (requested != null && requested != _section) {
       _section = requested;
@@ -115,6 +124,7 @@ class _V2OrganizationWorkspacePageState
   void _handleManagementAreaChanged(OrganizationManagementArea area) {
     if (_managementArea == area) return;
     setState(() => _managementArea = area);
+    widget.onManagementAreaChanged?.call(area);
   }
 
   @override
@@ -343,7 +353,17 @@ class _V2OrganizationWorkspacePageState
     ];
   }
 
-  Widget _managementContent() {
+  String get _embeddedSectionTitle {
+    if (_section == V2OrganizationSection.learning) return '学情监督';
+    return switch (_managementArea) {
+      OrganizationManagementArea.people => '成员',
+      OrganizationManagementArea.students => '学生',
+      OrganizationManagementArea.settings => '设置',
+      null => '管理',
+    };
+  }
+
+  Widget _managementContent({required bool showAreaSwitcher}) {
     final organizationId = widget.workspace.organizationId;
     final repository = widget.runtime.organizationManagementRepository;
     if (organizationId == null || repository == null) {
@@ -370,6 +390,7 @@ class _V2OrganizationWorkspacePageState
       refreshRevision: _managementRefreshRevision,
       initialArea: _managementArea,
       onAreaChanged: _handleManagementAreaChanged,
+      showAreaSwitcher: showAreaSwitcher,
     );
   }
 
@@ -417,11 +438,7 @@ class _V2OrganizationWorkspacePageState
                         constraints: const BoxConstraints(maxWidth: 1100),
                         child: V2PageHeader(
                           key: const Key('v2-organization-page-header'),
-                          title: widget.embedded
-                              ? (_section == V2OrganizationSection.learning
-                                    ? '学情监督'
-                                    : '管理')
-                              : '机构',
+                          title: widget.embedded ? _embeddedSectionTitle : '机构',
                           meta: widget.embedded ? null : _organizationMeta,
                           leading: showHeaderBack
                               ? IconButton(
@@ -504,8 +521,16 @@ class _V2OrganizationWorkspacePageState
                               keyboardDismissBehavior:
                                   ScrollViewKeyboardDismissBehavior.onDrag,
                               child: !compact
-                                  ? SelectionArea(child: _managementContent())
-                                  : _managementContent(),
+                                  ? SelectionArea(
+                                      child: _managementContent(
+                                        showAreaSwitcher:
+                                            compact || !widget.embedded,
+                                      ),
+                                    )
+                                  : _managementContent(
+                                      showAreaSwitcher:
+                                          compact || !widget.embedded,
+                                    ),
                             ),
                           )
                         else

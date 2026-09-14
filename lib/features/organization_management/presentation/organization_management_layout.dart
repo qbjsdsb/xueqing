@@ -91,23 +91,27 @@ class _ManagementToolbar extends StatelessWidget {
     required this.selectedArea,
     required this.onChanged,
     required this.busy,
+    this.showAreaSwitcher = true,
     this.onExport,
   });
 
   final OrganizationManagementArea selectedArea;
   final ValueChanged<OrganizationManagementArea> onChanged;
   final bool busy;
+  final bool showAreaSwitcher;
   final VoidCallback? onExport;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final switcher = _ManagementAreaSwitcher(
-          selectedArea: selectedArea,
-          onChanged: onChanged,
-        );
-        if (onExport == null) return switcher;
+        final Widget? switcher = showAreaSwitcher
+            ? _ManagementAreaSwitcher(
+                selectedArea: selectedArea,
+                onChanged: onChanged,
+              )
+            : null;
+        if (onExport == null) return switcher ?? const SizedBox.shrink();
 
         final Widget exportAction = constraints.maxWidth < 520
             ? IconButton(
@@ -123,6 +127,9 @@ class _ManagementToolbar extends StatelessWidget {
                 label: const Text('导出记录'),
               );
 
+        if (switcher == null) {
+          return Align(alignment: Alignment.centerRight, child: exportAction);
+        }
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [

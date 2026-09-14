@@ -13,6 +13,7 @@ import '../../cloud/composer_draft_store.dart';
 import '../../cloud/evidence_attachment_repository.dart';
 import '../../cloud/learning_repository.dart';
 import '../../cloud/progressive_case_repository.dart';
+import '../organization_management/presentation/organization_management_page.dart';
 import 'v2_action_composers.dart';
 import 'v2_reopen_composer.dart';
 import 'v2_composers.dart';
@@ -34,6 +35,8 @@ typedef V2OrganizationWorkspaceBuilder = Widget Function(
   VoidCallback onBackToPersonal,
   V2OrganizationSection section,
   ValueChanged<V2OrganizationSection> onSectionChanged,
+  OrganizationManagementArea? managementArea,
+  ValueChanged<OrganizationManagementArea> onManagementAreaChanged,
 );
 
 enum V2WorkspaceDestination { today, students, learning, organization }
@@ -1085,6 +1088,7 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
   V2WorkspaceDestination _lastPersonalDestination =
       V2WorkspaceDestination.today;
   V2OrganizationSection _organizationSection = V2OrganizationSection.learning;
+  OrganizationManagementArea? _organizationManagementArea;
   V2Student? _selectedStudent;
   V2FocusItem? _selectedCase;
   bool _showCase = false;
@@ -1325,6 +1329,17 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
     setState(() => _organizationSection = section);
   }
 
+  void _openOrganizationManagementArea(OrganizationManagementArea area) {
+    setState(() {
+      if (_destination != V2WorkspaceDestination.organization) {
+        _lastPersonalDestination = _destination;
+      }
+      _organizationSection = V2OrganizationSection.management;
+      _organizationManagementArea = area;
+      _destination = V2WorkspaceDestination.organization;
+    });
+  }
+
   Future<void> _openManagement(BuildContext context) async {
     final builder = widget.managementPageBuilder;
     if (builder == null) return;
@@ -1553,6 +1568,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     onBackFromCase: _closeCase,
                     organizationPageBuilder: widget.organizationPageBuilder,
                     organizationSection: _organizationSection,
+                    organizationManagementArea: _organizationManagementArea,
+                    onOrganizationManagementAreaChanged:
+                        _openOrganizationManagementArea,
                     onOrganizationSelected: _openOrganization,
                     onOrganizationSectionChanged: _changeOrganizationSection,
                     onBackFromOrganization: _returnFromOrganization,
@@ -1573,6 +1591,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                     onBackFromCase: _closeCase,
                     organizationPageBuilder: widget.organizationPageBuilder,
                     organizationSection: _organizationSection,
+                    organizationManagementArea: _organizationManagementArea,
+                    onOrganizationManagementAreaChanged:
+                        _openOrganizationManagementArea,
                     onOrganizationSelected: _openOrganization,
                     onOrganizationSectionChanged: _changeOrganizationSection,
                     onBackFromOrganization: _returnFromOrganization,
@@ -1599,6 +1620,9 @@ class _V2WorkspacePreviewState extends State<V2WorkspacePreview> {
                   onBackFromCase: _closeCase,
                   organizationPageBuilder: widget.organizationPageBuilder,
                   organizationSection: _organizationSection,
+                  organizationManagementArea: _organizationManagementArea,
+                  onOrganizationManagementAreaChanged:
+                      _openOrganizationManagementArea,
                   onOrganizationSelected: _openOrganization,
                   onOrganizationSectionChanged: _changeOrganizationSection,
                   onBackFromOrganization: _returnFromOrganization,
@@ -1676,6 +1700,8 @@ class _DesktopWorkspace extends StatelessWidget {
     required this.onBackFromCase,
     required this.organizationPageBuilder,
     required this.organizationSection,
+    required this.organizationManagementArea,
+    required this.onOrganizationManagementAreaChanged,
     required this.onOrganizationSelected,
     required this.onOrganizationSectionChanged,
     required this.onBackFromOrganization,
@@ -1695,6 +1721,9 @@ class _DesktopWorkspace extends StatelessWidget {
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
   final V2OrganizationSection organizationSection;
+  final OrganizationManagementArea? organizationManagementArea;
+  final ValueChanged<OrganizationManagementArea>
+  onOrganizationManagementAreaChanged;
   final ValueChanged<V2OrganizationSection> onOrganizationSelected;
   final ValueChanged<V2OrganizationSection> onOrganizationSectionChanged;
   final VoidCallback onBackFromOrganization;
@@ -1715,13 +1744,16 @@ class _DesktopWorkspace extends StatelessWidget {
         child: Row(
           children: [
             SizedBox(
-              width: expandedRail ? 132 : 72,
+              width: expandedRail ? 192 : 72,
               child: _NavigationRail(
                 selectedDestination: destination,
                 expanded: expandedRail,
                 onSelected: onDestinationChanged,
                 showOrganization: organizationPageBuilder != null,
                 organizationSection: organizationSection,
+                organizationManagementArea: organizationManagementArea,
+                onOrganizationManagementAreaChanged:
+                    onOrganizationManagementAreaChanged,
                 onOrganizationSelected: onOrganizationSelected,
                 onRefresh: destination == V2WorkspaceDestination.organization
                     ? null
@@ -1777,6 +1809,8 @@ class _DesktopWorkspace extends StatelessWidget {
                   onBackFromOrganization,
                   organizationSection,
                   onOrganizationSectionChanged,
+                  organizationManagementArea,
+                  onOrganizationManagementAreaChanged,
                 ),
               ),
             ],
@@ -1801,6 +1835,8 @@ class _MediumWorkspace extends StatefulWidget {
     required this.onBackFromCase,
     required this.organizationPageBuilder,
     required this.organizationSection,
+    required this.organizationManagementArea,
+    required this.onOrganizationManagementAreaChanged,
     required this.onOrganizationSelected,
     required this.onOrganizationSectionChanged,
     required this.onBackFromOrganization,
@@ -1822,6 +1858,9 @@ class _MediumWorkspace extends StatefulWidget {
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
   final V2OrganizationSection organizationSection;
+  final OrganizationManagementArea? organizationManagementArea;
+  final ValueChanged<OrganizationManagementArea>
+  onOrganizationManagementAreaChanged;
   final ValueChanged<V2OrganizationSection> onOrganizationSelected;
   final ValueChanged<V2OrganizationSection> onOrganizationSectionChanged;
   final VoidCallback onBackFromOrganization;
@@ -1909,6 +1948,8 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
             widget.onBackFromOrganization,
             widget.organizationSection,
             widget.onOrganizationSectionChanged,
+            widget.organizationManagementArea,
+            widget.onOrganizationManagementAreaChanged,
           );
         }
 
@@ -1952,6 +1993,10 @@ class _MediumWorkspaceState extends State<_MediumWorkspace> {
                       onSelected: _changeDestination,
                       showOrganization: widget.organizationPageBuilder != null,
                       organizationSection: widget.organizationSection,
+                      organizationManagementArea:
+                          widget.organizationManagementArea,
+                      onOrganizationManagementAreaChanged:
+                          widget.onOrganizationManagementAreaChanged,
                       onOrganizationSelected: widget.onOrganizationSelected,
                       onRefresh:
                           widget.destination ==
@@ -1989,6 +2034,8 @@ class _CompactWorkspace extends StatefulWidget {
     required this.onBackFromCase,
     required this.organizationPageBuilder,
     required this.organizationSection,
+    required this.organizationManagementArea,
+    required this.onOrganizationManagementAreaChanged,
     required this.onOrganizationSelected,
     required this.onOrganizationSectionChanged,
     required this.onBackFromOrganization,
@@ -2007,6 +2054,9 @@ class _CompactWorkspace extends StatefulWidget {
   final VoidCallback onBackFromCase;
   final V2OrganizationWorkspaceBuilder? organizationPageBuilder;
   final V2OrganizationSection organizationSection;
+  final OrganizationManagementArea? organizationManagementArea;
+  final ValueChanged<OrganizationManagementArea>
+  onOrganizationManagementAreaChanged;
   final ValueChanged<V2OrganizationSection> onOrganizationSelected;
   final ValueChanged<V2OrganizationSection> onOrganizationSectionChanged;
   final VoidCallback onBackFromOrganization;
@@ -2175,6 +2225,8 @@ class _CompactWorkspaceState extends State<_CompactWorkspace> {
         widget.onBackFromOrganization,
         widget.organizationSection,
         widget.onOrganizationSectionChanged,
+        widget.organizationManagementArea,
+        widget.onOrganizationManagementAreaChanged,
       );
     }
     return null;
@@ -2265,7 +2317,9 @@ class _NavigationRail extends StatelessWidget {
     required this.refreshing,
     required this.showOrganization,
     required this.organizationSection,
+    required this.organizationManagementArea,
     required this.onOrganizationSelected,
+    required this.onOrganizationManagementAreaChanged,
     this.expanded = false,
     this.onRefresh,
     this.onManage,
@@ -2276,11 +2330,19 @@ class _NavigationRail extends StatelessWidget {
   final ValueChanged<V2WorkspaceDestination> onSelected;
   final bool showOrganization;
   final V2OrganizationSection organizationSection;
+  final OrganizationManagementArea? organizationManagementArea;
   final ValueChanged<V2OrganizationSection> onOrganizationSelected;
+  final ValueChanged<OrganizationManagementArea>
+  onOrganizationManagementAreaChanged;
   final VoidCallback? onRefresh;
   final bool refreshing;
   final VoidCallback? onManage;
   final VoidCallback onSettings;
+
+  bool _organizationAreaSelected(OrganizationManagementArea area) =>
+      selectedDestination == V2WorkspaceDestination.organization &&
+      organizationSection == V2OrganizationSection.management &&
+      organizationManagementArea == area;
 
   @override
   Widget build(BuildContext context) {
@@ -2298,50 +2360,102 @@ class _NavigationRail extends StatelessWidget {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 16),
-          if (showOrganization && expanded) const _RailGroupLabel('我的教学'),
-          for (final destination in const <V2WorkspaceDestination>[
-            V2WorkspaceDestination.today,
-            V2WorkspaceDestination.students,
-            V2WorkspaceDestination.learning,
-          ])
-            _RailItem(
-              icon: _destinationIcon(destination),
-              tooltip: _destinationLabel(destination),
-              selected: selectedDestination == destination,
-              onTap: () => onSelected(destination),
-              expanded: expanded,
+          const SizedBox(height: 12),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Column(
+                children: [
+                  if (showOrganization && expanded)
+                    const _RailGroupLabel('我的教学'),
+                  for (final destination in const <V2WorkspaceDestination>[
+                    V2WorkspaceDestination.today,
+                    V2WorkspaceDestination.students,
+                    V2WorkspaceDestination.learning,
+                  ])
+                    _RailItem(
+                      icon: _destinationIcon(destination),
+                      tooltip: destination == V2WorkspaceDestination.students
+                          ? '我的学生'
+                          : _destinationLabel(destination),
+                      label: _destinationLabel(destination),
+                      selected: selectedDestination == destination,
+                      onTap: () => onSelected(destination),
+                      expanded: expanded,
+                    ),
+                  if (showOrganization) ...[
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        14,
+                        expanded ? 10 : 12,
+                        14,
+                        8,
+                      ),
+                      child: Divider(height: 1, color: scheme.outlineVariant),
+                    ),
+                    if (expanded) const _RailGroupLabel('机构'),
+                    _RailItem(
+                      key: const Key('v2-rail-organization-learning'),
+                      icon: Icons.fact_check_outlined,
+                      tooltip: '机构学情监督',
+                      label: '学情监督',
+                      selected:
+                          selectedDestination ==
+                              V2WorkspaceDestination.organization &&
+                          organizationSection == V2OrganizationSection.learning,
+                      onTap: () => onOrganizationSelected(
+                        V2OrganizationSection.learning,
+                      ),
+                      expanded: expanded,
+                    ),
+                    _RailItem(
+                      key: const Key('v2-rail-organization-people'),
+                      icon: Icons.people_outline,
+                      tooltip: '机构成员',
+                      label: '成员',
+                      selected: _organizationAreaSelected(
+                        OrganizationManagementArea.people,
+                      ),
+                      onTap: () => onOrganizationManagementAreaChanged(
+                        OrganizationManagementArea.people,
+                      ),
+                      expanded: expanded,
+                    ),
+                    _RailItem(
+                      key: const Key('v2-rail-organization-students'),
+                      icon: Icons.school_outlined,
+                      tooltip: '机构学生',
+                      label: '学生',
+                      selected: _organizationAreaSelected(
+                        OrganizationManagementArea.students,
+                      ),
+                      onTap: () => onOrganizationManagementAreaChanged(
+                        OrganizationManagementArea.students,
+                      ),
+                      expanded: expanded,
+                    ),
+                    _RailItem(
+                      key: const Key('v2-rail-organization-settings'),
+                      icon: Icons.tune_outlined,
+                      tooltip: '机构设置',
+                      label: '设置',
+                      selected: _organizationAreaSelected(
+                        OrganizationManagementArea.settings,
+                      ),
+                      onTap: () => onOrganizationManagementAreaChanged(
+                        OrganizationManagementArea.settings,
+                      ),
+                      expanded: expanded,
+                    ),
+                  ],
+                ],
+              ),
             ),
-          if (showOrganization) ...[
-            Padding(
-              padding: EdgeInsets.fromLTRB(14, expanded ? 8 : 10, 14, 8),
-              child: Divider(height: 1, color: scheme.outlineVariant),
-            ),
-            if (expanded) const _RailGroupLabel('机构'),
-            _RailItem(
-              key: const Key('v2-rail-organization-learning'),
-              icon: Icons.fact_check_outlined,
-              tooltip: '学情监督',
-              selected:
-                  selectedDestination == V2WorkspaceDestination.organization &&
-                  organizationSection == V2OrganizationSection.learning,
-              onTap: () =>
-                  onOrganizationSelected(V2OrganizationSection.learning),
-              expanded: expanded,
-            ),
-            _RailItem(
-              key: const Key('v2-rail-organization-management'),
-              icon: Icons.admin_panel_settings_outlined,
-              tooltip: '管理',
-              selected:
-                  selectedDestination == V2WorkspaceDestination.organization &&
-                  organizationSection == V2OrganizationSection.management,
-              onTap: () =>
-                  onOrganizationSelected(V2OrganizationSection.management),
-              expanded: expanded,
-            ),
-          ],
-          const Spacer(),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 6),
+            child: Divider(height: 1, color: scheme.outlineVariant),
+          ),
           if (onRefresh != null)
             _RailItem(
               key: const Key('v2-workspace-refresh'),
@@ -2353,17 +2467,19 @@ class _NavigationRail extends StatelessWidget {
           if (onManage != null)
             _RailItem(
               icon: Icons.admin_panel_settings_outlined,
-              tooltip: '管理',
+              tooltip: '机构管理',
+              label: '管理',
               onTap: onManage,
               expanded: expanded,
             ),
           _RailItem(
-            icon: Icons.settings_outlined,
-            tooltip: '设置',
+            key: const Key('v2-workspace-more'),
+            icon: Icons.more_horiz,
+            tooltip: '更多',
             onTap: onSettings,
             expanded: expanded,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
         ],
       ),
     );
@@ -2400,6 +2516,7 @@ class _RailItem extends StatelessWidget {
     super.key,
     required this.icon,
     required this.tooltip,
+    this.label,
     this.selected = false,
     this.expanded = false,
     this.onTap,
@@ -2407,6 +2524,7 @@ class _RailItem extends StatelessWidget {
 
   final IconData icon;
   final String tooltip;
+  final String? label;
   final bool selected;
   final bool expanded;
   final VoidCallback? onTap;
@@ -2414,40 +2532,45 @@ class _RailItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final foreground = selected ? scheme.primary : scheme.onSurfaceVariant;
+    final foreground = selected ? scheme.onSurface : scheme.onSurfaceVariant;
+    final displayLabel = label ?? tooltip;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 10),
-      child: Tooltip(
-        message: tooltip,
-        child: AnimatedContainer(
-          duration: AppMotion.effectiveDuration(context, AppMotion.quick),
-          curve: AppMotion.enter,
-          decoration: BoxDecoration(
-            color: selected
-                ? scheme.primary.withValues(alpha: 0.10)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-          ),
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 10),
+      child: Semantics(
+        label: tooltip,
+        button: true,
+        selected: selected,
+        child: Tooltip(
+          message: tooltip,
           child: Material(
-            type: MaterialType.transparency,
+            color: selected ? scheme.surfaceContainerHigh : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            clipBehavior: Clip.antiAlias,
             child: InkWell(
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(8),
               onTap: onTap,
               child: SizedBox(
-                width: expanded ? 108 : 48,
-                height: 48,
+                width: expanded ? 168 : 48,
+                height: expanded ? 44 : 48,
                 child: Row(
-                  mainAxisAlignment: expanded
-                      ? MainAxisAlignment.start
-                      : MainAxisAlignment.center,
                   children: [
-                    if (expanded) const SizedBox(width: 12),
+                    SizedBox(
+                      width: 3,
+                      height: 22,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: selected ? scheme.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    if (expanded) const SizedBox(width: 10) else const Spacer(),
                     Icon(icon, size: 20, color: foreground),
                     if (expanded) ...[
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          tooltip,
+                          displayLabel,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.labelMedium
@@ -2459,8 +2582,9 @@ class _RailItem extends StatelessWidget {
                               ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                    ],
+                      const SizedBox(width: 10),
+                    ] else
+                      const Spacer(),
                   ],
                 ),
               ),

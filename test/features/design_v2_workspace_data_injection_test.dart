@@ -19,7 +19,7 @@ void main() {
 
     await tester.pumpWidget(app(_injectedData));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
 
     expect(find.text('真实学生'), findsWidgets);
@@ -184,7 +184,7 @@ void main() {
 
       await tester.pumpWidget(app(_studentWithoutCases));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('学生'));
+      await tester.tap(find.byTooltip('我的学生'));
       await tester.pumpAndSettle();
 
       expect(find.text('暂无进行中的问题'), findsOneWidget);
@@ -199,7 +199,7 @@ void main() {
 
     await tester.pumpWidget(app(_dataWithClosedHistory));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
 
     expect(find.text('历史问题'), findsNothing);
@@ -231,7 +231,7 @@ void main() {
 
     await tester.pumpWidget(app(_injectedData));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('真实问题'));
     await tester.pumpAndSettle();
