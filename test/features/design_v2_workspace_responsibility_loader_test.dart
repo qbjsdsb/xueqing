@@ -35,7 +35,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
 
     expect(find.text('我的学生'), findsWidgets);

@@ -249,7 +249,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-workspace-refresh')), findsOneWidget);
-      await tester.tap(find.byTooltip('学情监督'));
+      await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
       expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);
@@ -259,6 +259,114 @@ void main() {
       expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
       expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
       expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Windows Organization rail opens exact peer management areas across resize',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => _workspace(),
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _context(personalProfileIds: const ['profile-a']),
+            ),
+            runtime: _runtime(includeManagement: true),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('机构成员'));
+      await tester.pumpAndSettle();
+      expect(find.text('机构成员'), findsOneWidget);
+      expect(find.byKey(const Key('management-area-people')), findsNothing);
+
+      await tester.tap(find.byTooltip('机构学生'));
+      await tester.pumpAndSettle();
+      expect(find.text('学生档案'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('机构设置'));
+      await tester.pumpAndSettle();
+      expect(find.text('机构学科'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(const Size(800, 800));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
+      expect(find.text('机构学科'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('机构学生'));
+      await tester.pumpAndSettle();
+      expect(find.text('学生档案'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Windows Organization peer areas keep independent scroll positions',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 520));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final managementRepository = _FakeOrganizationManagementRepository(
+        members: _manyMembers(),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2WorkspaceLoader(
+            loadWorkspace: () async => _workspace(),
+            responsibilityReadRepository: _FakeResponsibilityRepository(
+              _context(personalProfileIds: const ['profile-a']),
+            ),
+            runtime: _runtime(
+              includeManagement: true,
+              managementRepository: managementRepository,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('机构成员'));
+      await tester.pumpAndSettle();
+      final peopleScroll = find.byKey(
+        const Key('v2-organization-management-scroll'),
+      );
+      expect(peopleScroll, findsOneWidget);
+      final peopleController = tester
+          .widget<SingleChildScrollView>(peopleScroll)
+          .controller!;
+      await tester.drag(peopleScroll, const Offset(0, -700));
+      await tester.pumpAndSettle();
+      final savedPeopleOffset = peopleController.offset;
+      expect(savedPeopleOffset, greaterThan(100));
+
+      await tester.tap(find.byTooltip('机构设置'));
+      await tester.pumpAndSettle();
+      final settingsScroll = find.byKey(
+        const Key('v2-organization-management-scroll'),
+      );
+      expect(settingsScroll, findsOneWidget);
+      final settingsController = tester
+          .widget<SingleChildScrollView>(settingsScroll)
+          .controller!;
+      expect(identical(settingsController, peopleController), isFalse);
+      expect(settingsController.offset, lessThan(5));
+
+      await tester.tap(find.byTooltip('机构成员'));
+      await tester.pumpAndSettle();
+      final restoredPeopleController = tester
+          .widget<SingleChildScrollView>(peopleScroll)
+          .controller!;
+      expect(identical(restoredPeopleController, peopleController), isTrue);
+      expect(restoredPeopleController.offset, closeTo(savedPeopleOffset, 1));
       expect(tester.takeException(), isNull);
     },
   );
@@ -445,12 +553,15 @@ class _FakeLearningRepository implements LearningRepository {
 
 class _FakeOrganizationManagementRepository
     implements OrganizationManagementRepository {
+  _FakeOrganizationManagementRepository({this.members = const []});
+
+  final List<OrganizationMember> members;
   int listStudentsCount = 0;
 
   @override
   Future<List<OrganizationMember>> listMembers({
     required String organizationId,
-  }) async => const [];
+  }) async => members;
 
   @override
   Future<List<OrganizationInvitation>> listInvitations({
@@ -516,6 +627,18 @@ class _FakeCaseReopenDraftStore implements CaseReopenDraftStore {
   @override
   Future<void> save(String scopeKey, CaseReopenDraft draft) async {}
 }
+
+List<OrganizationMember> _manyMembers() => List<OrganizationMember>.generate(
+  36,
+  (index) => OrganizationMember(
+    appUserId: 'member-user-$index',
+    membershipId: 'member-$index',
+    email: 'teacher$index@example.com',
+    displayName: '测试老师 $index',
+    status: 'active',
+    roles: const ['teacher'],
+  ),
+);
 
 WorkspaceResponsibilityContext _context({
   required List<String> personalProfileIds,

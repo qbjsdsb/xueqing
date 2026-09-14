@@ -34,7 +34,7 @@ void main() {
 
     await tester.pumpWidget(app(() async => _workspace()));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
 
     expect(find.text('真实学生'), findsWidgets);

@@ -35,7 +35,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-today-quick-capture')), findsOneWidget);
-      await tester.tap(find.byTooltip('学生'));
+      await tester.tap(find.byTooltip('我的学生'));
       await tester.pumpAndSettle();
 
       expect(find.text('学生'), findsWidgets);
@@ -79,7 +79,7 @@ void main() {
 
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('王同学').first);
@@ -105,7 +105,7 @@ void main() {
 
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('李同学').first);
@@ -444,7 +444,7 @@ void main() {
 
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('v2-student-search')), '王同学');

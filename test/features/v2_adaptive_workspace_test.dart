@@ -10,14 +10,20 @@ void main() {
     theme: V2Theme.light(),
     home: V2WorkspacePreview(
       organizationPageBuilder: withOrganization
-          ? (context, onBackToPersonal, section, onSectionChanged) =>
-                PopScope<void>(
-                  canPop: false,
-                  onPopInvokedWithResult: (didPop, _) {
-                    if (!didPop) onBackToPersonal();
-                  },
-                  child: const Center(child: Text('机构测试页')),
-                )
+          ? (
+              context,
+              onBackToPersonal,
+              section,
+              onSectionChanged,
+              managementArea,
+              onManagementAreaChanged,
+            ) => PopScope<void>(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) onBackToPersonal();
+              },
+              child: const Center(child: Text('机构测试页')),
+            )
           : null,
     ),
   );
@@ -53,7 +59,7 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
     expect(find.byKey(const Key('v2-student-search')), findsOneWidget);
@@ -74,7 +80,7 @@ void main() {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('学生'));
+      await tester.tap(find.byTooltip('我的学生'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('林同学').first);
       await tester.pumpAndSettle();
@@ -132,13 +138,13 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('林同学').first);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('v2-student-search')), findsNothing);
 
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('v2-student-search')), findsOneWidget);
     expect(find.text('现在最重要'), findsNothing);
@@ -150,7 +156,7 @@ void main() {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('学生'));
+    await tester.tap(find.byTooltip('我的学生'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('v2-expanded-shell')), findsOneWidget);
     expect(find.byKey(const Key('v2-student-search')), findsOneWidget);
@@ -208,7 +214,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(NavigationBar), findsNothing);
-    await tester.tap(find.byTooltip('学情监督'));
+    await tester.tap(find.byTooltip('机构学情监督'));
     await tester.pumpAndSettle();
     expect(find.text('机构测试页'), findsOneWidget);
   });
