@@ -73,7 +73,8 @@ class _ManagementHeader extends StatelessWidget {
             Expanded(
               child: Text(
                 '机构管理',
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: Theme.of(context).textTheme.titleLarge
+                    ?.copyWith(fontSize: 22, height: 1.35),
               ),
             ),
             refreshButton,
