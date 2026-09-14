@@ -19,6 +19,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure merge identity
+        run: |
+          git config user.name "xueqing-bot"
+          git config user.email "actions@users.noreply.github.com"
+
       - name: Merge repaired parent branch without committing yet
         run: |
           git fetch origin ux/navigation-architecture-v2
@@ -51,8 +56,6 @@ jobs:
 
       - name: Commit verified parent synchronization
         run: |
-          git config user.name "xueqing-bot"
-          git config user.email "actions@users.noreply.github.com"
           git add -A
           git commit -m "merge: sync Android navigation audit fixes"
           git push origin HEAD:ux/organization-navigation-state-v2
