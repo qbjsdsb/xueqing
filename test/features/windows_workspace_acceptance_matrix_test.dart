@@ -40,11 +40,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-expanded-shell')), findsOneWidget);
-      expect(find.text('我的教学'), findsNothing);
-      expect(
-        find.byKey(const Key('v2-rail-organization-learning')),
-        findsOneWidget,
+      final organizationLearning = find.byKey(
+        const Key('v2-rail-organization-learning'),
       );
+      expect(organizationLearning, findsOneWidget);
+      final collapsedItemWidth = tester.getSize(organizationLearning).width;
+      expect(collapsedItemWidth, lessThan(100));
       expect(
         find.byKey(const Key('v2-workspace-more')).hitTestable(),
         findsOneWidget,
@@ -55,7 +56,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-expanded-shell')), findsOneWidget);
-      expect(find.text('我的教学'), findsOneWidget);
+      final expandedItemWidth = tester.getSize(organizationLearning).width;
+      expect(expandedItemWidth, greaterThan(150));
+      expect(expandedItemWidth, greaterThan(collapsedItemWidth));
       expect(
         find.byKey(const Key('v2-workspace-more')).hitTestable(),
         findsOneWidget,
