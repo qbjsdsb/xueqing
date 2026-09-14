@@ -45,9 +45,7 @@ void main() {
     expect(source, contains("title: const Text('之后')"));
     expect(
       source,
-      contains(
-        "_SectionTitle(title: showRecentActivity ? '最近学生' : '我的学生')",
-      ),
+      contains("_SectionTitle(title: showRecentActivity ? '最近学生' : '我的学生')"),
     );
     expect(source, contains('wideDesktop: expandedRail,'));
     expect(
