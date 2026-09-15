@@ -5,20 +5,19 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('ordinary sign-out only clears the current device session', () {
     final source = File('lib/cloud/auth_repository.dart').readAsStringSync();
+    const localDefault = 'Future<void> signOut({bool global = false})';
+    const oldGlobalDefault = 'Future<void> signOut({bool global = true})';
 
     expect(
-      RegExp(r'Future<void> signOut\(\{bool global = false\}\);')
-          .hasMatch(source),
-      isTrue,
-      reason: 'AuthRepository must default ordinary sign-out to local scope.',
-    );
-    expect(
-      RegExp(r'Future<void> signOut\(\{bool global = false\}\)')
-          .allMatches(source)
-          .length,
+      localDefault.allMatches(source).length,
       2,
       reason:
-          'Both the interface and Supabase implementation must keep the local default.',
+          'Both the interface and Supabase implementation must default ordinary sign-out to local scope.',
+    );
+    expect(
+      source,
+      isNot(contains(oldGlobalDefault)),
+      reason: 'Ordinary sign-out must never silently revoke other devices.',
     );
     expect(
       source,
