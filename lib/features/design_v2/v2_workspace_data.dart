@@ -41,9 +41,69 @@ class V2WorkspaceData {
         .toList(growable: false);
   }
 
-  List<V2FocusItem> focusItemsForStudent(V2Student student) => focusItems
-      .where((item) => item.studentId == student.id)
-      .toList(growable: false);
+  /// Open cases for one student, ordered by teacher attention rather than by
+  /// storage/read-model insertion order.
+  ///
+  /// The ordering is intentionally deterministic and contains no inference:
+  /// overdue/today actions come first, then cases waiting for verification,
+  /// then cases with a concrete next step, then recently active cases, and
+  /// finally everything else. Ties preserve the incoming read-model order so
+  /// existing presentation remains stable when two cases have equal priority.
+  List<V2FocusItem> focusItemsForStudent(V2Student student) {
+    final result = focusItems
+        .where((item) => item.studentId == student.id)
+        .toList(growable: true);
+    if (result.length < 2) {
+      return List<V2FocusItem>.unmodifiable(result);
+    }
+
+    final sourceOrder = <String, int>{
+      for (var index = 0; index < result.length; index++)
+        result[index].id: index,
+    };
+    final latestActivity = _latestActivityByCaseId(result);
+
+    result.sort((left, right) {
+      final leftTiming = _effectiveActionTiming(left);
+      final rightTiming = _effectiveActionTiming(right);
+      final leftActivity = latestActivity[left.id];
+      final rightActivity = latestActivity[right.id];
+
+      final bucketComparison =
+          _attentionBucket(
+            left,
+            timing: leftTiming,
+            latestActivity: leftActivity,
+          ).compareTo(
+            _attentionBucket(
+              right,
+              timing: rightTiming,
+              latestActivity: rightActivity,
+            ),
+          );
+      if (bucketComparison != 0) return bucketComparison;
+
+      final timingComparison = _timingRank(leftTiming)
+          .compareTo(_timingRank(rightTiming));
+      if (timingComparison != 0) return timingComparison;
+
+      final dueComparison = _compareNullableDateAscending(
+        left.dueOn,
+        right.dueOn,
+      );
+      if (dueComparison != 0) return dueComparison;
+
+      final activityComparison = _compareNullableDateDescending(
+        leftActivity,
+        rightActivity,
+      );
+      if (activityComparison != 0) return activityComparison;
+
+      return (sourceOrder[left.id] ?? 0).compareTo(sourceOrder[right.id] ?? 0);
+    });
+
+    return List<V2FocusItem>.unmodifiable(result);
+  }
 
   List<V2FocusItem> closedItemsForStudent(V2Student student) => closedItems
       .where((item) => item.studentId == student.id)
@@ -77,6 +137,88 @@ class V2WorkspaceData {
     return _orderedTimeline(
       timeline.where((entry) => caseIds.contains(entry.caseId)),
     );
+  }
+
+  Map<String, DateTime> _latestActivityByCaseId(List<V2FocusItem> items) {
+    final caseIds = items.map((item) => item.id).toSet();
+    final result = <String, DateTime>{};
+    for (final entry in timeline) {
+      final occurredAt = entry.occurredAt;
+      if (occurredAt == null || !caseIds.contains(entry.caseId)) continue;
+      final current = result[entry.caseId];
+      if (current == null || occurredAt.isAfter(current)) {
+        result[entry.caseId] = occurredAt;
+      }
+    }
+    return result;
+  }
+
+  V2ActionTiming _effectiveActionTiming(V2FocusItem item) {
+    final explicit = item.actionTiming;
+    if (explicit != null) return explicit;
+
+    final dueOn = item.dueOn;
+    final reference = businessDate;
+    if (dueOn == null || reference == null) return V2ActionTiming.undated;
+
+    final dueDate = DateTime(dueOn.year, dueOn.month, dueOn.day);
+    final businessDay = DateTime(
+      reference.year,
+      reference.month,
+      reference.day,
+    );
+    if (dueDate.isBefore(businessDay)) return V2ActionTiming.overdue;
+    if (dueDate == businessDay) return V2ActionTiming.today;
+    return V2ActionTiming.future;
+  }
+
+  int _attentionBucket(
+    V2FocusItem item, {
+    required V2ActionTiming timing,
+    required DateTime? latestActivity,
+  }) {
+    if (timing == V2ActionTiming.overdue || timing == V2ActionTiming.today) {
+      return 0;
+    }
+    if (item.effectiveStatus == V2CaseStatus.pendingVerification) {
+      return 1;
+    }
+    if (_hasConcreteNextStep(item.nextStep)) {
+      return 2;
+    }
+    if (latestActivity != null) {
+      return 3;
+    }
+    return 4;
+  }
+
+  bool _hasConcreteNextStep(String value) {
+    final normalized = value.trim().replaceAll(RegExp(r'\s+'), '');
+    return normalized.isNotEmpty &&
+        normalized != '待安排' &&
+        normalized != '待安排下一步' &&
+        normalized != '安排下一步';
+  }
+
+  int _timingRank(V2ActionTiming timing) => switch (timing) {
+    V2ActionTiming.overdue => 0,
+    V2ActionTiming.today => 1,
+    V2ActionTiming.future => 2,
+    V2ActionTiming.undated => 3,
+  };
+
+  int _compareNullableDateAscending(DateTime? left, DateTime? right) {
+    if (left == null && right == null) return 0;
+    if (left == null) return 1;
+    if (right == null) return -1;
+    return left.compareTo(right);
+  }
+
+  int _compareNullableDateDescending(DateTime? left, DateTime? right) {
+    if (left == null && right == null) return 0;
+    if (left == null) return 1;
+    if (right == null) return -1;
+    return right.compareTo(left);
   }
 
   List<V2TimelineEntry> _orderedTimeline(Iterable<V2TimelineEntry> source) {
