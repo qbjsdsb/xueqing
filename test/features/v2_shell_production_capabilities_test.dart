@@ -99,7 +99,7 @@ void main() {
     expect(management, contains('unawaited(_checkForUpdates())'));
     expect(management, contains('_ManagementPageAction.signOut'));
     expect(management, contains('widget.runtime.onSignOut?.call()'));
-    expect(management, contains("Text('当前版本 \${widget.runtime.appVersion}')"));
+    expect(management, contains("'当前版本 \${widget.runtime.appVersion}'"));
     expect(
       management,
       contains('canManageCaseTypes: widget.workspace.canManageCaseTypes'),
