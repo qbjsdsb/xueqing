@@ -1,0 +1,53 @@
+name: Xueqing management root header once
+
+on:
+  push:
+    branches:
+      - 'ux/management-root-header-v16'
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply focused patch
+        run: python3 .xueqing-management-root-header-patch.py
+
+      - name: Format changed Dart files
+        run: dart format lib/features/design_v2/v2_management_page.dart test/features/v2_management_page_header_contract_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused management header tests
+        run: |
+          flutter test test/features/v2_management_page_header_contract_test.dart
+          flutter test test/features/management_visual_density_test.dart test/features/management_workflow_clarity_contract_test.dart
+          flutter test test/features/v2_organization_workspace_test.dart
+
+      - name: Verify diff hygiene
+        run: git diff --check
+
+      - name: Commit verified product changes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/features/design_v2/v2_management_page.dart test/features/v2_management_page_header_contract_test.dart
+          git diff --cached --quiet && exit 1
+          git commit -m 'V2: align standalone management header'
+          git push origin HEAD:ux/management-root-header-v16
