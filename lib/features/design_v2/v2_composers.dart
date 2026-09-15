@@ -219,7 +219,9 @@ Future<bool> showV2QuickCapture(
   if (saved && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(onSave == null ? 'V2 预览：记录已完成，但没有写入正式学情。' : '已记录问题。'),
+        content: Text(
+          onSave == null ? 'V2 预览：记录已完成，但没有写入正式学情。' : '已记录问题 · 下一步可在问题详情中继续跟进。',
+        ),
       ),
     );
   }
@@ -244,6 +246,13 @@ Future<bool> showV2ProgressComposer(
   V2AttachmentPicker attachmentPicker = pickEvidenceAttachment,
   V2ProgressPersistence? persistence,
 }) async {
+  V2ProgressDraft? completedDraft;
+  final effectiveOnSave = onSave == null
+      ? null
+      : (V2ProgressDraft draft) async {
+          await onSave(draft);
+          completedDraft = draft;
+        };
   final saved =
       await _showAdaptiveComposer<bool>(
         context,
@@ -259,7 +268,7 @@ Future<bool> showV2ProgressComposer(
           primaryLabel: primaryLabel,
           initialBody: initialBody,
           initialAttachments: initialAttachments,
-          onSave: onSave,
+          onSave: effectiveOnSave,
           attachmentPicker: attachmentPicker,
           persistence: persistence,
         ),
@@ -268,11 +277,24 @@ Future<bool> showV2ProgressComposer(
   if (saved && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(onSave == null ? 'V2 预览：进展已完成，但没有写入正式学情。' : '已保存进展。'),
+        content: Text(
+          onSave == null
+              ? 'V2 预览：进展已完成，但没有写入正式学情。'
+              : _v2ProgressSuccessMessage(completedDraft),
+        ),
       ),
     );
   }
   return saved;
+}
+
+String _v2ProgressSuccessMessage(V2ProgressDraft? draft) {
+  return switch (draft?.nextStep) {
+    V2NextStep.remind => '已保存进展 · 已安排再次检查。',
+    V2NextStep.close => '已保存进展 · 已结束跟进。',
+    V2NextStep.continueTracking => '已保存进展 · 继续观察，暂不设提醒。',
+    null => '已保存进展。',
+  };
 }
 
 String _describeV2SaveError(Object error) {
