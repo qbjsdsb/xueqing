@@ -5026,70 +5026,101 @@ class _EmptyWorkspacePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: onOpenManagement == null && onOpenMore == null
-          ? null
-          : AppBar(
-              title: const Text('学情'),
-              actions: [
-                if (onOpenManagement != null)
-                  IconButton(
-                    key: const Key('v2-empty-management'),
-                    tooltip: '机构管理',
-                    onPressed: onOpenManagement,
-                    icon: const Icon(Icons.admin_panel_settings_outlined),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            ResponsiveBreakpoints.classify(constraints.maxWidth) ==
+            WindowSizeClass.compact;
+        final horizontalPadding = compact ? AppSpacing.mdPlus : AppSpacing.xl;
+
+        return Scaffold(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          body: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    compact ? AppSpacing.mdPlus : AppSpacing.xl,
+                    horizontalPadding,
+                    AppSpacing.sm,
                   ),
-                if (onOpenMore != null)
-                  IconButton(
-                    key: const Key('v2-empty-more'),
-                    tooltip: '更多',
-                    onPressed: onOpenMore,
-                    icon: const Icon(Icons.more_horiz),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1120),
+                      child: V2PageHeader(
+                        key: const Key('v2-empty-page-header'),
+                        title: '今日',
+                        actions: [
+                          if (onOpenMore != null)
+                            IconButton(
+                              key: const Key('v2-empty-more'),
+                              tooltip: '更多操作',
+                              onPressed: onOpenMore,
+                              icon: const Icon(Icons.more_vert),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                const SizedBox(width: 6),
+                ),
+                Expanded(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        AppSpacing.xl,
+                        horizontalPadding,
+                        AppSpacing.xl,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              size: 34,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '暂时还没有可查看的学生',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              onOpenManagement == null
+                                  ? '获得任课学生后，可在这里查看。'
+                                  : '当前还没有可查看的学生。可以先进入机构管理完成学生、学科和任课配置。',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            if (onOpenManagement != null) ...[
+                              const SizedBox(height: 20),
+                              FilledButton.tonalIcon(
+                                key: const Key('v2-empty-management'),
+                                onPressed: onOpenManagement,
+                                icon: const Icon(
+                                  Icons.admin_panel_settings_outlined,
+                                ),
+                                label: const Text('进入机构管理'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.people_outline,
-                    size: 34,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '暂时还没有可查看的学生',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    onOpenManagement == null
-                        ? '获得任课学生后，可在这里查看。'
-                        : '当前还没有可查看的学生。可以先进入机构管理完成学生、学科和任课配置。',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  if (onOpenManagement != null) ...[
-                    const SizedBox(height: 20),
-                    FilledButton.tonalIcon(
-                      onPressed: onOpenManagement,
-                      icon: const Icon(Icons.admin_panel_settings_outlined),
-                      label: const Text('进入机构管理'),
-                    ),
-                  ],
-                ],
-              ),
-            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
