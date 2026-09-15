@@ -98,10 +98,7 @@ class V2PageHeader extends StatelessWidget {
                   actionWrap(),
                 ],
               ),
-            if (stackActions) ...[
-              const SizedBox(height: 12),
-              actionWrap(),
-            ],
+            if (stackActions) ...[const SizedBox(height: 12), actionWrap()],
             if (footer != null) ...[const SizedBox(height: 16), footer!],
           ],
         );
