@@ -3100,9 +3100,7 @@ class _StudentDetailPaneState extends State<_StudentDetailPane> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             current,
-                            const SizedBox(height: 34),
-                            Divider(color: scheme.outlineVariant),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: AppSpacing.xl),
                             growth,
                           ],
                         ),
@@ -4346,11 +4344,7 @@ class _TodayPane extends StatelessWidget {
                   children: [
                     primary,
                     if (data.students.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      Divider(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: AppSpacing.xl),
                       KeyedSubtree(
                         key: const Key('v2-today-recent-stacked'),
                         child: recent,
