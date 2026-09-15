@@ -474,6 +474,74 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Organization header keeps update and sign-out in one overflow menu',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      var signOutCount = 0;
+      var updateCheckCount = 0;
+      final updateService = UpdateService(
+        currentVersion: '0.3.8',
+        manifestLoader: (_) async {
+          updateCheckCount++;
+          return '{"schema":1,"channel":"stable","version":"0.3.8","minimum_supported":"0.3.0","notes":[],"platforms":{"windows":{"url":"https://example.com/xueqing-windows.zip","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size_bytes":42,"format":"zip","file_name":"xueqing-windows.zip"}}}';
+        },
+      );
+      final workspace = _workspace();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2OrganizationWorkspacePage(
+            workspace: workspace,
+            workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+                .workspaceData,
+            responsibility: _context(personalProfileIds: const []),
+            runtime: _runtime(
+              includeManagement: false,
+              updateService: updateService,
+              onSignOut: () => signOutCount++,
+            ),
+            rootMode: true,
+            onRefresh: () async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
+      expect(find.byKey(const Key('v2-organization-more')), findsOneWidget);
+      expect(find.byTooltip('检查更新'), findsNothing);
+      expect(find.byTooltip('退出登录'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('v2-organization-more')));
+      await tester.pumpAndSettle();
+      expect(find.text('检查更新'), findsOneWidget);
+      expect(find.text('当前版本 0.3.8'), findsOneWidget);
+      expect(find.text('退出登录'), findsOneWidget);
+
+      await tester.tap(find.text('退出登录'));
+      await tester.pumpAndSettle();
+      expect(signOutCount, 1);
+
+      await tester.tap(find.byKey(const Key('v2-organization-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('检查更新'));
+      await tester.pumpAndSettle();
+      expect(updateCheckCount, 1);
+      expect(find.text('已是最新版本'), findsOneWidget);
+      await tester.tap(find.text('关闭'));
+      await tester.pumpAndSettle();
+
+      await tester.binding.setSurfaceSize(const Size(390, 800));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
+      expect(find.byKey(const Key('v2-organization-more')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('soft refresh callers join one coalesced refresh cycle', () {
     final loader = File('lib/features/design_v2/v2_workspace_loader.dart')
         .readAsStringSync();
@@ -517,17 +585,20 @@ void main() {
 AuthenticatedWorkspaceRuntime _runtime({
   required bool includeManagement,
   OrganizationManagementRepository? managementRepository,
+  UpdateService? updateService,
+  VoidCallback? onSignOut,
 }) {
   return AuthenticatedWorkspaceRuntime(
     learningRepository: _FakeLearningRepository(),
     organizationManagementRepository: includeManagement
         ? managementRepository ?? _FakeOrganizationManagementRepository()
         : null,
-    updateService: UpdateService(currentVersion: '0.3.8'),
+    updateService: updateService ?? UpdateService(currentVersion: '0.3.8'),
     updateInstaller: _FakeUpdateInstaller(),
     caseReopenDraftStore: _FakeCaseReopenDraftStore(),
     appVersion: '0.3.8',
     sessionUserId: 'user-manager',
+    onSignOut: onSignOut,
   );
 }
 
