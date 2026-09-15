@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_spacing.dart';
+
 import '../../cloud/learning_repository.dart';
 import '../organization_management/presentation/organization_management_page.dart';
 import '../teacher_workspace/presentation/teacher_workspace_page.dart';
 import '../teacher_workspace/workspace_runtime.dart';
+import 'v2_page_header.dart';
 import 'v2_update_flow.dart';
 
 enum _ManagementPageAction { checkUpdate, signOut }
@@ -121,98 +124,97 @@ class _V2ManagementPageState extends State<V2ManagementPage> {
       showHeaderTitle: false,
     );
 
+    final organizationName = widget.workspace.organizationName.trim();
+    final headerPadding = desktop ? AppSpacing.xl : AppSpacing.mdPlus;
+
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: !widget.rootMode,
-        title: const Text('机构管理'),
-        actions: [
-          if (desktop) ...[
-            if (_checkingForUpdates)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              )
-            else
-              IconButton(
-                tooltip: '检查更新',
-                onPressed: _checkForUpdates,
-                icon: const Icon(Icons.system_update_alt_outlined),
-              ),
-            if (canSignOut)
-              IconButton(
-                tooltip: '退出登录',
-                onPressed: widget.runtime.onSignOut,
-                icon: const Icon(Icons.logout_outlined),
-              ),
-          ] else ...[
-            if (_checkingForUpdates)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              )
-            else
-              PopupMenuButton<_ManagementPageAction>(
-                key: const Key('v2-management-more'),
-                tooltip: '更多操作',
-                icon: const Icon(Icons.more_vert),
-                onSelected: (action) {
-                  switch (action) {
-                    case _ManagementPageAction.checkUpdate:
-                      unawaited(_checkForUpdates());
-                    case _ManagementPageAction.signOut:
-                      widget.runtime.onSignOut?.call();
-                  }
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem<_ManagementPageAction>(
-                    value: _ManagementPageAction.checkUpdate,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.system_update_alt_outlined),
-                      title: const Text('检查更新'),
-                      subtitle: Text('当前版本 ${widget.runtime.appVersion}'),
-                    ),
-                  ),
-                  if (canSignOut)
-                    const PopupMenuItem<_ManagementPageAction>(
-                      value: _ManagementPageAction.signOut,
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.logout_outlined),
-                        title: Text('退出登录'),
-                      ),
-                    ),
-                ],
-              ),
-          ],
-          const SizedBox(width: 6),
-        ],
-      ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
-        top: false,
-        child: Scrollbar(
-          controller: _scrollController,
-          thumbVisibility: desktop,
-          interactive: desktop,
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: desktop
-                ? SelectionArea(child: managementContent)
-                : managementContent,
-          ),
+        child: Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                headerPadding,
+                headerPadding,
+                headerPadding,
+                AppSpacing.sm,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: V2PageHeader(
+                    key: const Key('v2-management-page-header'),
+                    title: '机构管理',
+                    meta: organizationName.isEmpty ? null : organizationName,
+                    leading: widget.rootMode
+                        ? null
+                        : IconButton(
+                            tooltip: '返回',
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            icon: const Icon(Icons.arrow_back),
+                          ),
+                    actions: [
+                      PopupMenuButton<_ManagementPageAction>(
+                        key: const Key('v2-management-more'),
+                        tooltip: '更多操作',
+                        onSelected: (action) {
+                          switch (action) {
+                            case _ManagementPageAction.checkUpdate:
+                              unawaited(_checkForUpdates());
+                            case _ManagementPageAction.signOut:
+                              widget.runtime.onSignOut?.call();
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          PopupMenuItem<_ManagementPageAction>(
+                            value: _ManagementPageAction.checkUpdate,
+                            enabled: !_checkingForUpdates,
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.system_update_alt_outlined,
+                              ),
+                              title: Text(
+                                _checkingForUpdates ? '正在检查更新…' : '检查更新',
+                              ),
+                              subtitle: Text(
+                                '当前版本 ${widget.runtime.appVersion}',
+                              ),
+                            ),
+                          ),
+                          if (canSignOut)
+                            const PopupMenuItem<_ManagementPageAction>(
+                              value: _ManagementPageAction.signOut,
+                              child: ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(Icons.logout_outlined),
+                                title: Text('退出登录'),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: Scrollbar(
+                controller: _scrollController,
+                thumbVisibility: desktop,
+                interactive: desktop,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: desktop
+                      ? SelectionArea(child: managementContent)
+                      : managementContent,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
