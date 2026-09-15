@@ -9,12 +9,12 @@ abstract interface class AuthRepository {
 
   Future<void> updatePassword({required String password});
 
-  /// Signs out from the provider and clears the local session.
+  /// Signs out from the current device by default.
   ///
-  /// A global sign-out revokes the user's other sessions when the network is
-  /// available. The UI may fall back to a local sign-out so a failed network
-  /// request never traps the user in a stale local session.
-  Future<void> signOut({bool global = true});
+  /// Pass [global] as true only for an explicit "sign out all devices" action.
+  /// Keeping ordinary sign-out local lets the same teacher stay signed in on
+  /// their other trusted devices.
+  Future<void> signOut({bool global = false});
 }
 
 class SupabaseAuthRepository implements AuthRepository {
@@ -50,7 +50,7 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> signOut({bool global = true}) {
+  Future<void> signOut({bool global = false}) {
     return _client.auth.signOut(
       scope: global ? SignOutScope.global : SignOutScope.local,
     );
