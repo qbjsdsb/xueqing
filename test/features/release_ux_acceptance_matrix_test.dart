@@ -14,6 +14,30 @@ Widget _app({required bool dark, required double textScale}) => MaterialApp(
 );
 
 void main() {
+  testWidgets('common text scales keep Chinese top-level headers readable', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+
+    for (final scale in const <double>[1, 1.3, 1.5]) {
+      for (final dark in const <bool>[false, true]) {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        await tester.pumpWidget(_app(dark: dark, textScale: scale));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('v2-today-page-header')), findsOneWidget);
+        expect(find.text('今日'), findsWidgets);
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'today header scale=$scale dark=$dark',
+        );
+      }
+    }
+  });
+
   testWidgets('release matrix keeps compact teacher roots usable', (
     tester,
   ) async {
