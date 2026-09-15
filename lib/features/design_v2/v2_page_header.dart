@@ -68,6 +68,16 @@ class V2PageHeader extends StatelessWidget {
       ],
     );
 
+    Widget actionWrap() => IconTheme.merge(
+      data: const IconThemeData(size: 20),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: actions,
+      ),
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final stackActions =
@@ -85,23 +95,10 @@ class V2PageHeader extends StatelessWidget {
                   if (leading != null) ...[leading!, const SizedBox(width: 8)],
                   Expanded(child: copy),
                   const SizedBox(width: 12),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: actions,
-                  ),
+                  actionWrap(),
                 ],
               ),
-            if (stackActions) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: actions,
-              ),
-            ],
+            if (stackActions) ...[const SizedBox(height: 12), actionWrap()],
             if (footer != null) ...[const SizedBox(height: 16), footer!],
           ],
         );
