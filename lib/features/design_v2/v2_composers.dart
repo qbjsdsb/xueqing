@@ -789,18 +789,6 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
                 alignLabelWithHint: true,
               ),
             ),
-            if (matchingExistingCases.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _ExistingCaseContinuationPanel(
-                totalCount: matchingExistingCases.length,
-                items: matchingExistingCases.take(3).toList(growable: false),
-                canContinue:
-                    widget.onContinueExisting != null &&
-                    _controller.text.trim().isNotEmpty &&
-                    !_saving,
-                onContinue: _continueExisting,
-              ),
-            ],
             const SizedBox(height: 12),
             V2MediaDraftStrip(
               attachments: _attachments,
@@ -813,6 +801,17 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
                 _mediaError!,
                 style: Theme.of(context).textTheme.bodySmall
                     ?.copyWith(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            if (matchingExistingCases.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _ExistingCaseContinuationPanel(
+                items: matchingExistingCases,
+                canContinue:
+                    widget.onContinueExisting != null &&
+                    _controller.text.trim().isNotEmpty &&
+                    !_saving,
+                onContinue: _continueExisting,
               ),
             ],
             const SizedBox(height: 8),
@@ -914,22 +913,35 @@ class _QuickCaptureSubjectContextPanel extends StatelessWidget {
   }
 }
 
-class _ExistingCaseContinuationPanel extends StatelessWidget {
+class _ExistingCaseContinuationPanel extends StatefulWidget {
   const _ExistingCaseContinuationPanel({
-    required this.totalCount,
     required this.items,
     required this.canContinue,
     required this.onContinue,
   });
 
-  final int totalCount;
   final List<V2ExistingCaseOption> items;
   final bool canContinue;
   final ValueChanged<V2ExistingCaseOption> onContinue;
 
   @override
+  State<_ExistingCaseContinuationPanel> createState() =>
+      _ExistingCaseContinuationPanelState();
+}
+
+class _ExistingCaseContinuationPanelState
+    extends State<_ExistingCaseContinuationPanel> {
+  static const int _previewLimit = 3;
+  bool _showAll = false;
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final visibleItems = _showAll
+        ? widget.items
+        : widget.items.take(_previewLimit).toList(growable: false);
+    final hiddenCount = widget.items.length - _previewLimit;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 10),
@@ -942,7 +954,7 @@ class _ExistingCaseContinuationPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '这个学科还有 $totalCount 个问题正在跟进',
+            '这个学科还有 ${widget.items.length} 个问题正在跟进',
             style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: 4),
@@ -952,21 +964,25 @@ class _ExistingCaseContinuationPanel extends StatelessWidget {
                 ?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 8),
-          for (var index = 0; index < items.length; index++) ...[
+          for (var index = 0; index < visibleItems.length; index++) ...[
             if (index > 0) Divider(height: 1, color: scheme.outlineVariant),
             _ExistingCaseContinuationRow(
-              item: items[index],
-              meta: _existingCaseMeta(items[index]),
-              canContinue: canContinue,
-              onContinue: onContinue,
+              item: visibleItems[index],
+              meta: _existingCaseMeta(visibleItems[index]),
+              canContinue: widget.canContinue,
+              onContinue: widget.onContinue,
             ),
           ],
-          if (totalCount > items.length) ...[
-            const SizedBox(height: 3),
-            Text(
-              '这里先显示最需要关注的 ${items.length} 个，其余可在学生详情中查看。',
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant),
+          if (widget.items.length > _previewLimit) ...[
+            const SizedBox(height: 4),
+            TextButton.icon(
+              key: const Key('v2-quick-capture-existing-toggle-all'),
+              onPressed: () => setState(() => _showAll = !_showAll),
+              icon: Icon(
+                _showAll ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+              ),
+              label: Text(_showAll ? '收起其余问题' : '查看其余 $hiddenCount 个问题'),
             ),
           ],
         ],
