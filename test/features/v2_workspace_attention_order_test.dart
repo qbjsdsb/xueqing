@@ -70,26 +70,29 @@ void main() {
     },
   );
 
-  test('explicit action timing wins and equal priorities preserve source order', () {
-    final data = V2WorkspaceData(
-      students: const [student],
-      focusItems: [
-        item('first', nextStep: '继续观察'),
-        item('second', nextStep: '继续观察'),
-        item(
-          'explicit-overdue',
-          nextStep: '继续观察',
-          dueOn: DateTime(2026, 9, 30),
-          timing: V2ActionTiming.overdue,
-        ),
-      ],
-      timeline: const [],
-      businessDate: DateTime(2026, 9, 15),
-    );
+  test(
+    'explicit action timing wins and equal priorities preserve source order',
+    () {
+      final data = V2WorkspaceData(
+        students: const [student],
+        focusItems: [
+          item('first', nextStep: '继续观察'),
+          item('second', nextStep: '继续观察'),
+          item(
+            'explicit-overdue',
+            nextStep: '继续观察',
+            dueOn: DateTime(2026, 9, 30),
+            timing: V2ActionTiming.overdue,
+          ),
+        ],
+        timeline: const [],
+        businessDate: DateTime(2026, 9, 15),
+      );
 
-    expect(
-      data.focusItemsForStudent(student).map((entry) => entry.id).toList(),
-      ['explicit-overdue', 'first', 'second'],
-    );
-  });
+      expect(
+        data.focusItemsForStudent(student).map((entry) => entry.id).toList(),
+        ['explicit-overdue', 'first', 'second'],
+      );
+    },
+  );
 }
