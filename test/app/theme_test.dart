@@ -36,6 +36,17 @@ void main() {
     );
   });
 
+  test('tool icons stay visually quiet without shrinking their hit target', () {
+    for (final theme in <ThemeData>[AppTheme.light(), AppTheme.dark()]) {
+      final style = theme.iconButtonTheme.style!;
+      expect(style.iconSize?.resolve(<WidgetState>{}), 20);
+      expect(
+        style.minimumSize?.resolve(<WidgetState>{}),
+        const Size(48, 48),
+      );
+    }
+  });
+
   test('desktop scrollbars become easier to target on hover and drag', () {
     final theme = AppTheme.light();
     final thickness = theme.scrollbarTheme.thickness!;
