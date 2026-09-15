@@ -196,7 +196,8 @@ class V2WorkspaceData {
     final normalized = value.trim().replaceAll(RegExp(r'\s+'), '');
     return normalized.isNotEmpty &&
         normalized != '待安排' &&
-        normalized != '待安排下一步';
+        normalized != '待安排下一步' &&
+        normalized != '安排下一步';
   }
 
   int _timingRank(V2ActionTiming timing) => switch (timing) {
