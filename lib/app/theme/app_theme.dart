@@ -192,6 +192,7 @@ abstract final class AppTheme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
+          iconSize: 20,
           minimumSize: const Size(
             AppSpacing.touchTarget,
             AppSpacing.touchTarget,
