@@ -11,8 +11,7 @@ void main() {
     expect(
       localDefault.allMatches(source).length,
       2,
-      reason:
-          'Both the interface and Supabase implementation must default ordinary sign-out to local scope.',
+      reason: 'Both the interface and Supabase implementation must default ordinary sign-out to local scope.',
     );
     expect(
       source,
@@ -22,8 +21,7 @@ void main() {
     expect(
       source,
       contains('scope: global ? SignOutScope.global : SignOutScope.local'),
-      reason:
-          'Explicit global sign-out must remain available for a future all-device action.',
+      reason: 'Explicit global sign-out must remain available for a future all-device action.',
     );
   });
 }
