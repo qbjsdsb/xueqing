@@ -1,0 +1,1 @@
+Release scope is frozen after PR #264. No backend migration, RLS/RPC, role, responsibility, or teaching write semantic changes are introduced by the version freeze.
