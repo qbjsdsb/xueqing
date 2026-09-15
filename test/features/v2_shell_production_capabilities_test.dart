@@ -86,14 +86,19 @@ void main() {
     expect(management, contains('OrganizationManagementPage('));
     expect(management, contains('teacherLearningRecordRepository:'));
     expect(management, contains('studentLearningRecordRepository:'));
-    expect(management, contains("title: const Text('机构管理')"));
+    expect(management, contains('V2PageHeader('));
+    expect(management, contains("Key('v2-management-page-header')"));
+    expect(management, contains("title: '机构管理'"));
     expect(management, contains('showHeaderTitle: false'));
-    expect(management, contains("tooltip: '检查更新'"));
-    expect(management, contains("tooltip: '退出登录'"));
+    expect(management, isNot(contains("tooltip: '检查更新'")));
+    expect(management, isNot(contains("tooltip: '退出登录'")));
     expect(management, contains("Key('v2-management-more')"));
+    expect(management, contains("tooltip: '更多操作'"));
     expect(management, contains('PopupMenuButton<_ManagementPageAction>'));
-    expect(management, contains("title: const Text('检查更新')"));
-    expect(management, contains("title: Text('退出登录')"));
+    expect(management, contains('_ManagementPageAction.checkUpdate'));
+    expect(management, contains('unawaited(_checkForUpdates())'));
+    expect(management, contains('_ManagementPageAction.signOut'));
+    expect(management, contains('widget.runtime.onSignOut?.call()'));
     expect(management, contains("Text('当前版本 \${widget.runtime.appVersion}')"));
     expect(
       management,
