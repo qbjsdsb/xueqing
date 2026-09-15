@@ -1,0 +1,304 @@
+name: Xueqing empty workspace header v17
+
+on:
+  push:
+    branches:
+      - ux/empty-workspace-header-v17
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/empty-workspace-header-v17
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Patch empty workspace and acceptance tests
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('lib/features/design_v2/v2_workspace_preview.dart')
+          source = source_path.read_text()
+          old = r'''class _EmptyWorkspacePreview extends StatelessWidget {
+            const _EmptyWorkspacePreview({this.onOpenManagement, this.onOpenMore});
+
+            final VoidCallback? onOpenManagement;
+            final VoidCallback? onOpenMore;
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                appBar: onOpenManagement == null && onOpenMore == null
+                    ? null
+                    : AppBar(
+                        title: const Text('学情'),
+                        actions: [
+                          if (onOpenManagement != null)
+                            IconButton(
+                              key: const Key('v2-empty-management'),
+                              tooltip: '机构管理',
+                              onPressed: onOpenManagement,
+                              icon: const Icon(Icons.admin_panel_settings_outlined),
+                            ),
+                          if (onOpenMore != null)
+                            IconButton(
+                              key: const Key('v2-empty-more'),
+                              tooltip: '更多',
+                              onPressed: onOpenMore,
+                              icon: const Icon(Icons.more_horiz),
+                            ),
+                          const SizedBox(width: 6),
+                        ],
+                      ),
+                body: SafeArea(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.people_outline,
+                              size: 34,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '暂时还没有可查看的学生',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              onOpenManagement == null
+                                  ? '获得任课学生后，可在这里查看。'
+                                  : '当前还没有可查看的学生。可以先进入机构管理完成学生、学科和任课配置。',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            if (onOpenManagement != null) ...[
+                              const SizedBox(height: 20),
+                              FilledButton.tonalIcon(
+                                onPressed: onOpenManagement,
+                                icon: const Icon(Icons.admin_panel_settings_outlined),
+                                label: const Text('进入机构管理'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
+          '''
+          new = r'''class _EmptyWorkspacePreview extends StatelessWidget {
+            const _EmptyWorkspacePreview({this.onOpenManagement, this.onOpenMore});
+
+            final VoidCallback? onOpenManagement;
+            final VoidCallback? onOpenMore;
+
+            @override
+            Widget build(BuildContext context) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact =
+                      ResponsiveBreakpoints.classify(constraints.maxWidth) ==
+                      WindowSizeClass.compact;
+                  final horizontalPadding = compact
+                      ? AppSpacing.mdPlus
+                      : AppSpacing.xl;
+
+                  return Scaffold(
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    body: SafeArea(
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              horizontalPadding,
+                              compact ? AppSpacing.mdPlus : AppSpacing.xl,
+                              horizontalPadding,
+                              AppSpacing.sm,
+                            ),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 1120),
+                                child: V2PageHeader(
+                                  key: const Key('v2-empty-page-header'),
+                                  title: '今日',
+                                  actions: [
+                                    if (onOpenMore != null)
+                                      IconButton(
+                                        key: const Key('v2-empty-more'),
+                                        tooltip: '更多操作',
+                                        onPressed: onOpenMore,
+                                        icon: const Icon(Icons.more_vert),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: SingleChildScrollView(
+                                padding: EdgeInsets.fromLTRB(
+                                  horizontalPadding,
+                                  AppSpacing.xl,
+                                  horizontalPadding,
+                                  AppSpacing.xl,
+                                ),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 420),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.people_outline,
+                                        size: 34,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        '暂时还没有可查看的学生',
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(context).textTheme.titleLarge,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        onOpenManagement == null
+                                            ? '获得任课学生后，可在这里查看。'
+                                            : '当前还没有可查看的学生。可以先进入机构管理完成学生、学科和任课配置。',
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(context).textTheme.bodyMedium,
+                                      ),
+                                      if (onOpenManagement != null) ...[
+                                        const SizedBox(height: 20),
+                                        FilledButton.tonalIcon(
+                                          key: const Key('v2-empty-management'),
+                                          onPressed: onOpenManagement,
+                                          icon: const Icon(
+                                            Icons.admin_panel_settings_outlined,
+                                          ),
+                                          label: const Text('进入机构管理'),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
+          }
+          '''
+          if old not in source:
+              raise SystemExit('empty workspace source contract changed; refusing blind patch')
+          source_path.write_text(source.replace(old, new, 1))
+
+          test_path = Path('test/features/design_v2_workspace_data_injection_test.dart')
+          tests = test_path.read_text()
+          desktop_old = r'''    expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+              expect(tester.takeException(), isNull);
+            });
+
+            testWidgets('empty workspace is safe on compact layout', (tester) async {'''
+          desktop_new = r'''    expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+              expect(find.byKey(const Key('v2-empty-page-header')), findsOneWidget);
+              expect(find.text('今日'), findsOneWidget);
+              expect(find.byType(AppBar), findsNothing);
+              expect(tester.takeException(), isNull);
+            });
+
+            testWidgets('empty workspace is safe on compact layout', (tester) async {'''
+          if desktop_old not in tests:
+              raise SystemExit('desktop empty-workspace test contract changed')
+          tests = tests.replace(desktop_old, desktop_new, 1)
+
+          compact_old = r'''    expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+              expect(tester.takeException(), isNull);
+            });
+
+            testWidgets(
+              'student without active Case exposes only record-problem primary action','''
+          compact_new = r'''    expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+              expect(find.byKey(const Key('v2-empty-page-header')), findsOneWidget);
+              expect(find.text('今日'), findsOneWidget);
+              expect(find.byKey(const Key('v2-empty-more')), findsOneWidget);
+              expect(find.byTooltip('更多操作'), findsOneWidget);
+              expect(find.byType(AppBar), findsNothing);
+              expect(tester.takeException(), isNull);
+            });
+
+            testWidgets(
+              'student without active Case exposes only record-problem primary action','''
+          if compact_old not in tests:
+              raise SystemExit('compact empty-workspace test contract changed')
+          test_path.write_text(tests.replace(compact_old, compact_new, 1))
+          PY
+
+      - name: Format
+        run: dart format lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_data_injection_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused UX regression tests
+        run: >-
+          flutter test
+          test/features/design_v2_workspace_data_injection_test.dart
+          test/features/v2_page_rhythm_test.dart
+          test/features/release_ux_acceptance_matrix_test.dart
+          test/features/v2_shell_production_capabilities_test.dart
+
+      - name: Full Flutter test suite
+        run: flutter test
+
+      - name: Commit validated candidate and remove runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/.xueqing-empty-workspace-v17.yml
+          git add lib/features/design_v2/v2_workspace_preview.dart test/features/design_v2_workspace_data_injection_test.dart
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "V2: align empty workspace header"
+
+          mapfile -t changed < <(git diff --name-only origin/main...HEAD | sort)
+          printf '%s\n' "${changed[@]}"
+          expected=(
+            "lib/features/design_v2/v2_workspace_preview.dart"
+            "test/features/design_v2_workspace_data_injection_test.dart"
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          if [[ "$(printf '%s\n' "${changed[@]}")" != "$(printf '%s\n' "${expected_sorted[@]}")" ]]; then
+            echo "Unexpected final diff" >&2
+            exit 1
+          fi
+          git push origin HEAD:ux/empty-workspace-header-v17
