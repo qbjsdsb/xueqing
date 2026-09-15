@@ -43,12 +43,36 @@ void main() {
               subjects: const <String>['语文'],
               existingCases: const <V2ExistingCaseOption>[
                 V2ExistingCaseOption(
-                  id: 'case-reading',
+                  id: 'case-reading-1',
                   title: '阅读题容易漏看限制词',
                   subject: '语文',
                   statusLabel: '跟进中',
                   nextStepLabel: '周五再检查',
                   dueLabel: '周五',
+                ),
+                V2ExistingCaseOption(
+                  id: 'case-reading-2',
+                  title: '概括题信息筛选不全',
+                  subject: '语文',
+                  statusLabel: '跟进中',
+                  nextStepLabel: '继续观察',
+                  dueLabel: '待安排',
+                ),
+                V2ExistingCaseOption(
+                  id: 'case-reading-3',
+                  title: '说明文术语辨析不稳',
+                  subject: '语文',
+                  statusLabel: '跟进中',
+                  nextStepLabel: '下次课复查',
+                  dueLabel: '下周',
+                ),
+                V2ExistingCaseOption(
+                  id: 'case-reading-4',
+                  title: '论证思路容易漏掉层次',
+                  subject: '语文',
+                  statusLabel: '跟进中',
+                  nextStepLabel: '待安排',
+                  dueLabel: '待安排',
                 ),
                 V2ExistingCaseOption(
                   id: 'case-math',
@@ -76,8 +100,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('阅读题容易漏看限制词'), findsOneWidget);
+    expect(find.text('论证思路容易漏掉层次'), findsNothing);
     expect(find.text('函数题思路不清'), findsNothing);
     expect(find.textContaining('已有问题'), findsWidgets);
+    expect(find.text('查看其余 1 个问题'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const Key('v2-quick-capture-body')),
@@ -86,13 +112,23 @@ void main() {
     await tester.tap(find.byKey(const Key('v2-media-add')));
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const Key('v2-quick-capture-existing-case-reading')),
+    final toggle = find.byKey(
+      const Key('v2-quick-capture-existing-toggle-all'),
     );
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.text('论证思路容易漏掉层次'), findsOneWidget);
+
+    final fourthCase = find.byKey(
+      const Key('v2-quick-capture-existing-case-reading-4'),
+    );
+    await tester.ensureVisible(fourthCase);
+    await tester.tap(fourthCase);
     await tester.pumpAndSettle();
 
     expect(newCaseSaves, 0);
-    expect(continuedCase?.id, 'case-reading');
+    expect(continuedCase?.id, 'case-reading-4');
     expect(continuedDraft?.subject, '语文');
     expect(continuedDraft?.body, '今天两道阅读题又漏看“不正确的是”。');
     expect(continuedDraft?.attachments, hasLength(1));
