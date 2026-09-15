@@ -83,9 +83,8 @@ class V2WorkspaceData {
           );
       if (bucketComparison != 0) return bucketComparison;
 
-      final timingComparison = _timingRank(
-        leftTiming,
-      ).compareTo(_timingRank(rightTiming));
+      final timingComparison = _timingRank(leftTiming)
+          .compareTo(_timingRank(rightTiming));
       if (timingComparison != 0) return timingComparison;
 
       final dueComparison = _compareNullableDateAscending(
