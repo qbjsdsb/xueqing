@@ -1350,6 +1350,14 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   bool get _initialCompleteCurrentAction =>
       widget.canCompleteCurrentAction && widget.completeCurrentActionInitially;
 
+  String get _currentActionEffectLabel => switch (_nextStep) {
+    V2NextStep.continueTracking =>
+      _completeCurrentAction ? '当前提醒会标记完成，问题继续观察，不另设新提醒。' : '当前提醒会继续保留。',
+    V2NextStep.remind =>
+      _completeCurrentAction ? '当前提醒会标记完成，并创建新的再次检查。' : '新的再次检查会替换当前提醒。',
+    V2NextStep.close => '结束跟进后，当前提醒会一并取消。',
+  };
+
   bool get _hasDraft =>
       _controller.text.trim().isNotEmpty ||
       _attachments.isNotEmpty ||
@@ -1586,6 +1594,16 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                   unawaited(_persistDraftSilently());
                 },
               ),
+            if (widget.canCompleteCurrentAction) ...[
+              const SizedBox(height: 6),
+              Text(
+                _currentActionEffectLabel,
+                key: const Key('v2-current-action-effect'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
             AnimatedSize(
               duration: AppMotion.effectiveDuration(context),
               alignment: Alignment.topCenter,

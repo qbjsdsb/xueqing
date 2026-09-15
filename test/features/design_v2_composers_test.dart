@@ -180,6 +180,62 @@ void main() {
     },
   );
 
+  testWidgets(
+    'current reminder consequence stays explicit across next-step decisions',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        app(
+          Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => showV2ProgressComposer(
+                context,
+                studentName: '林同学',
+                subject: '语文',
+                caseTitle: '阅读概括不完整',
+                canCompleteCurrentAction: true,
+                attachmentPicker: (_) async => null,
+              ),
+              child: const Text('打开提醒语义'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('打开提醒语义'));
+      await tester.pumpAndSettle();
+
+      final effect = find.byKey(const Key('v2-current-action-effect'));
+      expect(effect, findsOneWidget);
+      expect(find.text('当前提醒会继续保留。'), findsOneWidget);
+
+      final remind = find.text('安排再次检查');
+      await tester.ensureVisible(remind);
+      await tester.tap(remind);
+      await tester.pumpAndSettle();
+      expect(find.text('新的再次检查会替换当前提醒。'), findsOneWidget);
+
+      final completion = find.byKey(const Key('v2-complete-current-action'));
+      await tester.ensureVisible(completion);
+      await tester.tap(completion);
+      await tester.pumpAndSettle();
+      expect(find.text('当前提醒会标记完成，并创建新的再次检查。'), findsOneWidget);
+
+      final close = find.text('结束跟进');
+      await tester.ensureVisible(close);
+      await tester.tap(close);
+      await tester.pumpAndSettle();
+      expect(find.text('结束跟进后，当前提醒会一并取消。'), findsOneWidget);
+
+      final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+      expect(checkbox.value, isFalse);
+      expect(checkbox.onChanged, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Progress Composer can open directly in verification mode', (
     tester,
   ) async {
