@@ -143,7 +143,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final action = find.byKey(const Key('page-header-test-action'));
-      final icon = find.descendant(of: action, matching: find.byIcon(Icons.more_vert));
+      final icon = find.descendant(
+        of: action,
+        matching: find.byIcon(Icons.more_vert),
+      );
       expect(action, findsOneWidget);
       expect(icon, findsOneWidget);
       expect(tester.getSize(action).width, greaterThanOrEqualTo(48));
