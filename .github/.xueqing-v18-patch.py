@@ -181,7 +181,61 @@ class _ExistingCaseContinuationPanelState
 '''
 if old_panel not in source:
     raise SystemExit('quick-capture existing-case panel contract changed')
-source_path.write_text(source.replace(old_panel, new_panel, 1))
+source = source.replace(old_panel, new_panel, 1)
+
+old_order = '''            if (matchingExistingCases.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _ExistingCaseContinuationPanel(
+                items: matchingExistingCases,
+                canContinue:
+                    widget.onContinueExisting != null &&
+                    _controller.text.trim().isNotEmpty &&
+                    !_saving,
+                onContinue: _continueExisting,
+              ),
+            ],
+            const SizedBox(height: 12),
+            V2MediaDraftStrip(
+              attachments: _attachments,
+              onAdd: _pickAttachment,
+              onRemove: _removeAttachment,
+            ),
+            if (_mediaError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _mediaError!,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: Theme.of(context).colorScheme.error),
+              ),
+            ],'''
+new_order = '''            const SizedBox(height: 12),
+            V2MediaDraftStrip(
+              attachments: _attachments,
+              onAdd: _pickAttachment,
+              onRemove: _removeAttachment,
+            ),
+            if (_mediaError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _mediaError!,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            if (matchingExistingCases.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _ExistingCaseContinuationPanel(
+                items: matchingExistingCases,
+                canContinue:
+                    widget.onContinueExisting != null &&
+                    _controller.text.trim().isNotEmpty &&
+                    !_saving,
+                onContinue: _continueExisting,
+              ),
+            ],'''
+if old_order not in source:
+    raise SystemExit('quick-capture evidence order contract changed')
+source_path.write_text(source.replace(old_order, new_order, 1))
 
 test_path = Path('test/features/v037_existing_case_continuation_test.dart')
 tests = test_path.read_text()
@@ -273,15 +327,19 @@ old_tap = '''    await tester.tap(
 
     expect(newCaseSaves, 0);
     expect(continuedCase?.id, 'case-reading');'''
-new_tap = '''    await tester.tap(
-      find.byKey(const Key('v2-quick-capture-existing-toggle-all')),
+new_tap = '''    final toggle = find.byKey(
+      const Key('v2-quick-capture-existing-toggle-all'),
     );
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
     await tester.pumpAndSettle();
     expect(find.text('论证思路容易漏掉层次'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const Key('v2-quick-capture-existing-case-reading-4')),
+    final fourthCase = find.byKey(
+      const Key('v2-quick-capture-existing-case-reading-4'),
     );
+    await tester.ensureVisible(fourthCase);
+    await tester.tap(fourthCase);
     await tester.pumpAndSettle();
 
     expect(newCaseSaves, 0);
