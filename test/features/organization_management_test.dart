@@ -1234,7 +1234,9 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    await tester.tap(find.widgetWithText(FilledButton, '添加学生'));
+    expect(find.text('添加第一位学生'), findsOneWidget);
+    expect(find.text('添加学生'), findsNothing);
+    await tester.tap(find.byKey(const Key('management-next-step-action')));
     await tester.pumpAndSettle();
 
     expect(find.text('学生姓名 *'), findsOneWidget);
@@ -1417,7 +1419,7 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    await tester.tap(find.widgetWithText(FilledButton, '添加学生'));
+    await tester.tap(find.byKey(const Key('management-next-step-action')));
     await tester.pumpAndSettle();
 
     final toggle = find.byKey(const Key('student-setup-optional-toggle'));
@@ -1455,7 +1457,7 @@ void main() {
     );
     await _pumpManagement(tester, repository);
 
-    final addStudent = find.widgetWithText(FilledButton, '添加学生');
+    final addStudent = find.byKey(const Key('management-next-step-action'));
     await tester.ensureVisible(addStudent);
     final addStudentButton = tester.widget<FilledButton>(addStudent);
     addStudentButton.onPressed!();
@@ -2235,7 +2237,7 @@ void main() {
       find.byKey(const Key('management-next-step-action')),
       findsOneWidget,
     );
-    expect(find.text('添加学科'), findsWidgets);
+    expect(find.text('添加学科'), findsOneWidget);
     expect(find.text('机构成员'), findsNothing);
   });
 
@@ -2265,6 +2267,9 @@ void main() {
     expect(find.text('老师可教学科'), findsOneWidget);
     expect(find.text('下一步：配置老师可教学科'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '配置老师学科'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '邀请成员'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '邀请成员'), findsNothing);
+    expect(find.widgetWithText(TextButton, '配置'), findsNothing);
     expect(find.text('基础设置'), findsNothing);
   });
 

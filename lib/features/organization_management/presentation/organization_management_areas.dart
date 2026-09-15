@@ -313,6 +313,10 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     required Set<String> latestEndedScopeIds,
   }) {
     final activeScopeGroups = _groupTeacherSubjectScopes(activeScopes);
+    final setupIsPeople =
+        _setupNextStepArea() == OrganizationManagementArea.people;
+    final setupNeedsInvitation =
+        setupIsPeople && widget.snapshot.setupOptions.teachers.isEmpty;
     return _ManagementAreaCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,13 +324,19 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           _ManagementSection(
             title: '机构成员',
             count: '${widget.snapshot.members.length} 人',
-            action: widget.canInvite
-                ? FilledButton.tonalIcon(
+            action: !widget.canInvite || setupNeedsInvitation
+                ? null
+                : setupIsPeople
+                ? TextButton.icon(
                     onPressed: widget.busy ? null : widget.onInviteMember,
                     icon: const Icon(Icons.group_add_outlined, size: 18),
                     label: const Text('邀请成员'),
                   )
-                : null,
+                : FilledButton.tonalIcon(
+                    onPressed: widget.busy ? null : widget.onInviteMember,
+                    icon: const Icon(Icons.group_add_outlined, size: 18),
+                    label: const Text('邀请成员'),
+                  ),
             child: widget.snapshot.members.isEmpty
                 ? const _ManagementEmptyState(
                     title: '还没有机构成员',
@@ -382,11 +392,13 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           _ManagementSection(
             title: '老师可教学科',
             count: '${activeScopeGroups.length} 位老师 · ${activeScopes.length} 科',
-            action: TextButton.icon(
-              onPressed: widget.busy ? null : widget.onAddTeacherScope,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('配置'),
-            ),
+            action: setupIsPeople
+                ? null
+                : TextButton.icon(
+                    onPressed: widget.busy ? null : widget.onAddTeacherScope,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('配置'),
+                  ),
             child: activeScopes.isEmpty
                 ? const _ManagementEmptyState(
                     title: '还没有有效教学范围',
@@ -446,6 +458,8 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
     required List<OrganizationStudentTeacherAssignment> activeAssignments,
     required List<OrganizationStudentTeacherAssignment> endedAssignments,
   }) {
+    final setupIsStudents =
+        _setupNextStepArea() == OrganizationManagementArea.students;
     final normalizedQuery = _studentQuery.trim().toLowerCase();
     final filteredStudents = normalizedQuery.isEmpty
         ? widget.snapshot.students
@@ -527,11 +541,13 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
             count: normalizedQuery.isEmpty
                 ? '${widget.snapshot.students.length} 人'
                 : '${filteredStudents.length} 个结果',
-            action: FilledButton.icon(
-              onPressed: widget.busy ? null : widget.onAddStudent,
-              icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-              label: const Text('添加学生'),
-            ),
+            action: setupIsStudents
+                ? null
+                : FilledButton.icon(
+                    onPressed: widget.busy ? null : widget.onAddStudent,
+                    icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                    label: const Text('添加学生'),
+                  ),
             child: visibleStudents.isEmpty
                 ? _ManagementEmptyState(
                     title: normalizedQuery.isEmpty ? '还没有学生档案' : '没有匹配的学生',
@@ -629,6 +645,8 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
 
   Widget _buildSettingsArea() {
     final noSubjects = widget.snapshot.setupOptions.subjects.isEmpty;
+    final setupIsSettings =
+        _setupNextStepArea() == OrganizationManagementArea.settings;
     return _ManagementAreaCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,12 +659,8 @@ class _ManagementOverviewState extends State<_ManagementOverview> {
           _ManagementSection(
             title: '机构学科',
             count: '${widget.snapshot.setupOptions.subjects.length} 门',
-            action: noSubjects
-                ? FilledButton.tonalIcon(
-                    onPressed: widget.busy ? null : widget.onAddSubject,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('添加学科'),
-                  )
+            action: setupIsSettings
+                ? null
                 : TextButton.icon(
                     onPressed: widget.busy ? null : widget.onAddSubject,
                     icon: const Icon(Icons.add, size: 18),
