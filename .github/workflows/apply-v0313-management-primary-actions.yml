@@ -63,3 +63,5 @@ jobs:
           git status --short
           git commit -m "polish: keep one primary management action per setup step"
           git push origin HEAD:polish/v0313-management-primary-actions
+
+# retry: behavior acceptance aligned with the contextual setup action
