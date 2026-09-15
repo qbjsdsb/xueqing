@@ -58,7 +58,8 @@ class V2WorkspaceData {
     }
 
     final sourceOrder = <String, int>{
-      for (var index = 0; index < result.length; index++) result[index].id: index,
+      for (var index = 0; index < result.length; index++)
+        result[index].id: index,
     };
     final latestActivity = _latestActivityByCaseId(result);
 
@@ -68,17 +69,18 @@ class V2WorkspaceData {
       final leftActivity = latestActivity[left.id];
       final rightActivity = latestActivity[right.id];
 
-      final bucketComparison = _attentionBucket(
-        left,
-        timing: leftTiming,
-        latestActivity: leftActivity,
-      ).compareTo(
-        _attentionBucket(
-          right,
-          timing: rightTiming,
-          latestActivity: rightActivity,
-        ),
-      );
+      final bucketComparison =
+          _attentionBucket(
+            left,
+            timing: leftTiming,
+            latestActivity: leftActivity,
+          ).compareTo(
+            _attentionBucket(
+              right,
+              timing: rightTiming,
+              latestActivity: rightActivity,
+            ),
+          );
       if (bucketComparison != 0) return bucketComparison;
 
       final timingComparison = _timingRank(
@@ -161,7 +163,11 @@ class V2WorkspaceData {
     if (dueOn == null || reference == null) return V2ActionTiming.undated;
 
     final dueDate = DateTime(dueOn.year, dueOn.month, dueOn.day);
-    final businessDay = DateTime(reference.year, reference.month, reference.day);
+    final businessDay = DateTime(
+      reference.year,
+      reference.month,
+      reference.day,
+    );
     if (dueDate.isBefore(businessDay)) return V2ActionTiming.overdue;
     if (dueDate == businessDay) return V2ActionTiming.today;
     return V2ActionTiming.future;
