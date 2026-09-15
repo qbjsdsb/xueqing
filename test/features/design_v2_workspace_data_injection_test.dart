@@ -162,6 +162,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+    expect(find.byKey(const Key('v2-empty-page-header')), findsOneWidget);
+    expect(find.text('今日'), findsOneWidget);
+    expect(find.byType(AppBar), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -173,6 +176,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('暂时还没有可查看的学生'), findsOneWidget);
+    expect(find.byKey(const Key('v2-empty-page-header')), findsOneWidget);
+    expect(find.text('今日'), findsOneWidget);
+    expect(find.byKey(const Key('v2-empty-more')), findsOneWidget);
+    expect(find.byTooltip('更多操作'), findsOneWidget);
+    expect(find.byType(AppBar), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
