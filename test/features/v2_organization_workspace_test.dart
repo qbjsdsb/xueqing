@@ -249,16 +249,50 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('v2-workspace-refresh')), findsOneWidget);
+      expect(find.byKey(const Key('v2-workspace-more')), findsOneWidget);
       await tester.tap(find.byTooltip('机构学情监督'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
       expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);
+      expect(find.byKey(const Key('v2-workspace-more')), findsOneWidget);
+      expect(find.byKey(const Key('v2-organization-more')), findsNothing);
 
       await tester.binding.setSurfaceSize(const Size(800, 800));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('v2-medium-shell')), findsOneWidget);
       expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
       expect(find.byKey(const Key('v2-workspace-refresh')), findsNothing);
+      expect(find.byKey(const Key('v2-workspace-more')), findsOneWidget);
+      expect(find.byKey(const Key('v2-organization-more')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'compact embedded Organization keeps its local overflow fallback',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final workspace = _workspace();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: V2Theme.light(),
+          home: V2OrganizationWorkspacePage(
+            workspace: workspace,
+            workspaceData: V2ReadModelAdapter.fromWorkspace(workspace)
+                .workspaceData,
+            responsibility: _context(personalProfileIds: const []),
+            runtime: _runtime(includeManagement: false),
+            embedded: true,
+            onRefresh: () async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('v2-organization-refresh')), findsOneWidget);
+      expect(find.byKey(const Key('v2-organization-more')), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

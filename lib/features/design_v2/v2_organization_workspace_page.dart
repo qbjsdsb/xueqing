@@ -317,7 +317,10 @@ class _V2OrganizationWorkspacePageState
     Navigator.of(context).maybePop();
   }
 
-  List<Widget> _organizationHeaderActions({required bool canSignOut}) {
+  List<Widget> _organizationHeaderActions({
+    required bool canSignOut,
+    required bool showOverflow,
+  }) {
     return [
       if (widget.onRefresh != null)
         IconButton(
@@ -335,39 +338,40 @@ class _V2OrganizationWorkspacePageState
                 )
               : const Icon(Icons.refresh_outlined),
         ),
-      PopupMenuButton<_OrganizationPageAction>(
-        key: const Key('v2-organization-more'),
-        tooltip: '更多操作',
-        onSelected: (action) {
-          switch (action) {
-            case _OrganizationPageAction.checkUpdate:
-              unawaited(_checkForUpdates());
-            case _OrganizationPageAction.signOut:
-              widget.runtime.onSignOut?.call();
-          }
-        },
-        itemBuilder: (_) => [
-          PopupMenuItem<_OrganizationPageAction>(
-            value: _OrganizationPageAction.checkUpdate,
-            enabled: !_checkingForUpdates,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.system_update_alt_outlined),
-              title: Text(_checkingForUpdates ? '正在检查更新…' : '检查更新'),
-              subtitle: Text('当前版本 ${widget.runtime.appVersion}'),
-            ),
-          ),
-          if (canSignOut)
-            const PopupMenuItem<_OrganizationPageAction>(
-              value: _OrganizationPageAction.signOut,
+      if (showOverflow)
+        PopupMenuButton<_OrganizationPageAction>(
+          key: const Key('v2-organization-more'),
+          tooltip: '更多操作',
+          onSelected: (action) {
+            switch (action) {
+              case _OrganizationPageAction.checkUpdate:
+                unawaited(_checkForUpdates());
+              case _OrganizationPageAction.signOut:
+                widget.runtime.onSignOut?.call();
+            }
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem<_OrganizationPageAction>(
+              value: _OrganizationPageAction.checkUpdate,
+              enabled: !_checkingForUpdates,
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.logout_outlined),
-                title: Text('退出登录'),
+                leading: const Icon(Icons.system_update_alt_outlined),
+                title: Text(_checkingForUpdates ? '正在检查更新…' : '检查更新'),
+                subtitle: Text('当前版本 ${widget.runtime.appVersion}'),
               ),
             ),
-        ],
-      ),
+            if (canSignOut)
+              const PopupMenuItem<_OrganizationPageAction>(
+                value: _OrganizationPageAction.signOut,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.logout_outlined),
+                  title: Text('退出登录'),
+                ),
+              ),
+          ],
+        ),
     ];
   }
 
@@ -477,6 +481,7 @@ class _V2OrganizationWorkspacePageState
                               : null,
                           actions: _organizationHeaderActions(
                             canSignOut: canSignOut,
+                            showOverflow: !widget.embedded || compact,
                           ),
                           footer: widget.embedded && !compact
                               ? null
