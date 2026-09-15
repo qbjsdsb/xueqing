@@ -40,10 +40,7 @@ void main() {
     for (final theme in <ThemeData>[AppTheme.light(), AppTheme.dark()]) {
       final style = theme.iconButtonTheme.style!;
       expect(style.iconSize?.resolve(<WidgetState>{}), 20);
-      expect(
-        style.minimumSize?.resolve(<WidgetState>{}),
-        const Size(48, 48),
-      );
+      expect(style.minimumSize?.resolve(<WidgetState>{}), const Size(48, 48));
     }
   });
 
