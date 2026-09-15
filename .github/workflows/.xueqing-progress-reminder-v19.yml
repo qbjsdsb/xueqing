@@ -1,0 +1,71 @@
+name: Xueqing progress reminder effect v19
+
+on:
+  push:
+    branches:
+      - ux/progress-reminder-effect-v19
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          ref: ux/progress-reminder-effect-v19
+          fetch-depth: 0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.1'
+          cache: true
+
+      - name: Patch candidate
+        run: python .github/.xueqing-v19-patch.py
+
+      - name: Format
+        run: dart format lib/features/design_v2/v2_composers.dart test/features/design_v2_composers_test.dart
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Focused teacher-flow tests
+        run: >-
+          flutter test
+          test/features/design_v2_composers_test.dart
+          test/features/v037_final_teacher_flow_resilience_test.dart
+          test/features/v2_final_ergonomics_test.dart
+          test/features/release_ux_acceptance_matrix_test.dart
+          test/features/v037_existing_case_continuation_test.dart
+
+      - name: Full Flutter test suite
+        run: flutter test
+
+      - name: Commit validated candidate and remove temporary runner files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/.xueqing-progress-reminder-v19.yml
+          git rm .github/.xueqing-v19-patch.py
+          git add lib/features/design_v2/v2_composers.dart test/features/design_v2_composers_test.dart
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "V2: explain current reminder outcome before saving"
+
+          mapfile -t changed < <(git diff --name-only origin/main...HEAD | sort)
+          printf '%s\n' "${changed[@]}"
+          expected=(
+            "lib/features/design_v2/v2_composers.dart"
+            "test/features/design_v2_composers_test.dart"
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          if [[ "$(printf '%s\n' "${changed[@]}")" != "$(printf '%s\n' "${expected_sorted[@]}")" ]]; then
+            echo "Unexpected final diff" >&2
+            exit 1
+          fi
+          git push origin HEAD:ux/progress-reminder-effect-v19
