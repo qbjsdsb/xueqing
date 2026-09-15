@@ -2545,7 +2545,7 @@ class _RailItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final foreground = selected ? scheme.onSurface : scheme.onSurfaceVariant;
+    final foreground = scheme.onSurfaceVariant;
     final displayLabel = label ?? tooltip;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 10),
@@ -2567,17 +2567,7 @@ class _RailItem extends StatelessWidget {
                 height: expanded ? 44 : 48,
                 child: Row(
                   children: [
-                    SizedBox(
-                      width: 3,
-                      height: 22,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: selected ? scheme.primary : Colors.transparent,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    if (expanded) const SizedBox(width: 10) else const Spacer(),
+                    if (expanded) const SizedBox(width: 13) else const Spacer(),
                     Icon(icon, size: 20, color: foreground),
                     if (expanded) ...[
                       const SizedBox(width: 10),
@@ -2589,9 +2579,7 @@ class _RailItem extends StatelessWidget {
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(
                                 color: foreground,
-                                fontWeight: selected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
+                                fontWeight: FontWeight.w500,
                               ),
                         ),
                       ),
