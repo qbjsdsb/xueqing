@@ -1,26 +1,45 @@
 # Xueqing Responsive and Adaptive Rules
 
-状态：Phase 0A.5 responsive baseline
+状态：v0.3.x responsive baseline
 
-最后更新：2026-09-02
+最后更新：2026-09-16
 
-Xueqing 采用 adaptive 规则：同一套产品语言和对象，在不同可用窗口、内容需求和输入方式下选择不同布局。`WindowSizeClass` 只描述当前空间，不代表 Android 或 Windows；不要用 `Platform.isAndroid` 作为唯一分支。
+Xueqing 采用 adaptive 规则：同一套产品语言和对象，在不同可用窗口、内容需求和输入方式下选择不同布局。`WindowSizeClass` 只描述当前内容空间，不代表 Android 或 Windows；不要用 `Platform.isAndroid` 作为唯一分支。
+
+> **重要：内容布局断点与桌面侧栏展开阈值不是同一件事。**
+>
+> - `WindowSizeClass` 决定 Compact / Medium / Expanded 内容结构；
+> - Windows workspace rail 是否显示完整文字，是 Expanded shell 内部的呈现选择；
+> - 当前生产合同：`≥1024px` 进入 Expanded 内容结构，但只有 `≥1280px` 才展开完整文字 rail；`1024–1279px` 仍使用 Expanded 内容结构 + collapsed rail。
+>
+> 不得用 `1280px` 创建第四个全局 size class，也不得因为 rail 在 1024px 折叠就把内容重新降级为 Medium。
 
 ## 1. Size classes
 
-| Window size class | 宽度参考 | 导航形态 | 典型工作方式 |
+| Window size class | 宽度参考 | 导航 / shell 形态 | 典型工作方式 |
 | --- | ---: | --- | --- |
 | Compact | `<600px` | AppBar + bottom navigation | 单手搜索、快速记录、完成行动 |
 | Medium | `600–1023px` | compact rail（图标 + tooltip/辅助文本） | 小窗口或横屏移动设备，单列优先 |
-| Expanded | `≥1024px` | expanded rail（图标 + 文字） | Windows 扫视、比较、编辑、复盘 |
+| Expanded | `≥1024px` | Expanded workspace；1024–1279px collapsed rail，≥1280px expanded text rail | Windows 扫视、比较、编辑、复盘 |
 
 这些是起始断点，不是设备名单。最终布局还要检查内容是否需要第二列：如果第二列会让 Case title、Evidence 或 action 变窄，就保持单列。
+
+### 1.1 Expanded shell 内的 rail presentation
+
+当前桌面 rail 额外使用一个**局部呈现阈值**：
+
+| 可用宽度 | 内容结构 | rail presentation |
+| --- | --- | --- |
+| `1024–1279px` | Expanded | collapsed / icon-first rail |
+| `≥1280px` | Expanded | expanded text rail |
+
+这个阈值只决定导航是否有足够空间显示完整文字，不改变当前 Student / Case、读模型、滚动位置、业务状态或一级入口。外层 `LayoutBuilder` 的可用宽度是该决策的唯一来源；内部组件不得重新读取另一套 `MediaQuery` 宽度并得出冲突结论。
 
 ## 2. Content width and gutters
 
 - Compact：页面水平 padding 16px；Quick Capture 内容区 16px；触控目标不贴屏幕边缘。
 - Medium：内容水平 padding 24px；主内容建议 max width 760px；需要双列时各列最小 320px。
-- Expanded：rail 232px；主工作区 padding 32px；正文工作区 max width 1200px，阅读列通常 720–820px；侧栏用于 action/metadata，不无限拉长正文。
+- Expanded：主工作区 padding 32px；正文工作区 max width 1200px，阅读列通常 720–820px；侧栏用于 action/metadata，不无限拉长正文。rail 的实际宽度由当前 collapsed / expanded presentation 决定，不反向改变 `WindowSizeClass`。
 - 宽于 1440px：增加画布留白或侧栏呼吸，不把列表行拉到屏幕边缘。
 - 每个页面使用 `ConstrainedBox` / `SizedBox` 或等价约束；学生名、Case title 和 timeline 不因为大窗口而拉成难读长行。
 
@@ -29,7 +48,8 @@ Xueqing 采用 adaptive 规则：同一套产品语言和对象，在不同可�
 | 条件 | 结构变化 | 保持不变 |
 | --- | --- | --- |
 | Compact → Medium | bottom navigation 变 compact rail；页面 header 获得更多横向空间 | 一级入口、选中状态、返回语义 |
-| Medium → Expanded | compact rail 变 expanded rail；可增加并列上下文或 side panel | 同一对象、同一文案、同一主操作 |
+| Medium → Expanded（1024px） | 进入 Expanded workspace；允许并列上下文或 side panel | 同一对象、同一文案、同一主操作 |
+| Expanded rail 1279 → 1280px | 仅 rail 从 collapsed 切换为 expanded text presentation | 当前 scope、selection、页面结构、滚动与草稿 |
 | Expanded → 窄窗口 | 侧栏移动到内容顶部/折叠；不缩小文字至不可读 | Next Action、状态、错误和权限说明 |
 | 字体放大 | 由内容自然增高，按钮/行可换行 | 不裁剪核心文字，不让操作被遮挡 |
 
@@ -39,7 +59,7 @@ Xueqing 采用 adaptive 规则：同一套产品语言和对象，在不同可�
 
 - 学生簇是主要视觉单位；学生名只出现一次。
 - 每条 action 直接提供一个主完成操作，次操作进入详情。
-- `今天的工作` 只包含 `overdue` 和 `today`；`待验证`、`未来`、`待安排` 是互斥的明确 section，不使用横向 tabs 隐藏。
+- `现在要做` 只包含 `overdue` 和 `today`；`待验证`、`之后`、`待安排` 使用明确 section，不用横向 tabs 隐藏核心工作。
 - 头部保留搜索学生、记录问题两个高频入口；筛选通过 bottom sheet。
 
 ### Medium
@@ -50,7 +70,8 @@ Xueqing 采用 adaptive 规则：同一套产品语言和对象，在不同可�
 
 ### Expanded
 
-- 左侧 expanded rail；主列显示 action queue，右侧可显示“最近学生”或当前选中上下文。
+- 左侧 workspace rail；主列显示 action queue，右侧可显示“最近学生”或当前选中上下文。
+- 1024–1279px rail 可以保持折叠，但主内容仍然是 Expanded 结构。
 - 右侧不是必需的独立数据源；只显示当前队列的辅助入口，避免重复轰炸。
 - 支持 hover 预告操作，真正改变状态仍需明确 click/keyboard activation。
 
@@ -107,13 +128,14 @@ Quick Capture 的 focus 顺序固定为：学生/学科确认 → 问题标题 �
 - save failed / offline draft 保留可恢复内容；切换宽度不丢 draft。
 - detail 从 side panel 变为 full page 时，保持当前 Student/Case 以及返回来源。
 - no permission 只换成受限内容，不把“空列表”误报成“没有数据”。
+- 1279 ↔ 1280px 的 rail presentation 切换只改变导航呈现，不重新读取业务数据、不重置 workspace context。
 
 ## 11. Testing matrix
 
 | 检查维度 | 最小场景 |
 | --- | --- |
-| 宽度 | 375、480、600、800、1024、1280、1440 |
-| 字体 | 1.0、1.3、1.5 text scale |
+| 宽度 | 375、480、600、800、1024、1279、1280、1440 |
+| 字体 | 1.0、1.3、1.5；Windows 关键临界宽度额外覆盖 2.0 |
 | 内容 | 无 Case、无 due、1 项、同一学生 3 项、很多逾期、长中文 title |
 | 输入 | touch、mouse hover/click、Tab/Shift+Tab、Enter/Space、滚轮、Android back |
 | 状态 | loading、empty、error、no permission、saving、failed、offline/draft、reopen event |
@@ -121,4 +143,6 @@ Quick Capture 的 focus 顺序固定为：学生/学科确认 → 问题标题 �
 
 ## 12. Flutter implementation rule
 
-使用 `LayoutBuilder` / `MediaQuery.sizeOf` 读取空间，使用共享的 `ResponsiveBreakpoints` 选择布局。不要在 screen 里以 `Platform.isAndroid` 直接决定信息结构；平台信息只可作为输入能力或系统行为的补充条件。内容分栏必须由最小内容宽度和交互复杂度共同决定。
+使用 `LayoutBuilder` / `MediaQuery.sizeOf` 读取空间，使用共享的 `ResponsiveBreakpoints` 选择全局内容布局。不要在 screen 里以 `Platform.isAndroid` 直接决定信息结构；平台信息只可作为输入能力或系统行为的补充条件。内容分栏必须由最小内容宽度和交互复杂度共同决定。
+
+Expanded shell 内部的 rail presentation 可以有自己的局部 fit threshold（当前为 1280px），但这个 threshold 必须由外层布局约束统一计算并向内传递，不能在内部再次读取另一套 viewport 宽度形成第二个相互冲突的 responsive system。

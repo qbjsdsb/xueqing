@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -47,20 +48,59 @@ abstract interface class ComposerDraftStore {
   Future<void> clear(String scopeKey);
 }
 
-class SecureComposerDraftStore implements ComposerDraftStore {
-  SecureComposerDraftStore({FlutterSecureStorage? storage})
+abstract interface class ComposerDraftMetadataStore {
+  Future<String?> read(String key);
+
+  Future<void> write({required String key, required String value});
+
+  Future<void> delete(String key);
+}
+
+class FlutterSecureComposerDraftMetadataStore
+    implements ComposerDraftMetadataStore {
+  FlutterSecureComposerDraftMetadataStore([FlutterSecureStorage? storage])
     : _storage = storage ?? const FlutterSecureStorage();
+
+  final FlutterSecureStorage _storage;
+
+  @override
+  Future<String?> read(String key) => _storage.read(key: key);
+
+  @override
+  Future<void> write({required String key, required String value}) =>
+      _storage.write(key: key, value: value);
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
+}
+
+class SecureComposerDraftStore implements ComposerDraftStore {
+  SecureComposerDraftStore({
+    FlutterSecureStorage? storage,
+    ComposerDraftMetadataStore? metadataStore,
+    Future<Directory> Function()? applicationSupportDirectoryProvider,
+  }) : assert(
+         storage == null || metadataStore == null,
+         'Provide either storage or metadataStore, not both.',
+       ),
+       _metadataStore =
+           metadataStore ?? FlutterSecureComposerDraftMetadataStore(storage),
+       _applicationSupportDirectoryProvider =
+           applicationSupportDirectoryProvider ??
+           getApplicationSupportDirectory;
 
   static const int _schemaVersion = 1;
   static const String _keyPrefix = 'xueqing.composer_draft.v1.';
   static const String _directoryName = 'xueqing_composer_drafts';
 
-  final FlutterSecureStorage _storage;
+  final ComposerDraftMetadataStore _metadataStore;
+  final Future<Directory> Function() _applicationSupportDirectoryProvider;
+  final Map<String, Future<void>> _mutationTails = <String, Future<void>>{};
 
   @override
   Future<ComposerDraftSnapshot?> load(String scopeKey) async {
     final normalizedScope = _validateScope(scopeKey);
-    final raw = await _storage.read(key: _keyFor(normalizedScope));
+    final raw = await _metadataStore.read(_keyFor(normalizedScope));
     if (raw == null || raw.trim().isEmpty) {
       return null;
     }
@@ -134,65 +174,132 @@ class SecureComposerDraftStore implements ComposerDraftStore {
   }
 
   @override
-  Future<void> save(String scopeKey, ComposerDraftSnapshot snapshot) async {
+  Future<void> save(String scopeKey, ComposerDraftSnapshot snapshot) {
     final normalizedScope = _validateScope(scopeKey);
     if (snapshot.kind.trim().isEmpty || snapshot.studentId.trim().isEmpty) {
       throw ArgumentError('Composer draft identity cannot be blank.');
     }
+    return _serializeMutation(
+      normalizedScope,
+      () => _saveSnapshot(normalizedScope, snapshot),
+    );
+  }
 
+  Future<void> _saveSnapshot(
+    String normalizedScope,
+    ComposerDraftSnapshot snapshot,
+  ) async {
     final directory = await _draftDirectory(normalizedScope);
-    if (await directory.exists()) {
-      await directory.delete(recursive: true);
-    }
     await directory.create(recursive: true);
 
-    final attachmentRows = <Map<String, dynamic>>[];
-    for (final attachment in snapshot.attachments) {
-      if (attachment.bytes.isEmpty || attachment.attachmentId.trim().isEmpty) {
-        continue;
+    // Each save writes into a fresh generation. The previous committed
+    // generation remains untouched until the new files and secure metadata are
+    // both durable. A process death or metadata-write failure therefore leaves
+    // the last complete draft recoverable instead of pointing at deleted files.
+    final generationDirectory = await directory.createTemp('generation-');
+    var committed = false;
+    try {
+      final attachmentRows = <Map<String, dynamic>>[];
+      for (final attachment in snapshot.attachments) {
+        if (attachment.bytes.isEmpty ||
+            attachment.attachmentId.trim().isEmpty) {
+          continue;
+        }
+        final extension = _extensionForContentType(attachment.contentType);
+        final file = File(
+          '${generationDirectory.path}${Platform.pathSeparator}'
+          '${attachment.attachmentId}.$extension',
+        );
+        await file.writeAsBytes(attachment.bytes, flush: true);
+        attachmentRows.add(<String, dynamic>{
+          'attachment_id': attachment.attachmentId,
+          'path': file.path,
+          'file_name': attachment.fileName,
+          'content_type': attachment.contentType,
+        });
       }
-      final extension = _extensionForContentType(attachment.contentType);
-      final file = File(
-        '${directory.path}${Platform.pathSeparator}'
-        '${attachment.attachmentId}.$extension',
+
+      final payload = <String, dynamic>{
+        'schema_version': _schemaVersion,
+        'kind': snapshot.kind,
+        'student_id': snapshot.studentId,
+        'subject': snapshot.subject,
+        'case_id': snapshot.caseId,
+        'state': snapshot.state,
+        'saved_at': snapshot.savedAt.toUtc().toIso8601String(),
+        'attachments': attachmentRows,
+      };
+      await _metadataStore.write(
+        key: _keyFor(normalizedScope),
+        value: jsonEncode(payload),
       );
-      await file.writeAsBytes(attachment.bytes, flush: true);
-      attachmentRows.add(<String, dynamic>{
-        'attachment_id': attachment.attachmentId,
-        'path': file.path,
-        'file_name': attachment.fileName,
-        'content_type': attachment.contentType,
-      });
+      committed = true;
+    } finally {
+      if (!committed && await generationDirectory.exists()) {
+        await generationDirectory.delete(recursive: true);
+      }
     }
 
-    final payload = <String, dynamic>{
-      'schema_version': _schemaVersion,
-      'kind': snapshot.kind,
-      'student_id': snapshot.studentId,
-      'subject': snapshot.subject,
-      'case_id': snapshot.caseId,
-      'state': snapshot.state,
-      'saved_at': snapshot.savedAt.toUtc().toIso8601String(),
-      'attachments': attachmentRows,
-    };
-    await _storage.write(
-      key: _keyFor(normalizedScope),
-      value: jsonEncode(payload),
+    // Metadata is the commit point. Cleanup after it succeeds is deliberately
+    // best-effort: stale files are preferable to losing the committed draft.
+    await _cleanupStaleGenerations(
+      directory,
+      keepDirectory: generationDirectory,
     );
   }
 
   @override
-  Future<void> clear(String scopeKey) async {
+  Future<void> clear(String scopeKey) {
     final normalizedScope = _validateScope(scopeKey);
-    await _storage.delete(key: _keyFor(normalizedScope));
-    final directory = await _draftDirectory(normalizedScope);
-    if (await directory.exists()) {
-      await directory.delete(recursive: true);
+    return _serializeMutation(normalizedScope, () async {
+      await _metadataStore.delete(_keyFor(normalizedScope));
+      final directory = await _draftDirectory(normalizedScope);
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
+    });
+  }
+
+  Future<void> _cleanupStaleGenerations(
+    Directory directory, {
+    required Directory keepDirectory,
+  }) async {
+    if (!await directory.exists()) {
+      return;
+    }
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity.path == keepDirectory.path) {
+        continue;
+      }
+      try {
+        await entity.delete(recursive: true);
+      } on FileSystemException {
+        // The new generation is already committed. Cleanup failure must not
+        // turn a successful draft save into a user-visible save failure.
+      }
     }
   }
 
+  Future<void> _serializeMutation(
+    String scopeKey,
+    Future<void> Function() operation,
+  ) {
+    final previous = _mutationTails[scopeKey] ?? Future<void>.value();
+    final completer = Completer<void>();
+    final next = previous.catchError((Object _) {}).then((_) async {
+      try {
+        await operation();
+        completer.complete();
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    _mutationTails[scopeKey] = next;
+    return completer.future;
+  }
+
   Future<Directory> _draftDirectory(String scopeKey) async {
-    final root = await getApplicationSupportDirectory();
+    final root = await _applicationSupportDirectoryProvider();
     return Directory(
       '${root.path}${Platform.pathSeparator}$_directoryName'
       '${Platform.pathSeparator}${_scopeToken(scopeKey)}',
