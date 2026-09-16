@@ -438,9 +438,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
   @override
   void initState() {
     super.initState();
-    _draftAutosave = V2DraftAutosaveController(
-      persist: _persistAutosaveState,
-    );
+    _draftAutosave = V2DraftAutosaveController(persist: _persistAutosaveState);
     _problemTypeKey = widget.problemTypes.first.key;
     if (widget.subjects.length == 1) {
       _selectedSubject = widget.subjects.single;
@@ -1144,9 +1142,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   @override
   void initState() {
     super.initState();
-    _draftAutosave = V2DraftAutosaveController(
-      persist: _persistAutosaveState,
-    );
+    _draftAutosave = V2DraftAutosaveController(persist: _persistAutosaveState);
     _kind = widget.initialKind;
     _completeCurrentAction =
         widget.canCompleteCurrentAction &&
