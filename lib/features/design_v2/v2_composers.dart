@@ -6,6 +6,7 @@ import '../../app/layout/responsive.dart';
 import '../../app/theme/app_motion.dart';
 import '../../cloud/composer_draft_store.dart';
 import '../teacher_workspace/presentation/evidence_attachment_picker.dart';
+import 'v2_draft_autosave_controller.dart';
 import 'v2_workflow_controller.dart';
 
 typedef V2AttachmentPicker = Future<PickedEvidenceAttachment?> Function(
@@ -429,6 +430,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
   String? _selectedSubject;
   bool _showMore = false;
   late String _problemTypeKey;
+  late final V2DraftAutosaveController _draftAutosave;
   String? _mediaError;
   String? _saveError;
   bool _saving = false;
@@ -436,6 +438,9 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
   @override
   void initState() {
     super.initState();
+    _draftAutosave = V2DraftAutosaveController(
+      persist: _persistAutosaveState,
+    );
     _problemTypeKey = widget.problemTypes.first.key;
     if (widget.subjects.length == 1) {
       _selectedSubject = widget.subjects.single;
@@ -453,6 +458,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
 
   @override
   void dispose() {
+    _draftAutosave.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -550,6 +556,14 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     }
   }
 
+  Future<void> _persistAutosaveState() async {
+    if (_hasDraft) {
+      await _persistDraftSilently();
+    } else {
+      await _clearPersistedDraft();
+    }
+  }
+
   Future<void> _restoreLostAttachment() async {
     final persistence = widget.persistence;
     if (persistence?.initialDraft == null || _attachments.length >= 3) {
@@ -580,6 +594,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     if (_saving || _attachments.length >= 3) {
       return;
     }
+    _draftAutosave.cancelPending();
     if (widget.persistence != null) {
       try {
         await _persistDraft();
@@ -652,6 +667,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       return;
     }
     final draft = _currentDraft();
+    _draftAutosave.suspend();
     setState(() {
       _saving = true;
       _saveError = null;
@@ -667,6 +683,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       });
     } catch (_) {
       if (!mounted) return;
+      _draftAutosave.resume();
       setState(() {
         _saving = false;
         _saveError = '暂时无法保护当前记录，请重试；已经输入的文字和图片仍在。';
@@ -678,6 +695,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     if (!_canSave) {
       return;
     }
+    _draftAutosave.suspend();
     final onSave = widget.onSave;
     if (onSave == null) {
       await _clearPersistedDraft();
@@ -699,6 +717,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
     } catch (error) {
       await _persistDraftSilently();
       if (mounted) {
+        _draftAutosave.resume();
         setState(() {
           _saving = false;
           _saveError = _describeV2SaveError(error);
@@ -712,6 +731,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       return;
     }
     if (!_hasDraft) {
+      _draftAutosave.suspend();
       await _clearPersistedDraft();
       if (mounted) Navigator.of(context).pop(false);
       return;
@@ -729,6 +749,7 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
       await _save();
       return;
     }
+    _draftAutosave.suspend();
     await _clearPersistedDraft();
     if (mounted) Navigator.of(context).pop(false);
   }
@@ -783,7 +804,10 @@ class _V2QuickCaptureComposerState extends State<V2QuickCaptureComposer> {
               autofocus: true,
               minLines: 4,
               maxLines: 7,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                _draftAutosave.schedule();
+              },
               decoration: const InputDecoration(
                 hintText: '写下刚才真实看到的题目、行为或表现…',
                 alignLabelWithHint: true,
@@ -1107,6 +1131,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   final _reminderController = TextEditingController();
   final _attachments = <PickedEvidenceAttachment>[];
   late V2ProgressKind _kind;
+  late final V2DraftAutosaveController _draftAutosave;
   V2NextStep _nextStep = V2NextStep.continueTracking;
   V2AssessmentResult? _assessmentResult;
   V2CloseReason _closeReason = V2CloseReason.resolved;
@@ -1119,6 +1144,9 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
   @override
   void initState() {
     super.initState();
+    _draftAutosave = V2DraftAutosaveController(
+      persist: _persistAutosaveState,
+    );
     _kind = widget.initialKind;
     _completeCurrentAction =
         widget.canCompleteCurrentAction &&
@@ -1259,6 +1287,14 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
     }
   }
 
+  Future<void> _persistAutosaveState() async {
+    if (_hasDraft) {
+      await _persistDraftSilently();
+    } else {
+      await _clearPersistedDraft();
+    }
+  }
+
   Future<void> _restoreLostAttachment() async {
     final persistence = widget.persistence;
     if (persistence?.initialDraft == null || _attachments.length >= 3) return;
@@ -1285,6 +1321,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
 
   @override
   void dispose() {
+    _draftAutosave.dispose();
     _controller.dispose();
     _reminderController.dispose();
     super.dispose();
@@ -1292,6 +1329,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
 
   Future<void> _pickAttachment() async {
     if (_saving || _attachments.length >= 3) return;
+    _draftAutosave.cancelPending();
     if (widget.persistence != null) {
       try {
         // Strictly persist every field before leaving Flutter for camera/gallery.
@@ -1382,6 +1420,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
     if (!_canSave) {
       return;
     }
+    _draftAutosave.suspend();
     final onSave = widget.onSave;
     if (onSave == null) {
       await _clearPersistedDraft();
@@ -1417,6 +1456,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
     } catch (error) {
       await _persistDraftSilently();
       if (mounted) {
+        _draftAutosave.resume();
         setState(() {
           _saving = false;
           _saveError = _describeV2SaveError(error);
@@ -1430,6 +1470,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
       return;
     }
     if (!_hasDraft) {
+      _draftAutosave.suspend();
       await _clearPersistedDraft();
       if (mounted) Navigator.of(context).pop(false);
       return;
@@ -1447,6 +1488,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
       await _save();
       return;
     }
+    _draftAutosave.suspend();
     await _clearPersistedDraft();
     if (mounted) Navigator.of(context).pop(false);
   }
@@ -1478,7 +1520,10 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
               autofocus: true,
               minLines: 4,
               maxLines: 7,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                _draftAutosave.schedule();
+              },
               decoration: const InputDecoration(
                 hintText: '写下这次真实出现的表现、处理或检查结果…',
                 alignLabelWithHint: true,
@@ -1616,6 +1661,7 @@ class _V2ProgressComposerState extends State<V2ProgressComposer> {
                       TextField(
                         key: const Key('v2-reminder-title'),
                         controller: _reminderController,
+                        onChanged: (_) => _draftAutosave.schedule(),
                         decoration: const InputDecoration(
                           labelText: '提醒内容（可选）',
                           hintText: '例如：再检查一次同类题',
