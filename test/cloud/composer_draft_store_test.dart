@@ -119,8 +119,7 @@ void main() {
       expect(
         await _draftFiles(temporaryDirectory),
         hasLength(1),
-        reason:
-            'The failed generation must be removed without touching the committed one.',
+        reason: 'The failed generation must be removed without touching the committed one.',
       );
     },
   );
