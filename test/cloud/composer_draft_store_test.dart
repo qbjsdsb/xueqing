@@ -34,10 +34,7 @@ ComposerDraftSnapshot _snapshot({
   kind: 'quick_capture',
   studentId: 'student-1',
   subject: '语文',
-  state: <String, dynamic>{
-    'operation_id': 'operation-1',
-    'body': body,
-  },
+  state: <String, dynamic>{'operation_id': 'operation-1', 'body': body},
   attachments: <ComposerDraftAttachment>[
     ComposerDraftAttachment(
       attachmentId: attachmentId,
@@ -85,84 +82,87 @@ void main() {
     }
   });
 
-  test('failed metadata commit keeps the last complete draft recoverable', () async {
-    const scope = 'quick-capture:user-1:org-1';
-    final first = _snapshot(
-      body: '旧草稿仍然完整。',
-      attachmentId: 'old-photo',
-      bytes: const <int>[1, 2, 3],
-    );
-    await store.save(scope, first);
+  test(
+    'failed metadata commit keeps the last complete draft recoverable',
+    () async {
+      const scope = 'quick-capture:user-1:org-1';
+      final first = _snapshot(
+        body: '旧草稿仍然完整。',
+        attachmentId: 'old-photo',
+        bytes: const <int>[1, 2, 3],
+      );
+      await store.save(scope, first);
 
-    final beforeFailure = await store.load(scope);
-    expect(beforeFailure?.state['body'], '旧草稿仍然完整。');
-    expect(beforeFailure?.attachments.single.bytes, orderedEquals([1, 2, 3]));
-    expect(await _draftFiles(temporaryDirectory), hasLength(1));
+      final beforeFailure = await store.load(scope);
+      expect(beforeFailure?.state['body'], '旧草稿仍然完整。');
+      expect(beforeFailure?.attachments.single.bytes, orderedEquals([1, 2, 3]));
+      expect(await _draftFiles(temporaryDirectory), hasLength(1));
 
-    metadataStore.failNextWrite = true;
-    final replacement = _snapshot(
-      body: '这次保存会在提交 metadata 时失败。',
-      attachmentId: 'new-photo',
-      bytes: const <int>[9, 8, 7],
-    );
+      metadataStore.failNextWrite = true;
+      final replacement = _snapshot(
+        body: '这次保存会在提交 metadata 时失败。',
+        attachmentId: 'new-photo',
+        bytes: const <int>[9, 8, 7],
+      );
 
-    await expectLater(
-      store.save(scope, replacement),
-      throwsA(isA<StateError>()),
-    );
+      await expectLater(
+        store.save(scope, replacement),
+        throwsA(isA<StateError>()),
+      );
 
-    final recovered = await store.load(scope);
-    expect(recovered, isNotNull);
-    expect(recovered!.state['body'], '旧草稿仍然完整。');
-    expect(recovered.attachments, hasLength(1));
-    expect(recovered.attachments.single.attachmentId, 'old-photo');
-    expect(recovered.attachments.single.bytes, orderedEquals([1, 2, 3]));
-    expect(
-      await _draftFiles(temporaryDirectory),
-      hasLength(1),
-      reason: 'The failed generation must be removed without touching the committed one.',
-    );
-  });
+      final recovered = await store.load(scope);
+      expect(recovered, isNotNull);
+      expect(recovered!.state['body'], '旧草稿仍然完整。');
+      expect(recovered.attachments, hasLength(1));
+      expect(recovered.attachments.single.attachmentId, 'old-photo');
+      expect(recovered.attachments.single.bytes, orderedEquals([1, 2, 3]));
+      expect(
+        await _draftFiles(temporaryDirectory),
+        hasLength(1),
+        reason:
+            'The failed generation must be removed without touching the committed one.',
+      );
+    },
+  );
 
-  test('successful replacement commits new generation before cleaning old files', () async {
-    const scope = 'quick-capture:user-1:org-1';
-    await store.save(
-      scope,
-      _snapshot(
-        body: '第一版。',
-        attachmentId: 'first-photo',
-        bytes: const <int>[1],
-      ),
-    );
-    await store.save(
-      scope,
-      _snapshot(
-        body: '第二版。',
-        attachmentId: 'second-photo',
-        bytes: const <int>[2, 3],
-      ),
-    );
+  test(
+    'successful replacement commits new generation before cleaning old files',
+    () async {
+      const scope = 'quick-capture:user-1:org-1';
+      await store.save(
+        scope,
+        _snapshot(
+          body: '第一版。',
+          attachmentId: 'first-photo',
+          bytes: const <int>[1],
+        ),
+      );
+      await store.save(
+        scope,
+        _snapshot(
+          body: '第二版。',
+          attachmentId: 'second-photo',
+          bytes: const <int>[2, 3],
+        ),
+      );
 
-    final loaded = await store.load(scope);
-    expect(loaded?.state['body'], '第二版。');
-    expect(loaded?.attachments.single.attachmentId, 'second-photo');
-    expect(loaded?.attachments.single.bytes, orderedEquals([2, 3]));
-    expect(
-      await _draftFiles(temporaryDirectory),
-      hasLength(1),
-      reason: 'Only the committed generation should remain after cleanup.',
-    );
-  });
+      final loaded = await store.load(scope);
+      expect(loaded?.state['body'], '第二版。');
+      expect(loaded?.attachments.single.attachmentId, 'second-photo');
+      expect(loaded?.attachments.single.bytes, orderedEquals([2, 3]));
+      expect(
+        await _draftFiles(temporaryDirectory),
+        hasLength(1),
+        reason: 'Only the committed generation should remain after cleanup.',
+      );
+    },
+  );
 
   test('clear removes metadata and all draft generations', () async {
     const scope = 'quick-capture:user-1:org-1';
     await store.save(
       scope,
-      _snapshot(
-        body: '待清理。',
-        attachmentId: 'photo',
-        bytes: const <int>[4, 5],
-      ),
+      _snapshot(body: '待清理。', attachmentId: 'photo', bytes: const <int>[4, 5]),
     );
 
     await store.clear(scope);
