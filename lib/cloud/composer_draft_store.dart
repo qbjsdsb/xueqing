@@ -86,7 +86,8 @@ class SecureComposerDraftStore implements ComposerDraftStore {
        _metadataStore =
            metadataStore ?? FlutterSecureComposerDraftMetadataStore(storage),
        _applicationSupportDirectoryProvider =
-           applicationSupportDirectoryProvider ?? getApplicationSupportDirectory;
+           applicationSupportDirectoryProvider ??
+           getApplicationSupportDirectory;
 
   static const int _schemaVersion = 1;
   static const String _keyPrefix = 'xueqing.composer_draft.v1.';
@@ -200,7 +201,8 @@ class SecureComposerDraftStore implements ComposerDraftStore {
     try {
       final attachmentRows = <Map<String, dynamic>>[];
       for (final attachment in snapshot.attachments) {
-        if (attachment.bytes.isEmpty || attachment.attachmentId.trim().isEmpty) {
+        if (attachment.bytes.isEmpty ||
+            attachment.attachmentId.trim().isEmpty) {
           continue;
         }
         final extension = _extensionForContentType(attachment.contentType);
@@ -284,16 +286,14 @@ class SecureComposerDraftStore implements ComposerDraftStore {
   ) {
     final previous = _mutationTails[scopeKey] ?? Future<void>.value();
     final completer = Completer<void>();
-    final next = previous
-        .catchError((Object _) {})
-        .then((_) async {
-          try {
-            await operation();
-            completer.complete();
-          } catch (error, stackTrace) {
-            completer.completeError(error, stackTrace);
-          }
-        });
+    final next = previous.catchError((Object _) {}).then((_) async {
+      try {
+        await operation();
+        completer.complete();
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
     _mutationTails[scopeKey] = next;
     return completer.future;
   }
